@@ -339,7 +339,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
           <h1 className="text-base font-bold" style={{ color: "var(--mq-text)" }}>
             Пространственный звук
           </h1>
-          <p className="mq-t-meta-2">
+          <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
             Обработка звука для наушников
           </p>
         </div>
@@ -394,7 +394,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span
-                  className="mq-t-section"
+                  className="mq-t-body font-semibold"
                   style={{ color: spatialAudioEnabled ? "var(--mq-text)" : "var(--mq-text-muted)" }}
                 >
                   {spatialAudioEnabled ? "Активно" : "Выключено"}
@@ -403,7 +403,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
                   <motion.span
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="mq-t-badge px-2 py-[1px] rounded-md"
+                    className="mq-t-meta-2 font-semibold px-2 py-[1px] rounded-md"
                     style={{
                       backgroundColor: `rgba(${moodRgb.r},${moodRgb.g},${moodRgb.b},0.14)`,
                       color: moodColor,
@@ -413,7 +413,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
                   </motion.span>
                 )}
               </div>
-              <p className="mq-t-meta-2">
+              <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
                 {spatialAudioEnabled ? `${activeMoodInfo?.label || "Standard"} preset` : "Нажмите для включения"}
               </p>
             </div>
@@ -461,7 +461,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
                 >
                   <SoundSpaceIcon color="rgba(255,255,255,0.2)" size={28} />
                 </div>
-                <p className="mq-t-meta-2">
+                <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
                   Включите для визуализации
                 </p>
               </motion.div>
@@ -520,7 +520,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
             }}
             className="flex items-center gap-2"
           >
-            <span className="mq-t-meta-2" style={{ color: spatialAutoDetect ? moodColor : "var(--mq-text-muted)" }}>
+            <span className="mq-t-meta-2 font-medium" style={{ color: spatialAutoDetect ? moodColor : "var(--mq-text-muted)" }}>
               Авто
             </span>
             <div
@@ -571,7 +571,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
                   }}
                 />
                 <span
-                  className="mq-t-meta-2 truncate"
+                  className="mq-t-meta-2 font-medium truncate"
                   style={{ color: isActive ? info.color : "var(--mq-text-muted)" }}
                 >
                   {info.label}

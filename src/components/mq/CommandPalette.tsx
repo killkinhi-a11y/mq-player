@@ -212,7 +212,7 @@ export default function CommandPalette() {
               style={{ color: "var(--mq-text)" }}
             />
             <kbd
-              className="mq-t-num px-1.5 py-0.5 rounded"
+              className="mq-t-meta-2 font-mono px-1.5 py-0.5 rounded"
               style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}
             >
               ESC
@@ -229,7 +229,7 @@ export default function CommandPalette() {
             ) : (
               Object.entries(grouped).map(([groupName, items]) => (
                 <div key={groupName} className="mb-1">
-                  <p className="mq-t-label px-4 py-1.5" style={{ opacity: 0.6 }}>
+                  <p className="mq-t-badge font-bold uppercase tracking-widest px-4 py-1.5" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
                     {groupName}
                   </p>
                   {items.map((cmd) => {
@@ -272,16 +272,16 @@ export default function CommandPalette() {
           {/* Footer */}
           <div className="flex items-center justify-between px-4 py-2.5 border-t" style={{ borderColor: "var(--mq-border)" }}>
             <div className="flex items-center gap-3">
-              <span className="mq-t-meta-2 flex items-center gap-1">
+              <span className="flex items-center gap-1 mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
                 <kbd className="font-mono px-1 py-0.5 rounded" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>↑↓</kbd>
                 навигация
               </span>
-              <span className="mq-t-meta-2 flex items-center gap-1">
+              <span className="flex items-center gap-1 mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
                 <kbd className="font-mono px-1 py-0.5 rounded" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>↵</kbd>
                 выбрать
               </span>
             </div>
-            <span className="mq-t-meta-2 flex items-center gap-1">
+            <span className="flex items-center gap-1 mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
               <Command className="w-2.5 h-2.5" />
               mq player
             </span>

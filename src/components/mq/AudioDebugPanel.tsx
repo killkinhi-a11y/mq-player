@@ -39,8 +39,8 @@ function Row({ label, value, warn, ok }: { label: string; value: string; warn?: 
   const color = warn ? "#f59e0b" : ok ? "#22c55e" : "var(--mq-text-muted, #8a8a8a)";
   return (
     <div className="flex items-center justify-between gap-3 leading-5">
-      <span className="text-[11px]" style={{ color: "var(--mq-text-muted, #8a8a8a)" }}>{label}</span>
-      <span className="text-[11px] font-mono tabular-nums" style={{ color }}>{value}</span>
+      <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted, #8a8a8a)" }}>{label}</span>
+      <span className="mq-t-meta-2 font-mono tabular-nums" style={{ color }}>{value}</span>
     </div>
   );
 }
@@ -85,11 +85,11 @@ export default function AudioDebugPanel() {
         aria-expanded={open}
       >
         <AudioWaveform className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--mq-accent, #e03131)" }} />
-        <span className="text-[11px] font-semibold flex-1 text-left" style={{ color: "var(--mq-text, #eee)" }}>
+        <span className="mq-t-meta-2 font-semibold flex-1 text-left" style={{ color: "var(--mq-text, #eee)" }}>
           Audio Engine
         </span>
         <span
-          className="text-[10px] font-mono px-1.5 py-0.5 rounded-md"
+          className="mq-t-meta-2 font-mono px-1.5 py-0.5 rounded-md"
           style={{
             color: active ? "#22c55e" : "#f59e0b",
             backgroundColor: active ? "rgba(34,197,94,0.12)" : "rgba(245,158,11,0.12)",
@@ -119,7 +119,7 @@ export default function AudioDebugPanel() {
           <Row label="DSP avg/block" value={d.avgProcessNs ? `${(d.avgProcessNs / 1000).toFixed(1)} µs` : "—"} />
           <Row label="DSP max/block" value={d.maxProcessNs ? `${(d.maxProcessNs / 1000).toFixed(1)} µs` : "—"} />
           <Row label="Last error" value={d.lastError ?? "none"} warn={!!d.lastError} />
-          <div className="text-[9px] mt-1" style={{ color: "var(--mq-text-muted, #777)" }}>
+          <div className="mq-t-badge mt-1" style={{ color: "var(--mq-text-muted, #777)" }}>
             window.__mqWasmAudio
           </div>
         </div>

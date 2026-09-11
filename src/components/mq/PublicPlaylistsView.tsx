@@ -147,7 +147,7 @@ export default function PublicPlaylistsView() {
               {selectedPlaylist.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {selectedPlaylist.tags.map((tag, i) => (
-                    <span key={i} className="mq-t-meta-2 px-2 py-0.5 rounded-full"
+                    <span key={i} className="px-2 py-0.5 rounded-full mq-t-meta-2"
                       style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-accent)" }}>
                       {tag}
                     </span>
@@ -357,7 +357,7 @@ export default function PublicPlaylistsView() {
                         value={publishTags} onChange={(e) => setPublishTags(e.target.value)}
                         className="pl-10" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }} />
                     </div>
-                    <p className="mq-t-meta-2 mt-1">
+                    <p className="mq-t-meta-2 mt-1" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
                       Теги помогают алгоритму рекомендовать твой плейлист подходящим слушателям
                     </p>
                   </div>
@@ -420,7 +420,7 @@ function PlaylistCard({ playlist, index, onClick, onLike, onDislikeTags, animati
           </p>
         </div>
         {showScore && playlist.score && playlist.score > 0 && (
-          <div className="mq-t-badge absolute top-2 right-2 px-2 py-0.5 rounded-full"
+          <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full mq-t-meta-2"
             style={{ backgroundColor: "rgba(0,0,0,0.6)", color: playlist.score >= 70 ? "#4ade80" : playlist.score >= 40 ? "#facc15" : "var(--mq-text-muted)", backdropFilter: "blur(8px)" }}>
             {playlist.score}%
           </div>
@@ -428,7 +428,7 @@ function PlaylistCard({ playlist, index, onClick, onLike, onDislikeTags, animati
       </div>
       <div className="px-3 py-2">
         <div className="flex items-center justify-between">
-          <div className="mq-t-meta-2 flex items-center gap-3">
+          <div className="flex items-center gap-3 mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
             <span className="flex items-center gap-1"><Heart className="w-3 h-3" />{playlist.likeCount}</span>
             <span className="flex items-center gap-1"><Play className="w-3 h-3" />{playlist.playCount}</span>
           </div>
@@ -451,13 +451,13 @@ function PlaylistCard({ playlist, index, onClick, onLike, onDislikeTags, animati
         {playlist.tags.length > 0 && (
           <div className="flex gap-1 mt-1.5 overflow-hidden">
             {playlist.tags.slice(0, 3).map((tag, i) => (
-              <span key={i} className="mq-t-meta-2 px-1.5 py-0.5 rounded flex-shrink-0"
+              <span key={i} className="px-1.5 py-0.5 rounded mq-t-meta-2 flex-shrink-0"
                 style={{ backgroundColor: "var(--mq-input-bg)", color: "var(--mq-accent)" }}>
                 {tag}
               </span>
             ))}
             {playlist.tags.length > 3 && (
-              <span className="mq-t-meta-2">+{playlist.tags.length - 3}</span>
+              <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>+{playlist.tags.length - 3}</span>
             )}
           </div>
         )}
@@ -506,7 +506,7 @@ function PlaylistSelector({ onSelect, selectedId }: { onSelect: (id: string) => 
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium truncate" style={{ color: "var(--mq-text)" }}>{pl.name}</p>
-            <p className="mq-t-meta-2">{pl.tracks.length} треков</p>
+            <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>{pl.tracks.length} треков</p>
           </div>
           {selectedId === pl.id && <Check className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />}
         </button>

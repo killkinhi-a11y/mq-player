@@ -14,12 +14,14 @@
      (unlike @theme inline, which inlines values into utilities and does
      NOT define the variables). Every font-family in the product reads
      one of these three tokens; local chains are forbidden.
-       primary → Manrope (latin + cyrillic): ONE typeface, all scripts
-       mono    → Geist Mono: numerals / timestamps / code (ASCII)
-       serif   → Playfair Display: editorial display accents (cyrillic OK) */
+     v68: ONE family — Manrope for everything (premium-player standard).
+     Playfair Display (serif titles) and Geist Mono (timecodes) rendered
+     as visibly different typefaces next to Manrope → user report
+     "текст разного шрифта". mono/serif remain as ALIASES so any
+     straggler reference keeps resolving; digits use tabular-nums. */
   --mq-font-primary: var(--font-manrope, "Manrope"), system-ui, -apple-system, sans-serif;
-  --mq-font-mono: var(--font-geist-mono, "Geist Mono"), ui-monospace, "SF Mono", Monaco, monospace;
-  --mq-font-serif: var(--font-playfair-display, "Playfair Display"), Georgia, "Times New Roman", serif;
+  --mq-font-mono: var(--font-manrope, "Manrope"), system-ui, -apple-system, sans-serif;
+  --mq-font-serif: var(--font-manrope, "Manrope"), system-ui, -apple-system, sans-serif;
 
   /* Strong ease-out for enter animations — starts fast, feels responsive */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -451,6 +453,36 @@ main {
 /* REMOVED (.mq-premium-hover/.mq-premium-tap): zero usages; CSS-owned
    transform transitions on possibly-motion elements violated the
    one-property-one-owner contract. */
+
+/* Premium text styles — ALL on the primary token (one typeface). */
+.mq-text-display {
+  font-family: var(--mq-font-primary);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+.mq-text-headline {
+  font-family: var(--mq-font-primary);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+/* v68 bridge: mq-text-* helpers referenced by components that came in via
+   merge — aliased onto the ONE-family token system so no surface renders
+   a dead class. Colors come from theme vars (never hardcoded). */
+.mq-text-muted   { color: var(--mq-text-muted); }
+.mq-text-secondary { color: var(--mq-text-muted); opacity: 0.85; }
+.mq-text-faint   { color: var(--mq-text-muted); opacity: 0.65; }
+.mq-text-on-accent { color: var(--mq-text-on-accent, #fff); }
+.mq-text-xl      { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; }
+.mq-text-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--mq-text-muted);
+}
 
 /* Premium gradient text */
 .mq-text-gradient {
@@ -3580,7 +3612,8 @@ a:focus-visible {
 }
 
 .tg-debug-log {
-  font-family: var(--mq-font-mono);
+  font-family: var(--mq-font-primary);
+  font-variant-numeric: tabular-nums;
   font-size: 11px;
   line-height: 1.5;
   color: var(--mq-text-muted, #9a9a9a);
@@ -3624,6 +3657,8 @@ a:focus-visible {
   --mq-art-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
+
+@layer components {
 /* ── Type system (v68 — ONE ROLE = ONE STYLE) ─────────────────────────────
    Every text surface in the app maps to exactly one token below. The token
    owns ALL typographic properties: size, weight, line-height, tracking.
@@ -3636,31 +3671,30 @@ a:focus-visible {
      Track/Artist    — the music itself; track = 600, artist = muted
      Body/Meta/ Meta2 — running text, captions
      Btn/Nav/Badge   — chrome (buttons, navigation, counts)
-     Time/Num        — mono tabular digits (player time, dB, metrics)
+     Time/Num        — tabular digits (player time, dB, metrics)
+
+   §LAYER: tokens live in @layer components — Tailwind utilities
+   (utilities layer wins) may still override size/color/weight when a
+   component explicitly sets them (mq-t-display text-[19px] renders 19px).
+   Before v68 these tokens were UNLAYERED and silently beat every
+   utility: mq-t-display text-[19px] actually rendered at 30px.
 
    Long-title contract preserved everywhere: min-w-0 + flex:1 +
    truncate/line-clamp on the TEXT element; metadata & action buttons
-   never shrink.
-
-   Layer note: tokens live in @layer components — Tailwind utilities
-   (layer utilities) legitimately override them when a surface truly
-   needs a one-off scale (e.g. hero h1 text-2xl). Everywhere else the
-   token is the single source: no residual text-[Npx]/text-* size
-   utilities on token'd elements. */
-
-@layer components {
+   never shrink. */
 
 .mq-t-display {           /* hero moments, empty-state headlines */
-  font-family: var(--mq-font-serif);
+  font-family: var(--mq-font-primary);
   font-size: 30px;
-  font-weight: 600;
-  line-height: 1.15;
-  letter-spacing: -0.015em;
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
 }
 .mq-t-page {              /* view title: Поиск, Избранное, История */
   font-family: var(--mq-font-primary);
-  font-size: 21px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
   line-height: 1.25;
   letter-spacing: -0.02em;
 }
@@ -3744,16 +3778,16 @@ a:focus-visible {
   text-transform: uppercase;
 }
 .mq-t-time {              /* player time / progress */
-  font-family: var(--mq-font-mono);
+  font-family: var(--mq-font-primary);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 .mq-t-num {               /* numeric / audio metrics: dB, LUFS, % */
-  font-family: var(--mq-font-mono);
+  font-family: var(--mq-font-primary);
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
   line-height: 1.2;
@@ -3772,8 +3806,7 @@ a:focus-visible {
   line-height: 1.2;
   letter-spacing: 0;
 }
-
-} /* end @layer components (type system) */
+} /* /@layer components (type system) */
 
 /* ── Context menu system (v68) ────────────────────────────────────────────
    ONE menu engine for the whole app (MenuCore.tsx). CSS owns hover/active
@@ -3886,6 +3919,7 @@ a:focus-visible {
   margin-left: auto;
   flex-shrink: 0;
   color: var(--mq-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Mobile: bottom sheet */
@@ -4211,9 +4245,10 @@ a:focus-visible {
 }
 
 .mq-empty .mq-empty-title {
-  font-family: var(--mq-font-serif);
+  font-family: var(--mq-font-primary);
   font-size: 19px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--mq-text);
 }
 
@@ -4222,6 +4257,105 @@ a:focus-visible {
   color: var(--mq-text-muted);
   max-width: 42ch;
   line-height: 1.5;
+}
+
+
+/* ═════════════════════════════════════════════════════════════════════════
+   MQ MOTION v2 — premium text/visual language (v68 redesign, from scratch)
+   ═════════════════════════════════════════════════════════════════════════
+   Principles (Spotify / Apple Music reference):
+   1. ONE writer per property. CSS animations below never run on elements
+      whose transform/opacity is also transitioned or Framer-driven.
+      `animation` and `transition` are separate pipelines — hover states
+      keep working while an entrance animation runs.
+   2. Motion MEANS something: entrance = appear, swap = track change,
+      pulse = live. No idle decoration on text.
+   3. Calm cadence: nothing longer than 450ms; stagger capped at 8 items
+      (~180ms) so late items don't arrive after the user starts reading.
+   4. Track-change text swaps live in <TextSwap/> (Framer, popLayout) —
+      PlayerBar + FullTrackView. Everything else here is pure CSS.
+
+   Consumed via @layer utilities so Tailwind variants can still compose. */
+
+@layer utilities {
+
+  /* ── Entrance: rise (lists, cards, empty states) ── */
+  .mq-rise {
+    animation: mq-rise 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: calc(var(--mq-i, 0) * 22ms);
+  }
+  .mq-rise-soft { animation: mq-rise-soft 0.32s ease-out both; }
+
+  @keyframes mq-rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes mq-rise-soft {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  /* ── Empty state: one quiet gesture, never just appearing ── */
+  .mq-empty-anim {
+    animation: mq-empty-rise 0.44s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes mq-empty-rise {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Chat: typing indicator (three dots, breathing) ── */
+  .mq-typing-dot {
+    width: 5px; height: 5px; border-radius: 999px;
+    background: currentColor; opacity: 0.35;
+    animation: mq-typing 1.2s ease-in-out infinite;
+  }
+  .mq-typing-dot:nth-child(2) { animation-delay: 0.18s; }
+  .mq-typing-dot:nth-child(3) { animation-delay: 0.36s; }
+  @keyframes mq-typing {
+    0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-2px); }
+  }
+
+  /* ── Long-title marquee (full player, desktop, overflow only) ── */
+  .mq-marquee {
+    overflow: hidden;
+    mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+  }
+  .mq-marquee > span {
+    display: inline-block;
+    white-space: nowrap;
+    padding-right: 48px;
+  }
+  .mq-marquee[data-run="true"] > span {
+    animation: mq-marquee-run var(--mq-marquee-dur, 12s) linear infinite
+               var(--mq-marquee-delay, 2.4s);
+  }
+  @keyframes mq-marquee-run {
+    0%, 8%   { transform: translateX(0); }
+    92%, 100% { transform: translateX(calc(-100% + var(--mq-marquee-fit, 100%))); }
+  }
+
+} /* /@layer utilities (motion v2) */
+
+/* View enter (v68 tuning): 340ms, 10px rise, premium curve.
+   Applied by ViewTransition on tab switch — view-level entrance only,
+   rows/lists never stagger on scroll-mount (premium rule). */
+@keyframes mq-view-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.mq-view-enter {
+  animation: mq-view-enter 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mq-rise, .mq-rise-soft, .mq-empty-anim, .mq-typing-dot,
+  .mq-marquee[data-run="true"] > span, .mq-view-enter {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 
 /* ── Reduced motion ─────────────────────────────────────────────────────── */

@@ -1,26 +1,23 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Manrope, Playfair_Display } from "next/font/google";
+import { Manrope } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
-// ── CENTRALIZED TYPOGRAPHY (Phase O §11) ──
-// THREE families, each with a job; the previous six-font setup mixed
-// latin-only faces (Geist/Outfit/Space Grotesk) ahead of Manrope, so RU
-// text rendered in a different typeface than EN text in the same UI.
-//   --font-manrope  → --mq-font-primary  (ALL text, latin + cyrillic)
-//   --font-geist-mono → --mq-font-mono   (numerals, timestamps, code)
-//   --font-playfair-display → --mq-font-serif (editorial display accents)
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+// ── TYPOGRAPHY v68 — ONE FAMILY ──
+// Users reported "текст разного шрифта" (mixed fonts). Root cause: THREE
+// families shipped to prod — Manrope (sans) + Playfair Display (serif on
+// view titles / empty states via .mq-t-display) + Geist Mono (timecodes,
+// latin-only). Serif headlines + different digit letterforms read as a
+// different typeface next to the sans body.
+//
+// Premium-player standard (Spotify/Apple Music): ONE humanist sans for
+// everything, tabular-nums for digits, hierarchy via weight/size/tracking.
+// --font-mono / --font-serif remain as ALIASES to primary in globals.css
+// so any straggler reference keeps rendering Manrope (no dead vars).
 const manrope = Manrope({
   variable: "--font-manrope",
   subsets: ["latin", "cyrillic"],
   display: "swap",
-});
-const playfairDisplay = Playfair_Display({
-  variable: "--font-playfair-display",
-  subsets: ["latin", "cyrillic"],
-  weight: ["500", "600", "700", "800", "900"],
-  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -288,7 +285,7 @@ export default function RootLayout({
       />
       </head>
       <body
-        className={`${geistMono.variable} ${playfairDisplay.variable} ${manrope.variable} antialiased`}
+        className={`${manrope.variable} antialiased`}
         style={{ backgroundColor: "var(--mq-bg, #0e0e0e)", fontFamily: "var(--mq-font-primary)" }}
         suppressHydrationWarning
       >

@@ -19,7 +19,6 @@ interface TrackCardProps {
 }
 
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
-import { TrackMoreButton } from "./ui/TrackMoreButton";
 
 /* ══════════════════════════════════════════════════════════════════════════
    PHASE 4B — TrackCard, unified card language.
@@ -106,9 +105,8 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
   }, []);
 
   const handleMoreClick = useCallback((e: React.MouseEvent) => {
-    // Anchor at the trigger (v68 pattern) — MenuCore flips/clamps itself.
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setContextMenu({ x: rect.left, y: rect.bottom + 4, show: true });
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, show: true });
   }, []);
 
   const handleLikeClick = useCallback((e: React.MouseEvent) => {
@@ -239,10 +237,11 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
             <p
               className={`
                 truncate
-                ${compactMode ? "mq-t-track-sm" : "mq-t-track"}
+                ${compactMode ? "text-xs font-semibold" : "text-sm sm:text-sm font-semibold"}
               `}
               style={{
                 color: isActive ? "var(--mq-accent)" : "var(--mq-text)",
+                letterSpacing: "-0.01em",
               }}
             >
               <span title={`${track.title} — ${track.artist}`}>{track.title}</span>
@@ -263,7 +262,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
 
           {/* Artist row */}
           <p
-            className={`truncate mt-0.5 mq-t-artist`}
+            className={`truncate mt-0.5 ${compactMode ? "mq-t-meta-2" : "text-xs"}`}
             style={{ color: "var(--mq-text-muted)" }}
             title={track.artist}
           >
@@ -289,7 +288,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
           {track.duration > 0 && (
             <span
               className={`
-                mq-t-num text-right
+                mq-t-num text-[11px] text-right
                 ${compactMode ? "w-8 mr-0.5" : "w-10 mr-0.5"}
               `}
               style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}
@@ -339,12 +338,21 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
             <ThumbsDown className="w-3.5 h-3.5" style={isDisliked ? { fill: "#ef4444" } : {}} />
           </motion.button>
 
-          {/* More button — unified trigger (v68) */}
-          <TrackMoreButton
-            onOpen={handleMoreClick}
-            size={compactMode ? "sm" : "md"}
-            label={`Действия: ${track.title}`}
-          />
+          {/* More button */}
+          <motion.button
+            onClick={handleMoreClick}
+            className={`
+              ${compactMode ? "w-7 h-7" : "w-8 h-8"}
+              flex items-center justify-center
+              rounded-full
+              sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100
+              hover:bg-[var(--mq-overlay-hover)]
+              transition-[background-color,color,opacity] duration-150
+            `}
+            style={{ color: "var(--mq-text-muted)" }}
+          >
+            <MoreHorizontal className={`${compactMode ? "w-3.5 h-3.5" : "w-4 h-4"}`} />
+          </motion.button>
         </div>
       </motion.div>
 

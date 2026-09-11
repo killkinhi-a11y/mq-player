@@ -7,7 +7,6 @@ import { genresList, type Track, formatDuration } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import ScrollReveal from "./ScrollReveal";
 import ContextMenu from "./ContextMenu";
-import { TrackMoreButton } from "./ui/TrackMoreButton";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import { useLongPress } from "@/hooks/useLongPress";
 import { Input } from "@/components/ui/input";
@@ -16,7 +15,7 @@ import {
   Search, X, SlidersHorizontal, Play, Upload, Clock, Trash2, CheckCircle2,
   AlertCircle, Loader2, Headphones, TrendingUp, ChevronRight, Music, Sparkles,
   RefreshCw, Flame, Zap, Mic, Disc, Heart, Piano, Radio, RotateCcw, ListMusic,
-  Hash, ArrowRight
+  Hash, ArrowRight, MoreHorizontal
 } from "lucide-react";
 
 const SEARCH_HISTORY_KEY = "mq-search-history";
@@ -395,7 +394,7 @@ export default function SearchView() {
       {/* ── Page header — editorial voice: display serif + meta hint ── */}
       <div className="flex items-baseline justify-between mb-1">
         <h1 className="mq-t-display text-[26px] sm:text-[30px]" style={{ color: "var(--mq-text)" }}>Поиск</h1>
-        <p className="mq-t-meta hidden sm:block">Треки · артисты · жанры · свои файлы</p>
+        <p className="mq-t-meta text-xs hidden sm:block">Треки · артисты · жанры · свои файлы</p>
       </div>
 
       {/* ── Quick Picks — 4 random liked tracks ── */}
@@ -407,7 +406,7 @@ export default function SearchView() {
         >
           <div className="flex items-center gap-2.5 mb-3">
             <Sparkles className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
-            <h2 className="mq-t-section" style={{ color: "var(--mq-text)" }}>Быстрый доступ</h2>
+            <h2 className="mq-t-title mq-t-section" style={{ color: "var(--mq-text)" }}>Быстрый доступ</h2>
             <button
               onClick={() => setQuickPicksSeed(s => s + 1)}
               className="ml-auto p-2.5 rounded-lg transition-colors hover:bg-[var(--mq-overlay-hover)] flex-shrink-0"
@@ -442,8 +441,8 @@ export default function SearchView() {
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="mq-t-track-sm truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
-                  <p className="truncate mq-t-meta">{track.artist}</p>
+                  <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
+                  <p className="mq-t-meta-2 truncate mq-t-meta">{track.artist}</p>
                 </div>
               </motion.button>
             ))}
@@ -487,7 +486,7 @@ export default function SearchView() {
                 setShowSuggestions(false);
               }, 200);
             }}
-            className="pl-11 pr-11 min-h-[48px] text-[15px] font-medium"
+            className="pl-11 pr-11 min-h-[48px] mq-t-section font-medium"
             style={{
               backgroundColor: "var(--mq-surface-1)",
               borderRadius: 14,
@@ -667,7 +666,7 @@ export default function SearchView() {
               <motion.button
                 whileTap={{ scale: 0.94, transition: { duration: 0.08 }} }
                 onClick={handleClearHistory}
-                className="mq-t-meta-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                className="flex items-center gap-1.5 px-2 py-1 rounded-lg mq-t-meta-2 font-medium transition-colors hover:bg-[var(--mq-overlay-hover)]"
                 style={{ color: "var(--mq-text-muted)" }}
               >
                 <Trash2 className="w-3 h-3" />
@@ -706,28 +705,17 @@ export default function SearchView() {
                     >
                       <Clock className="w-3 h-3 opacity-40" />
                       <span className="whitespace-nowrap">{query}</span>
-                      {/* Remove individual item (span[role=button]: valid inside
-                          the outer chip button, keyboard-accessible, 20px hit area) */}
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`Убрать «${query}» из истории`}
+                      {/* Remove individual item button */}
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleRemoveHistoryItem(query);
                         }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleRemoveHistoryItem(query);
-                          }
-                        }}
-                        className="w-5 h-5 rounded-full flex items-center justify-center transition-opacity ml-0.5 shrink-0 sm:opacity-0 sm:group-hover:opacity-60 sm:group-hover:pointer-events-auto hover:!opacity-100 active:scale-90 cursor-pointer"
+                        className="w-4 h-4 rounded-full flex items-center justify-center transition-opacity ml-0.5 sm:opacity-0 sm:group-hover:opacity-60 sm:group-hover:pointer-events-auto hover:!opacity-100 active:scale-90"
                         style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)" }}
                       >
-                        <X className="w-2.5 h-2.5 pointer-events-none" />
-                      </span>
+                        <X className="w-2.5 h-2.5" />
+                      </button>
                     </button>
                   </motion.div>
                 ))}
@@ -748,10 +736,10 @@ export default function SearchView() {
             className="mq-section-head"
           >
             <div className="flex items-baseline gap-2.5 min-w-0">
-              <h3 className="mq-section-title" style={{ fontFamily: "var(--mq-font-serif)" }}>
+              <h3 className="mq-section-title">
                 {selectedGenre ? (genreLabels[selectedGenre] || selectedGenre) : "Результаты"}
               </h3>
-              <span className="mq-t-num" style={{ color: "var(--mq-text-muted)" }}>
+              <span className="mq-t-num mq-t-body" style={{ color: "var(--mq-text-muted)" }}>
                 {activeTracks.length} {activeTracks.length === 1 ? "трек" : activeTracks.length < 5 ? "трека" : "треков"}
               </span>
             </div>
@@ -790,7 +778,7 @@ export default function SearchView() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-          className="mq-empty"
+          className="mq-empty mq-empty-anim mq-empty-anim"
         >
           <Search className="w-7 h-7" style={{ color: "var(--mq-text-muted)" }} />
           <p className="mq-empty-title">Ничего не найдено</p>
@@ -828,7 +816,7 @@ export default function SearchView() {
               <select
                 value={filterDuration}
                 onChange={(e) => setFilterDuration(e.target.value as "all" | "short" | "medium" | "long")}
-                className="mq-t-meta-2 px-2 py-1 rounded-lg cursor-pointer outline-none"
+                className="mq-t-meta-2 font-medium px-2 py-1 rounded-lg cursor-pointer outline-none"
                 style={{
                   backgroundColor: "var(--mq-card)",
                   color: "var(--mq-text)",
@@ -844,7 +832,7 @@ export default function SearchView() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as "relevance" | "duration" | "title")}
-                className="mq-t-meta-2 px-2 py-1 rounded-lg cursor-pointer outline-none"
+                className="mq-t-meta-2 font-medium px-2 py-1 rounded-lg cursor-pointer outline-none"
                 style={{
                   backgroundColor: "var(--mq-card)",
                   color: "var(--mq-text)",
@@ -1118,7 +1106,7 @@ const SearchTrackRow = memo(function SearchTrackRow({
             {track.duration > 0 && (
               <span className="flex items-center gap-1.5 flex-shrink min-w-0">
                 <span style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>·</span>
-                <span className="mq-t-num truncate max-w-[64px]" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+                <span className="mq-t-num mq-t-meta-2 truncate max-w-[64px]" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
                   {formatDuration(track.duration)}
                 </span>
               </span>
@@ -1126,7 +1114,7 @@ const SearchTrackRow = memo(function SearchTrackRow({
             {track.genre && (
               <span className="flex items-center gap-1.5 flex-shrink min-w-0">
                 <span style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>·</span>
-                <span className="mq-t-meta-2 px-1.5 py-0 rounded-md max-w-[140px] truncate" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)" }}>
+                <span className="mq-t-meta-2 px-1.5 py-0 rounded-md max-w-[140px] truncate" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
                   {track.genre}
                 </span>
               </span>
@@ -1144,11 +1132,15 @@ const SearchTrackRow = memo(function SearchTrackRow({
           <Heart className="w-4 h-4" fill={isLiked ? "currentColor" : "none"} />
         </button>
 
-        {/* More button (3-dot) — unified trigger (v68) */}
-        <TrackMoreButton
-          onOpen={handleMoreClick}
-          label={`Действия: ${track.title}`}
-        />
+        {/* More button (3-dot) */}
+        <button
+          onClick={handleMoreClick}
+          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity"
+          style={{ color: "var(--mq-text-muted)" }}
+          aria-label="Меню"
+        >
+          <MoreHorizontal className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Context menu */}
@@ -1226,7 +1218,7 @@ function SearchSuggestions({
       {/* History matches */}
       {historyMatches.length > 0 && (
         <div className="border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
-          <p className="px-4 pt-2 pb-1 mq-t-label">
+          <p className="px-4 pt-2 pb-1 mq-t-meta-2 font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
             Недавно искали
           </p>
           {historyMatches.map((term) => (
@@ -1245,7 +1237,7 @@ function SearchSuggestions({
       {/* Trending matches */}
       {trendingMatches.length > 0 && (
         <div className="border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
-          <p className="px-4 pt-2 pb-1 mq-t-label">
+          <p className="px-4 pt-2 pb-1 mq-t-meta-2 font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
             Популярное
           </p>
           {trendingMatches.map((term) => (
@@ -1264,7 +1256,7 @@ function SearchSuggestions({
       {/* Artist matches */}
       {artistMatches.length > 0 && (
         <div className="border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
-          <p className="px-4 pt-2 pb-1 mq-t-label">
+          <p className="px-4 pt-2 pb-1 mq-t-meta-2 font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
             Артисты
           </p>
           {artistMatches.map((artist) => (

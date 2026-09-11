@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import { formatDuration, type Track } from "@/lib/musicApi";
 import ContextMenu from "./ContextMenu";
-import { TrackMoreButton } from "./ui/TrackMoreButton";
 import { useLongPress } from "@/hooks/useLongPress";
 import {
   X,
@@ -19,6 +18,7 @@ import {
   ListMusic,
   History,
   Clock,
+  MoreHorizontal,
 } from "lucide-react";
 import {
   DndContext,
@@ -260,7 +260,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                   Очередь
                 </h2>
                 {upNext.length + remainingQueue.length > 0 && (
-                  <span className="mq-t-num" style={{ color: "var(--mq-text-muted)" }}>
+                  <span className="mq-t-num mq-t-meta" style={{ color: "var(--mq-text-muted)" }}>
                     {upNext.length + remainingQueue.length}
                   </span>
                 )}
@@ -275,7 +275,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                         playTrack(currentTrack, [currentTrack]);
                       }
                     }}
-                    className="mq-t-meta-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors hover:bg-[rgba(239,68,68,0.1)]"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg mq-t-meta-2 font-medium transition-colors hover:bg-[rgba(239,68,68,0.1)]"
                     style={{ color: "#ef4444" }}
                     title="Очистить всю очередь"
                   >
@@ -308,7 +308,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
               {currentTrack && (
                 <div className="px-4 pt-3 pb-2">
                   <p
-                    className="mq-t-label mb-2"
+                    className="mq-text-eyebrow mb-2"
                     style={{ color: "var(--mq-accent)" }}
                   >
                     Сейчас играет
@@ -325,7 +325,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                 <div className="px-5 pt-2 pb-1">
                   <div className="flex items-center gap-1.5 mb-2">
                     <History className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
-                    <p className="mq-t-label">
+                    <p className="mq-text-eyebrow">
                       Недавно играло
                     </p>
                   </div>
@@ -349,12 +349,12 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
               <div className="px-5 pt-2 pb-1">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
-                    <p className="mq-t-label">
+                    <p className="mq-text-eyebrow">
                       Слушать дальше
                     </p>
                     {upNext.length > 0 && (
                       <span
-                        className="mq-t-num px-1.5 py-0.5 rounded-full"
+                        className="mq-t-num mq-t-meta-2 px-1.5 py-0.5 rounded-full"
                         style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
                       >
                         {upNext.length}
@@ -364,7 +364,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                   {upNext.length > 0 && (
                     <button
                       onClick={clearUpNext}
-                      className="mq-t-meta-2 flex items-center gap-1 px-2 py-1 rounded-lg transition-colors hover:opacity-80"
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg mq-t-meta-2 font-medium transition-colors hover:opacity-80"
                       style={{ color: "var(--mq-text-muted)" }}
                     >
                       <Trash2 className="w-3 h-3" />
@@ -438,11 +438,11 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                 <div className="px-5 pt-1 pb-6">
                   <div className="flex items-center gap-1.5 mb-2">
                     <Clock className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
-                    <p className="mq-t-label">
+                    <p className="mq-text-eyebrow">
                       Из очереди
                     </p>
                     <span
-                      className="mq-t-num px-1.5 py-0.5 rounded-full"
+                      className="mq-t-num mq-t-meta-2 px-1.5 py-0.5 rounded-full"
                       style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
                     >
                       {remainingQueue.length}
@@ -495,7 +495,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
 
               {/* Empty state — quiet editorial */}
               {!currentTrack && !hasContent && (
-                <div className="mq-empty mx-4 my-6">
+                <div className="mq-empty mq-empty-anim mq-empty-anim mx-4 my-6">
                   <ListMusic className="w-7 h-7" style={{ color: "var(--mq-text-muted)" }} />
                   <p className="mq-empty-title">Очередь пуста</p>
                   <p className="mq-empty-hint">Найдите трек и добавьте его в очередь, чтобы начать слушать</p>
@@ -564,14 +564,14 @@ function NowPlayingCard({
         >
           {track.title}
         </p>
-        <p className="truncate mq-t-meta">
+        <p className="text-xs truncate mq-t-meta">
           {track.artist}
         </p>
       </div>
 
       {/* Duration */}
       <span
-        className="mq-t-num flex-shrink-0"
+        className="mq-t-num text-xs flex-shrink-0"
         style={{ color: "var(--mq-text-muted)" }}
       >
         {formatDuration(track.duration)}
@@ -678,13 +678,14 @@ function HistoryTrackItem({
       {/* Info */}
       <div className="flex-1 min-w-0">
         <p
-          className="mq-t-track-sm truncate"
+          className="text-xs font-medium truncate"
           style={{ color: "var(--mq-text)" }}
         >
           {track.title}
         </p>
         <p
-          className="mq-t-artist truncate"
+          className="mq-t-meta-2 truncate"
+          style={{ color: "var(--mq-text-muted)" }}
         >
           {track.artist}
         </p>
@@ -692,24 +693,34 @@ function HistoryTrackItem({
 
       {/* Duration */}
       <span
-        className="mq-t-num flex-shrink-0"
+        className="mq-t-meta-2 tabular-nums flex-shrink-0"
         style={{ color: "var(--mq-text-muted)" }}
       >
         {formatDuration(track.duration)}
       </span>
 
-      {/* Context menu — LMB (…) unified trigger (v68). Nested interactive
-          element: the row is a <button>, so the trigger renders as
-          span[role=button] (valid HTML, keyboard-complete). §CONTEXT-AUDIT */}
-      <TrackMoreButton
-        size="sm"
-        as="span"
-        onOpen={(e) => {
-          const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-          onContextMenu(track, r.left, r.bottom + 4);
+      {/* Context menu — LMB (…) is the PRIMARY trigger. Nested interactive
+          element: the row is a <button>, so this trigger is a <span
+          role="button"> (valid HTML, no button-in-button). §CONTEXT-AUDIT */}
+      <span
+        role="button"
+        tabIndex={0}
+        aria-label="Меню трека"
+        title="Меню трека"
+        onClick={(e) => { e.stopPropagation(); onContextMenu(track, e.clientX, e.clientY); }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            e.stopPropagation();
+            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            onContextMenu(track, r.left, r.top);
+          }
         }}
-        label={`Действия: ${track.title}`}
-      />
+        className="p-1.5 rounded flex items-center justify-center flex-shrink-0 transition-colors hover:bg-[var(--mq-overlay-hover)] cursor-pointer"
+        style={{ color: "var(--mq-text-muted)" }}
+      >
+        <MoreHorizontal className="w-3.5 h-3.5" />
+      </span>
     </button>
   );
 }
@@ -832,13 +843,14 @@ function SortableUpNextTrackItem({
       {/* Info */}
       <div className="flex-1 min-w-0">
         <p
-          className="mq-t-track-sm truncate"
+          className="text-sm font-medium truncate"
           style={{ color: "var(--mq-text)" }}
         >
           {track.title}
         </p>
         <p
-          className="mq-t-artist truncate"
+          className="mq-t-meta-2 truncate"
+          style={{ color: "var(--mq-text-muted)" }}
         >
           {track.artist}
         </p>
@@ -846,7 +858,7 @@ function SortableUpNextTrackItem({
 
       {/* Duration */}
       <span
-        className="mq-t-num flex-shrink-0 mr-1"
+        className="text-xs tabular-nums flex-shrink-0 mr-1"
         style={{ color: "var(--mq-text-muted)" }}
       >
         {formatDuration(track.duration)}
@@ -892,17 +904,17 @@ function SortableUpNextTrackItem({
           <X className="w-3.5 h-3.5" />
         </button>
 
-        {/* Context menu — LMB (…) unified trigger (v68); cluster owns the
-            hover-reveal (opacity), button owns bg. §CONTEXT-AUDIT */}
-        <TrackMoreButton
-          size="sm"
-          alwaysVisible
-          onOpen={(e) => {
-            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-            onContextMenu(track, r.left, r.bottom + 4);
-          }}
-          label={`Действия: ${track.title}`}
-        />
+        {/* Context menu — LMB (…) is the PRIMARY trigger (right-click +
+            long-press stay as aliases). §CONTEXT-AUDIT */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onContextMenu(track, e.clientX, e.clientY); }}
+          className="p-1 rounded transition-colors hover:bg-[var(--mq-overlay-hover)]"
+          style={{ color: "var(--mq-text-muted)" }}
+          aria-label="Меню трека"
+          title="Меню трека"
+        >
+          <MoreHorizontal className="w-3.5 h-3.5" />
+        </button>
       </div>
     </motion.div>
   );
@@ -1031,13 +1043,14 @@ function SortableQueueTrackItem({
       {/* Info */}
       <div className="flex-1 min-w-0">
         <p
-          className="mq-t-track-sm truncate"
+          className="text-sm font-medium truncate"
           style={{ color: "var(--mq-text)" }}
         >
           {track.title}
         </p>
         <p
-          className="mq-t-artist truncate"
+          className="mq-t-meta-2 truncate"
+          style={{ color: "var(--mq-text-muted)" }}
         >
           {track.artist}
         </p>
@@ -1045,7 +1058,8 @@ function SortableQueueTrackItem({
 
       {/* Duration */}
       <span
-        className="mq-t-num flex-shrink-0"
+        className="text-xs tabular-nums flex-shrink-0"
+        style={{ color: "var(--mq-text-muted)" }}
       >
         {formatDuration(track.duration)}
       </span>
@@ -1081,17 +1095,17 @@ function SortableQueueTrackItem({
           style={{ color: "var(--mq-accent)" }}
         />
 
-        {/* Context menu — LMB (…) unified trigger (v68); cluster owns the
-            hover-reveal (opacity), button owns bg. §CONTEXT-AUDIT */}
-        <TrackMoreButton
-          size="sm"
-          alwaysVisible
-          onOpen={(e) => {
-            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-            onContextMenu(track, r.left, r.bottom + 4);
-          }}
-          label={`Действия: ${track.title}`}
-        />
+        {/* Context menu — LMB (…) is the PRIMARY trigger (right-click +
+            long-press stay as aliases). §CONTEXT-AUDIT */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onContextMenu(track, e.clientX, e.clientY); }}
+          className="p-1 rounded transition-colors hover:bg-[var(--mq-overlay-hover)]"
+          style={{ color: "var(--mq-text-muted)" }}
+          aria-label="Меню трека"
+          title="Меню трека"
+        >
+          <MoreHorizontal className="w-3.5 h-3.5" />
+        </button>
       </div>
     </motion.div>
   );
@@ -1138,13 +1152,14 @@ function DragOverlayCard({ track }: { track: Track }) {
       {/* Info */}
       <div className="flex-1 min-w-0">
         <p
-          className="mq-t-track-sm truncate"
+          className="text-sm font-medium truncate"
           style={{ color: "var(--mq-text)" }}
         >
           {track.title}
         </p>
         <p
-          className="mq-t-artist truncate"
+          className="mq-t-meta-2 truncate"
+          style={{ color: "var(--mq-text-muted)" }}
         >
           {track.artist}
         </p>
@@ -1152,7 +1167,7 @@ function DragOverlayCard({ track }: { track: Track }) {
 
       {/* Duration */}
       <span
-        className="mq-t-num flex-shrink-0 mr-1"
+        className="text-xs tabular-nums flex-shrink-0 mr-1"
         style={{ color: "var(--mq-text-muted)" }}
       >
         {formatDuration(track.duration)}

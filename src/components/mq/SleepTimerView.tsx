@@ -203,7 +203,7 @@ function CircularTimer({ size = 280, progress, remainingSeconds, isRunning, isPa
         </span>
         {phase && isRunning && (
           <motion.div key={phase.name} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="mt-2 text-center">
-            <p className="mq-t-meta-2" style={{ color: phase.color }}>Цикл {currentCycle} · {phase.label}</p>
+            <p className="mq-t-meta-2 font-medium" style={{ color: phase.color }}>Цикл {currentCycle} · {phase.label}</p>
             <div className="w-14 h-1 rounded-full mt-1 overflow-hidden" style={{ backgroundColor: "var(--mq-border)" }}>
               <div className="h-full rounded-full transition-all duration-1000" style={{ backgroundColor: phase.color, width: `${((phase.endMin / SLEEP_CYCLE_MINUTES) * 100)}%` }} />
             </div>
@@ -345,14 +345,14 @@ export default function SleepTimerView() {
                 <div className="flex items-center gap-2 mb-3">
                   <Zap className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
                   <h3 className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>Циклы сна</h3>
-                  <span className="mq-t-meta-2 ml-auto">~90 мин/цикл · 14 мин на засыпание</span>
+                  <span className="mq-t-meta-2 ml-auto" style={{ color: "var(--mq-text-muted)" }}>~90 мин/цикл · 14 мин на засыпание</span>
                 </div>
                 <div className="grid grid-cols-5 gap-2">
                   {recommendations.map((rec) => (
                     <motion.div key={rec.cycles} whileHover={{ y: -2, transition: { duration: 0.12, ease: "easeOut" } }} className="rounded-xl p-3 text-center cursor-pointer transition-colors" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--mq-border)" }} onClick={() => { setSelectedMinutes(rec.cycles * SLEEP_CYCLE_MINUTES); }}>
                       <p className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>{rec.wakeTime}</p>
-                      <p className="mq-t-meta-2 mt-0.5">{rec.cycles} цикл</p>
-                      <p className="mq-t-meta-2 mt-1" style={{ color: rec.qualityColor }}>{rec.quality}</p>
+                      <p className="mq-t-meta-2 mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{rec.cycles} цикл</p>
+                      <p className="mq-t-meta-2 mt-1 font-medium" style={{ color: rec.qualityColor }}>{rec.quality}</p>
                     </motion.div>
                   ))}
                 </div>
@@ -360,9 +360,9 @@ export default function SleepTimerView() {
             </div>
 
             {/* Keyboard shortcuts hint (PC) */}
-            <div className="hidden lg:flex gap-4 mt-4 mq-t-meta-2" style={{ opacity: 0.6 }}>
-              <span className="flex items-center gap-1"><kbd className="mq-t-num px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>Space</kbd>Старт</span>
-              <span className="flex items-center gap-1"><kbd className="mq-t-num px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>Esc</kbd>Стоп</span>
+            <div className="hidden lg:flex gap-4 mt-4 mq-t-meta-2" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+              <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded mq-t-meta-2" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>Space</kbd>Старт</span>
+              <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded mq-t-meta-2" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>Esc</kbd>Стоп</span>
             </div>
           </motion.div>
         ) : (
@@ -439,8 +439,8 @@ export default function SleepTimerView() {
             </motion.button>
 
             {/* Desktop keyboard hint */}
-            <div className="hidden lg:flex gap-4 mt-4 mq-t-meta-2" style={{ opacity: 0.6 }}>
-              <span className="flex items-center gap-1"><kbd className="mq-t-num px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>Space</kbd>Стоп</span>
+            <div className="hidden lg:flex gap-4 mt-4 mq-t-meta-2" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+              <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded mq-t-meta-2" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>Space</kbd>Стоп</span>
             </div>
           </motion.div>
         )}

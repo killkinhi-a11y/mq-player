@@ -234,16 +234,16 @@ export default function AdminAuditPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--mq-border)" }}>
-                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                       Действие
                     </th>
-                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden sm:table-cell" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider hidden sm:table-cell" style={{ color: "var(--mq-text-muted)" }}>
                       Администратор
                     </th>
-                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden md:table-cell" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider hidden md:table-cell" style={{ color: "var(--mq-text-muted)" }}>
                       Детали
                     </th>
-                    <th className="text-right px-5 py-3 font-medium text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-right px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                       Дата
                     </th>
                   </tr>

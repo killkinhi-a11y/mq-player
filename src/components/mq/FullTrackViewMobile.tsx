@@ -7,9 +7,9 @@ import { seekPlayback, currentPlaybackPosition } from "@/lib/wasm-audio";
 import { formatDuration } from "@/lib/musicApi";
 import type { Track } from "@/lib/musicApi";
 import { toast } from "@/hooks/use-toast";
+import { Play, Pause, SkipBack, SkipForward, ChevronDown, ChevronUp, Heart, Shuffle, Repeat, Repeat1, Music, ListMusic, Share2, Loader2, Mic2, ThumbsDown, History, X, MoreHorizontal, Volume2, Timer, Gauge, AirVent, ListPlus, Sliders } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
-import { Play, Pause, SkipBack, SkipForward, ChevronDown, ChevronUp, Heart, Shuffle, Repeat, Repeat1, Music, ListMusic, Share2, Loader2, Mic2, ThumbsDown, History, X, MoreHorizontal, Volume2, Timer, Gauge, AirVent, ListPlus, Sliders } from "lucide-react";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — MOBILE (2026-09 redesign)
@@ -126,7 +126,6 @@ function FullTrackViewMobileInner() {
   const stopSleepTimer = useAppStore((s) => s.stopSleepTimer);
 
   const [panel, setPanel] = useState<"queue" | "lyrics" | "history" | null>(null);
-  // v68: unified track context menu for queue/history panel rows.
   const [trackMenu, setTrackMenu] = useState<{ track: Track; x: number; y: number } | null>(null);
   const [lyrics, setLyrics] = useState<SyncedLine[]>([]);
   const [plainLyrics, setPlainLyrics] = useState("");
@@ -424,7 +423,7 @@ function FullTrackViewMobileInner() {
           <button onClick={() => setOpen(false)} aria-label="Закрыть" className="mq-ft-btn" style={iconBtn}><ChevronDown className="w-6 h-6" style={{ color: "var(--mq-text)" }} /></button>
           <div className="flex-1 min-w-0 flex items-center justify-center gap-1.5">
             {isPlaying && <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)" }} aria-hidden="true" />}
-            <p className="mq-t-label truncate">
+            <p className="mq-t-meta mq-t-meta-2 font-semibold uppercase tracking-[0.18em] truncate" style={{ color: "var(--mq-text-muted)" }}>
               {contextLabel}{queueName ? ` · ${queueName}` : ""}
             </p>
             <span className="flex-1 h-px max-w-14" style={{ backgroundColor: "var(--mq-border-thin)" }} aria-hidden="true" />
@@ -465,8 +464,8 @@ function FullTrackViewMobileInner() {
             Weight contrast: title 800 / artist regular-muted. */}
         <div className="mq-ft-anim px-4 flex items-end justify-between gap-3" style={{ flexShrink: 0, animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 60ms backwards" }}>
           <div className="min-w-0 flex-1">
-            <h1 className="mq-t-display text-[25px] line-clamp-2" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</h1>
-            <button onClick={handleArtist} className="mq-t-artist mt-1.5 flex items-center gap-1 max-w-full text-left group" style={{ color: "var(--mq-text-muted)" }}>
+            <h1 className="mq-text-display text-[25px] leading-[1.15] tracking-[-0.015em] line-clamp-2 font-extrabold" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</h1>
+            <button onClick={handleArtist} className="mq-t-body text-sm mt-1.5 flex items-center gap-1 max-w-full text-left group" style={{ color: "var(--mq-text-muted)" }}>
               <span className="truncate">{currentTrack.artist}</span>
               <ChevronUp className="w-3.5 h-3.5 flex-shrink-0 rotate-90 opacity-60" />
             </button>
@@ -518,10 +517,10 @@ function FullTrackViewMobileInner() {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="mq-t-track-sm truncate" style={{ color: "var(--mq-text)" }}>
+                        <p className="text-xs font-medium truncate" style={{ color: "var(--mq-text)" }}>
                           {pl.name}
                         </p>
-                        <p className="mq-t-meta-2">
+                        <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
                           {pl.tracks.length} треков
                         </p>
                       </div>
@@ -537,8 +536,8 @@ function FullTrackViewMobileInner() {
         <div className="mq-ft-anim px-4 mt-3.5" style={{ flexShrink: 0, animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 150ms backwards" }}>
           {/* Editorial flip: times ABOVE the bar — current in text color, larger */}
           <div className="flex items-baseline justify-between">
-            <span ref={timeCurrentRef} className="mq-t-time text-[26px] font-bold leading-none" style={{ color: "var(--mq-text)" }}>0:00</span>
-            <span ref={timeRemainingRef} className="mq-t-time" style={{ color: "var(--mq-text-muted)" }}>−{formatDuration(duration)}</span>
+            <span ref={timeCurrentRef} className="text-[26px] font-mono tabular-nums font-bold leading-none tracking-tight" style={{ color: "var(--mq-text)" }}>0:00</span>
+            <span ref={timeRemainingRef} className="mq-t-body font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>−{formatDuration(duration)}</span>
           </div>
           <input
             ref={seekInputRef}
@@ -644,43 +643,17 @@ function FullTrackViewMobileInner() {
                 : plainLyrics ? <div className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "var(--mq-text-muted)" }}>{plainLyrics}</div>
                 : <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>{lyricsError || "Текст не найден"}</p>)}
               {panel === "queue" && (upcoming.length ? upcoming.map((t, i) => (
-                <div key={t.id + i} className="w-full flex items-center gap-2 p-2 rounded-xl group" style={{ background: "transparent" }}>
-                  <button onClick={() => { playTrack?.(t, queue); setPanel(null); }} className="mq-ft-btn flex-1 min-w-0 flex items-center gap-3 text-left" style={{ border: "none", cursor: "pointer", background: "transparent", padding: 0 }}>
-                    <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">{t.cover ? <img src={t.cover} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: "var(--mq-accent)" }} />}</div>
-                    <div className="flex-1 min-w-0"><p className="mq-t-track-sm truncate" style={{ color: "var(--mq-text)" }}>{t.title}</p><p className="mq-t-artist truncate">{t.artist}</p></div>
-                  </button>
-                  <span className="mq-t-num mr-1">{formatDuration(t.duration)}</span>
-                  <TrackMoreButton
-                    size="sm"
-                    as="span"
-                    alwaysVisible
-                    onOpen={(e) => {
-                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      setTrackMenu({ track: t, x: r.left, y: r.top });
-                    }}
-                    label={`Действия: ${t.title}`}
-                  />
-                </div>
-              )) : <p className="mq-t-meta py-4 text-center">Очередь пуста</p>)}
+                <div key={t.id + i} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playTrack?.(t, queue); setPanel(null); } }} onClick={() => { playTrack?.(t, queue); setPanel(null); }} className="mq-ft-btn w-full flex items-center gap-3 p-2 rounded-xl text-left" style={{ border: "none", cursor: "pointer", background: "transparent" }}>
+                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">{t.cover ? <img src={t.cover} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: "var(--mq-accent)" }} />}</div>
+                  <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{t.title}</p><p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{t.artist}</p></div>
+                  <TrackMoreButton onOpen={(e) => { e.stopPropagation(); setTrackMenu({ track: t, x: e.clientX, y: e.clientY }); }} size="sm" label={`Действия: ${t.title}`} />
+                </div>)) : <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>Очередь пуста</p>)}
               {panel === "history" && (recent.length ? recent.map((t, i) => (
-                <div key={t.id + i} className="w-full flex items-center gap-2 p-2 rounded-xl group" style={{ background: "transparent" }}>
-                  <button onClick={() => { playTrack?.(t, [t]); setPanel(null); }} className="mq-ft-btn flex-1 min-w-0 flex items-center gap-3 text-left" style={{ border: "none", cursor: "pointer", background: "transparent", padding: 0 }}>
-                    <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">{t.cover ? <img src={t.cover} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: "var(--mq-accent)" }} />}</div>
-                    <div className="flex-1 min-w-0"><p className="mq-t-track-sm truncate" style={{ color: "var(--mq-text)" }}>{t.title}</p><p className="mq-t-artist truncate">{t.artist}</p></div>
-                  </button>
-                  <span className="mq-t-num mr-1">{formatDuration(t.duration)}</span>
-                  <TrackMoreButton
-                    size="sm"
-                    as="span"
-                    alwaysVisible
-                    onOpen={(e) => {
-                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      setTrackMenu({ track: t, x: r.left, y: r.top });
-                    }}
-                    label={`Действия: ${t.title}`}
-                  />
-                </div>
-              )) : <p className="mq-t-meta py-4 text-center">История пуста</p>)}
+                <div key={t.id + i} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playTrack?.(t, [t]); setPanel(null); } }} onClick={() => { playTrack?.(t, [t]); setPanel(null); }} className="mq-ft-btn w-full flex items-center gap-3 p-2 rounded-xl text-left" style={{ border: "none", cursor: "pointer", background: "transparent" }}>
+                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">{t.cover ? <img src={t.cover} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: "var(--mq-accent)" }} />}</div>
+                  <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{t.title}</p><p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{t.artist}</p></div>
+                  <TrackMoreButton onOpen={(e) => { e.stopPropagation(); setTrackMenu({ track: t, x: e.clientX, y: e.clientY }); }} size="sm" label={`Действия: ${t.title}`} />
+                </div>)) : <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>История пуста</p>)}
             </div>
           </div>
         )}
@@ -741,12 +714,12 @@ function FullTrackViewMobileInner() {
                 <Sliders className="w-5 h-5" style={{ color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                 <div className="flex-1 text-left min-w-0">
                   <p className="text-sm" style={{ color: "var(--mq-text)" }}>Эквалайзер</p>
-                  <p className="mq-t-meta truncate">
+                  <p className="mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
                     {eqEnabled ? `Активен · ${eqPreset === "custom" ? "свои настройки" : eqPreset}` : "10-полосный с пресетами"}
                   </p>
                 </div>
                 <span
-                  className="mq-t-badge px-2 py-0.5 rounded-full flex-shrink-0"
+                  className="mq-t-meta-2 font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
                   style={{
                     backgroundColor: eqEnabled
                       ? "color-mix(in srgb, var(--mq-accent) 18%, transparent)"
@@ -779,19 +752,20 @@ function FullTrackViewMobileInner() {
             </div>
           </>
         )}
-
-        {/* v68: unified track context menu (queue/history panel rows). */}
-        {trackMenu && (
-          <ContextMenu
-            track={trackMenu.track}
-            x={trackMenu.x}
-            y={trackMenu.y}
-            onClose={() => setTrackMenu(null)}
-            side="above"
-          />
-        )}
       </div>
-    </div>
+      </div>
+
+      {/* v68: unified context menu (portal) for queue/history rows */}
+      {trackMenu && (
+        <ContextMenu
+          track={trackMenu.track}
+          x={trackMenu.x}
+          y={trackMenu.y}
+          onClose={() => setTrackMenu(null)}
+          side="above"
+          bottomInset={120}
+        />
+      )}
     </>
   );
 }

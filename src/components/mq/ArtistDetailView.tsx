@@ -242,7 +242,7 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
           <button onClick={onBack} aria-label="Назад" className="w-9 h-9 -ml-1.5 rounded-full flex items-center justify-center hover:bg-[var(--mq-surface-1)] transition-colors">
             <ChevronLeft className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
           </button>
-          <p className="mq-t-track flex-1 min-w-0 truncate" style={{ color: "var(--mq-text)" }}>{artist.name}</p>
+          <p className="mq-t-title flex-1 min-w-0 truncate mq-t-section" style={{ color: "var(--mq-text)" }}>{artist.name}</p>
           <button
             onClick={heroPlay}
             disabled={popular.length === 0}
@@ -284,10 +284,10 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
             <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.16) 0%, rgba(0,0,0,0.0) 40%, rgba(0,0,0,0.62) 100%)" }} />
             <div className="absolute left-4 right-4 bottom-3">
               <div className="flex items-center gap-1.5 mb-1">
-                <span className="mq-t-label" style={{ color: "rgba(255,255,255,0.75)", letterSpacing: "0.14em" }}>Артист</span>
+                <span className="mq-t-badge uppercase tracking-[0.14em] font-bold" style={{ color: "rgba(255,255,255,0.75)" }}>Артист</span>
                 {info.verified && <BadgeCheck className="w-3.5 h-3.5" style={{ color: "#fff" }} />}
               </div>
-              <h1 className="mq-t-display text-white break-words" style={{ fontSize: "clamp(1.9rem, 8.5vw, 2.6rem)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05, textShadow: "0 2px 18px rgba(0,0,0,0.45)" }}>{artist.name}</h1>
+              <h1 className="mq-t-title text-white break-words" style={{ fontSize: "clamp(1.9rem, 8.5vw, 2.6rem)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05, textShadow: "0 2px 18px rgba(0,0,0,0.45)" }}>{artist.name}</h1>
             </div>
           </div>
           {/* stats + actions under the art */}
@@ -295,7 +295,7 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
             <ArtistStats info={info} tracks={tracks.length} compact />
             <div className="flex items-center gap-2 mt-3.5">
               <button onClick={heroPlay} disabled={popular.length === 0}
-                className="flex-1 flex items-center justify-center gap-2 h-12 rounded-full text-[15px] font-bold transition-all active:scale-[0.98]"
+                className="flex-1 flex items-center justify-center gap-2 h-12 rounded-full mq-t-section font-bold transition-all active:scale-[0.98]"
                 style={{ background: "var(--mq-accent)", color: "#fff", opacity: popular.length ? 1 : 0.4, boxShadow: "0 6px 22px color-mix(in srgb, var(--mq-accent) 32%, transparent)" }}>
                 <Play className="w-5 h-5" fill="currentColor" /> Слушать
               </button>
@@ -331,14 +331,14 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
           </div>
           <div className="flex-1 min-w-0 pb-1">
             <div className="flex items-center gap-2 mb-2">
-              <span className="mq-t-label">Артист</span>
+              <span className="mq-t-meta-2 uppercase tracking-[0.16em] font-bold" style={{ color: "var(--mq-text-muted)" }}>Артист</span>
               {info.verified && <BadgeCheck className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />}
             </div>
-            <h1 className="mq-t-display text-white break-words" style={{ fontSize: "clamp(2.6rem, 5vw, 4.2rem)", fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1.02, textShadow: "0 4px 30px rgba(0,0,0,0.4)" }}>{artist.name}</h1>
+            <h1 className="mq-t-title text-white break-words" style={{ fontSize: "clamp(2.6rem, 5vw, 4.2rem)", fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1.02, textShadow: "0 4px 30px rgba(0,0,0,0.4)" }}>{artist.name}</h1>
             <ArtistStats info={info} tracks={tracks.length} />
             <div className="flex items-center gap-2.5 mt-6">
               <button onClick={heroPlay} disabled={popular.length === 0}
-                className="flex items-center gap-2 h-12 px-7 rounded-full text-[15px] font-bold transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="flex items-center gap-2 h-12 px-7 rounded-full mq-t-section font-bold transition-all hover:scale-[1.02] active:scale-[0.98]"
                 style={{ background: "var(--mq-accent)", color: "#fff", opacity: popular.length ? 1 : 0.4, boxShadow: "0 8px 28px color-mix(in srgb, var(--mq-accent) 34%, transparent)" }}>
                 <Play className="w-5 h-5" fill="currentColor" /> Слушать
               </button>
@@ -368,9 +368,9 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
       ) : tracks.length === 0 ? (
         <div className="text-center py-12 rounded-2xl mq-surface">
           <Music className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
-          <p className="mq-t-track mb-1" style={{ color: "var(--mq-text)" }}>Треки не найдены</p>
-          <p className="mq-t-meta mb-4">Попробуйте поискать вручную</p>
-          <button onClick={() => setView("search")} className="mq-t-btn px-5 h-10 rounded-full font-bold" style={{ background: "var(--mq-accent)", color: "#fff" }}>Поиск</button>
+          <p className="mq-t-title mq-t-section mb-1" style={{ color: "var(--mq-text)" }}>Треки не найдены</p>
+          <p className="mq-t-meta mq-t-body mb-4">Попробуйте поискать вручную</p>
+          <button onClick={() => setView("search")} className="px-5 h-10 rounded-full mq-t-body font-bold" style={{ background: "var(--mq-accent)", color: "#fff" }}>Поиск</button>
         </div>
       ) : (
         <>
@@ -400,7 +400,7 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
                     <div className="w-6 shrink-0 text-center">
                       {isCurPlaying ? <NowPlayingEqualizer size="xs" variant="inline" /> : (
                         <>
-                          <span className="mq-t-num group-hover:hidden" style={{ color: "var(--mq-text-muted)" }}>{i + 1}</span>
+                          <span className="mq-t-num mq-t-meta group-hover:hidden" style={{ color: "var(--mq-text-muted)" }}>{i + 1}</span>
                           <Play className="w-3.5 h-3.5 hidden group-hover:block mx-auto" style={{ color: "var(--mq-text)" }} fill="currentColor" />
                         </>
                       )}
@@ -411,8 +411,8 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="mq-t-track truncate" style={{ color: isCur ? "var(--mq-accent)" : "var(--mq-text)" }}>{track.title}</p>
-                      <p className="mq-t-artist truncate">
+                      <p className="mq-t-title text-sm truncate" style={{ color: isCur ? "var(--mq-accent)" : "var(--mq-text)" }}>{track.title}</p>
+                      <p className="mq-t-meta mq-t-meta truncate">
                         {plays ? <>{fmtPlays(plays)} прослушиваний</> : (track.album || track.artist)}
                       </p>
                     </div>
@@ -420,14 +420,14 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
                       className="p-2 rounded-full sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0" style={{ opacity: liked ? 1 : undefined }}>
                       <Heart className="w-4 h-4" style={{ color: liked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={liked ? "currentColor" : "none"} />
                     </button>
-                    <span className="mq-t-num hidden sm:block shrink-0" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                    <span className="mq-t-num mq-t-meta hidden sm:block shrink-0" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
                     <TrackMoreButton onOpen={(e) => openTrackMenu(track, e)} size="sm" label={`Действия: ${track.title}`} />
                   </div>
                 );
               })}
             </div>
             {showAll && popular.length > 10 && (
-              <button onClick={() => setShowAll(false)} className="mq-section-action mt-3 block mx-auto text-[13px]">Свернуть</button>
+              <button onClick={() => setShowAll(false)} className="mq-section-action mt-3 block mx-auto mq-t-body">Свернуть</button>
             )}
           </section>
 
@@ -463,8 +463,8 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
                           <TrackMoreButton onOpen={(e) => openTrackMenu(track, e)} size="sm" label={`Действия: ${track.title}`} className="!text-white" />
                         </div>
                       </div>
-                      <p className="mq-t-track-sm line-clamp-2 mb-0.5" style={{ color: isCur ? "var(--mq-accent)" : "var(--mq-text)" }}>{track.title}</p>
-                      <p className="mq-t-meta-2">{year ? `Сингл · ${year}` : "Сингл"}</p>
+                      <p className="mq-t-title mq-t-body leading-snug line-clamp-2 mb-0.5" style={{ color: isCur ? "var(--mq-accent)" : "var(--mq-text)" }}>{track.title}</p>
+                      <p className="mq-t-meta mq-t-meta">{year ? `Сингл · ${year}` : "Сингл"}</p>
                     </div>
                   );
                 })}
@@ -507,8 +507,8 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
                       </div>
                     </div>
                     <div className="min-w-0 w-full">
-                      <p className="mq-t-track-sm truncate" style={{ color: "var(--mq-text)" }}>{a.username}</p>
-                      <p className="mq-t-meta-2 truncate">{a.followers > 0 ? `${fmtNum(a.followers)} слушателей` : (a.genre || "Артист")}</p>
+                      <p className="mq-t-title mq-t-body truncate" style={{ color: "var(--mq-text)" }}>{a.username}</p>
+                      <p className="mq-t-meta text-[11.5px] truncate">{a.followers > 0 ? `${fmtNum(a.followers)} слушателей` : (a.genre || "Артист")}</p>
                     </div>
                   </div>
                 ))}
@@ -548,7 +548,7 @@ function ArtistStats({ info, tracks, compact }: { info: ArtistInfo; tracks: numb
   if (info.genre) items.push(info.genre);
   if (items.length === 0) return null;
   return (
-    <div className="mq-t-meta flex items-center gap-2 flex-wrap">
+    <div className={`flex items-center gap-2 flex-wrap ${compact ? "text-[12.5px]" : "mq-t-body"} mq-t-meta`}>
       {items.map((it, i) => (
         <span key={i} className="flex items-center gap-2">
           {i > 0 && <span style={{ opacity: 0.4 }}>·</span>}

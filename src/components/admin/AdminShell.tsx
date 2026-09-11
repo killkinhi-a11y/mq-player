@@ -24,7 +24,6 @@ import {
   Menu,
   X,
   ChevronRight,
-  Search,
   LogOut,
   Rocket,
 } from "lucide-react";
@@ -117,7 +116,7 @@ export default function AdminShell({
               <span className="font-bold text-sm truncate block" style={{ color: "var(--mq-text)" }}>
                 MQ Admin
               </span>
-              <span className="text-[11px] truncate block" style={{ color: "var(--mq-text-muted)" }}>
+              <span className="mq-t-meta-2 truncate block" style={{ color: "var(--mq-text-muted)" }}>
                 Панель управления
               </span>
             </div>
@@ -147,7 +146,7 @@ export default function AdminShell({
         <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
           {!collapsed && (
             <p
-              className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider"
+              className="px-3 py-2 mq-t-meta-2 font-semibold uppercase tracking-wider"
               style={{ color: "var(--mq-text-muted)" }}
             >
               Навигация
@@ -191,7 +190,9 @@ export default function AdminShell({
                     style={
                       active
                         ? {
-                            background: "linear-gradient(135deg, rgba(224,49,49,0.2), rgba(224,49,49,0.08))",
+                            /* v68: one admin accent (indigo) — the old red
+                               gradient here mixed two brand colors in one tile */
+                            background: "linear-gradient(135deg, rgba(99,102,241,0.22), rgba(99,102,241,0.08))",
                           }
                         : undefined
                     }
@@ -204,7 +205,7 @@ export default function AdminShell({
                   {active && !collapsed && (
                     <motion.div
                       className="ml-auto w-1.5 h-1.5 rounded-full"
-                      style={{ backgroundColor: "var(--mq-accent)" }}
+                      style={{ backgroundColor: "#818cf8" }}
                       layoutId="active-dot"
                       transition={{ type: "spring", stiffness: 300, damping: 30 }}
                     />
@@ -249,7 +250,7 @@ export default function AdminShell({
                 <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>
                   {username || "Админ"}
                 </p>
-                <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>
+                <p className="mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
                   {email || "admin@mq.player"}
                 </p>
               </div>
@@ -319,19 +320,8 @@ export default function AdminShell({
             ))}
           </nav>
 
-          {/* Search (visual only for top bar, individual pages handle their own) */}
-          <div
-            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg max-w-[200px]"
-            style={{
-              backgroundColor: "var(--mq-input-bg)",
-              border: "1px solid var(--mq-border)",
-            }}
-          >
-            <Search className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
-            <span className="text-xs" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>
-              Поиск...
-            </span>
-          </div>
+          {/* v68: fake search box removed — it was a dead non-input that
+              looked interactive but did nothing (dead UI = broken promise). */}
         </header>
 
         {/* Content area with subtle pattern */}

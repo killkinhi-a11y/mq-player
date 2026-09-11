@@ -166,7 +166,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
                   Уведомления
                 </h2>
                 {unreadCount > 0 && (
-                  <span className="mq-t-num px-1.5 rounded"
+                  <span className="mq-t-num mq-t-meta px-1.5 rounded"
                     style={{ color: "var(--mq-accent)", background: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}>
                     {unreadCount}
                   </span>
@@ -193,7 +193,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
                     style={{ borderColor: "var(--mq-accent)", borderTopColor: "transparent" }} />
                 </div>
               ) : notifications.length === 0 ? (
-                <div className="mq-empty mx-4 my-6">
+                <div className="mq-empty mq-empty-anim mx-4 my-6">
                   <Bell className="w-6 h-6" style={{ color: "var(--mq-text-muted)" }} />
                   <p className="mq-empty-title">Пока тихо</p>
                   <p className="mq-empty-hint">Друзья, сообщения и обновления появятся здесь.</p>
@@ -240,7 +240,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="mq-t-track truncate" style={{ color: notif.read ? "var(--mq-text)" : "var(--mq-accent)" }}>
+                          <p className="mq-t-body font-semibold truncate" style={{ color: notif.read ? "var(--mq-text)" : "var(--mq-accent)" }}>
                             {notif.title}
                           </p>
                           {!notif.read && (
@@ -252,7 +252,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
                             {notif.body}
                           </p>
                         )}
-                        <p className="mq-t-meta-2 mt-1.5">
+                        <p className="mq-t-meta mq-t-meta-2 mt-1.5">
                           {formatNotifTime(notif.createdAt)}
                         </p>
                       </div>

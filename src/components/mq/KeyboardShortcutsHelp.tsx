@@ -169,7 +169,7 @@ export function KeyboardShortcutsHelp() {
                 return (
                   <div key={cat} className="mb-5 last:mb-0">
                     <h3
-                      className="mq-t-label mb-2.5"
+                      className="mq-t-meta-2 font-semibold uppercase tracking-wider mb-2.5"
                       style={{ color: "var(--mq-text-muted, #888)" }}
                     >
                       {CATEGORY_LABELS[cat]}
@@ -191,7 +191,7 @@ export function KeyboardShortcutsHelp() {
                             {row.keys.map((k, ki) => (
                               <kbd
                                 key={ki}
-                                className="mq-t-num px-2 py-0.5 rounded-md min-w-[24px] text-center"
+                                className="px-2 py-0.5 rounded-md mq-t-meta-2 font-mono font-semibold min-w-[24px] text-center"
                                 style={{
                                   backgroundColor: "rgba(255,255,255,0.06)",
                                   border: "1px solid var(--mq-border, #2a2a2a)",

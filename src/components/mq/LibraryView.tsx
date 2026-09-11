@@ -59,7 +59,7 @@ const LibraryView = React.memo(function LibraryView() {
         transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
         className="mb-4"
       >
-        <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em", fontFamily: "var(--mq-font-serif)" }}>
+        <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
           Библиотека
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>
@@ -97,7 +97,7 @@ const LibraryView = React.memo(function LibraryView() {
                 {/* Live count badge */}
                 {tab.count > 0 && (
                   <span
-                    className="mq-t-badge px-1.5 py-0.5 rounded-full"
+                    className="mq-t-meta-2 font-semibold px-1.5 py-0.5 rounded-full"
                     style={{
                       backgroundColor: isActive
                         ? "color-mix(in srgb, var(--mq-accent) 18%, transparent)"

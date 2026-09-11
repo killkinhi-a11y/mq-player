@@ -12,6 +12,8 @@ import {
   Flame, Waves, Radio, X, Plus,
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import ContextMenu from "./ContextMenu";
+import { TrackMoreButton } from "./ui/TrackMoreButton";
 
 // ── Mood/activity presets for quick AI recs ──
 const MOOD_PRESETS = [
@@ -52,6 +54,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
   const [tasteInsight, setTasteInsight] = useState("");
   const [showAll, setShowAll] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const [menu, setMenu] = useState<{ track: Track; x: number; y: number } | null>(null);
 
   // Build taste context for API calls (M3.4: uses shared extractTasteProfile)
   const buildTasteContext = useCallback(() => {
@@ -205,7 +208,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
             <h2 className="truncate" style={{ color: "var(--mq-text)", fontSize: "var(--mq-text-xl)", fontWeight: "var(--mq-font-bold)", letterSpacing: "var(--mq-tracking-tight)" }}>
               AI Подбор
             </h2>
-            <p className="mq-t-meta-2 truncate">{tasteInsight}</p>
+            <p className="mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)" }}>{tasteInsight}</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -246,7 +249,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
             <h2 className="truncate" style={{ color: "var(--mq-text)", fontSize: "var(--mq-text-xl)", fontWeight: "var(--mq-font-bold)", letterSpacing: "var(--mq-tracking-tight)" }}>
               AI Подбор
             </h2>
-            <p className="mq-t-meta-2 truncate">
+            <p className="mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
               {tasteInsight}
             </p>
           </div>
@@ -310,7 +313,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
           style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 8%, transparent)", border: "1px solid color-mix(in srgb, var(--mq-accent) 12%, transparent)" }}
         >
           <Sparkles className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
-          <p className="mq-t-meta-2 leading-relaxed">{aiSummary}</p>
+          <p className="mq-t-meta-2 leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>{aiSummary}</p>
         </motion.div>
       )}
 
@@ -370,7 +373,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
                       </div>
                       {/* AI badge */}
                       <div className="absolute top-0.5 right-0.5">
-                        <span className="mq-t-badge px-1 py-[1px] rounded-full"
+                        <span className="mq-t-meta-2 px-1 py-[1px] rounded-full font-bold"
                           style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "var(--mq-accent)", backdropFilter: "blur(4px)" }}>
                           AI
                         </span>
@@ -382,7 +385,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
                       <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>
                         {track.title}
                       </p>
-                      <p className="mq-t-meta-2 truncate mt-0.5">
+                      <p className="mq-t-meta-2 truncate mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
                         {track.artist}
                         {track.genre ? ` · ${track.genre}` : ""}
                       </p>
@@ -397,6 +400,11 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
                     >
                       <Plus className="w-3 h-3" />
                     </motion.button>
+                    {/* v68: unified context menu — every track surface has one */}
+                    <TrackMoreButton
+                      onOpen={(e) => { setMenu({ track, x: e.clientX, y: e.clientY }); }}
+                      label={`Действия: ${track.title}`}
+                    />
                   </div>
                 </motion.div>
               ))}
@@ -430,6 +438,16 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
             Выберите настроение или активность, и AI подберёт треки
           </p>
         </div>
+      )}
+
+      {/* v68: unified context menu (portal) */}
+      {menu && (
+        <ContextMenu
+          track={menu.track}
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+        />
       )}
     </div>
   );

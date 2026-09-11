@@ -166,18 +166,18 @@ export default function AdminGroupsPage() {
                   {g.name}
                 </p>
                 <div className="flex items-center gap-3 mt-1 flex-wrap">
-                  <span className="mq-t-meta text-[11px] flex items-center gap-1" style={{ color: "var(--mq-text-muted)" }}>
+                  <span className="mq-t-meta mq-t-meta-2 flex items-center gap-1" style={{ color: "var(--mq-text-muted)" }}>
                     <Crown className="w-3 h-3" />
                     {g.ownerUsername || "владелец удалён"}
                   </span>
-                  <span className="mq-t-num text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                  <span className="mq-t-num mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
                     {g.memberCount} участников
                   </span>
-                  <span className="mq-t-num text-[11px] flex items-center gap-1" style={{ color: "var(--mq-text-muted)" }}>
+                  <span className="mq-t-num mq-t-meta-2 flex items-center gap-1" style={{ color: "var(--mq-text-muted)" }}>
                     <MessageCircle className="w-3 h-3" />
                     {g.messageCount}
                   </span>
-                  <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                  <span className="mq-t-meta mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
                     создана {fmtDate(g.createdAt)}
                   </span>
                 </div>

@@ -7,13 +7,12 @@ import { type Track, formatDuration } from "@/lib/musicApi";
 import {
   Plus, Trash2, Play, ListMusic, ChevronLeft,
   Edit3, X, Check, Clock, Heart, Download, Loader2, AlertCircle,
-  Camera, Shuffle, Pin, MoreVertical, Music, Share2, Pause,
+  Camera, Shuffle, Pin, MoreVertical, Music, Share2, MoreHorizontal, Pause,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "./EmptyState";
 import ContextMenu from "./ContextMenu";
 import PlaylistActionsMenu from "./PlaylistActionsMenu";
-import { TrackMoreButton } from "./ui/TrackMoreButton";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 
 // ─── helpers ──────────────────────────────────────────────────────────────
@@ -559,12 +558,12 @@ export default function PlaylistView() {
             <div className="flex-1 min-w-0 flex flex-col sm:justify-end">
               {/* Eyebrow */}
               <div className="flex items-center gap-2 mb-2">
-                <span className="mq-t-label" style={{ color: "var(--mq-accent)" }}>
+                <span className="mq-t-meta-2 uppercase tracking-[0.14em] font-bold" style={{ color: "var(--mq-accent)" }}>
                   Плейлист
                 </span>
                 {isPinned && (
                   <span
-                    className="mq-t-badge inline-flex items-center gap-1 px-2 py-0.5 rounded-full"
+                    className="inline-flex items-center gap-1 mq-t-meta-2 font-semibold px-2 py-0.5 rounded-full"
                     style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}
                   >
                     <Pin className="w-3 h-3" />
@@ -618,7 +617,7 @@ export default function PlaylistView() {
               )}
 
               {/* Meta line */}
-              <div className="mq-t-meta flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-5">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs mb-5" style={{ color: "var(--mq-text-muted)" }}>
                 <span className="flex items-center gap-1.5 font-medium">
                   <Music className="w-3.5 h-3.5" />
                   {pl.tracks.length} {pluralRu(pl.tracks.length, "трек", "трека", "треков")}
@@ -741,8 +740,8 @@ export default function PlaylistView() {
           >
             {/* Column header */}
             <div
-              className="mq-t-label flex items-center gap-3 px-4 py-2.5 select-none"
-              style={{ borderBottom: "1px solid var(--mq-edge)" }}
+              className="flex items-center gap-3 px-4 py-2.5 mq-t-meta-2 uppercase tracking-[0.12em] font-semibold select-none"
+              style={{ color: "var(--mq-text-muted)", borderBottom: "1px solid var(--mq-edge)" }}
             >
               <span className="w-7 flex-shrink-0 text-center mq-t-num">#</span>
               <span className="flex-1">Название</span>
@@ -1034,14 +1033,14 @@ export default function PlaylistView() {
                   className="rounded-xl p-3"
                   style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}
                 >
-                  <p className="mq-t-meta-2 leading-relaxed">
+                  <p className="mq-t-meta-2 leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
                     {importHint}
                   </p>
                   {/* Quick switch to text mode button */}
                   {importMode === "url" && (
                     <button
                       onClick={() => { setImportMode("text"); setImportError(""); setImportHint(""); }}
-                      className="mq-t-label mt-2"
+                      className="mt-2 mq-t-meta-2 font-semibold"
                       style={{ color: "var(--mq-accent)" }}
                     >
                       Перейти к «Импорт текстом» →
@@ -1153,7 +1152,7 @@ function TrackRow({ track, index, isCurrent, isPlaying, isLiked, playlistId, onP
             <NowPlayingEqualizer size="sm" variant="inline" paused={!isPlaying} />
           ) : (
             <>
-              <span className="mq-t-num group-hover:hidden" style={{ color: "var(--mq-text-muted)", opacity: 0.65 }}>
+              <span className="mq-t-num text-xs group-hover:hidden" style={{ color: "var(--mq-text-muted)", opacity: 0.65 }}>
                 {index}
               </span>
               <Play className="w-3.5 h-3.5 hidden group-hover:block" style={{ color: "var(--mq-text)" }} fill="currentColor" />
@@ -1183,7 +1182,7 @@ function TrackRow({ track, index, isCurrent, isPlaying, isLiked, playlistId, onP
           </p>
           <button
             onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-            className="mq-t-artist block max-w-full text-left truncate hover:underline transition-colors"
+            className="mq-t-body block max-w-full text-left truncate hover:underline transition-colors"
             style={{ color: "var(--mq-text-muted)" }}
             title={track.artist}
           >
@@ -1193,7 +1192,7 @@ function TrackRow({ track, index, isCurrent, isPlaying, isLiked, playlistId, onP
 
         {/* Duration */}
         {track.duration > 0 && (
-          <span className="mq-t-num flex-shrink-0 hidden sm:block text-right w-[68px]" style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}>
+          <span className="mq-t-num mq-t-meta-2 flex-shrink-0 hidden sm:block text-right w-[68px]" style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}>
             {formatDuration(track.duration)}
           </span>
         )}
@@ -1218,11 +1217,14 @@ function TrackRow({ track, index, isCurrent, isPlaying, isLiked, playlistId, onP
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
-          {/* More — unified trigger (v68) */}
-          <TrackMoreButton
-            onOpen={handleMoreClick}
-            label={`Действия: ${track.title}`}
-          />
+          <button
+            onClick={handleMoreClick}
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-[background-color,color,opacity] duration-150 hover:bg-[var(--mq-overlay-hover)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
+            style={{ color: "var(--mq-text-muted)" }}
+            aria-label="Меню трека"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
@@ -1327,7 +1329,7 @@ function PlaylistTile({
         ) : (
           <div className="flex flex-col items-center justify-center w-full h-full" style={patternStyle(pl.name)}>
             <ListMusic className="w-9 h-9" style={{ color: "rgba(255,255,255,0.6)" }} />
-            <span className="mq-t-meta-2 mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+            <span className="mq-t-meta-2 font-medium mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
               {pl.tracks.length}
             </span>
           </div>
@@ -1441,11 +1443,11 @@ function PlaylistTile({
             {pl.name}
           </p>
           <div className="flex items-center gap-2 mt-1">
-            <span className="mq-t-meta-2">
+            <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
               {pl.tracks.length} треков
             </span>
             {totalDur && (
-              <span className="mq-t-meta-2 flex items-center gap-0.5" style={{ opacity: 0.6 }}>
+              <span className="mq-t-meta-2 flex items-center gap-0.5" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
                 <Clock className="w-2.5 h-2.5" />
                 {totalDur}
               </span>

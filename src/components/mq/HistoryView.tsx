@@ -9,10 +9,9 @@ import ScrollReveal from "./ScrollReveal";
 import {
   Trash2, Clock, Music, Play, Pause, Headphones, CalendarDays,
   TrendingUp, Repeat, Search, X, ListMusic, BarChart3, Flame,
-  ChevronRight, Zap, Disc3,
+  ChevronRight, Zap, Disc3, MoreHorizontal,
 } from "lucide-react";
 import ContextMenu from "./ContextMenu";
-import { TrackMoreButton } from "./ui/TrackMoreButton";
 import { useTrackContextMenu } from "@/hooks/useTrackContextMenu";
 
 export default function HistoryView() {
@@ -213,10 +212,10 @@ export default function HistoryView() {
               <Clock className="w-6 h-6" style={{ color: "var(--mq-accent)" }} />
             </div>
             <div>
-              <h1 className="mq-t-page" style={{ color: "var(--mq-text)" }}>
+              <h1 className="text-xl font-bold" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
                 История
               </h1>
-              <p className="mq-t-meta-2 mt-0.5">
+              <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
                 {stats.totalPlays} прослушиваний{stats.uniqueTracks > 0 ? ` · ${stats.uniqueTracks} треков` : ""}
               </p>
             </div>
@@ -266,22 +265,22 @@ export default function HistoryView() {
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5 mb-1">
                 <Headphones className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
-                <span className="mq-t-label">За неделю</span>
+                <span className="mq-t-badge font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>За неделю</span>
               </div>
               <p className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>
                 {weeklyStats.totalHours > 0 ? `${weeklyStats.totalHours}ч ` : ""}{weeklyStats.totalMinutes}м
               </p>
-              <p className="mq-t-meta-2">{weeklyStats.totalTracks} треков</p>
+              <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>{weeklyStats.totalTracks} треков</p>
             </div>
             {/* Top artist */}
             {weeklyStats.topArtists[0] && (
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5 mb-1">
                   <Flame className="w-3.5 h-3.5" style={{ color: "#f97316" }} />
-                  <span className="mq-t-label">Топ-артист</span>
+                  <span className="mq-t-badge font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Топ-артист</span>
                 </div>
-                <p className="mq-t-track-sm truncate" style={{ color: "var(--mq-text)" }}>{weeklyStats.topArtists[0][0]}</p>
-                <p className="mq-t-meta-2">{weeklyStats.topArtists[0][1]} раз</p>
+                <p className="text-sm font-bold truncate" style={{ color: "var(--mq-text)" }}>{weeklyStats.topArtists[0][0]}</p>
+                <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>{weeklyStats.topArtists[0][1]} раз</p>
               </div>
             )}
             {/* Top genre */}
@@ -289,20 +288,20 @@ export default function HistoryView() {
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5 mb-1">
                   <TrendingUp className="w-3.5 h-3.5" style={{ color: "#8b5cf6" }} />
-                  <span className="mq-t-label">Топ-жанр</span>
+                  <span className="mq-t-badge font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Топ-жанр</span>
                 </div>
-                <p className="mq-t-track-sm truncate" style={{ color: "var(--mq-text)" }}>{weeklyStats.topGenres[0][0]}</p>
-                <p className="mq-t-meta-2">{weeklyStats.topGenres[0][1]} треков</p>
+                <p className="text-sm font-bold truncate" style={{ color: "var(--mq-text)" }}>{weeklyStats.topGenres[0][0]}</p>
+                <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>{weeklyStats.topGenres[0][1]} треков</p>
               </div>
             )}
             {/* Unique artists count */}
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5 mb-1">
                 <BarChart3 className="w-3.5 h-3.5" style={{ color: "#06b6d4" }} />
-                <span className="mq-t-label">Артистов</span>
+                <span className="mq-t-badge font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Артистов</span>
               </div>
               <p className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>{weeklyStats.topArtists.length}</p>
-              <p className="mq-t-meta-2">за неделю</p>
+              <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>за неделю</p>
             </div>
           </div>
         </ScrollReveal>
@@ -350,8 +349,8 @@ export default function HistoryView() {
       {searchQuery && filteredHistory.length === 0 && (
         <div className="flex flex-col items-center justify-center py-12">
           <Search className="w-8 h-8 mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
-          <p className="mq-t-track">Ничего не найдено</p>
-          <p className="mq-t-meta mt-1">Попробуйте другой запрос</p>
+          <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Ничего не найдено</p>
+          <p className="text-xs mt-1" style={{ color: "var(--mq-text-muted)" }}>Попробуйте другой запрос</p>
         </div>
       )}
 
@@ -376,7 +375,7 @@ export default function HistoryView() {
               <p className="text-base font-bold leading-none" style={{ color: "var(--mq-text)" }}>
                 {stats.totalPlays}
               </p>
-              <p className="mq-t-meta-2 mt-1">
+              <p className="mq-t-meta-2 mt-1 font-medium" style={{ color: "var(--mq-text-muted)" }}>
                 Прослушиваний
               </p>
             </motion.div>
@@ -397,7 +396,7 @@ export default function HistoryView() {
               <p className="text-sm font-bold leading-none" style={{ color: "var(--mq-text)" }}>
                 {stats.totalDurationSec > 0 ? formatListeningTime(stats.totalHours, stats.totalMinutes) : "0"}
               </p>
-              <p className="mq-t-meta-2 mt-1">
+              <p className="mq-t-meta-2 mt-1 font-medium" style={{ color: "var(--mq-text-muted)" }}>
                 Время
               </p>
             </motion.div>
@@ -418,7 +417,7 @@ export default function HistoryView() {
               <p className="text-base font-bold leading-none" style={{ color: "var(--mq-text)" }}>
                 {stats.todayPlays}
               </p>
-              <p className="mq-t-meta-2 mt-1">
+              <p className="mq-t-meta-2 mt-1 font-medium" style={{ color: "var(--mq-text-muted)" }}>
                 Сегодня
               </p>
             </motion.div>
@@ -444,10 +443,10 @@ export default function HistoryView() {
                     <Disc3 className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="mq-t-meta-2">Топ артист</p>
-                    <p className="mq-t-track-sm truncate" style={{ color: "var(--mq-text)" }}>{stats.topArtist.name}</p>
+                    <p className="mq-t-meta-2 font-medium" style={{ color: "var(--mq-text-muted)" }}>Топ артист</p>
+                    <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>{stats.topArtist.name}</p>
                   </div>
-                  <span className="mq-t-num flex-shrink-0" style={{ color: "var(--mq-accent)" }}>{stats.topArtist.count}×</span>
+                  <span className="mq-t-meta-2 font-bold flex-shrink-0" style={{ color: "var(--mq-accent)" }}>{stats.topArtist.count}×</span>
                 </div>
               )}
               {stats.topGenre && (
@@ -462,10 +461,10 @@ export default function HistoryView() {
                     <TrendingUp className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="mq-t-meta-2">Топ жанр</p>
-                    <p className="mq-t-track-sm truncate" style={{ color: "var(--mq-text)" }}>{stats.topGenre.name}</p>
+                    <p className="mq-t-meta-2 font-medium" style={{ color: "var(--mq-text-muted)" }}>Топ жанр</p>
+                    <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>{stats.topGenre.name}</p>
                   </div>
-                  <span className="mq-t-num flex-shrink-0" style={{ color: "var(--mq-accent)" }}>{stats.topGenre.count}×</span>
+                  <span className="mq-t-meta-2 font-bold flex-shrink-0" style={{ color: "var(--mq-accent)" }}>{stats.topGenre.count}×</span>
                 </div>
               )}
             </motion.div>
@@ -490,13 +489,13 @@ export default function HistoryView() {
                   >
                     <GroupIcon className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
                     <span
-                      className="mq-t-section"
+                      className="text-sm font-bold tracking-wide"
                       style={{ color: "var(--mq-text)" }}
                     >
                       {group.label}
                     </span>
                     <span
-                      className="mq-t-badge px-2 py-0.5 rounded-full"
+                      className="mq-t-meta-2 font-bold px-2 py-0.5 rounded-full"
                       style={{ color: "var(--mq-accent)", backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)" }}
                     >
                       {group.items.length}
@@ -510,7 +509,7 @@ export default function HistoryView() {
                           const tracks = group.items.map(g => g.track);
                           playTrack(tracks[0], tracks);
                         }}
-                        className="mq-t-meta-2 ml-auto flex items-center gap-1 px-2 py-1 rounded-lg"
+                        className="ml-auto flex items-center gap-1 mq-t-meta-2 font-semibold px-2 py-1 rounded-lg"
                         style={{ color: "var(--mq-accent)", backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}
                       >
                         <Play className="w-2.5 h-2.5" fill="currentColor" />
@@ -608,13 +607,13 @@ export default function HistoryView() {
                             {/* Track info */}
                             <div className="flex-1 min-w-0">
                               <p
-                                className="mq-t-track truncate"
-                                style={{ color: isActive ? "var(--mq-accent)" : "var(--mq-text)" }}
+                                className="text-sm font-semibold truncate"
+                                style={{ color: isActive ? "var(--mq-accent)" : "var(--mq-text)", letterSpacing: "-0.01em" }}
                               >
                                 {track.title}
                               </p>
                               <div className="flex items-center gap-1.5 mt-0.5">
-                                <p className="mq-t-artist truncate">
+                                <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
                                   <span
                                     className="cursor-pointer hover:underline hover:text-[var(--mq-text)]"
                                     onClick={(e) => {
@@ -628,9 +627,10 @@ export default function HistoryView() {
                                 {/* Genre tag */}
                                 {track.genre && (
                                   <span
-                                    className="mq-t-meta-2 inline-flex items-center px-1.5 py-0 rounded-md flex-shrink-0"
+                                    className="inline-flex items-center mq-t-meta-2 font-medium px-1.5 py-0 rounded-md flex-shrink-0"
                                     style={{
                                       backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)",
+                                      color: "var(--mq-text-muted)",
                                     }}
                                   >
                                     {track.genre}
@@ -639,7 +639,7 @@ export default function HistoryView() {
                                 {/* Play count badge */}
                                 {entry.playCount > 1 && (
                                   <span
-                                    className="mq-t-badge inline-flex items-center gap-0.5 px-1.5 py-0 rounded-md flex-shrink-0"
+                                    className="inline-flex items-center gap-0.5 mq-t-meta-2 font-bold px-1.5 py-0 rounded-md flex-shrink-0"
                                     style={{
                                       backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)",
                                       color: "var(--mq-accent)",
@@ -654,21 +654,25 @@ export default function HistoryView() {
 
                             {/* Time ago + duration */}
                             <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                              <span className="mq-t-meta-2">
+                              <span className="mq-t-meta-2 font-medium" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
                                 {formatTimeAgo(entry.playedAt)}
                               </span>
                               {track.duration > 0 && (
-                                <span className="mq-t-num">
+                                <span className="mq-t-meta-2 tabular-nums" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>
                                   {formatDuration(track.duration)}
                                 </span>
                               )}
                             </div>
 
-                            {/* More button (3-dot) — unified trigger (v68) */}
-                            <TrackMoreButton
-                              onOpen={(e) => handleMoreClick(track, e)}
-                              label={`Действия: ${track.title}`}
-                            />
+                            {/* More button (3-dot) — opens context menu */}
+                            <button
+                              onClick={(e) => handleMoreClick(track, e)}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity"
+                              style={{ color: "var(--mq-text-muted)" }}
+                              title="Меню"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
 
                             {/* Subtle divider */}
                             {i < group.items.length - 1 && (
@@ -709,7 +713,7 @@ export default function HistoryView() {
           <p className="text-lg font-bold mb-2" style={{ color: "var(--mq-text)" }}>
             История пуста
           </p>
-          <p className="mq-t-meta max-w-[280px] text-center mb-6">
+          <p className="text-xs max-w-[280px] text-center leading-relaxed mb-6" style={{ color: "var(--mq-text-muted)" }}>
             Здесь будут отображаться прослушанные треки. Начните слушать музыку, чтобы заполнить историю.
           </p>
           <div className="flex flex-col items-center gap-2.5">
@@ -722,7 +726,7 @@ export default function HistoryView() {
               <Music className="w-3.5 h-3.5" />
               Начать слушать
             </motion.button>
-            <p className="mq-t-meta-2 flex items-center gap-1">
+            <p className="mq-t-meta-2 flex items-center gap-1" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
               <ListMusic className="w-3 h-3" />
               История поможет вспомнить, что вы слушали
             </p>
@@ -752,16 +756,16 @@ export default function HistoryView() {
               <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: "rgba(239,68,68,0.12)" }}>
                 <Trash2 className="w-6 h-6" style={{ color: "#ef4444" }} />
               </div>
-              <h3 className="mq-t-section mb-2" style={{ color: "var(--mq-text)" }}>Очистить историю?</h3>
+              <h3 className="text-lg font-bold mb-2" style={{ color: "var(--mq-text)" }}>Очистить историю?</h3>
               <p className="text-sm mb-1" style={{ color: "var(--mq-text-muted)" }}>Это действие нельзя отменить.</p>
-              <p className="mq-t-meta-2 mb-5">
+              <p className="text-xs mb-5" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
                 Будет удалено {stats.totalPlays} {stats.totalPlays === 1 ? "запись" : stats.totalPlays < 5 ? "записи" : "записей"} из истории прослушиваний.
               </p>
               <div className="flex items-center gap-3">
                 <motion.button
                   whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                   onClick={() => setShowClearConfirm(false)}
-                  className="mq-t-btn flex-1 px-4 py-2.5 rounded-xl"
+                  className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium"
                   style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text)" }}
                 >
                   Отмена
@@ -769,7 +773,7 @@ export default function HistoryView() {
                 <motion.button
                   whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                   onClick={() => { clearHistory(); setShowClearConfirm(false); }}
-                  className="mq-t-btn flex-1 px-4 py-2.5 rounded-xl"
+                  className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium"
                   style={{ backgroundColor: "#ef4444", color: "#fff" }}
                 >
                   Очистить

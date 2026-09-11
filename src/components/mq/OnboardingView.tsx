@@ -228,10 +228,10 @@ export default function OnboardingView() {
           aria-label={`Шаг ${stepIndex + 1} из 2`}
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="mq-t-label">
+            <span className="mq-t-meta mq-t-meta-2 uppercase tracking-[0.14em]" style={{ color: "var(--mq-text-muted)" }}>
               Шаг {stepIndex + 1} из 2
             </span>
-            <span className="mq-t-meta-2">
+            <span className="mq-t-meta mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
               {step === "genres"
                 ? selectedGenres.length > 0 ? `Выбрано: ${selectedGenres.length}` : "Жанры"
                 : favoriteArtists.length > 0 ? `Выбрано: ${favoriteArtists.length}` : "Артисты"}
@@ -266,7 +266,7 @@ export default function OnboardingView() {
                   }}>
                   <Music className="w-6 h-6" style={{ color: "var(--mq-accent)" }} />
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em", fontFamily: "var(--mq-font-serif)" }}>
+                <h1 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
                   Какую музыку слушаете?
                 </h1>
                 <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
@@ -288,7 +288,7 @@ export default function OnboardingView() {
                         </span>
                         <div className="flex-1 h-px" style={{ backgroundColor: "var(--mq-border-hairline)" }} />
                         {catSelected > 0 && (
-                          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full"
+                          <span className="mq-t-meta-2 font-bold px-1.5 py-0.5 rounded-full"
                             style={{
                               backgroundColor: "color-mix(in srgb, var(--mq-accent) 18%, transparent)",
                               color: "var(--mq-accent)",
@@ -348,7 +348,7 @@ export default function OnboardingView() {
                   }}>
                   <Sparkles className="w-6 h-6" style={{ color: "var(--mq-accent)" }} />
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em", fontFamily: "var(--mq-font-serif)" }}>
+                <h1 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
                   Любимые артисты
                 </h1>
                 <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>

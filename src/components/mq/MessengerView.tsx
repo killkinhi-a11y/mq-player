@@ -167,7 +167,7 @@ function VoiceMessageBubble({ voiceUrl, duration, isMine }: {
         className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
         style={{ backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 22%, transparent)" : "var(--mq-accent)", color: "#fff" }}
         aria-label={playing ? "Пауза" : "Воспроизвести"}>
-        {playing ? <span className="mq-t-badge leading-none">❚❚</span>
+        {playing ? <span className="mq-t-meta-2 leading-none">❚❚</span>
           : <span className="text-xs leading-none ml-0.5">▶</span>}
       </motion.button>
       <div className="flex-1">
@@ -220,7 +220,7 @@ function Avatar({ src, name, id, size = 44, isGroup = false }: {
 function DateSeparator({ label }: { label: string }) {
   return (
     <div className="flex justify-center my-3">
-      <span className="mq-t-meta-2 px-3 py-1 rounded-full"
+      <span className="mq-t-meta-2 px-3 py-1 rounded-full font-medium"
         style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)", color: "var(--mq-text-muted)" }}>
         {label}
       </span>
@@ -1365,7 +1365,7 @@ export default function MessengerView() {
                             {item.name}
                           </p>
                           {last && (
-                            <span className="mq-t-badge flex-shrink-0"
+                            <span className="mq-t-meta-2 flex-shrink-0"
                               style={{ color: isPinned ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
                               {formatTime(last.createdAt)}
                             </span>
@@ -1376,7 +1376,7 @@ export default function MessengerView() {
                             {lastText}
                           </p>
                           {unread > 0 && (
-                            <span className="mq-t-badge min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 flex-shrink-0"
+                            <span className="min-w-[18px] h-[18px] rounded-full flex items-center justify-center mq-t-meta-2 font-bold px-1 flex-shrink-0"
                               style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
                               {unread > 99 ? "99+" : unread}
                             </span>
@@ -1505,7 +1505,7 @@ export default function MessengerView() {
                       )}
                     </div>
                     {inChatSearch.trim() && (
-                      <p className="mq-t-meta-2 mt-1.5">
+                      <p className="mq-t-meta-2 mt-1.5" style={{ color: "var(--mq-text-muted)" }}>
                         Найдено: {filteredMessages.length}
                       </p>
                     )}
@@ -1594,7 +1594,7 @@ export default function MessengerView() {
                           <div className="w-7 flex-shrink-0">
                             {!prevSameSender && (
                               isGroupChat ? (
-                                <div className="mq-t-badge w-7 h-7 rounded-full flex items-center justify-center"
+                                <div className="w-7 h-7 rounded-full flex items-center justify-center mq-t-meta-2 font-bold"
                                   style={{ background: colorForId(msg.senderId), color: "#fff" }}>
                                   {getInitials(msg.senderName || msg.senderId)}
                                 </div>
@@ -1608,7 +1608,7 @@ export default function MessengerView() {
                         )}
                         <div className="relative group max-w-[85%]">
                           {isGroupChat && !isMine && !prevSameSender && (
-                            <p className="mq-t-meta-2 mb-1 ml-1"
+                            <p className="mq-t-meta-2 mb-1 ml-1 font-medium"
                               style={{ color: colorForId(msg.senderId) }}>
                               {msg.senderName?.replace("@", "") || "User"}
                             </p>
@@ -1631,7 +1631,7 @@ export default function MessengerView() {
                               <p className="text-sm whitespace-pre-wrap break-words">{text}</p>
                             )}
                             <div className="flex items-center justify-end gap-1 mt-0.5">
-                              <span className="mq-t-num"
+                              <span className="mq-t-meta-2"
                                 style={{ color: isMine ? "rgba(255,255,255,0.7)" : "var(--mq-text-muted)" }}>
                                 {formatTime(msg.createdAt)}
                               </span>
@@ -1650,18 +1650,16 @@ export default function MessengerView() {
               )}
               {showTyping && !isGroupChat && (
                 <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
                   className="flex items-end gap-2 justify-start mt-2">
                   <div className="w-7 flex-shrink-0" />
-                  <div className="px-4 py-3 rounded-2xl rounded-bl-md"
-                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, var(--mq-card))" }}>
-                    <div className="flex gap-1">
-                      {[0, 1, 2].map((i) => (
-                        <motion.span key={i} className="w-1.5 h-1.5 rounded-full"
-                          style={{ backgroundColor: "var(--mq-text-muted)" }}
-                          animate={{ opacity: [0.3, 1, 0.3] }}
-                          transition={{ duration: 1, repeat: Infinity, delay: i * 0.15 }} />
-                      ))}
-                    </div>
+                  {/* v68: premium typing indicator — pure CSS dots (mq-typing-dot),
+                      no per-frame JS; dots breathe with a staggered lift */}
+                  <div className="px-4 py-3.5 rounded-2xl rounded-bl-md flex items-center gap-1"
+                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, var(--mq-card))", color: "var(--mq-text-muted)" }}>
+                    <span className="mq-typing-dot" />
+                    <span className="mq-typing-dot" />
+                    <span className="mq-typing-dot" />
                   </div>
                 </motion.div>
               )}
@@ -1753,7 +1751,7 @@ export default function MessengerView() {
                       {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                     </motion.button>
                   </div>
-                  <div className="mq-t-meta-2 flex items-center justify-center gap-1"
+                  <div className="flex items-center justify-center gap-1 mq-t-meta-2"
                     style={{ color: "var(--mq-text-muted)" }}>
                     <Lock className="w-2.5 h-2.5" />
                     <span>Сообщения защищены TLS-шифрованием</span>
@@ -1956,7 +1954,7 @@ export default function MessengerView() {
                         {selected && (
                           <div className="w-5 h-5 rounded-full flex items-center justify-center"
                             style={{ backgroundColor: "var(--mq-accent)" }}>
-                            <span className="mq-t-badge" style={{ color: "#fff" }}>✓</span>
+                            <span className="mq-t-meta-2" style={{ color: "#fff" }}>✓</span>
                           </div>
                         )}
                       </motion.button>
@@ -2056,11 +2054,11 @@ export default function MessengerView() {
                           {user.username}
                         </p>
                         {alreadyIn ? (
-                          <span className="mq-t-meta-2">уже в группе</span>
+                          <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>уже в группе</span>
                         ) : selected && (
                           <div className="w-5 h-5 rounded-full flex items-center justify-center"
                             style={{ backgroundColor: "var(--mq-accent)" }}>
-                            <span className="mq-t-badge" style={{ color: "#fff" }}>✓</span>
+                            <span className="mq-t-meta-2" style={{ color: "#fff" }}>✓</span>
                           </div>
                         )}
                       </motion.button>

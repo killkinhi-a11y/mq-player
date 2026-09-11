@@ -71,7 +71,7 @@ function TrackChip({ track, onPlay, onAdd }: { track: Track; onPlay: () => void;
         <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>
           {track.title}
         </p>
-        <p className="mq-t-meta-2 truncate">
+        <p className="mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
           {track.artist}
           {track.genre ? ` · ${track.genre}` : ""}
         </p>
@@ -294,7 +294,7 @@ export default function AIAssistant() {
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>AI Помощник</h1>
-          <p className="mq-t-meta-2">Подбирает музыку по описанию</p>
+          <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>Подбирает музыку по описанию</p>
         </div>
         <motion.button
           whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
@@ -351,7 +351,7 @@ export default function AIAssistant() {
                       <motion.button
                         whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                         onClick={() => handlePlayAllFromMessage(msg.tracks!)}
-                        className="flex items-center gap-1.5 mb-2 px-2.5 py-1 rounded-lg mq-t-meta-2 cursor-pointer transition-all hover:opacity-80"
+                        className="flex items-center gap-1.5 mb-2 px-2.5 py-1 rounded-lg mq-t-meta-2 font-medium cursor-pointer transition-all hover:opacity-80"
                         style={{
                           backgroundColor: "rgba(166,147,175,0.2)",
                           color: "var(--mq-accent)",
@@ -425,7 +425,7 @@ export default function AIAssistant() {
             className="flex-shrink-0"
           >
             <div className="px-4 py-2">
-              <p className="mq-t-meta-2 mb-2">
+              <p className="mq-t-meta-2 font-medium mb-2" style={{ color: "var(--mq-text-muted)" }}>
                 Быстрые подсказки
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -437,7 +437,7 @@ export default function AIAssistant() {
                       whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} }
                       whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                       onClick={() => sendMessage(sug.prompt)}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full mq-t-meta-2 cursor-pointer transition-colors"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full mq-t-meta-2 font-medium cursor-pointer transition-colors"
                       style={{
                         backgroundColor: "var(--mq-card)",
                         border: "1px solid var(--mq-border)",

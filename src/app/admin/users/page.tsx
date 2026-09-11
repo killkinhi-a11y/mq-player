@@ -255,22 +255,22 @@ export default function AdminUsersPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--mq-border)" }}>
-                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                       Пользователь
                     </th>
-                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden md:table-cell" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider hidden md:table-cell" style={{ color: "var(--mq-text-muted)" }}>
                       Email
                     </th>
-                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                       Статус
                     </th>
-                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden lg:table-cell" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider hidden lg:table-cell" style={{ color: "var(--mq-text-muted)" }}>
                       Роль
                     </th>
-                    <th className="text-right px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden lg:table-cell" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-right px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider hidden lg:table-cell" style={{ color: "var(--mq-text-muted)" }}>
                       Дата
                     </th>
-                    <th className="text-right px-5 py-3 font-medium text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-right px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                       Действия
                     </th>
                   </tr>
@@ -318,7 +318,7 @@ export default function AdminUsersPage() {
                                 backgroundColor: user.blocked ? "#f97316" : user.confirmed ? "#4ade80" : "var(--mq-text-muted)",
                               }}
                             />
-                            <span className="text-[11px] font-medium" style={{
+                            <span className="mq-t-meta-2 font-medium" style={{
                               color: user.blocked ? "#f97316" : user.confirmed ? "#4ade80" : "var(--mq-text-muted)",
                             }}>
                               {user.blocked ? "Блок" : user.confirmed ? "Подтв." : "Не подтв."}

@@ -61,7 +61,7 @@ function VolumeSliderBase({ volume, onChange, orientation = "horizontal", showIc
             } as React.CSSProperties}
           />
         </div>
-        {showValue && <span className="text-[10px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{Math.round(volume)}</span>}
+        {showValue && <span className="mq-t-meta-2 font-mono" style={{ color: "var(--mq-text-muted)" }}>{Math.round(volume)}</span>}
       </div>
     );
   }
@@ -79,7 +79,7 @@ function VolumeSliderBase({ volume, onChange, orientation = "horizontal", showIc
         className="mq-hslider-input flex-1"
         style={{ "--mq-vol": volPct } as React.CSSProperties}
       />
-      {showValue && <span className="text-[10px] font-mono w-7 text-right flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>{Math.round(volume)}</span>}
+      {showValue && <span className="mq-t-meta-2 font-mono w-7 text-right flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>{Math.round(volume)}</span>}
     </div>
   );
 }

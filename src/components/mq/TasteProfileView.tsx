@@ -118,7 +118,7 @@ function TasteSlider({
   return (
     <div className="flex items-center gap-3 w-full">
       <span
-        className="mq-t-num w-10 text-right shrink-0 select-none"
+        className="mq-t-meta-2 w-10 text-right shrink-0 select-none"
         style={{ color: "var(--mq-text-muted)" }}
       >
         {value}%
@@ -481,7 +481,7 @@ export default function TasteProfileView() {
               className="overflow-hidden"
             >
               {/* Scale legend */}
-              <div className="mq-t-meta-2 flex items-center justify-between mb-4 px-1">
+              <div className="flex items-center justify-between mb-4 mq-t-meta-2 px-1" style={{ color: "var(--mq-text-muted)" }}>
                 <span>Исключить</span>
                 <span>Нейтрально</span>
                 <span>Любимый</span>
@@ -650,7 +650,7 @@ export default function TasteProfileView() {
                         >
                           {artist.name}
                         </span>
-                        <span className="mq-t-meta-2 shrink-0 ml-2">
+                        <span className="mq-t-meta-2 shrink-0 ml-2" style={{ color: "var(--mq-text-muted)" }}>
                           {artist.count}x
                         </span>
                       </div>
@@ -838,7 +838,7 @@ export default function TasteProfileView() {
                   >
                     {summary.totalTracked}
                   </div>
-                  <div className="mq-t-meta-2 mt-1">
+                  <div className="mq-t-meta-2 mt-1" style={{ color: "var(--mq-text-muted)" }}>
                     Жанров отслежено
                   </div>
                 </div>
@@ -859,7 +859,7 @@ export default function TasteProfileView() {
                   >
                     {summary.excludedCount}
                   </div>
-                  <div className="mq-t-meta-2 mt-1">
+                  <div className="mq-t-meta-2 mt-1" style={{ color: "var(--mq-text-muted)" }}>
                     Исключено артистов
                   </div>
                 </div>
@@ -885,7 +885,7 @@ export default function TasteProfileView() {
                   >
                     {summary.diversity}%
                   </div>
-                  <div className="mq-t-meta-2 mt-1">
+                  <div className="mq-t-meta-2 mt-1" style={{ color: "var(--mq-text-muted)" }}>
                     Разнообразие вкуса
                   </div>
                 </div>
@@ -904,7 +904,7 @@ export default function TasteProfileView() {
                   >
                     {summary.moodCount}
                   </div>
-                  <div className="mq-t-meta-2 mt-1">
+                  <div className="mq-t-meta-2 mt-1" style={{ color: "var(--mq-text-muted)" }}>
                     Настроений настроено
                   </div>
                 </div>

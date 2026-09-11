@@ -18,6 +18,7 @@ import { hapticLike, hapticDislike, hapticSkip, hapticPlay } from "@/lib/haptics
 import { useToast } from "@/hooks/use-toast";
 import QueueView from "./QueueView";
 import { ProgressBar } from "./ProgressBar";
+import { TextSwap } from "./ui/TextSwap";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import MenuCore, { MenuHeader } from "./ui/MenuCore";
 
@@ -318,7 +319,7 @@ export default function PlayerBar() {
                       "откуда играет трек". Статичный бейдж, без анимации. */}
                   {radioMode && (
                     <span
-                      className="mq-t-badge inline-flex items-center gap-1 px-1.5 py-0.5 rounded flex-shrink-0"
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded mq-t-meta-2 font-bold uppercase tracking-wider flex-shrink-0"
                       style={{
                         color: "var(--mq-accent)",
                         backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, transparent)",
@@ -331,9 +332,23 @@ export default function PlayerBar() {
                       Волна
                     </span>
                   )}
-                  <p className="mq-t-track truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
+                  <TextSwap
+                    text={currentTrack.title}
+                    swapKey={currentTrack.id}
+                    distance={4}
+                    duration={0.24}
+                    className="text-sm font-semibold truncate"
+                    style={{ color: "var(--mq-text)" }}
+                  />
                 </div>
-                <p className="mq-t-artist truncate">{currentTrack.artist}</p>
+                <TextSwap
+                  text={currentTrack.artist}
+                  swapKey={currentTrack.id}
+                  distance={3}
+                  duration={0.22}
+                  className="text-xs truncate"
+                  style={{ color: "var(--mq-text-muted)" }}
+                />
               </div>
             </button>
 
@@ -414,19 +429,19 @@ export default function PlayerBar() {
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="mq-t-label" style={{ color: "var(--mq-accent)" }}>
+                          <p className="mq-t-meta-2 font-semibold uppercase tracking-wider" style={{ color: "var(--mq-accent)" }}>
                             Далее
                           </p>
-                          <p className="mq-t-track truncate" style={{ color: "var(--mq-text)" }}>
+                          <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>
                             {nextTrackPreview.title}
                           </p>
-                          <p className="mq-t-artist truncate">
+                          <p className="mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
                             {nextTrackPreview.artist}
                           </p>
                         </div>
                         {nextTrackPreview.duration > 0 && (
                           <span
-                            className="mq-t-num flex-shrink-0 self-center px-1.5 py-0.5 rounded-md"
+                            className="mq-t-meta-2 font-medium flex-shrink-0 self-center px-1.5 py-0.5 rounded-md"
                             style={{
                               color: "var(--mq-text-muted)",
                               backgroundColor: "color-mix(in srgb, var(--mq-text-muted) 10%, transparent)",

@@ -156,7 +156,7 @@ const NavBar = React.memo(function NavBar() {
               {/* Badge */}
               {badgeCount > 0 && (
                 <span
-                  className="mq-t-badge absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full z-20 flex items-center justify-center px-1"
+                  className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full z-20 flex items-center justify-center mq-t-meta-2 font-bold px-1"
                   style={{
                     backgroundColor: "var(--mq-accent)",
                     color: "white",
@@ -187,7 +187,7 @@ const NavBar = React.memo(function NavBar() {
           <Bell className="w-[17px] h-[17px]" strokeWidth={notifPanelOpen ? 2.2 : 1.8} />
           {notificationCount > 0 && (
             <span
-              className="mq-t-badge absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] rounded-full flex items-center justify-center px-1"
+              className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] rounded-full flex items-center justify-center mq-t-meta-2 font-bold px-1"
               style={{ backgroundColor: "var(--mq-accent)", color: "white" }}
             >
               {notificationCount > 99 ? "99+" : notificationCount}
@@ -226,7 +226,7 @@ const NavBar = React.memo(function NavBar() {
           <Settings className="w-[17px] h-[17px]" strokeWidth={isSettingsActive ? 2.2 : 1.8} />
           {settingsBadge > 0 && (
             <span
-              className="mq-t-badge absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] rounded-full flex items-center justify-center px-1"
+              className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] rounded-full flex items-center justify-center mq-t-meta-2 font-bold px-1"
               style={{ backgroundColor: "var(--mq-accent)", color: "white" }}
             >
               {settingsBadge > 99 ? "99+" : settingsBadge}

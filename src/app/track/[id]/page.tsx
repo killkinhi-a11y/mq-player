@@ -388,7 +388,7 @@ export default function ShareTrackPage() {
 
             {/* Time labels + controls */}
             <div className="flex items-center justify-between">
-              <span className="text-[11px] tabular-nums" style={{ color: "rgba(255,255,255,0.35)" }}>
+              <span className="mq-t-meta-2 tabular-nums" style={{ color: "rgba(255,255,255,0.35)" }}>
                 {formatDuration(currentTime)}
               </span>
 
@@ -410,7 +410,7 @@ export default function ShareTrackPage() {
                 )}
               </button>
 
-              <span className="text-[11px] tabular-nums" style={{ color: "rgba(255,255,255,0.35)" }}>
+              <span className="mq-t-meta-2 tabular-nums" style={{ color: "rgba(255,255,255,0.35)" }}>
                 {formatDuration(resolvedDuration)}
               </span>
             </div>
@@ -453,7 +453,7 @@ export default function ShareTrackPage() {
 
       {/* Footer */}
       <div className="text-center pb-6 px-4">
-        <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>
+        <p className="mq-t-meta-2" style={{ color: "rgba(255,255,255,0.2)" }}>
           mq
         </p>
       </div>

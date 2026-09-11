@@ -67,7 +67,7 @@ export default async function AdminDeploymentsPage() {
             </p>
           </div>
           <span
-            className="ml-auto px-2.5 py-1 rounded-full text-[11px] font-semibold shrink-0"
+            className="ml-auto px-2.5 py-1 rounded-full mq-t-meta-2 font-semibold shrink-0"
             style={{
               backgroundColor: "rgba(34,197,94,0.12)",
               color: "#22c55e",
@@ -112,7 +112,7 @@ export default async function AdminDeploymentsPage() {
             detail="Очередь, трек, позиция, громкость и настройки живут в persisted-сторе и переживают обновление"
           />
         </div>
-        <p className="mq-t-meta text-[11px] mt-4" style={{ color: "var(--mq-text-muted)" }}>
+        <p className="mq-t-meta mq-t-meta-2 mt-4" style={{ color: "var(--mq-text-muted)" }}>
           История развертываний требует доступа к Vercel API — раздел показывает
           только текущее развертывание, без выдуманных записей.
         </p>
@@ -147,14 +147,14 @@ function Mechanism({ step, title, detail }: { step: string; title: string; detai
   return (
     <div className="flex gap-3">
       <span
-        className="w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-mono font-semibold shrink-0"
+        className="w-6 h-6 rounded-lg flex items-center justify-center mq-t-meta-2 font-mono font-semibold shrink-0"
         style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}
       >
         {step}
       </span>
       <div className="min-w-0">
         <p className="text-sm" style={{ color: "var(--mq-text)" }}>{title}</p>
-        <p className="mq-t-meta text-[11px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{detail}</p>
+        <p className="mq-t-meta mq-t-meta-2 mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{detail}</p>
       </div>
     </div>
   );

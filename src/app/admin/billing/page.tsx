@@ -309,7 +309,7 @@ export default function AdminBillingPage() {
               <div className="flex items-end gap-2 h-40">
                 {data.mrrData.map((m) => (
                   <div key={m.month} className="flex-1 flex flex-col items-center gap-1">
-                    <span className="text-[11px] font-medium" style={{ color: "var(--mq-text)" }}>
+                    <span className="mq-t-meta-2 font-medium" style={{ color: "var(--mq-text)" }}>
                       ${m.revenue.toFixed(0)}
                     </span>
                     <div
@@ -320,7 +320,7 @@ export default function AdminBillingPage() {
                         background: "linear-gradient(180deg, var(--mq-accent), rgba(224,49,49,0.5))",
                       }}
                     />
-                    <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                    <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
                       {formatMonth(m.month)}
                     </span>
                   </div>
@@ -342,22 +342,22 @@ export default function AdminBillingPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--mq-border)" }}>
-                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                       Пользователь
                     </th>
-                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                       Сумма
                     </th>
-                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden sm:table-cell" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider hidden sm:table-cell" style={{ color: "var(--mq-text-muted)" }}>
                       Тип
                     </th>
-                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden sm:table-cell" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider hidden sm:table-cell" style={{ color: "var(--mq-text-muted)" }}>
                       Статус
                     </th>
-                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden md:table-cell" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider hidden md:table-cell" style={{ color: "var(--mq-text-muted)" }}>
                       Дата
                     </th>
-                    <th className="text-right px-5 py-3 font-medium text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-right px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                       Действия
                     </th>
                   </tr>
@@ -387,7 +387,7 @@ export default function AdminBillingPage() {
                       <td className="px-5 py-3.5 hidden sm:table-cell">
                         <Badge
                           variant="secondary"
-                          className="text-[11px] px-1.5 py-0"
+                          className="mq-t-meta-2 px-1.5 py-0"
                           style={{
                             backgroundColor: `${typeColors[t.type] || "var(--mq-text-muted)"}18`,
                             color: typeColors[t.type] || "var(--mq-text-muted)",
@@ -402,7 +402,7 @@ export default function AdminBillingPage() {
                             className="w-1.5 h-1.5 rounded-full"
                             style={{ backgroundColor: statusColors[t.status] || "var(--mq-text-muted)" }}
                           />
-                          <span className="text-[11px] font-medium" style={{ color: statusColors[t.status] || "var(--mq-text-muted)" }}>
+                          <span className="mq-t-meta-2 font-medium" style={{ color: statusColors[t.status] || "var(--mq-text-muted)" }}>
                             {statusLabels[t.status] || t.status}
                           </span>
                         </div>

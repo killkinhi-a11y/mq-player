@@ -439,7 +439,7 @@ export default function PlaylistExportView({
             {/* Preview text */}
             {status === "idle" && (
               <p
-                className="text-[11px] text-center"
+                className="mq-t-meta-2 text-center"
                 style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}
               >
                 Скопируйте как текст или скачайте как изображение 1080×1080

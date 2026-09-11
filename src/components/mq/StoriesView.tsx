@@ -4,6 +4,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { type Track } from "@/lib/musicApi";
+import ContextMenu from "./ContextMenu";
+import { TrackMoreButton } from "./ui/TrackMoreButton";
 import {
   Camera, Plus, X, ChevronLeft, ChevronRight, Play, Pause,
   Heart, MessageCircle, Clock, Eye, Sparkles, Image as ImageIcon,
@@ -102,6 +104,7 @@ export default function StoriesView() {
     fetchStories();
   }, []);
   const [viewingIndex, setViewingIndex] = useState<number | null>(null);
+  const [trackMenu, setTrackMenu] = useState<{ track: Track; x: number; y: number } | null>(null);
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -351,7 +354,7 @@ export default function StoriesView() {
                   ? `Поделился треком: ${story.trackData?.title || ""}`
                   : "Фото"}
               </p>
-              <p className="mq-t-meta-2 mt-0.5">
+              <p className="mq-t-meta-2 mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
                 {Math.floor((Date.now() - new Date(story.createdAt).getTime()) / 3600000)}ч назад
               </p>
             </div>
@@ -500,16 +503,35 @@ export default function StoriesView() {
                       <p className="text-lg font-bold text-white">{viewingStory.trackData.title}</p>
                       <p className="text-sm text-white/70">{viewingStory.trackData.artist}</p>
                     </div>
-                    <motion.button
-                      whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
-                      whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
-                      onClick={(e) => { e.stopPropagation(); handlePlayTrack(viewingStory); }}
-                      className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium"
-                      style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
-                    >
-                      <Play className="w-4 h-4" style={{ marginLeft: 1 }} />
-                      Слушать
-                    </motion.button>
+                    <div className="flex items-center gap-2">
+                      <motion.button
+                        whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+                        whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+                        onClick={(e) => { e.stopPropagation(); handlePlayTrack(viewingStory); }}
+                        className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium"
+                        style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
+                      >
+                        <Play className="w-4 h-4" style={{ marginLeft: 1 }} />
+                        Слушать
+                      </motion.button>
+                      <TrackMoreButton
+                        onOpen={(e) => {
+                          e.stopPropagation();
+                          const td = viewingStory.trackData!;
+                          setTrackMenu({
+                            track: {
+                              id: td.id, title: td.title, artist: td.artist, cover: td.cover,
+                              duration: td.duration, audioUrl: td.streamUrl,
+                              album: "", genre: "", source: "soundcloud" as const, scTrackId: Number(td.id) || undefined,
+                            },
+                            x: e.clientX, y: e.clientY,
+                          });
+                        }}
+                        label={`Действия: ${viewingStory.trackData?.title ?? ""}`}
+                        alwaysVisible
+                        className="!text-white"
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -637,6 +659,16 @@ export default function StoriesView() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* v68: unified context menu (portal) for story tracks */}
+      {trackMenu && (
+        <ContextMenu
+          track={trackMenu.track}
+          x={trackMenu.x}
+          y={trackMenu.y}
+          onClose={() => setTrackMenu(null)}
+        />
+      )}
     </div>
   );
 }

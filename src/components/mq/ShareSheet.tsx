@@ -115,7 +115,7 @@ export const ShareSheet = memo(function ShareSheet({
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>Поделиться</h3>
-                  <p className="mq-t-meta-2 truncate">{title}</p>
+                  <p className="mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)" }}>{title}</p>
                 </div>
               </div>
               <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ color: "var(--mq-text-muted)" }}>

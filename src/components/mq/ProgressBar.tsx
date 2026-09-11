@@ -191,7 +191,7 @@ function ProgressBarBase({
     <div className="flex items-center gap-2 w-full select-none">
       {/* Current time */}
       <span
-        className="mq-t-num text-right flex-shrink-0"
+        className="mq-t-num mq-t-meta-2 text-right flex-shrink-0"
         style={{ color: "var(--mq-text-muted)", width: 36 }}
       >
         {formatDuration(progress)}
@@ -284,7 +284,7 @@ function ProgressBarBase({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 4 }}
               transition={{ duration: 0.1 }}
-              className="absolute pointer-events-none z-10 px-2 py-1 rounded-md text-[11px] font-mono tabular-nums whitespace-nowrap"
+              className="absolute pointer-events-none z-10 px-2 py-1 rounded-md mq-t-meta-2 font-mono tabular-nums whitespace-nowrap"
               style={{
                 left: `${Math.max(8, Math.min(92, hoveredPct ?? 0))}%`,
                 transform: "translateX(-50%)",
@@ -304,7 +304,7 @@ function ProgressBarBase({
 
       {/* Duration */}
       <span
-        className="mq-t-num flex-shrink-0"
+        className="mq-t-num mq-t-meta-2 flex-shrink-0"
         style={{ color: "var(--mq-text-muted)", width: 36 }}
       >
         {formatDuration(duration)}

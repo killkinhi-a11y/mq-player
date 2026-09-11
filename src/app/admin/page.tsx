@@ -299,7 +299,7 @@ export default function AdminDashboard() {
                 >
                   <Icon className="w-5 h-5" style={{ color: card.color }} />
                 </div>
-                <span className="text-[11px] font-medium px-2 py-0.5 rounded-md" style={{
+                <span className="mq-t-meta-2 font-medium px-2 py-0.5 rounded-md" style={{
                   backgroundColor: `${card.color}10`,
                   color: card.color,
                 }}>
@@ -315,7 +315,7 @@ export default function AdminDashboard() {
               <p className="text-xs font-medium" style={{ color: card.color }}>
                 {card.label}
               </p>
-              <p className="text-[11px] mt-1" style={{ color: "var(--mq-text-muted)" }}>
+              <p className="mq-t-meta-2 mt-1" style={{ color: "var(--mq-text-muted)" }}>
                 {card.sub}
               </p>
             </motion.div>
@@ -346,7 +346,7 @@ export default function AdminDashboard() {
                 <p className="text-lg font-bold leading-tight" style={{ color: "var(--mq-text)" }}>
                   {formatNumber(stat.value)}
                 </p>
-                <p className="text-[11px] font-medium" style={{ color: "var(--mq-text-muted)" }}>
+                <p className="mq-t-meta-2 font-medium" style={{ color: "var(--mq-text-muted)" }}>
                   {stat.label}
                 </p>
               </div>
@@ -400,7 +400,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium">{item.label}</p>
-                      <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                      <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
                         {item.desc}
                       </p>
                     </div>
@@ -436,7 +436,7 @@ export default function AdminDashboard() {
                 <h2 className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>
                   Последние регистрации
                 </h2>
-                <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
                   Новые пользователи системы
                 </p>
               </div>
@@ -455,31 +455,31 @@ export default function AdminDashboard() {
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--mq-border)" }}>
                   <th
-                    className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider"
+                    className="text-left px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider"
                     style={{ color: "var(--mq-text-muted)" }}
                   >
                     Пользователь
                   </th>
                   <th
-                    className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden sm:table-cell"
+                    className="text-left px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider hidden sm:table-cell"
                     style={{ color: "var(--mq-text-muted)" }}
                   >
                     Email
                   </th>
                   <th
-                    className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider"
+                    className="text-left px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider"
                     style={{ color: "var(--mq-text-muted)" }}
                   >
                     Статус
                   </th>
                   <th
-                    className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden md:table-cell"
+                    className="text-left px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider hidden md:table-cell"
                     style={{ color: "var(--mq-text-muted)" }}
                   >
                     Роль
                   </th>
                   <th
-                    className="text-right px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden lg:table-cell"
+                    className="text-right px-5 py-3 font-medium mq-t-meta-2 uppercase tracking-wider hidden lg:table-cell"
                     style={{ color: "var(--mq-text-muted)" }}
                   >
                     Дата
@@ -502,7 +502,7 @@ export default function AdminDashboard() {
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
                         <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-bold flex-shrink-0 text-white"
+                          className="w-8 h-8 rounded-lg flex items-center justify-center mq-t-meta-2 font-bold flex-shrink-0 text-white"
                           style={{
                             background: user.blocked
                               ? "linear-gradient(135deg, #f97316, #fb923c)"
@@ -538,7 +538,7 @@ export default function AdminDashboard() {
                           }}
                         />
                         <span
-                          className="text-[11px] font-medium"
+                          className="mq-t-meta-2 font-medium"
                           style={{
                             color: user.blocked
                               ? "#f97316"
@@ -554,7 +554,7 @@ export default function AdminDashboard() {
                     <td className="px-5 py-3 hidden md:table-cell">
                       {user.role === "admin" ? (
                         <span
-                          className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md"
+                          className="inline-flex items-center gap-1 mq-t-meta-2 font-medium px-2 py-0.5 rounded-md"
                           style={{
                             backgroundColor: "rgba(99,102,241,0.1)",
                             color: "#6366f1",
@@ -564,13 +564,13 @@ export default function AdminDashboard() {
                           Админ
                         </span>
                       ) : (
-                        <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                        <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
                           Пользователь
                         </span>
                       )}
                     </td>
                     <td
-                      className="px-5 py-3 text-right text-[11px] hidden lg:table-cell"
+                      className="px-5 py-3 text-right mq-t-meta-2 hidden lg:table-cell"
                       style={{ color: "var(--mq-text-muted)" }}
                     >
                       {formatDate(user.createdAt)}
@@ -621,7 +621,7 @@ export default function AdminDashboard() {
             >
               <Icon className="w-4 h-4 flex-shrink-0" style={{ color: item.color }} />
               <div className="min-w-0">
-                <p className="text-[11px] font-medium" style={{ color: "var(--mq-text-muted)" }}>
+                <p className="mq-t-meta-2 font-medium" style={{ color: "var(--mq-text-muted)" }}>
                   {item.label}
                 </p>
                 <p className="text-xs font-semibold" style={{ color: item.color }}>

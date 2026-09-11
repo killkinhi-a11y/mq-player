@@ -15,19 +15,18 @@ interface ScrollRevealProps {
   disabled?: boolean;
 }
 
-const directionMap = {
-  up: { x: 0, y: 1 },
-  down: { x: 0, y: -1 },
-  left: { x: 1, y: 0 },
-  right: { x: -1, y: 0 },
-};
+/* v68 premium motion: 8px rise (was 16 — travel felt cheap), 0.42s,
+   expo-out curve. Scroll-reveal stays subtle: the reader should notice
+   content appearing, not the movement itself. */
+const PREMIUM_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
+const DIRECTION = { up: { x: 0, y: 1 }, down: { x: 0, y: -1 }, left: { x: 1, y: 0 }, right: { x: -1, y: 0 } } as const;
 
 export default function ScrollReveal({
   children,
   direction = "up",
   delay = 0,
-  duration = 0.3,
-  distance = 16,
+  duration = 0.42,
+  distance = 8,
   threshold = 0.1,
   once = true,
   className,
@@ -73,7 +72,7 @@ export default function ScrollReveal({
     return <div className={className}>{children}</div>;
   }
 
-  const d = directionMap[direction];
+  const d = DIRECTION[direction];
 
   return (
     <div ref={ref} className={className} style={{ overflow: "hidden", contain: "layout style paint" }}>
@@ -83,7 +82,7 @@ export default function ScrollReveal({
             initial={{ opacity: 0, x: d.x * distance, y: d.y * distance }}
             animate={{ opacity: 1, x: 0, y: 0 }}
             exit={{ opacity: 0, x: d.x * distance, y: d.y * distance }}
-            transition={{ duration, delay, ease: [0.25, 0.1, 0.25, 1] }}
+            transition={{ duration, delay, ease: PREMIUM_EASE }}
           >
             {children}
           </motion.div>

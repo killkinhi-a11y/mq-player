@@ -184,7 +184,7 @@ export default function AdminSettingsPage() {
                 </div>
                 <Badge
                   variant="secondary"
-                  className="text-[11px] px-2 py-0.5"
+                  className="mq-t-meta-2 px-2 py-0.5"
                   style={{
                     backgroundColor: isOk
                       ? `${card.color}18`
@@ -254,7 +254,7 @@ export default function AdminSettingsPage() {
                   <Icon className="w-4 h-4" style={{ color: item.color }} />
                 </div>
                 <div>
-                  <p className="text-[11px] font-medium" style={{ color: "var(--mq-text-muted)" }}>
+                  <p className="mq-t-meta-2 font-medium" style={{ color: "var(--mq-text-muted)" }}>
                     {item.label}
                   </p>
                   <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>

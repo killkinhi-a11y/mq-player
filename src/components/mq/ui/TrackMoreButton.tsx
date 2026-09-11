@@ -13,10 +13,6 @@ import { MoreHorizontal } from "lucide-react";
    Desktop: revealed on row hover (opacity) — the reveal is opacity-only,
    owned by CSS on the parent group; the button's own hover is bg-only.
    Mobile: always visible (no hover to reveal).
-
-   `as="span"` — for triggers nested inside a real <button> row (HTML
-   forbids button-in-button): renders span[role=button] with full keyboard
-   support (Enter/Space). Everything else stays identical.
    ══════════════════════════════════════════════════════════════════════════ */
 
 interface TrackMoreButtonProps {
@@ -26,8 +22,6 @@ interface TrackMoreButtonProps {
   className?: string;
   /** Force always-visible (cards without group-hover context). */
   alwaysVisible?: boolean;
-  /** Render span[role=button] instead of <button> — for button-row parents. */
-  as?: "button" | "span";
 }
 
 const SIZES = {
@@ -48,7 +42,6 @@ export const TrackMoreButton = memo(function TrackMoreButton({
   label = "Ещё",
   className = "",
   alwaysVisible = false,
-  as = "button",
 }: TrackMoreButtonProps) {
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -59,42 +52,21 @@ export const TrackMoreButton = memo(function TrackMoreButton({
     [onOpen]
   );
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        e.stopPropagation();
-        // Synthetic mouse event: currentTarget = the span itself.
-        onOpen(e as unknown as React.MouseEvent);
-      }
-    },
-    [onOpen]
-  );
-
-  const shared = {
-    className: `${SIZES[size]} flex-shrink-0 flex items-center justify-center rounded-full cursor-pointer
-      ${alwaysVisible ? "" : "sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"}
-      transition-[background-color,color,opacity] duration-150
-      hover:bg-[var(--mq-overlay-hover)]
-      ${className}`,
-    style: { color: "var(--mq-text-muted)" },
-    "aria-label": label,
-    "aria-haspopup": "menu" as const,
-    title: label,
-    onClick: handleClick,
-    onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
-  };
-
-  if (as === "span") {
-    return (
-      <span {...shared} role="button" tabIndex={0} onKeyDown={handleKeyDown}>
-        <MoreHorizontal className={ICON_SIZES[size]} />
-      </span>
-    );
-  }
-
   return (
-    <button {...shared} type="button">
+    <button
+      type="button"
+      onClick={handleClick}
+      onPointerDown={(e) => e.stopPropagation()}
+      className={`${SIZES[size]} flex-shrink-0 flex items-center justify-center rounded-full cursor-pointer
+        ${alwaysVisible ? "" : "sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"}
+        transition-[background-color,color,opacity] duration-150
+        hover:bg-[var(--mq-overlay-hover)]
+        ${className}`}
+      style={{ color: "var(--mq-text-muted)" }}
+      aria-label={label}
+      aria-haspopup="menu"
+      title={label}
+    >
       <MoreHorizontal className={ICON_SIZES[size]} />
     </button>
   );

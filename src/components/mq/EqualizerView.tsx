@@ -295,7 +295,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                     </h2>
                     {/* State chip — preset/custom/bypass is obvious at a glance */}
                     <span
-                      className="mq-t-badge px-2 py-0.5 rounded-full shrink-0"
+                      className="px-2 py-0.5 rounded-full mq-t-meta-2 font-bold tracking-wide shrink-0"
                       style={{
                         backgroundColor:
                           stateChip.tone === "muted"
@@ -319,7 +319,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                       {stateChip.text}
                     </span>
                   </div>
-                  <p className="mq-t-meta-2 leading-tight mt-0.5 truncate">
+                  <p className="mq-t-meta-2 leading-tight mt-0.5 truncate" style={{ color: "var(--mq-text-muted)" }}>
                     10 полос · {eqEnabled ? presetName : "обработка выключена"}
                   </p>
                 </div>
@@ -372,11 +372,11 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
               <div className="px-4 sm:px-5 pt-4 pb-1">
                 <div className="flex items-center gap-2 mb-3" aria-hidden="true">
                   <Sliders className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
-                  <span className="mq-t-label">
+                  <span className="mq-t-meta-2 font-bold tracking-[0.14em] uppercase" style={{ color: "var(--mq-text-muted)" }}>
                     Полосы · {EQ_BANDS.length}
                   </span>
                   <span className="flex-1 h-px" style={{ backgroundColor: "var(--mq-border-hairline)" }} />
-                  <span className="mq-t-num" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+                  <span className="mq-t-meta-2 font-mono" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
                     ±{EQ_MAX} dB
                   </span>
                 </div>
@@ -429,7 +429,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                     {DB_TICKS.map((db) => (
                       <span
                         key={db}
-                        className="mq-t-num leading-none"
+                        className="mq-t-meta-2 font-mono tabular-nums leading-none"
                         style={{
                           color: db === 0 ? "var(--mq-text-muted)" : "var(--mq-text-faint, var(--mq-text-muted))",
                           opacity: db === 0 ? 0.9 : 0.6,
@@ -498,7 +498,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                 {/* Frequency labels */}
                 <div className="flex sm:pl-9 mt-2.5 select-none" aria-hidden="true">
                   {EQ_BANDS.map((band, i) => (
-                    <span key={i} className="mq-t-num flex-1 min-w-0 text-center" style={{ color: "var(--mq-text-muted)" }}>
+                    <span key={i} className="flex-1 min-w-0 text-center mq-t-meta-2 font-semibold tabular-nums" style={{ color: "var(--mq-text-muted)" }}>
                       {band.frequency >= 1000 ? `${band.frequency / 1000}k` : `${band.frequency}`}
                     </span>
                   ))}
@@ -517,13 +517,13 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                 >
                   <div className="flex items-center gap-2 mb-3.5" aria-hidden="true">
                     <Gauge className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
-                    <span className="mq-t-label">
+                    <span className="mq-t-meta-2 font-bold tracking-[0.14em] uppercase" style={{ color: "var(--mq-text-muted)" }}>
                       Мастер · Выход
                     </span>
                     <span className="flex-1 h-px" style={{ backgroundColor: "var(--mq-border-hairline)" }} />
                     {/* Limiter status — one glance */}
                     <span
-                      className="mq-t-badge px-2 py-0.5 rounded-full"
+                      className="px-2 py-0.5 rounded-full mq-t-meta-2 font-bold tracking-wide"
                       style={{
                         backgroundColor: limiterEnabled ? "color-mix(in srgb, var(--mq-accent) 16%, transparent)" : "color-mix(in srgb, var(--mq-text-muted) 12%, transparent)",
                         color: limiterEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)",
@@ -561,7 +561,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                         {/* dB tick scale beside the meter */}
                         <div className="flex flex-col justify-between h-[168px] py-0 select-none" aria-hidden="true">
                           {OUT_TICKS.map(t => (
-                            <span key={t} className="mq-t-num leading-none" style={{ color: "var(--mq-text-muted)", opacity: 0.65 }}>
+                            <span key={t} className="mq-t-meta-2 font-mono tabular-nums leading-none" style={{ color: "var(--mq-text-muted)", opacity: 0.65 }}>
                               {t}
                             </span>
                           ))}
@@ -583,9 +583,9 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                             }}
                           />
                         </div>
-                        <span className="mq-t-num" style={{ color: "var(--mq-text-muted)" }}>GR</span>
+                        <span className="mq-t-meta-2 font-mono font-bold" style={{ color: "var(--mq-text-muted)" }}>GR</span>
                       </div>
-                      <span className="mq-t-num self-end pb-0.5" style={{ color: "var(--mq-text-muted)" }}>OUT</span>
+                      <span className="mq-t-meta-2 font-mono font-bold self-end pb-0.5" style={{ color: "var(--mq-text-muted)" }}>OUT</span>
                     </div>
 
                     {/* Readout cluster + limiter control */}
@@ -613,8 +613,8 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                             <ShieldAlert className="w-3.5 h-3.5" style={{ color: limiterEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                           </div>
                           <div className="min-w-0">
-                            <p className="mq-t-section" style={{ color: "var(--mq-text)" }}>Лимитер</p>
-                            <p className="mq-t-meta-2 truncate">
+                            <p className="mq-t-body font-semibold" style={{ color: "var(--mq-text)" }}>Лимитер</p>
+                            <p className="mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
                               {limiterEnabled ? `Потолок ${limiterThreshold} дБ` : "Пики не ограничиваются"}
                             </p>
                           </div>
@@ -650,8 +650,8 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                         }}
                       >
                         <div className="flex items-center justify-between mb-1.5">
-                          <span className="mq-t-meta-2">Порог</span>
-                          <span className="mq-t-num" style={{ color: "var(--mq-text)" }}>{limiterThreshold} dB</span>
+                          <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>Порог</span>
+                          <span className="mq-t-meta-2 font-mono font-semibold" style={{ color: "var(--mq-text)" }}>{limiterThreshold} dB</span>
                         </div>
                         <input
                           type="range"
@@ -667,7 +667,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                         />
                         <div className="flex justify-between mt-1 px-0.5 select-none" aria-hidden="true">
                           {[-12, -9, -6, -3, 0].map((v) => (
-                            <span key={v} className="mq-t-num" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>{v}</span>
+                            <span key={v} className="mq-t-meta-2 font-mono tabular-nums" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>{v}</span>
                           ))}
                         </div>
                       </div>
@@ -679,7 +679,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                     {/* Horizontal meters */}
                     <div className="flex flex-col gap-1.5" aria-label="Измерители">
                       <div className="flex items-center gap-2">
-                        <span className="mq-t-num w-7 shrink-0" style={{ color: "var(--mq-text-muted)" }}>OUT</span>
+                        <span className="mq-t-meta-2 font-mono font-bold w-7 shrink-0" style={{ color: "var(--mq-text-muted)" }}>OUT</span>
                         <div className="relative flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--mq-glass-bg)" }}>
                           <div
                             ref={peakBarHRef}
@@ -690,7 +690,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="mq-t-num w-7 shrink-0" style={{ color: "var(--mq-text-muted)" }}>GR</span>
+                        <span className="mq-t-meta-2 font-mono font-bold w-7 shrink-0" style={{ color: "var(--mq-text-muted)" }}>GR</span>
                         <div className="relative flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "var(--mq-glass-bg)" }}>
                           <div
                             ref={grBarHRef}
@@ -717,8 +717,8 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                       <div className="flex items-center gap-2.5 min-w-0">
                         <ShieldAlert className="w-4 h-4 shrink-0" style={{ color: limiterEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                         <div className="min-w-0">
-                          <p className="mq-t-section" style={{ color: "var(--mq-text)" }}>Лимитер</p>
-                          <p className="mq-t-meta-2 truncate">
+                          <p className="mq-t-body font-semibold" style={{ color: "var(--mq-text)" }}>Лимитер</p>
+                          <p className="mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
                             {limiterEnabled ? `Потолок ${limiterThreshold} дБ` : "Выключен"}
                           </p>
                         </div>
@@ -743,8 +743,8 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                     {/* Threshold */}
                     <div style={{ opacity: limiterEnabled ? 1 : 0.45, transition: "opacity 200ms cubic-bezier(0.4,0,0.2,1)" }}>
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="mq-t-meta-2">Порог</span>
-                        <span className="mq-t-num" style={{ color: "var(--mq-text)" }}>{limiterThreshold} dB</span>
+                        <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>Порог</span>
+                        <span className="mq-t-meta-2 font-mono font-semibold" style={{ color: "var(--mq-text)" }}>{limiterThreshold} dB</span>
                       </div>
                       <input
                         type="range"
@@ -760,7 +760,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                       />
                       <div className="flex justify-between mt-1 px-0.5 select-none" aria-hidden="true">
                         {[-12, -9, -6, -3, 0].map((v) => (
-                          <span key={v} className="mq-t-num" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>{v}</span>
+                          <span key={v} className="mq-t-meta-2 font-mono tabular-nums" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>{v}</span>
                         ))}
                       </div>
                     </div>
@@ -773,7 +773,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                 className="px-5 py-3 flex items-center justify-center gap-2"
                 style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
               >
-                <span className="mq-t-meta-2 text-center">
+                <span className="mq-t-meta-2 text-center" style={{ color: "var(--mq-text-muted)" }}>
                   Двойной тап — сброс полосы · ←/→ или ↑/↓ — шаг 0.5 дБ
                 </span>
               </div>
@@ -802,10 +802,10 @@ function Readout({ label, value, title, accent, ref }: {
       }}
       title={title}
     >
-      <p className="mq-t-label leading-none mb-1">
+      <p className="mq-t-meta-2 font-bold tracking-[0.1em] uppercase leading-none mb-1" style={{ color: "var(--mq-text-muted)" }}>
         {label}
       </p>
-      <span ref={ref} className="mq-t-num text-[15px] font-semibold leading-none block truncate" style={{ color: accent ? "var(--mq-accent)" : "var(--mq-text)" }}>
+      <span ref={ref} className="mq-t-section font-mono font-semibold tabular-nums leading-none block truncate" style={{ color: accent ? "var(--mq-accent)" : "var(--mq-text)" }}>
         {value}
       </span>
     </div>
@@ -923,7 +923,7 @@ function EqBandSlider({ label, bandInfo, value, disabled, onChange }: EqBandSlid
     <div className="flex-1 flex flex-col items-center gap-2 min-w-0" title={bandInfo}>
       {/* Gain readout — always visible (pro fader) */}
       <span
-        className="mq-t-num font-semibold leading-none"
+        className="mq-t-meta-2 font-mono font-semibold tabular-nums leading-none"
         style={{
           color: isPositive
             ? "var(--mq-accent)"

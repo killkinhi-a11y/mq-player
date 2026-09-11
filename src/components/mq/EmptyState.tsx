@@ -75,7 +75,7 @@ export function EmptyState({ type, title, description, action }: EmptyStateProps
   // Static icon, serif headline, meta hint, one action. No breathing.
   return (
     <motion.div
-      className="mq-empty"
+      className="mq-empty mq-empty-anim"
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}

@@ -420,7 +420,7 @@ export default function OnboardingTour() {
                     />
                   </div>
                   <span
-                    className="mq-t-label"
+                    className="text-xs sm:mq-t-meta-2 font-bold uppercase tracking-widest"
                     style={{ color: "var(--mq-accent, #e03131)" }}
                   >
                     {currentStep + 1} / {totalSteps}
@@ -445,7 +445,7 @@ export default function OnboardingTour() {
                   {step.title}
                 </h3>
                 <p
-                  className="mq-t-body leading-relaxed"
+                  className="mq-t-body sm:mq-t-body leading-relaxed"
                   style={{ color: "var(--mq-text-muted, #aaa)" }}
                 >
                   {step.description}

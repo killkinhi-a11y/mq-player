@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 "use client";
 
 interface PlaylistArtworkProps {
@@ -170,7 +171,7 @@ export default function PlaylistArtwork({ playlistId, size, rounded = "rounded-2
         const useEnter = animated && !isPlaying;
 
         return (
-          <>
+          <Fragment key={i}>
             {/* Main orb */}
             <div
               key={`o-${i}`}
@@ -223,7 +224,7 @@ export default function PlaylistArtwork({ playlistId, size, rounded = "rounded-2
                 ["--my2" as string]: `calc(${anim.moveY} * -0.8)`,
               }}
             />
-          </>
+          </Fragment>
         );
       })}
     </div>
