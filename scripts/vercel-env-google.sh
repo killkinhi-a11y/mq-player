@@ -13,6 +13,9 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
+# Resolve the Vercel CLI through npx when no global binary is installed.
+command -v vercel >/dev/null 2>&1 || vercel() { npx -y vercel "$@"; }
+
 ENV_FILE="$(dirname "$0")/../.env.local"
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "ERROR: $ENV_FILE not found — put GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET there first."
