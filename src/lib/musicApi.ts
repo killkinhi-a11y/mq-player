@@ -105,6 +105,18 @@ export function formatDuration(seconds: number): string {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
+/**
+ * Metadata duration for LIST/ROW surfaces (v69 duration contract).
+ * Unknown / zero / live-without-duration renders as an em-dash instead of a
+ * misleading "0:00" — playback positions still use formatDuration (0:00 is
+ * a correct position). Never negative, never NaN: normalizeDuration clamps
+ * null/undefined/NaN/±Inf/negative to 0.
+ */
+export function formatTrackDuration(seconds: number): string {
+  const s = normalizeDuration(seconds);
+  return s > 0 ? formatDuration(s) : "—";
+}
+
 export async function searchTracks(query: string, source: "soundcloud" | "all" = "all"): Promise<Track[]> {
   try {
     const params = new URLSearchParams({ q: query });

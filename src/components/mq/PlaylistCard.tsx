@@ -128,13 +128,13 @@ export default function PlaylistCard({ playlist, index = 0 }: PlaylistCardProps)
         <p className="text-xs mt-1 truncate" style={{ color: "var(--mq-text-muted)" }}>
           {playlist.description}
         </p>
-        <div className="flex items-center gap-2 mt-2.5">
-          <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)", color: "var(--mq-accent)" }}>
+        <div className="flex items-center gap-2 mt-2.5 min-w-0">
+          <span className="text-xs px-2 py-0.5 rounded-full shrink-0 max-w-[45%] truncate" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)", color: "var(--mq-accent)" }}>
             {playlist.genre}
           </span>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0 whitespace-nowrap">
             <Clock className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
-            <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+            <span className="mq-t-num" style={{ color: "var(--mq-text-muted)" }}>
               {formatDuration(playlist.tracks.reduce((a, t) => a + t.duration, 0))}
             </span>
           </div>

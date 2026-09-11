@@ -3808,6 +3808,27 @@ a:focus-visible {
 }
 } /* /@layer components (type system) */
 
+/* ── MIXER v6 — audio control surface primitives (v69) ───────────────────
+   CLIP led: quiet at rest (barely-there border ghost), hot red when the
+   rAF metering loop detects digital overs (peak ≥ −0.1 dBFS / dBTP).
+   State is written via [data-clip] by the meter loop (no re-renders). */
+.eq-clip-led {
+  background: color-mix(in srgb, var(--mq-text-muted) 8%, transparent);
+  color: var(--mq-text-muted);
+  opacity: 0.55;
+  border: 1px solid var(--mq-border-thin);
+  transition: background-color 120ms, color 120ms, opacity 120ms, border-color 120ms;
+}
+.eq-clip-led[data-clip="1"] {
+  background: color-mix(in srgb, #e03131 22%, transparent);
+  color: #ff6b6b;
+  border-color: color-mix(in srgb, #e03131 60%, transparent);
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .eq-clip-led { transition: none; }
+}
+
 /* ── Context menu system (v68) ────────────────────────────────────────────
    ONE menu engine for the whole app (MenuCore.tsx). CSS owns hover/active
    feedback (one-owner: background + color only, 80ms). Framer owns the

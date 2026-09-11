@@ -1136,6 +1136,13 @@ const ProfileView = React.memo(function ProfileView() {
                       {track.track.artist}
                     </p>
                   </div>
+                  {/* v69 duration contract: recent-track rows keep duration
+                      (shrink-0) alongside the played-at stamp. */}
+                  {track.track.duration > 0 && (
+                    <span className="mq-t-num flex-shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}>
+                      {formatDuration(track.track.duration)}
+                    </span>
+                  )}
                   <span className="mq-t-meta-2 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>
                     {formatTimeAgo(track.playedAt)}
                   </span>

@@ -1813,6 +1813,14 @@ export function useAudioEngine(params: UseAudioEngineParams) {
           if (!isDraggingRef.current) {
             const s2 = useAppStore.getState();
             if (Math.abs(pos - s2.progress) >= 1 || pos === 0) setProgressRef.current(pos);
+            // v69 duration contract: the WASM path never wrote the REAL
+            // decoded duration — the store kept the (possibly zero/estimated)
+            // metadata value for the whole track, so "0:00 / 0:00" persisted
+            // while audio played. Self-correct when the backend reports a
+            // usable, materially different duration (UI-only fix; DSP untouched).
+            if (dur > 0 && isFinite(dur) && Math.abs(dur - s2.duration) > 1) {
+              useAppStore.getState().setDuration(dur);
+            }
           }
           // v2 Predictive pipeline (A10): register the next queue track with
           // the engine when it comes into prefetch range. The engine decides

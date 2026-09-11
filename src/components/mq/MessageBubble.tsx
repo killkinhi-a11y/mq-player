@@ -7,7 +7,7 @@ import { Lock, Play, Pause, Music2, Headphones, BookOpen, Loader2, Check, CheckC
 import { simulateDecryptSync } from "@/lib/crypto";
 import ContextMenu from "./ContextMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
-import { type Track } from "@/lib/musicApi";
+import { type Track, formatDuration } from "@/lib/musicApi";
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -200,11 +200,9 @@ function VoicePlayer({
     }
   }, [transcribing, transcription, voiceUrl]);
 
-  const formatTime = (s: number) => {
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, "0")}`;
-  };
+  // v69: canonical formatter (guards + h:mm:ss) replaces the local copy —
+  // NaN/negative voice durations can no longer render "NaN:NaN".
+  const formatTime = (s: number) => formatDuration(s);
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
@@ -738,6 +736,13 @@ export default function MessageBubble({
             <p className="mq-t-meta-2 truncate" style={{ color: isMine ? "rgba(255,255,255,0.65)" : "var(--mq-text-muted)" }}>
               {trackShareData.artist}
             </p>
+            {/* v69 duration contract: chat track-share card shows its
+                duration (shrink-0, tabular) — previously absent entirely. */}
+            {trackShareData.duration > 0 && (
+              <span className="mq-t-num" style={{ color: isMine ? "rgba(255,255,255,0.55)" : "var(--mq-text-muted)", opacity: 0.85 }}>
+                {formatDuration(trackShareData.duration)}
+              </span>
+            )}
           </div>
           <Music2 className="w-4 h-4 flex-shrink-0" style={{ color: isMine ? "rgba(255,255,255,0.5)" : "var(--mq-accent)" }} />
           <TrackMoreButton

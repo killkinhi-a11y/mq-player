@@ -10,7 +10,7 @@ import {
   CheckSquare, Square, ListPlus, Tag, Filter, SlidersHorizontal,
   CalendarDays, MoreHorizontal,
 } from "lucide-react";
-import type { Track } from "@/lib/musicApi";
+import { formatDuration, formatTrackDuration, type Track } from "@/lib/musicApi";
 import ContextMenu from "./ContextMenu";
 import { useTrackContextMenu } from "@/hooks/useTrackContextMenu";
 
@@ -276,12 +276,6 @@ export default function FavoritesView() {
     setBatchMode(false);
     setSelectedIds(new Set());
   }, []);
-
-  const formatDuration = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}:${s.toString().padStart(2, "0")}`;
-  };
 
   const formatNumber = (num: number) => {
     if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
@@ -1098,10 +1092,15 @@ export default function FavoritesView() {
                         </div>
                       </div>
 
-                      {/* Duration */}
-                      {track.duration > 0 && (
-                        <span className="mq-t-meta-2 flex-shrink-0 hidden sm:block tabular-nums" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+                      {/* Duration — v69: canonical formatter, visible on
+                          mobile too (was hidden sm:block), shrink-0 + nowrap. */}
+                      {track.duration > 0 ? (
+                        <span className="mq-t-num flex-shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}>
                           {formatDuration(track.duration)}
+                        </span>
+                      ) : (
+                        <span className="mq-t-num flex-shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>
+                          {formatTrackDuration(track.duration)}
                         </span>
                       )}
 

@@ -284,14 +284,13 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
 
         {/* ── Actions ── */}
         <div className="flex items-center gap-0 flex-shrink-0">
-          {/* Duration — mono numerals, right-aligned */}
+          {/* Duration — tabular numerals, right-aligned.
+              v69: min-width (not fixed width) so h:mm:ss ("1:02:15") fits
+              instead of overflowing the w-8/w-10 box. */}
           {track.duration > 0 && (
             <span
-              className={`
-                mq-t-num text-[11px] text-right
-                ${compactMode ? "w-8 mr-0.5" : "w-10 mr-0.5"}
-              `}
-              style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}
+              className="mq-t-num text-right shrink-0 whitespace-nowrap mr-0.5"
+              style={{ color: "var(--mq-text-muted)", opacity: 0.75, minWidth: compactMode ? 32 : 40 }}
             >
               {formatDuration(track.duration)}
             </span>

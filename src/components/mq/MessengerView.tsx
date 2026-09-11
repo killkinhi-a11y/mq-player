@@ -16,6 +16,7 @@ import {
 import { simulateDecryptSync, simulateEncrypt } from "@/lib/crypto";
 import { useToast } from "@/hooks/use-toast";
 import type { Message as ChatMessage } from "@/lib/musicApi";
+import { formatDuration as formatDurationCanonical } from "@/lib/musicApi";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -56,10 +57,9 @@ function formatLastSeen(iso: string | null): string {
   } catch { return "был(а) недавно"; }
 }
 
-function formatDuration(sec: number): string {
-  const s = Math.max(0, Math.floor(sec || 0));
-  return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
-}
+// v69: canonical formatter (guards + h:mm:ss) replaces the guarded local
+// copy — one formatter everywhere.
+const formatDuration = formatDurationCanonical;
 
 function getDateLabel(iso: string): string {
   try {

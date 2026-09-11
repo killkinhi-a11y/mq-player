@@ -148,6 +148,7 @@ function FullTrackViewMobileInner() {
     if (!isOpen) return;
     let rafId = 0;
     let lastSecond = -1;
+    let lastTrackId: string | null = null;
 
     const tick = () => {
       if (!isDraggingRef.current) {
@@ -156,8 +157,18 @@ function FullTrackViewMobileInner() {
         // directly froze the bar at 0:00 on the wasm path.
         const pos = currentPlaybackPosition();
         const dur = durationRef.current || 0;
-        if (dur > 0 && isFinite(pos) && pos >= 0) {
-          const pct = Math.min(100, (pos / dur) * 100);
+        // v69: reset the second-latch on track switch so a new track starts
+        // its label from 0 instead of inheriting the old track's timestamp.
+        const tid = useAppStore.getState().currentTrack?.id ?? null;
+        if (tid !== lastTrackId) {
+          lastTrackId = tid;
+          lastSecond = -1;
+        }
+        // v69: position updates even when duration is still unknown (0) —
+        // the OLD `dur > 0` gate froze the label at 0:00 while audio was
+        // audibly playing on tracks with missing metadata.
+        if (isFinite(pos) && pos >= 0) {
+          const pct = dur > 0 ? Math.min(100, (pos / dur) * 100) : 0;
           if (seekInputRef.current && document.activeElement !== seekInputRef.current) {
             seekInputRef.current.value = String(pct);
             seekInputRef.current.style.setProperty("--mq-seek-pct", `${pct}%`);
@@ -167,7 +178,10 @@ function FullTrackViewMobileInner() {
             lastSecond = sec;
             timeCurrentRef.current.textContent = formatDuration(sec);
             if (timeRemainingRef.current) {
-              timeRemainingRef.current.textContent = "−" + formatDuration(Math.max(0, dur - sec));
+              // Unknown duration → honest “—”, never a fake −0:00 countdown.
+              timeRemainingRef.current.textContent = dur > 0
+                ? "−" + formatDuration(Math.max(0, dur - sec))
+                : "—";
             }
           }
         }
@@ -534,10 +548,11 @@ function FullTrackViewMobileInner() {
 
         {/* ── Seek (28px touch) + times ── */}
         <div className="mq-ft-anim px-4 mt-3.5" style={{ flexShrink: 0, animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 150ms backwards" }}>
-          {/* Editorial flip: times ABOVE the bar — current in text color, larger */}
+          {/* Editorial flip: times ABOVE the bar — current in text color, larger.
+              v69: Manrope tabular (font-mono dropped), remaining honest “—”. */}
           <div className="flex items-baseline justify-between">
-            <span ref={timeCurrentRef} className="text-[26px] font-mono tabular-nums font-bold leading-none tracking-tight" style={{ color: "var(--mq-text)" }}>0:00</span>
-            <span ref={timeRemainingRef} className="mq-t-body font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>−{formatDuration(duration)}</span>
+            <span ref={timeCurrentRef} className="text-[26px] tabular-nums font-bold leading-none tracking-tight shrink-0" style={{ color: "var(--mq-text)" }}>0:00</span>
+            <span ref={timeRemainingRef} className="mq-t-body tabular-nums shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)" }}>{duration > 0 ? `−${formatDuration(duration)}` : "—"}</span>
           </div>
           <input
             ref={seekInputRef}
@@ -646,12 +661,20 @@ function FullTrackViewMobileInner() {
                 <div key={t.id + i} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playTrack?.(t, queue); setPanel(null); } }} onClick={() => { playTrack?.(t, queue); setPanel(null); }} className="mq-ft-btn w-full flex items-center gap-3 p-2 rounded-xl text-left" style={{ border: "none", cursor: "pointer", background: "transparent" }}>
                   <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">{t.cover ? <img src={t.cover} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: "var(--mq-accent)" }} />}</div>
                   <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{t.title}</p><p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{t.artist}</p></div>
+                  {/* v69 duration contract: queue rows keep duration (shrink-0) */}
+                  {t.duration > 0 && (
+                    <span className="mq-t-num shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}>{formatDuration(t.duration)}</span>
+                  )}
                   <TrackMoreButton onOpen={(e) => { e.stopPropagation(); setTrackMenu({ track: t, x: e.clientX, y: e.clientY }); }} size="sm" label={`Действия: ${t.title}`} />
                 </div>)) : <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>Очередь пуста</p>)}
               {panel === "history" && (recent.length ? recent.map((t, i) => (
                 <div key={t.id + i} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playTrack?.(t, [t]); setPanel(null); } }} onClick={() => { playTrack?.(t, [t]); setPanel(null); }} className="mq-ft-btn w-full flex items-center gap-3 p-2 rounded-xl text-left" style={{ border: "none", cursor: "pointer", background: "transparent" }}>
                   <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">{t.cover ? <img src={t.cover} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: "var(--mq-accent)" }} />}</div>
                   <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{t.title}</p><p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{t.artist}</p></div>
+                  {/* v69 duration contract: history rows keep duration (shrink-0) */}
+                  {t.duration > 0 && (
+                    <span className="mq-t-num shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}>{formatDuration(t.duration)}</span>
+                  )}
                   <TrackMoreButton onOpen={(e) => { e.stopPropagation(); setTrackMenu({ track: t, x: e.clientX, y: e.clientY }); }} size="sm" label={`Действия: ${t.title}`} />
                 </div>)) : <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>История пуста</p>)}
             </div>
@@ -673,14 +696,14 @@ function FullTrackViewMobileInner() {
 
               {/* Volume */}
               <div className="py-3">
-                <div className="flex items-center gap-3 mb-2"><Volume2 className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} /><span className="text-sm" style={{ color: "var(--mq-text)" }}>Громкость</span><span className="text-xs ml-auto font-mono" style={{ color: "var(--mq-text-muted)" }}>{Math.round(volume)}%</span></div>
+                <div className="flex items-center gap-3 mb-2"><Volume2 className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} /><span className="text-sm" style={{ color: "var(--mq-text)" }}>Громкость</span><span className="mq-t-num ml-auto" style={{ color: "var(--mq-text-muted)" }}>{Math.round(volume)}%</span></div>
                 <input type="range" min={0} max={100} value={volume} onChange={(e) => { const v = Number(e.target.value); setVolume(v); e.target.style.setProperty('--mq-vol-pct', `${v}%`); }} className="mq-ft-vol" style={{ width: "100%", ['--mq-vol-pct' as string]: `${volume}%` }} />
               </div>
               <div className="h-px my-2" style={{ background: "var(--mq-border-thin)" }} />
 
               {/* Playback speed */}
               <div className="py-3">
-                <div className="flex items-center gap-3 mb-2"><Gauge className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} /><span className="text-sm" style={{ color: "var(--mq-text)" }}>Скорость</span><span className="text-xs ml-auto font-mono" style={{ color: playbackRate !== 1 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>{playbackRate}x</span></div>
+                <div className="flex items-center gap-3 mb-2"><Gauge className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} /><span className="text-sm" style={{ color: "var(--mq-text)" }}>Скорость</span><span className="mq-t-num ml-auto" style={{ color: playbackRate !== 1 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>{playbackRate}x</span></div>
                 <div className="flex items-center gap-2 flex-wrap pl-8">
                   {speedOptions.map(speed => (
                     <button key={speed} onClick={() => handleSpeedChange(speed)} className="mq-ft-btn px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: playbackRate === speed ? "var(--mq-accent)" : "var(--mq-input-bg)", color: playbackRate === speed ? "#fff" : "var(--mq-text-muted)", border: "none", cursor: "pointer" }}>
@@ -693,7 +716,7 @@ function FullTrackViewMobileInner() {
 
               {/* Sleep timer */}
               <div className="py-3">
-                <div className="flex items-center gap-3 mb-2"><Timer className="w-5 h-5" style={{ color: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} /><span className="text-sm" style={{ color: "var(--mq-text)" }}>Таймер сна</span>{sleepTimerActive && <span className="text-xs ml-auto font-mono" style={{ color: "var(--mq-accent)" }}>{sleepRemainingMin}м</span>}</div>
+                <div className="flex items-center gap-3 mb-2"><Timer className="w-5 h-5" style={{ color: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} /><span className="text-sm" style={{ color: "var(--mq-text)" }}>Таймер сна</span>{sleepTimerActive && <span className="mq-t-num ml-auto" style={{ color: "var(--mq-accent)" }}>{sleepRemainingMin}м</span>}</div>
                 <div className="flex items-center gap-2 flex-wrap pl-8">
                   {sleepOptions.map(min => (
                     <button key={min} onClick={() => handleSleepSet(min)} className="mq-ft-btn px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: "var(--mq-input-bg)", color: "var(--mq-text-muted)", border: "none", cursor: "pointer" }}>

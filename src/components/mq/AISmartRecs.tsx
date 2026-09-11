@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
-import { type Track } from "@/lib/musicApi";
+import { type Track, formatDuration } from "@/lib/musicApi";
 import { extractTasteProfile, tasteProfileToSummary } from "@/lib/tasteProfile";
 import {
   Sparkles, Play, Music, Brain, Heart, Zap, Coffee,
@@ -389,6 +389,12 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
                         {track.artist}
                         {track.genre ? ` · ${track.genre}` : ""}
                       </p>
+                      {/* v69 duration contract: AI rec cards show duration */}
+                      {track.duration > 0 && (
+                        <span className="mq-t-num mt-0.5 block" style={{ color: "var(--mq-text-muted)", opacity: 0.85 }}>
+                          {formatDuration(track.duration)}
+                        </span>
+                      )}
                     </div>
 
                     {/* Add to queue */}

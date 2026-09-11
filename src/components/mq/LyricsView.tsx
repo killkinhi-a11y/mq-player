@@ -2,6 +2,7 @@
 
 import { useRef, useMemo, useEffect, useState, useCallback, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { formatDuration } from "@/lib/musicApi";
 
 /**
  * LyricsView — premium synced lyrics component for MQ Player.
@@ -38,11 +39,8 @@ interface LyricsViewProps {
   cover?: string;
 }
 
-function formatTime(s: number): string {
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${m}:${sec.toString().padStart(2, "0")}`;
-}
+// v69: canonical formatter (guards + h:mm:ss) replaces the local copy.
+const formatTime = (s: number): string => formatDuration(s);
 
 // ─── Synced lyrics with karaoke effect ─────────────────────────────────────
 
@@ -176,7 +174,7 @@ function SyncedLyrics({ lines, currentTime, onSeek }: {
                   initial={{ opacity: 0, x: -8 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -8 }}
-                  className="ml-2 mq-t-meta-2 font-mono align-middle"
+                  className="ml-2 mq-t-num align-middle"
                   style={{ color: "var(--mq-accent)" }}
                 >
                   → {formatTime(line.time)}

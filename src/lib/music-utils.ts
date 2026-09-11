@@ -9,7 +9,6 @@
  */
 
 import { type SCTrack, getSoundCloudClientId } from "@/lib/soundcloud";
-import { formatDuration } from "@/lib/musicApi";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // CONSTANTS

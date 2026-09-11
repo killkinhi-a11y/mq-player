@@ -1618,7 +1618,7 @@ function HorizontalTrackRow({
       </div>
       {isPlaying && <NowPlayingEqualizer />}
       {track.duration > 0 && (
-        <span className="mq-t-num shrink-0 truncate max-w-[64px]" style={{ color: "var(--mq-text-muted)" }}>
+        <span className="mq-t-num shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)" }}>
           {formatDuration(track.duration)}
         </span>
       )}

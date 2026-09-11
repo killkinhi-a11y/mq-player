@@ -3,6 +3,8 @@
 import React, { useRef, useCallback, useEffect, useState, memo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { getAudioElement } from "@/lib/audioEngine";
+import { currentPlaybackPosition } from "@/lib/wasm-audio";
+import { formatDuration } from "@/lib/musicApi";
 import { Play, Pause, Heart, Music, Loader2, Home, Search, Library, MessageCircle, Settings } from "lucide-react";
 import type { ViewType } from "@/store/useAppStore";
 
@@ -40,6 +42,7 @@ function MobileDockInner() {
 
   // Refs for progress
   const progressFillRef = useRef<HTMLDivElement>(null);
+  const timeLabelRef = useRef<HTMLSpanElement>(null);
 
   // ── Hero/mini-player de-duplication ──────────────────────────────
   // On the Home screen the MobileNowHero already owns the now-playing
@@ -70,16 +73,31 @@ function MobileDockInner() {
 
   const showPlayer = !!currentTrack && !miniPlayerHidden && !isFullTrackViewOpen && !heroOwnsPlayer;
 
-  // RAF: update progress fill width (simple, reliable)
+  // RAF: update progress fill width + compact time label (simple, reliable).
+  // v69: the dock previously showed NO time at all — mini-player duration
+  // contract requires a readable cur/total. Playback-routed position source
+  // (WASM stats or <audio>) so it never freezes on the wasm path.
   useEffect(() => {
     if (!showPlayer) return;
     let rafId = 0;
+    let lastSec = -1;
     const tick = () => {
       const audio = getAudioElement();
-      if (audio && audio.src && audio.duration && isFinite(audio.duration) && audio.duration > 0) {
-        const pct = audio.currentTime / audio.duration;
+      const dur = audio && audio.src && isFinite(audio.duration) && audio.duration > 0
+        ? audio.duration
+        : (useAppStore.getState().duration || 0);
+      const pos = currentPlaybackPosition();
+      if (isFinite(pos) && pos >= 0) {
+        const pct = dur > 0 ? Math.min(1, pos / dur) : 0;
         if (progressFillRef.current) {
           progressFillRef.current.style.transform = `scaleX(${pct})`;
+        }
+        const sec = Math.floor(pos);
+        if (sec !== lastSec && timeLabelRef.current) {
+          lastSec = sec;
+          timeLabelRef.current.textContent = dur > 0
+            ? `${formatDuration(sec)} / ${formatDuration(dur)}`
+            : formatDuration(sec);
         }
       }
       rafId = requestAnimationFrame(tick);
@@ -135,7 +153,7 @@ function MobileDockInner() {
             owns the now-playing surface, so the nav row slides, not jumps */}
         <div
           style={{
-            maxHeight: showPlayer ? 54 : 0,
+            maxHeight: showPlayer ? 62 : 0,
             opacity: showPlayer ? 1 : 0,
             overflow: "hidden",
             transition: "max-height 240ms cubic-bezier(0.4,0,0.2,1), opacity 200ms cubic-bezier(0.4,0,0.2,1)",
@@ -148,7 +166,7 @@ function MobileDockInner() {
           </div>
         )}
         {currentTrack && (
-          <div className="flex items-center gap-2 px-3" style={{ height: "52px" }}>
+          <div className="flex items-center gap-2 px-3" style={{ height: "60px" }}>
             <button onClick={openFull} className="mq-mini flex items-center gap-2.5 flex-1 min-w-0" style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
               <div className="rounded-md overflow-hidden flex-shrink-0" style={{ width: "38px", height: "38px" }}>
                 {currentTrack!.cover ? <img src={currentTrack!.cover} alt="" className="w-full h-full object-cover" />
@@ -156,7 +174,19 @@ function MobileDockInner() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="mq-t-body font-semibold truncate" style={{ color: "var(--mq-text)", lineHeight: "1.2" }}>{currentTrack!.title}</p>
-                <p className="mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)", lineHeight: "1.2", marginTop: "1px" }}>{currentTrack!.artist}</p>
+                <p className="mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)", lineHeight: "1.2", marginTop: "1px" }}>
+                  {currentTrack!.artist}
+                </p>
+                {/* v69 mini-player duration contract: cur / total, tabular
+                    Manrope, updated by the RAF loop (no re-renders). */}
+                <span
+                  ref={timeLabelRef}
+                  className="mq-t-num block truncate"
+                  style={{ color: "var(--mq-text-muted)", opacity: 0.85, lineHeight: "1.3", marginTop: "1px" }}
+                  aria-hidden="true"
+                >
+                  0:00
+                </span>
               </div>
             </button>
             <button onClick={onLike} aria-label={isLiked ? "Убрать из любимых" : "Добавить в любимые"} className="mq-mini w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: isLiked ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)" : "transparent", border: "none", cursor: "pointer", padding: 0 }}>

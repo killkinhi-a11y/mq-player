@@ -7,7 +7,7 @@ import {
   BadgeCheck, Loader2, Disc3,
 } from "lucide-react";
 import { useAppStore, type FavoriteArtist } from "@/store/useAppStore";
-import { type Track, formatDuration } from "@/lib/musicApi";
+import { type Track, formatDuration, formatTrackDuration } from "@/lib/musicApi";
 import { useToast } from "@/hooks/use-toast";
 import { extractColors, type DominantColors } from "@/hooks/useDominantColor";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
@@ -420,7 +420,9 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
                       className="p-2 rounded-full sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0" style={{ opacity: liked ? 1 : undefined }}>
                       <Heart className="w-4 h-4" style={{ color: liked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={liked ? "currentColor" : "none"} />
                     </button>
-                    <span className="mq-t-num mq-t-meta hidden sm:block shrink-0" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                    <span className="mq-t-num shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)" }} title="Длительность">
+                      {track.duration > 0 ? formatDuration(track.duration) : formatTrackDuration(track.duration)}
+                    </span>
                     <TrackMoreButton onOpen={(e) => openTrackMenu(track, e)} size="sm" label={`Действия: ${track.title}`} />
                   </div>
                 );

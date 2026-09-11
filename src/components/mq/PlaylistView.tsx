@@ -1190,9 +1190,10 @@ function TrackRow({ track, index, isCurrent, isPlaying, isLiked, playlistId, onP
           </button>
         </div>
 
-        {/* Duration */}
+        {/* Duration — v69: visible on ALL viewport sizes (was hidden <sm);
+            shrink-0 + nowrap so a long title can never push it out. */}
         {track.duration > 0 && (
-          <span className="mq-t-num mq-t-meta-2 flex-shrink-0 hidden sm:block text-right w-[68px]" style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}>
+          <span className="mq-t-num flex-shrink-0 whitespace-nowrap text-right w-[48px] sm:w-[68px]" style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}>
             {formatDuration(track.duration)}
           </span>
         )}

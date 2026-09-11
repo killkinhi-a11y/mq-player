@@ -1093,9 +1093,10 @@ const SearchTrackRow = memo(function SearchTrackRow({
             </p>
           </div>
           <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
-            {/* §E: artist is the FLEXIBLE element (flex-1 + min-w-0 →
-                truncates, never collapses to 0 when the meta tail
-                overflows); duration/genre are shrink-0 fixed boxes. */}
+            {/* §E v69 duration contract: artist is the ONLY flexible element
+                (flex-1 + min-w-0 → truncates); duration and genre tails are
+                shrink-0 + nowrap — they can never be squeezed, wrapped, or
+                clipped by a pathological title/artist. */}
             <button
               onClick={(e) => { e.stopPropagation(); onArtistClick?.(track.artist, track.cover); }}
               className="text-xs flex-1 min-w-0 text-left truncate hover:underline"
@@ -1104,17 +1105,17 @@ const SearchTrackRow = memo(function SearchTrackRow({
               {track.artist}
             </button>
             {track.duration > 0 && (
-              <span className="flex items-center gap-1.5 flex-shrink min-w-0">
+              <span className="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
                 <span style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>·</span>
-                <span className="mq-t-num mq-t-meta-2 truncate max-w-[64px]" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+                <span className="mq-t-num shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
                   {formatDuration(track.duration)}
                 </span>
               </span>
             )}
             {track.genre && (
-              <span className="flex items-center gap-1.5 flex-shrink min-w-0">
+              <span className="flex items-center gap-1.5 shrink-0 min-w-0">
                 <span style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>·</span>
-                <span className="mq-t-meta-2 px-1.5 py-0 rounded-md max-w-[140px] truncate" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
+                <span className="mq-t-meta-2 px-1.5 py-0 rounded-md max-w-[140px] truncate shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
                   {track.genre}
                 </span>
               </span>

@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { formatDuration } from "@/lib/musicApi";
 
 // ═════════════════════════════════════════════════════════════════════════
 // PROGRESS BAR — premium redesign
@@ -23,16 +24,12 @@ interface ProgressBarProps {
   onSeek: (time: number) => void;
   onDragStart: () => void;
   onDragEnd: () => void;
-  formatTime: (s: number) => string;
+  /** Optional formatter override — honored since v69 (was ignored). */
+  formatTime?: (s: number) => string;
   variant?: "playerbar" | "fulltrack" | "mobile";
 }
 
-function formatDuration(sec: number): string {
-  if (!sec || !isFinite(sec) || sec < 0) return "0:00";
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
+// v69 duration contract: ONE canonical formatter (musicApi). Local copy removed.
 
 function ProgressBarBase({
   progress,
@@ -42,8 +39,12 @@ function ProgressBarBase({
   onSeek,
   onDragStart,
   onDragEnd,
+  formatTime,
   variant = "playerbar",
 }: ProgressBarProps) {
+  // Canonical formatting (h:mm:ss + guards) — the formatTime prop, when
+  // provided, is now actually honored instead of silently ignored.
+  const fmt = formatTime ?? formatDuration;
   const trackRef = useRef<HTMLDivElement>(null);
   const [internalDragging, setInternalDragging] = useState(false);
   const [hoveredPct, setHoveredPct] = useState<number | null>(null);
@@ -189,12 +190,12 @@ function ProgressBarBase({
 
   return (
     <div className="flex items-center gap-2 w-full select-none">
-      {/* Current time */}
+      {/* Current time — shrink-0, min-width (not fixed) so h:mm:ss fits */}
       <span
-        className="mq-t-num mq-t-meta-2 text-right flex-shrink-0"
-        style={{ color: "var(--mq-text-muted)", width: 36 }}
+        className="mq-t-num mq-t-meta-2 text-right flex-shrink-0 whitespace-nowrap"
+        style={{ color: "var(--mq-text-muted)", minWidth: 36 }}
       >
-        {formatDuration(progress)}
+        {fmt(Math.max(0, progress))}
       </span>
 
       {/* Track container — slider semantics for keyboard users */}
@@ -284,7 +285,7 @@ function ProgressBarBase({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 4 }}
               transition={{ duration: 0.1 }}
-              className="absolute pointer-events-none z-10 px-2 py-1 rounded-md mq-t-meta-2 font-mono tabular-nums whitespace-nowrap"
+              className="absolute pointer-events-none z-10 px-2 py-1 rounded-md mq-t-num whitespace-nowrap"
               style={{
                 left: `${Math.max(8, Math.min(92, hoveredPct ?? 0))}%`,
                 transform: "translateX(-50%)",
@@ -302,12 +303,12 @@ function ProgressBarBase({
         </AnimatePresence>
       </div>
 
-      {/* Duration */}
+      {/* Duration — "—" while metadata is unknown (never a fake 0:00 total) */}
       <span
-        className="mq-t-num mq-t-meta-2 flex-shrink-0"
-        style={{ color: "var(--mq-text-muted)", width: 36 }}
+        className="mq-t-num mq-t-meta-2 flex-shrink-0 whitespace-nowrap"
+        style={{ color: "var(--mq-text-muted)", minWidth: 36 }}
       >
-        {formatDuration(duration)}
+        {duration > 0 ? fmt(duration) : "—"}
       </span>
     </div>
   );

@@ -6,7 +6,7 @@ import {
   Users, Share2, Radio, Trash2, Ban, Music2,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-import { type Track } from "@/lib/musicApi";
+import { type Track, formatDuration } from "@/lib/musicApi";
 import { getAudioElement } from "@/lib/audioEngine";
 import MenuCore, { backLabelSpec, MenuHeader, type MenuElement } from "./ui/MenuCore";
 
@@ -365,7 +365,15 @@ export default function ContextMenu({
       ariaLabel={`Действия: ${track.title}`}
       header={
         page === "root" ? (
-          <MenuHeader cover={track.cover} title={track.title} subtitle={track.artist} fallbackIcon={Music2} />
+          // v69 duration in context menu: duration rides the subtitle line
+          // (artist · m:ss) — correct value, never duplicated, truncation
+          // stays on the artist part via the flex header contract.
+          <MenuHeader
+            cover={track.cover}
+            title={track.title}
+            subtitle={track.duration > 0 ? `${track.artist} · ${formatDuration(track.duration)}` : track.artist}
+            fallbackIcon={Music2}
+          />
         ) : (
           <div className="mq-menu-label">Добавить в плейлист</div>
         )

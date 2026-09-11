@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Play, Pause, Loader2, Music, ExternalLink } from "lucide-react";
+import { formatDuration } from "@/lib/musicApi";
 
 interface TrackData {
   title: string;
@@ -18,11 +19,8 @@ interface TrackData {
   description: string;
 }
 
-function formatDuration(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
+// v69: canonical formatter (guards + h:mm:ss) replaces the local copy.
+
 
 export default function ShareTrackPage() {
   const params = useParams<{ id: string }>();

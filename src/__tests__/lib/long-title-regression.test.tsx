@@ -77,12 +77,14 @@ describe("long-title source contracts — actions never squeezed (min-w-0 + shri
 
   it("SearchView: genre badge is capped + truncatable (cannot overlay like/more)", () => {
     const src = read("SearchView.tsx");
-    // §E results row (post suggestion-panel removal): the artist is the
-    // flexible element (flex-1 min-w-0 → truncates), the genre badge is
-    // capped at 140px + truncatable, duration is a fixed shrink box.
+    // §E v69 results row: the artist is the ONLY flexible element
+    // (flex-1 min-w-0 → truncates), the genre badge is capped at 140px +
+    // truncatable, and the duration tail is shrink-0 + whitespace-nowrap —
+    // it can never be squeezed, wrapped, or ellipsized by a long title.
     expect(src).toMatch(/max-w-\[140px\] truncate/);
     expect(src).toMatch(/text-xs flex-1 min-w-0 text-left truncate/);
-    expect(src).toMatch(/flex-shrink min-w-0/);
+    expect(src).toMatch(/gap-1\.5 shrink-0 whitespace-nowrap/);
+    expect(src).not.toMatch(/flex-shrink min-w-0/);
   });
 
   it("FullTrackView (desktop): meta row wraps, genre capped", () => {
@@ -111,3 +113,51 @@ describe("long-title pathological corpus sanity", () => {
     expect(PATHOLOGICAL_TITLE).not.toMatch(/\s/);          // no-space variant
   });
 });
+
+describe("v69 duration contract — duration is never squeezed/hidden by titles", () => {
+  it("duration surfaces: shrink-0 + nowrap everywhere (no display:none escape)", () => {
+    // Views that previously hid duration on mobile (hidden sm:block).
+    const playlist = read("PlaylistView.tsx");
+    expect(playlist).not.toMatch(/hidden sm:block text-right/);
+    const favorites = read("FavoritesView.tsx");
+    expect(favorites).not.toMatch(/hidden sm:block tabular-nums/);
+    const artist = read("ArtistDetailView.tsx");
+    expect(artist).not.toMatch(/mq-t-meta hidden sm:block shrink-0/);
+
+    // Canonical formatter is imported (no local NaN-capable copies).
+    expect(favorites).toMatch(/from "@\/lib\/musicApi"/);
+    const progressBar = read("ProgressBar.tsx");
+    expect(progressBar).toMatch(/from "@\/lib\/musicApi"/);
+    expect(progressBar).toMatch(/duration > 0 \? fmt\(duration\) : "—"/);
+  });
+
+  it("duration formatter: one canonical implementation, hours + guards", async () => {
+    const mod = await import("@/lib/musicApi");
+    const { formatDuration, formatTrackDuration } = mod;
+    // h:mm:ss survives (was clipped by minute-only copies).
+    expect(formatDuration(3725)).toBe("1:02:05");
+    // positions still start at 0:00…
+    expect(formatDuration(0)).toBe("0:00");
+    // …while unknown metadata renders an em-dash, never a fake 0:00.
+    expect(formatTrackDuration(0)).toBe("—");
+    expect(formatTrackDuration(NaN)).toBe("—");
+    // negative/Infinity inputs can never produce -1:01 or Infinity strings.
+    expect(formatDuration(-61)).toBe("0:00");
+    expect(formatDuration(Infinity)).toBe("0:00");
+    // SoundCloud ms heuristics auto-convert.
+    expect(formatDuration(225000)).toBe("3:45");
+  });
+
+  it("mini player (mobile dock) renders a time label — duration is not display:none'd", () => {
+    const dock = read("MobileDock.tsx");
+    expect(dock).toMatch(/timeLabelRef/);
+    expect(dock).toMatch(/mq-t-num/);
+  });
+
+  it("FullTrackView position/total: tabular token + honest unknown total", () => {
+    const ftv = read("FullTrackView.tsx");
+    expect(ftv).toMatch(/mq-t-time shrink-0/);
+    expect(ftv).toMatch(/duration > 0 \? formatDuration\(duration\) : "—"/);
+  });
+});
+

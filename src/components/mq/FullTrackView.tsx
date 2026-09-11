@@ -1132,7 +1132,7 @@ export default function FullTrackView() {
                       <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
                       <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
                     </div>
-                    <span className="mq-t-meta-2 font-mono" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                    <span className="mq-t-num shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
                   </button>
                 ))}
               </div>
@@ -1173,7 +1173,7 @@ export default function FullTrackView() {
                       <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
                       <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
                     </div>
-                    <span className="mq-t-meta-2 font-mono" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                    <span className="mq-t-num shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
                   </button>
                 ))}
               </div>
@@ -1231,16 +1231,18 @@ export default function FullTrackView() {
           {/* Hover tooltip — inside progressBarRef div for correct positioning */}
           {hoveredTime !== null && !isDragging && (
             <div
-              className="absolute -top-7 -translate-x-1/2 px-1.5 py-0.5 rounded mq-t-meta-2 font-mono pointer-events-none whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute -top-7 -translate-x-1/2 px-1.5 py-0.5 rounded mq-t-num pointer-events-none whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity"
               style={{ left: `${Math.max(10, Math.min(90, hoveredPct))}%`, backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-thin)" }}
             >
               {formatDuration(hoveredTime)}
             </div>
           )}
         </div>
-        <div className="flex items-center justify-between">
-          <span className="mq-t-meta-2 font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(progress)}</span>
-          <span className="mq-t-meta-2 font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(duration)}</span>
+        {/* v69 duration contract: position/total are shrink-0 + tabular
+            (mq-t-time); unknown total renders “—”, never a fake 0:00. */}
+        <div className="flex items-center justify-between gap-2">
+          <span className="mq-t-time shrink-0" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(Math.max(0, progress))}</span>
+          <span className="mq-t-time shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)" }}>{duration > 0 ? formatDuration(duration) : "—"}</span>
         </div>
       </div>
 
@@ -1634,7 +1636,7 @@ export default function FullTrackView() {
                                         <p className="mq-t-meta-2 truncate" style={{ color: "var(--mq-accent)", opacity: 0.75 }}>{waveReasonText(track) || track._reason}</p>
                                       )}
                                     </div>
-                                    <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                                    <span className="mq-t-num shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
                                     <TrackMoreButton onOpen={(e) => { e.stopPropagation(); setPanelTrackMenu({ track, x: e.clientX, y: e.clientY }); }} size="sm" label={`Действия: ${track.title}`} />
                                   </div>
                                 ))}
@@ -1692,7 +1694,7 @@ export default function FullTrackView() {
                                       <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
                                       <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
                                     </div>
-                                    <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                                    <span className="mq-t-num shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
                                     <TrackMoreButton onOpen={(e) => { e.stopPropagation(); setPanelTrackMenu({ track, x: e.clientX, y: e.clientY }); }} size="sm" label={`Действия: ${track.title}`} />
                                   </div>
                                 ))}

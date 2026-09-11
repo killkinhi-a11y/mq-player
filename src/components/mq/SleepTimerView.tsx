@@ -197,7 +197,7 @@ function CircularTimer({ size = 280, progress, remainingSeconds, isRunning, isPa
             <span className="text-xs font-medium" style={{ color: "var(--mq-accent)" }}>Пауза</span>
           </div>
         ) : null}
-        <span className="font-bold font-mono tracking-wider" style={{ fontSize: hours > 0 ? "2.5rem" : "3.2rem", color: "var(--mq-text)", lineHeight: 1 }}>
+        <span className="font-bold tabular-nums tracking-wider" style={{ fontSize: hours > 0 ? "2.5rem" : "3.2rem", color: "var(--mq-text)", lineHeight: 1 }}>
           {hours > 0 && <span className="text-2xl font-light" style={{ color: "var(--mq-text-muted)" }}>{hours}:</span>}
           {minutes.toString().padStart(2, "0")}:{seconds.toString().padStart(2, "0")}
         </span>
@@ -219,7 +219,7 @@ function CurrentTimeDisplay() {
   const [time, setTime] = useState(new Date());
   useEffect(() => { const i = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(i); }, []);
   return (
-    <span className="font-mono tracking-wide" style={{ color: "var(--mq-text-muted)", fontSize: "0.85rem" }}>
+    <span className="tabular-nums tracking-wide" style={{ color: "var(--mq-text-muted)", fontSize: "0.85rem" }}>
       {time.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
       <span style={{ opacity: 0.5 }}>:{time.getSeconds().toString().padStart(2, "0")}</span>
     </span>
@@ -418,7 +418,7 @@ export default function SleepTimerView() {
 
             {/* Mobile: Timer display (original style) */}
             <div className="lg:hidden flex flex-col items-center mb-8">
-              <motion.span className="text-6xl font-bold font-mono tracking-wider" style={{ color: "var(--mq-text)" }} key={`${Math.floor(sleepTimerRemaining / 60)}:${sleepTimerRemaining % 60}`} initial={animationsEnabled ? { scale: 1.05, opacity: 0.8 } : undefined} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.3 }}>
+              <motion.span className="text-6xl font-bold tabular-nums tracking-wider" style={{ color: "var(--mq-text)" }} key={`${Math.floor(sleepTimerRemaining / 60)}:${sleepTimerRemaining % 60}`} initial={animationsEnabled ? { scale: 1.05, opacity: 0.8 } : undefined} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.3 }}>
                 {Math.floor(sleepTimerRemaining / 60).toString().padStart(2, "0")}:{(sleepTimerRemaining % 60).toString().padStart(2, "0")}
               </motion.span>
               <span className="text-sm mt-2" style={{ color: "var(--mq-text-muted)" }}>осталось</span>
