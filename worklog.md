@@ -2157,3 +2157,86 @@ Stage Summary:
 - All P19 gates green at c9cd0a1. This commit (worklog only) → push →
   Vercel deploy → poll production version.json for the new SHA → final
   smoke → report.
+
+---
+Task ID: v70-auth-providers
+Agent: main (Super Z)
+Task: Add REAL production authentication: Google OAuth, official Telegram
+Login Widget, and full email auth (register/login/confirm/reset) integrated
+into the existing architecture. No mocks, no second auth stack.
+
+Work Log:
+- AUDIT: existing auth = email API routes (register/login/logout/me/
+  confirm/verify-code/send-code, bcrypt + 6-digit codes via Brevo, JWT
+  HttpOnly cookie, jose) + Telegram bot-code flow (User.telegramChatId).
+  Email login UI was missing (AuthView auto-redirected to Telegram).
+  No AuthIdentity table, no Google, no reset-password completion route.
+- DB: added AuthIdentity model (provider, providerUserId unique, email,
+  username, userId FK cascade). Prisma migration 20260912000000, Turso
+  initTursoSchema CREATE TABLE (auto-bootstrap on prod via tursoQuery
+  retry), database.ts adapter: findAuthIdentity / findAuthIdentitiesByUserId
+  / createAuthIdentity (upsert) / deleteAuthIdentity.
+- src/lib/oauth.ts (new): Google OIDC (authorize URL, server-side code
+  exchange, id_token JWKS verification via jose createRemoteJWKSet),
+  OAuth state CSRF cookie (10 min, timing-safe compare), pending-identity
+  JWT (aud "mq:pending-identity", 10 min — verified TG data → username
+  step, immune to client forgery), username derivation (sanitize +
+  uniquify + reserved list), random password generator. getRequestOrigin
+  (headers-based; fixes cross-origin localhost/127.0.0.1 cookie loss —
+  req.nextUrl.origin normalized to localhost and broke the session).
+- src/lib/telegram.ts: verifyTelegramLoginHash — official widget algorithm
+  (data-check-string sorted, secret = SHA256(bot_token), HMAC-SHA256,
+  timing-safe compare, auth_date freshness 1h).
+- API routes (all real, server-verified, rate-limited):
+  /api/auth/google (state cookie + redirect), /api/auth/google/callback
+  (state check, code exchange, JWKS verify; identity login → verified-email
+  secure auto-link (confirmed=true) → auto-create with derived username;
+  no access token stored), /api/auth/telegram-widget/callback (hash verify;
+  identity/legacy telegramChatId login with backfill; new user → pending
+  token redirect), /api/auth/telegram-widget/register (pending token +
+  username; needsPassword → password link like bot flow),
+  /api/auth/reset-password (code verify, bcrypt set, code burned, no
+  session issue), /api/auth/providers (honest availability probe).
+- Hardened existing: login per-email rate limit (5/15min on top of 10/min
+  per IP), send-code anti-enumeration (byte-identical responses for
+  known/unknown emails; devCode only in dev).
+- UI (AuthView, existing design language preserved): landing = mq logo +
+  Continue with Google (honest disabled when unconfigured) + official
+  Telegram widget (script injection, data-auth-url full-page redirect) +
+  bot-code fallback + Continue with Email + Регистрация link. New steps:
+  email login/register/confirm/forgot-password (2-stage) + widget register
+  (TG handle prefill) + widget-aware link step. Post-redirect handling:
+  ?auth=success → /api/auth/me restore, ?authError=code → Russian banner,
+  ?authStep=telegram-widget-register&token → username screen. Buttons
+  min-h-44px, loading/disabled/error states, mobile 375px verified.
+- Store: AuthStep type + "telegram-widget-register" (only change; authStep
+  not persisted).
+- .env.example: GOOGLE_CLIENT_ID/SECRET + BotFather /setdomain docs.
+
+QA (real flows, local Turso SQLite + test bot token):
+- API suite scripts/auth-qa-api.sh: 36/36 (register/confirm/login/logout/
+  duplicates 409/reset single-use/old+new password/invalid+valid+replayed
+  widget hashes/needsPassword linking/returning TG login/google honest
+  not-configured/forged state CSRF/brute-force 429).
+- Vitest: 24 new tests (telegram hash tamper/replay/wrong-token, state,
+  pending token round-trip + audience isolation vs session JWT, username
+  derivation). Full suite 353/353.
+- Browser (agent-browser, physical clicks): register→confirm→auto-login→
+  onboarding→main; session survives reload; /play?auth=success restore with
+  fresh client + cookie only (post-OAuth simulation); logout dialog; email
+  login; unconfirmed 403 → Подтвердить почту jump; forgot-password full
+  loop (new password login verified); widget new-user (prefill) → create →
+  /me 200; widget returning user instant login (after origin fix);
+  widget linking existing username → masked email → password → linked to
+  the EMAIL account (single user entity); authError banner; mobile 375px
+  no overflow; VLM-verified screenshots (15).
+- tsc clean; eslint 0 errors (1 pre-existing warning); next build OK,
+  all 6 new routes registered.
+
+Stage Summary:
+- Real Google OAuth + official Telegram Login Widget + full email auth,
+  all on the existing User/JWT/bcrypt stack with AuthIdentity linking.
+- No user data touched; no DSP/audio/UI beyond the auth screen.
+- Credentials still needed from admin: GOOGLE_CLIENT_ID/SECRET (+ redirect
+  URI in Google Console), BotFather /setdomain for the widget. Without
+  them the buttons show honest "not configured" — no mock success.

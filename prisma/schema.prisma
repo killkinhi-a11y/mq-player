@@ -49,6 +49,26 @@ model User {
   smartPlaylists         SmartPlaylist[] @relation("UserSmartPlaylists")
   listeningStatus        ListeningStatus? @relation("ListeningStatus")
   hostedLiveSessions     LiveSession[] @relation("HostedLiveSessions")
+  identities             AuthIdentity[] @relation("UserIdentities")
+}
+
+// External auth identities (Google OAuth / Telegram Login Widget).
+// One user can have multiple linked providers; (provider, providerUserId)
+// is unique so the same provider identity can never be attached twice.
+// Legacy Telegram bot-code auth keeps using User.telegramChatId — the
+// widget flow backfills AuthIdentity AND telegramChatId for one entity.
+model AuthIdentity {
+  id             String   @id @default(cuid())
+  userId         String
+  provider       String   // "google" | "telegram"
+  providerUserId String
+  providerEmail  String?
+  providerUsername String?
+  createdAt      DateTime @default(now())
+  user           User     @relation("UserIdentities", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
 }
 
 model AuditLog {

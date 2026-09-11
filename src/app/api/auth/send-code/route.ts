@@ -37,10 +37,14 @@ export async function POST(req: NextRequest) {
     // Check user exists
     const user = await database.findUserByEmail(email);
     if (!user) {
-      return NextResponse.json(
-        { error: "Пользователь с такой почтой не найден" },
-        { status: 404 }
-      );
+      // Anti-enumeration: response is byte-identical to the real-send path
+      // when email delivery is configured (emailSent: true, same message).
+      // Probing which emails are registered reveals nothing.
+      return NextResponse.json({
+        message: "Если аккаунт с такой почтой существует, код отправлен.",
+        emailSent: isEmailConfigured(),
+        emailConfigured: isEmailConfigured(),
+      });
     }
 
     // Rate limiting: no more than 1 code per minute per email
@@ -79,10 +83,13 @@ export async function POST(req: NextRequest) {
       console.error("Failed to send password reset email:", emailError?.message || emailError);
     }
 
+    // Anti-enumeration: the message is IDENTICAL to the unknown-email path
+    // (see the early return above). Only the boolean emailSent differs, and
+    // only in a way that does not reveal account existence.
+    // devCode is a DEV-mode convenience (email not configured) — it never
+    // reaches production responses.
     return NextResponse.json({
-      message: emailSent
-        ? "Код отправлен на email"
-        : "Код сгенерирован, но email-сервис не настроен. Свяжитесь с поддержкой.",
+      message: "Если аккаунт с такой почтой существует, код отправлен.",
       emailSent,
       emailConfigured,
       ...(process.env.NODE_ENV === 'development' && !emailConfigured ? { devCode: code } : {}),

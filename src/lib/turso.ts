@@ -146,6 +146,23 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
+  // External auth identities (Google OAuth / Telegram Login Widget)
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS AuthIdentity (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL REFERENCES User(id) ON DELETE CASCADE,
+      provider TEXT NOT NULL,
+      providerUserId TEXT NOT NULL,
+      providerEmail TEXT,
+      providerUsername TEXT,
+      createdAt TEXT DEFAULT (datetime('now')),
+      UNIQUE(provider, providerUserId)
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS AuthIdentity_userId_idx ON AuthIdentity(userId);
+  `);
+
   await client.execute(`
     CREATE TABLE IF NOT EXISTS Message (
       id TEXT PRIMARY KEY,

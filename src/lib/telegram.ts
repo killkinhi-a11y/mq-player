@@ -11,7 +11,7 @@
  *   4. Set webhook: POST https://api.telegram.org/bot<TOKEN>/setWebhook?url=<YOUR_DOMAIN>/api/telegram/webhook
  */
 
-import { createHash, createHmac } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
@@ -126,6 +126,79 @@ export function verifyTelegramWebhook(
     .digest("hex");
 
   return hmac === signatureHeader;
+}
+
+// ── Telegram Login Widget verification ─────────────────────────────────────
+//
+// Official algorithm (https://core.telegram.org/widgets/login#checking-authorization):
+//   1. data-check-string = all received fields EXCEPT `hash`, sorted
+//      alphabetically, joined as "key=value" with "\n"
+//   2. secret_key = SHA256(bot_token)
+//   3. expected hash = hex(HMAC-SHA256(data_check_string, secret_key))
+//   4. reject stale authorizations (auth_date too old)
+//
+// The payload comes from the BROWSER (widget redirect), so nothing is trusted
+// until this hash verifies against our bot token on the server.
+
+export interface TelegramLoginPayload {
+  id: number | string;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+  auth_date: number | string;
+  hash: string;
+}
+
+/** Verify the Login Widget hash. Returns the verified payload or null. */
+export function verifyTelegramLoginHash(
+  params: Record<string, string>
+): TelegramLoginPayload | null {
+  if (!TELEGRAM_BOT_TOKEN) return null;
+
+  const { hash } = params;
+  if (!hash) return null;
+
+  const required = ["id", "auth_date"];
+  for (const key of required) {
+    if (!params[key]) return null;
+  }
+
+  // data-check-string: sorted keys, excluding hash
+  const checkString = Object.keys(params)
+    .filter((k) => k !== "hash")
+    .sort()
+    .map((k) => `${k}=${params[k]}`)
+    .join("\n");
+
+  const secretKey = createHash("sha256").update(TELEGRAM_BOT_TOKEN).digest();
+  const expected = createHmac("sha256", secretKey).update(checkString).digest("hex");
+
+  // Constant-time compare (both are hex strings of equal length)
+  const a = Buffer.from(expected, "utf8");
+  const b = Buffer.from(hash, "utf8");
+  if (a.length !== b.length) return null;
+  try {
+    if (!timingSafeEqual(a, b)) return null;
+  } catch {
+    return null;
+  }
+
+  // Freshness: reject authorizations older than 1 hour (replay protection)
+  const authDate = Number(params.auth_date);
+  if (!Number.isFinite(authDate)) return null;
+  const ageSeconds = Math.floor(Date.now() / 1000) - authDate;
+  if (ageSeconds > 3600 || ageSeconds < -300) return null;
+
+  return {
+    id: params.id,
+    first_name: params.first_name,
+    last_name: params.last_name,
+    username: params.username,
+    photo_url: params.photo_url,
+    auth_date: authDate,
+    hash,
+  };
 }
 
 /**

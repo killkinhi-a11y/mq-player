@@ -70,6 +70,22 @@ export async function POST(req: NextRequest) {
     email = sanitizeString(String(email)).toLowerCase();
     password = String(password).trim();
 
+    // Brute-force protection, layer 2: per-EMAIL attempt limit on top of
+    // the per-IP limit above. Blocks distributed guessing against a single
+    // account (Upstash-backed across instances when configured).
+    const { success: emailLimitOk, resetIn: emailResetIn } = rateLimit({
+      ip: `email:${email}`,
+      limit: 5,
+      window: 900, // 5 attempts per 15 minutes per email
+      key: "login",
+    });
+    if (!emailLimitOk) {
+      return NextResponse.json(
+        { error: "Слишком много неудачных попыток для этого аккаунта. Попробуйте через несколько минут.", retryAfter: emailResetIn },
+        { status: 429 }
+      );
+    }
+
     const user = await database.findUserByEmail(email);
     if (!user) {
       // Generic error message — don't reveal whether email exists

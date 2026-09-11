@@ -92,6 +92,16 @@ export interface TelegramAuthCodeRow {
   createdAt: string;
 }
 
+export interface AuthIdentityRow {
+  id: string;
+  userId: string;
+  provider: string; // "google" | "telegram"
+  providerUserId: string;
+  providerEmail: string | null;
+  providerUsername: string | null;
+  createdAt: string;
+}
+
 export interface FeatureFlagRow {
   id: string;
   key: string;
@@ -447,6 +457,18 @@ function parseTelegramAuthCodeRow(row: Record<string, unknown>): TelegramAuthCod
   };
 }
 
+function parseAuthIdentityRow(row: Record<string, unknown>): AuthIdentityRow {
+  return {
+    id: toString(row.id),
+    userId: toString(row.userId),
+    provider: toString(row.provider),
+    providerUserId: toString(row.providerUserId),
+    providerEmail: toNullableString(row.providerEmail),
+    providerUsername: toNullableString(row.providerUsername),
+    createdAt: toString(row.createdAt),
+  };
+}
+
 function parseFeatureFlagRow(row: Record<string, unknown>): FeatureFlagRow {
   return {
     id: toString(row.id),
@@ -725,6 +747,141 @@ export const database = {
       lastSeen: user.lastSeen?.toISOString() ?? null,
       createdAt: user.createdAt.toISOString(),
     };
+  },
+
+  // ─── AuthIdentity (external OAuth identities) ─────────────────────────────
+
+  /** Find an identity by (provider, providerUserId) — the stable external key. */
+  async findAuthIdentity(
+    provider: string,
+    providerUserId: string
+  ): Promise<AuthIdentityRow | null> {
+    if (isTurso()) {
+      const result = await tursoQuery(() =>
+        getTurso().execute({
+          sql: "SELECT * FROM AuthIdentity WHERE provider = ? AND providerUserId = ?",
+          args: [provider, providerUserId],
+        })
+      );
+      if (result.rows.length === 0) return null;
+      return parseAuthIdentityRow(result.rows[0] as Record<string, unknown>);
+    }
+    const identity = await db.authIdentity.findUnique({
+      where: { provider_providerUserId: { provider, providerUserId } },
+    });
+    if (!identity) return null;
+    return {
+      id: identity.id,
+      userId: identity.userId,
+      provider: identity.provider,
+      providerUserId: identity.providerUserId,
+      providerEmail: identity.providerEmail ?? null,
+      providerUsername: identity.providerUsername ?? null,
+      createdAt: identity.createdAt.toISOString(),
+    };
+  },
+
+  /** List all identities linked to a user (for profile / linked accounts UI). */
+  async findAuthIdentitiesByUserId(userId: string): Promise<AuthIdentityRow[]> {
+    if (isTurso()) {
+      const result = await tursoQuery(() =>
+        getTurso().execute({
+          sql: "SELECT * FROM AuthIdentity WHERE userId = ?",
+          args: [userId],
+        })
+      );
+      return result.rows.map((r) => parseAuthIdentityRow(r as Record<string, unknown>));
+    }
+    const identities = await db.authIdentity.findMany({ where: { userId } });
+    return identities.map((identity) => ({
+      id: identity.id,
+      userId: identity.userId,
+      provider: identity.provider,
+      providerUserId: identity.providerUserId,
+      providerEmail: identity.providerEmail ?? null,
+      providerUsername: identity.providerUsername ?? null,
+      createdAt: identity.createdAt.toISOString(),
+    }));
+  },
+
+  /** Create (or re-attach) an identity link. Safe to call when the link exists. */
+  async createAuthIdentity(data: {
+    userId: string;
+    provider: string;
+    providerUserId: string;
+    providerEmail?: string | null;
+    providerUsername?: string | null;
+  }): Promise<AuthIdentityRow> {
+    const id = createId();
+    if (isTurso()) {
+      await tursoQuery(() =>
+        getTurso().execute({
+          sql: `INSERT INTO AuthIdentity (id, userId, provider, providerUserId, providerEmail, providerUsername, createdAt)
+                VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+                ON CONFLICT(provider, providerUserId) DO UPDATE SET
+                  userId = excluded.userId,
+                  providerEmail = excluded.providerEmail,
+                  providerUsername = excluded.providerUsername`,
+          args: [
+            id,
+            data.userId,
+            data.provider,
+            data.providerUserId,
+            data.providerEmail ?? null,
+            data.providerUsername ?? null,
+          ],
+        })
+      );
+      const row = await this.findAuthIdentity(data.provider, data.providerUserId);
+      return row!;
+    }
+    const identity = await db.authIdentity.upsert({
+      where: {
+        provider_providerUserId: {
+          provider: data.provider,
+          providerUserId: data.providerUserId,
+        },
+      },
+      create: {
+        id,
+        userId: data.userId,
+        provider: data.provider,
+        providerUserId: data.providerUserId,
+        providerEmail: data.providerEmail ?? null,
+        providerUsername: data.providerUsername ?? null,
+      },
+      update: {
+        userId: data.userId,
+        providerEmail: data.providerEmail ?? null,
+        providerUsername: data.providerUsername ?? null,
+      },
+    });
+    return {
+      id: identity.id,
+      userId: identity.userId,
+      provider: identity.provider,
+      providerUserId: identity.providerUserId,
+      providerEmail: identity.providerEmail ?? null,
+      providerUsername: identity.providerUsername ?? null,
+      createdAt: identity.createdAt.toISOString(),
+    };
+  },
+
+  /** Remove an identity link (account unlink). Returns true if a row was removed. */
+  async deleteAuthIdentity(provider: string, providerUserId: string): Promise<boolean> {
+    if (isTurso()) {
+      const result = await tursoQuery(() =>
+        getTurso().execute({
+          sql: "DELETE FROM AuthIdentity WHERE provider = ? AND providerUserId = ?",
+          args: [provider, providerUserId],
+        })
+      );
+      return (result.rowsAffected ?? 0) > 0;
+    }
+    const result = await db.authIdentity.deleteMany({
+      where: { provider, providerUserId },
+    });
+    return result.count > 0;
   },
 
   async createUser(data: {
