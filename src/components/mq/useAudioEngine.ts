@@ -578,6 +578,7 @@ function scUrlExpiresAt(url: string): number {
  * already cached/in-flight.
  */
 let prefetchTimer: ReturnType<typeof setTimeout> | null = null;
+let cacheWarmTimer: ReturnType<typeof setTimeout> | null = null;
 function prefetchNextTrackStream(): void {
   if (prefetchTimer) clearTimeout(prefetchTimer);
   // Defer 4 s: let the current track's own fetch + decode settle first.
@@ -684,9 +685,13 @@ export async function resolveSoundCloudStream(
     // Include cobalt JWT if available (for SNIP bypass)
     const cobaltJwt = useAppStore.getState().getCobaltJwt();
     const jwtParam = cobaltJwt ? `&cobaltJwt=${encodeURIComponent(cobaltJwt)}` : '';
+    // T2 — metadata/URL lookup begins (stream API request)
+    pbMark("T2-resolve-start");
     const res = await fetch(`/api/music/soundcloud/stream?trackId=${scTrackId}${jwtParam}`, {
       signal: AbortSignal.timeout(20000),
     });
+    // T3 — API response headers received
+    pbMark("T3-api-headers", `HTTP ${res.status}`);
     if (!res.ok) {
       console.error(`[resolveStream] HTTP ${res.status} for track ${scTrackId}`);
       return null;
@@ -699,6 +704,8 @@ export async function resolveSoundCloudStream(
     }
 
     if (data.url) {
+      // T4 — playable URL resolved
+      pbMark("T4-url-resolved", `${data.protocol}${data.isHls ? "/hls" : ""}${data.isEncrypted ? "/enc" : ""}${data.isPreview ? "/snip" : ""}`);
       const stream: StreamResult = {
         url: data.url,
         isPreview: !!data.isPreview,
@@ -903,6 +910,51 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   useEffect(() => {
     try { ensureBenchApi(); } catch {}
   }, []);
+
+  // ── P0 FIRST-PLAY WARMUP (long-load root cause fix) ──
+  // Measured on production (fresh profile): the FIRST user click paid a
+  // 3.8s–6.5s cold chain — two concurrent cold stream-route invocations
+  // (click + CacheWarm twin) + proxy cold start, while the server handler
+  // itself was 230ms. Nothing touched those routes before the click.
+  // This one-time idle warmup moves that cost off the user's critical path:
+  //   1. `?warmup=1` ping on the stream route — boots the edge isolate.
+  //   2. 1-byte-range ping on the proxy route — boots the proxy isolate and
+  //      keeps the origin HTTP/2 connection from idling out.
+  //   3. When a REAL scTrackId is already known (resumed/current or next
+  //      queue track), resolve it + 1-byte range its media URL — primes
+  //      client+edge caches and warms the edge→CDN connection, making the
+  //      hero's «Продолжить» and the next skip near-instant.
+  // All fire-and-forget on requestIdleCallback — never blocks first paint.
+  const bootWarmupDoneRef = useRef(false);
+  useEffect(() => {
+    if (bootWarmupDoneRef.current) return;
+    bootWarmupDoneRef.current = true;
+    const warm = () => {
+      try {
+        // 1) stream-route isolate warm (instant handler return, no upstream)
+        fetch("/api/music/soundcloud/stream?trackId=0&warmup=1", { cache: "no-store" }).catch(() => {});
+        // 2) proxy-route isolate warm (missing url → fast 400, isolate boots)
+        fetch("/api/music/soundcloud/proxy", { headers: { Range: "bytes=0-0" }, cache: "no-store" }).catch(() => {});
+        // 3) real-track resolve when available
+        const st = useAppStore.getState();
+        const cand = [st.currentTrack, st.peekNextTrack?.()].filter(Boolean) as Track[];
+        const real = cand.find(t => (t.source === "soundcloud" || t.scTrackId) && t.scTrackId && t.scTrackId > 0);
+        if (real?.scTrackId) {
+          resolveSoundCloudStream(real.scTrackId).then(stream => {
+            if (!stream?.url) return;
+            const proxied = proxyStreamUrl(stream.url);
+            if (proxied !== stream.url) {
+              fetch(proxied, { headers: { Range: "bytes=0-0" }, cache: "no-store" }).catch(() => {});
+            }
+          }).catch(() => {});
+        }
+      } catch {}
+    };
+    const idle = (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+    if (idle) idle(() => { setTimeout(warm, 300); });
+    else setTimeout(warm, 1800);
+  }, []);
+
   useEffect(() => {
     if (!currentTrack || !isPlaying) return;
     // Read next track from queue without subscribing
@@ -912,19 +964,28 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     if (nextT.source !== "soundcloud" || !nextT.scTrackId) return;
 
     cacheWarmupStartedRef.current = nextT.id;
-    // Fire and forget — resolveSoundCloudStream warms the SERVER cache (edge
-    // isolate) AND the CLIENT stream cache, so the actual skip reuses the
-    // resolved URL with zero round-trips (Task 8).
-    resolveSoundCloudStream(nextT.scTrackId)
-      .then(stream => {
-        if (stream?.url) {
-          console.log(`[CacheWarm] Pre-warmed next track (server + client): ${nextT.title}`);
-        }
-      })
-      .catch(() => {
-        // Silent failure — warm-up is best-effort
-        cacheWarmupStartedRef.current = null;
-      });
+    const scId = nextT.scTrackId;
+    // P0: defer the warm so a COLD first click's own resolve never contends
+    // with a simultaneous twin invocation (measured: click resolve 3788ms +
+    // CacheWarm 6492ms racing each other on cold isolates). After 2.5s the
+    // critical path is done and the warm lands well before a skip.
+    if (cacheWarmTimer) clearTimeout(cacheWarmTimer);
+    cacheWarmTimer = setTimeout(() => {
+      cacheWarmTimer = null;
+      // Fire and forget — resolveSoundCloudStream warms the SERVER cache (edge
+      // isolate) AND the CLIENT stream cache, so the actual skip reuses the
+      // resolved URL with zero round-trips (Task 8).
+      resolveSoundCloudStream(scId)
+        .then(stream => {
+          if (stream?.url) {
+            console.log(`[CacheWarm] Pre-warmed next track (server + client): ${nextT.title}`);
+          }
+        })
+        .catch(() => {
+          // Silent failure — warm-up is best-effort
+          cacheWarmupStartedRef.current = null;
+        });
+    }, 2500);
   }, [currentTrack?.id, isPlaying]);
 
   // Social listening status — last time we POSTed to /api/social/update-status

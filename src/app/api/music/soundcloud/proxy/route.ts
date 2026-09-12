@@ -79,42 +79,19 @@ async function handler(request: NextRequest) {
     }
 
     const tStart = Date.now();
-    let headDur = 0;
-    const serverTiming = () =>
-      `total;dur=${Date.now() - tStart}${headDur ? ", head;dur=" + headDur : ""}`;
+    const serverTiming = () => `total;dur=${Date.now() - tStart}`;
 
-    if (!contentLength || !rangeHeader) {
-      // If no Range header, just do a HEAD request to get info (or proxy the whole file)
-      const tHead = Date.now();
-      try {
-        const headRes = await fetch(audioUrl, {
-          method: rangeHeader ? undefined : "HEAD",
-          signal: AbortSignal.timeout(8000),
-          redirect: "follow",
-          headers: SC_FETCH_HEADERS,
-        });
-
-        if (headRes.ok) {
-          const cl = headRes.headers.get("content-length");
-          if (cl) contentLength = parseInt(cl, 10);
-          const ct = headRes.headers.get("content-type");
-          if (ct) contentType = ct;
-
-          // Cache for 3 minutes
-          if (contentLength) {
-            lengthCache.set(cacheKey, {
-              length: contentLength,
-              contentType: contentType,
-              expiry: Date.now() + 3 * 60 * 1000,
-            });
-          }
-        }
-      } catch {
-        // If HEAD fails, we'll get the info from the actual GET request
-      }
-      headDur = Date.now() - tHead;
-      console.log(`[SC Proxy] info-prefetch ${rangeHeader ? "GET(no-range)" : "HEAD"} ${headDur}ms for ${cacheKey.slice(-48)}`);
-    }
+    // P0 LONG-LOAD FIX (root-cause measured 2026-09-12): the old info-prefetch
+    // made EVERY first request a serial HEAD-then-GET (Server-Timing showed
+    // head;dur=126ms warm, much worse cold), and for Range requests without
+    // cached length it ran a full no-Range GET just to learn the length —
+    // downloading the entire file a SECOND time before the real range GET.
+    // Both prefetches are removed:
+    //   - No-Range requests: stream the GET directly; upstream headers pass
+    //     through (Content-Length present when the CDN sends it).
+    //   - Range requests: forward the Range upstream immediately; the 206's
+    //     Content-Range already carries the authoritative total (parsed
+    //     below) and feeds lengthCache for later 416 guards.
 
     // Parse Range header
     if (rangeHeader) {

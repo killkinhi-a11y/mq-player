@@ -444,6 +444,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ url: null, resolveUrl: null, error: "missing trackId" });
   }
 
+  // P0 first-play warmup ping: boots the edge isolate off the user's
+  // critical path (client fires this once per session at idle). Instant
+  // return — no upstream, no cache writes. trackId=0 signals "warmup only".
+  if (searchParams.get("warmup") === "1") {
+    return NextResponse.json(
+      { warmup: true, trackId },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   // ── Cache check ──
   if (!skipCache) {
     const cached = getCachedStream(trackId);
