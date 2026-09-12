@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useEffect, useState, type RefObject } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Sliders, RotateCcw, Power, AudioWaveform, ShieldAlert, Gauge, Zap } from "lucide-react";
+import { X, Sliders, RotateCcw, Power, AudioWaveform, ShieldAlert, Gauge } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { EQ_BANDS, EQ_PRESETS, EQ_MIN, EQ_MAX } from "@/lib/eq";
 import { getAnalyser, getCompressorReduction } from "@/lib/audioEngine";
@@ -238,10 +238,16 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
         ? (wasmDiagnostics.gainReductionDb || 0)
         : getCompressorReduction();
 
-      // Clipping: sample-peak ≥ -0.1 dBFS, or WASM true-peak ≥ -0.1 dBTP.
+      // Clipping — OUTPUT truth only. The analyser sample-peak is the
+      // post-limiter output, so it always proves real digital overs.
+      // Engine TP is measured PRE-limiter (verified: TP stays at input
+      // level while the output is brickwall-clamped at the ceiling), so
+      // it only proves output overs when no limiter is in the path.
       // Latches ~1.5 s so a single hot transient is actually seen.
-      const tp = isWasmActive() ? (wasmDiagnostics.truePeakDb ?? -120) : -120;
-      if (peakDb >= -0.1 || tp >= -0.1) clipUntil = now + 1500;
+      const limiterOn = useAppStore.getState().limiterEnabled;
+      const tpRaw = isWasmActive() ? (wasmDiagnostics.truePeakDb ?? -120) : -120;
+      const tpOut = limiterOn ? -120 : tpRaw;
+      if (peakDb >= -0.1 || tpOut >= -0.1) clipUntil = now + 1500;
       setClip(clipUntil > now);
 
       // Bar writes (every frame)
@@ -271,8 +277,16 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
           lufsNumRef.current.textContent = l != null && l !== 0 ? `${l.toFixed(1)} LU` : "—";
         }
         if (tpNumRef.current) {
-          const t = wasm ? wasmDiagnostics.truePeakDb : null;
-          tpNumRef.current.textContent = t != null && t !== 0 ? `${t.toFixed(1)} dB` : "—";
+          const raw = wasm ? wasmDiagnostics.truePeakDb : null;
+          // Output truth: engine TP is pre-limiter. With the limiter
+          // engaged the output is hard-clamped at the ceiling (measured:
+          // output peak never exceeds it), so the honest output bound is
+          // min(raw, ceiling); without the limiter, engine TP IS output TP.
+          const st = useAppStore.getState();
+          const t = raw != null && st.limiterEnabled
+            ? Math.min(raw, st.limiterThreshold)
+            : raw;
+          tpNumRef.current.textContent = t != null && raw !== 0 ? `${t.toFixed(1)} dB` : "—";
         }
       }
 
@@ -375,7 +389,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                     <span
                       ref={clipLedRef}
                       data-clip="0"
-                      title="Клиппинг: пик выше −0.1 дБ"
+                      title="Клиппинг на выходе: пик сигнала выше −0.1 дБ"
                       className="eq-clip-led px-2 py-0.5 rounded-full mq-t-meta-2 font-bold tracking-wide shrink-0"
                     >
                       CLIP
@@ -712,7 +726,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                     <div className="grid grid-cols-2 gap-2 mt-3" role="status" aria-label="Показатели выхода">
                       <Readout label="PEAK" ref={peakNumRef} value="— dB" title="Пиковый уровень выхода (красный = клиппинг)" />
                       <Readout label="LUFS-S" ref={lufsNumRef} value="—" title="Short-term громкость — только с WASM-движком" />
-                      <Readout label="TRUE PEAK" ref={tpNumRef} value="—" title="True peak (дБ) — только с WASM-движком" />
+                      <Readout label="TRUE PEAK" ref={tpNumRef} value="—" title="True peak выхода (дБ) · с активным лимитером — не выше порога · только с WASM-движком" />
                       <Readout label="GAIN RED" ref={grNumRef} value="0 dB" accent={limiterEnabled} dimmed={!limiterEnabled} title="Gain reduction лимитера (реальная телеметрия)" />
                     </div>
 
@@ -888,10 +902,10 @@ function MasterFaderV({ volume, onChange, masterDb }: {
       onChange(Math.max(0, volume - 2));
     } else if (e.key === "Home") {
       e.preventDefault();
-      onChange(100);
+      onChange(0);
     } else if (e.key === "End") {
       e.preventDefault();
-      onChange(0);
+      onChange(100);
     } else if (e.key === " " || e.key === "Enter") {
       e.preventDefault();
       onChange(MASTER_DEFAULT_PCT);
@@ -1020,10 +1034,10 @@ function MasterFaderH({ volume, onChange, masterDb }: {
       onChange(Math.max(0, volume - 2));
     } else if (e.key === "Home") {
       e.preventDefault();
-      onChange(100);
+      onChange(0);
     } else if (e.key === "End") {
       e.preventDefault();
-      onChange(0);
+      onChange(100);
     } else if (e.key === " " || e.key === "Enter") {
       e.preventDefault();
       onChange(MASTER_DEFAULT_PCT);
@@ -1196,10 +1210,10 @@ function EqBandSlider({ label, bandInfo, value, disabled, onChange }: EqBandSlid
       onChange(value - 0.5);
     } else if (e.key === "Home") {
       e.preventDefault();
-      onChange(EQ_MAX);
+      onChange(EQ_MIN);
     } else if (e.key === "End") {
       e.preventDefault();
-      onChange(EQ_MIN);
+      onChange(EQ_MAX);
     } else if (e.key === " " || e.key === "Enter") {
       e.preventDefault();
       onChange(0);
