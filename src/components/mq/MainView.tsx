@@ -1591,23 +1591,23 @@ function HorizontalTrackRow({
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPlay(); } }}
       aria-label={`Играть ${track.title}`}
     >
-      <div className="relative w-11 h-11 rounded-lg overflow-hidden shrink-0" style={{ backgroundColor: "var(--mq-bg)" }}>
+      <div className="relative w-14 h-14 rounded-lg overflow-hidden shrink-0" style={{ backgroundColor: "var(--mq-bg)" }}>
         {track.cover ? (
           <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+            <Music className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
           </div>
         )}
         <div
           className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
           style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
         >
-          {isPlaying ? <Pause className="w-4 h-4 text-white" fill="currentColor" /> : <Play className="w-4 h-4 text-white" fill="currentColor" />}
+          {isPlaying ? <Pause className="w-5 h-5 text-white" fill="currentColor" /> : <Play className="w-5 h-5 text-white" fill="currentColor" />}
         </div>
       </div>
       <div className="flex-1 min-w-0">
-        <p className="mq-t-track-sm truncate" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
+        <p className="mq-t-track-sm line-clamp-2 leading-snug" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
           {track.title}
         </p>
         <button
@@ -1685,7 +1685,7 @@ function CompactTrackCard({
         </div>
       </div>
       <div className="p-2">
-        <p className="mq-t-track-sm truncate" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
+        <p className="mq-t-track-sm line-clamp-2 leading-snug" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
           {track.title}
         </p>
         <span
@@ -1732,7 +1732,7 @@ function ChartRow({
       >
         {rank}
       </span>
-      <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0" style={{ backgroundColor: "var(--mq-bg)" }}>
+      <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0" style={{ backgroundColor: "var(--mq-bg)" }}>
         {track.cover ? (
           <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
         ) : (
@@ -1742,7 +1742,7 @@ function ChartRow({
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="mq-t-track-sm truncate" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
+        <p className="mq-t-track-sm line-clamp-2 leading-snug" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
           {track.title}
         </p>
         <button
