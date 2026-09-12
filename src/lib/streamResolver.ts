@@ -13,6 +13,7 @@ import {
   replaceAudioElement,
   connectElementToAudioGraph,
 } from "@/lib/audioEngine";
+import { pbMark } from "@/lib/playbackTimeline";
 
 // ── Types ──
 
@@ -45,10 +46,14 @@ export async function resolveSoundCloudStream(
 ): Promise<StreamResult | null> {
   try {
     const jwtParam = cobaltJwt ? `&cobaltJwt=${encodeURIComponent(cobaltJwt)}` : '';
+    // T2 — metadata/URL lookup begins (stream API request)
+    pbMark("T2-resolve-start");
     const res = await fetch(
       `/api/music/soundcloud/stream?trackId=${scTrackId}${jwtParam}`,
       { signal: AbortSignal.timeout(20000) },
     );
+    // T3 — API response headers received
+    pbMark("T3-api-headers", `HTTP ${res.status}`);
     if (!res.ok) {
       console.error(
         `[resolveStream] HTTP ${res.status} for track ${scTrackId}`,
@@ -65,6 +70,8 @@ export async function resolveSoundCloudStream(
     }
 
     if (data.url) {
+      // T4 — playable URL resolved
+      pbMark("T4-url-resolved", `${data.protocol}${data.isHls ? "/hls" : ""}${data.isEncrypted ? "/enc" : ""}${data.isPreview ? "/snip" : ""}`);
       return {
         url: data.url,
         isPreview: !!data.isPreview,

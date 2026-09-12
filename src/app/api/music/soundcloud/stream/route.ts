@@ -435,6 +435,10 @@ export async function GET(request: NextRequest) {
   const trackId = searchParams.get("trackId");
   const cobaltJwt = searchParams.get("cobaltJwt") || undefined;
   const skipCache = searchParams.get("skipCache") === "1";
+  const __t0 = Date.now();
+  const diagnostics: string[] = [];
+  const phase = (name: string, from?: number) =>
+    diagnostics.push(`phase: ${name} ${Date.now() - (from ?? __t0)}ms`);
 
   if (!trackId) {
     return NextResponse.json({ url: null, resolveUrl: null, error: "missing trackId" });
@@ -448,12 +452,15 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const diagnostics: string[] = [];
+
+  diagnostics.push(`t_start: cold=${!skipCache ? "cache-eligible" : "skipped"}`);
 
   // Try each client ID until one returns track info
   for (const clientId of CLIENT_IDS) {
     try {
+      const __ti = Date.now();
       const info = await getTrackInfo(trackId, clientId);
+      phase("trackinfo", __ti);
       if (!info) continue;
 
       diagnostics.push(`track_info_ok: clientId=${clientId.substring(0, 8)}, policy=${info.policy}, transcodings=${info.transcodings.length}, duration=${info.duration}s, auth=${info.trackAuthorization.length > 0}`);
@@ -531,6 +538,7 @@ export async function GET(request: NextRequest) {
 
       // ── Resolve ALL transcodings IN PARALLEL ──
       console.log(`[stream] Track ${trackId}: ${info.transcodings.length} transcodings, policy=${info.policy}, duration=${info.duration}s`);
+      const __rs = Date.now();
 
       const resolvePromises = info.transcodings.map(async (tc) => {
         try {
@@ -556,6 +564,7 @@ export async function GET(request: NextRequest) {
       });
 
       const results = await Promise.all(resolvePromises);
+      phase("resolve-all", __rs);
 
       const resolvedStreams: Array<{
         url: string;

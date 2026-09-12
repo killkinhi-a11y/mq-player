@@ -78,8 +78,14 @@ async function handler(request: NextRequest) {
       contentType = cached.contentType;
     }
 
+    const tStart = Date.now();
+    let headDur = 0;
+    const serverTiming = () =>
+      `total;dur=${Date.now() - tStart}${headDur ? ", head;dur=" + headDur : ""}`;
+
     if (!contentLength || !rangeHeader) {
       // If no Range header, just do a HEAD request to get info (or proxy the whole file)
+      const tHead = Date.now();
       try {
         const headRes = await fetch(audioUrl, {
           method: rangeHeader ? undefined : "HEAD",
@@ -106,6 +112,8 @@ async function handler(request: NextRequest) {
       } catch {
         // If HEAD fails, we'll get the info from the actual GET request
       }
+      headDur = Date.now() - tHead;
+      console.log(`[SC Proxy] info-prefetch ${rangeHeader ? "GET(no-range)" : "HEAD"} ${headDur}ms for ${cacheKey.slice(-48)}`);
     }
 
     // Parse Range header
@@ -144,6 +152,7 @@ async function handler(request: NextRequest) {
         const rangeValue = isFinite(effectiveEnd)
           ? `bytes=${start}-${effectiveEnd}`
           : `bytes=${start}-`;
+        const tGet = Date.now();
         const scResponse = await fetch(audioUrl, {
           headers: {
             Range: rangeValue,
@@ -152,6 +161,7 @@ async function handler(request: NextRequest) {
           signal: AbortSignal.timeout(60000),
           redirect: "follow",
         });
+        console.log(`[SC Proxy] range-GET upstream ${Date.now() - tGet}ms (status ${scResponse.status}) for ${cacheKey.slice(-48)}`);
 
         if (!scResponse.ok && scResponse.status !== 206) {
           return NextResponse.json({ error: "upstream_error" }, { status: 502 });
@@ -189,8 +199,10 @@ async function handler(request: NextRequest) {
           "Accept-Ranges": "bytes",
           "Cache-Control": "private, max-age=300",
           "Access-Control-Allow-Origin": "*",
-          "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",
+          "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges, Server-Timing, Timing-Allow-Origin",
+          "Timing-Allow-Origin": "*",
           "Content-Range": `bytes ${start}-${rangeEnd}/${totalLength}`,
+          "Server-Timing": serverTiming(),
         };
         if (actualLength !== null) {
           outHeaders["Content-Length"] = actualLength.toString();
@@ -238,6 +250,9 @@ async function handler(request: NextRequest) {
       "Cache-Control": "private, max-age=300",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "Range",
+      "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges, Server-Timing, Timing-Allow-Origin",
+      "Timing-Allow-Origin": "*",
+      "Server-Timing": serverTiming(),
     };
     if (totalLength) {
       responseHeaders["Content-Length"] = totalLength.toString();

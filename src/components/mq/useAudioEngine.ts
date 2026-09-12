@@ -26,6 +26,7 @@ import {
 import Hls from "hls.js";
 import type { HlsConfig } from "hls.js";
 import type { Track } from "@/lib/musicApi";
+import { pbMark, pbAttachElement, pbHls, pbFail } from "@/lib/playbackTimeline";
 
 // ── v2 Predictive continuation score (A10) — REAL data only ──
 // Rolling window of track-transition outcomes observed at the hook level:
@@ -2010,6 +2011,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
 
     const loadTrack = async () => {
       try {
+        // T1 — engine picked up the track (store → engine handoff measured)
+        pbMark("T1-track-selected");
         // ── v2 GAPLESS ADVANCE SHORT-CIRCUIT ──
         // The engine's boundary crossing (onAdvanced → store.nextTrack) set
         // currentTrack to the track the engine is ALREADY playing with no
@@ -2112,6 +2115,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
         if (!_initialAudioEl) return;
         let audioEl: HTMLAudioElement = _initialAudioEl;
         audioEl.pause();
+        // T6..T11 one-shot listeners on the element that will own this track
+        pbAttachElement(audioEl);
 
         const prevHls = (audioEl as any)._hlsInstance;
         if (prevHls) { try { prevHls.destroy(); } catch {} delete (audioEl as any)._hlsInstance; }
@@ -2125,6 +2130,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
           resetCorsState();
           ensureWebAudioConnected(audioEl);
           audioEl.src = currentTrack.audioUrl;
+          pbMark("T5-network-start", "demo");
           // Re-apply volume after track change (audio element resets to 1.0 on new src)
           audioEl.volume = Math.pow(useAppStore.getState().volume / 100, 2);
           audioEl.load();
@@ -2149,6 +2155,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             ensureWebAudioConnected(audioEl);
             audioEl.crossOrigin = "anonymous";
             audioEl.src = audiusUrl;
+            pbMark("T5-network-start", "audius");
             audioEl.volume = Math.pow(useAppStore.getState().volume / 100, 2);
             audioEl.load();
             if (canCrossfade) {
@@ -2248,6 +2255,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
               const hls = new Hls(hlsConfig);
               hls.loadSource(stream.url);
               hls.attachMedia(audioEl);
+              pbMark("T5-network-start", "hls");
+              pbHls("hls-manifest-loading");
 
               const hlsManifestTimeout = setTimeout(async () => {
                 if (!cancelled && audioEl.paused && !audioEl.currentTime) {
@@ -2267,12 +2276,21 @@ export function useAudioEngine(params: UseAudioEngineParams) {
 
               hls.on(Hls.Events.KEY_LOADING, (_event, data) => {
                 console.log("[Player] DRM key loading:", data.frag?.url?.slice(-40));
+                pbHls("hls-key-loading");
               });
               hls.on(Hls.Events.KEY_LOADED, (_event, data) => {
                 console.log("[Player] DRM key acquired:", data.frag?.url?.slice(-40));
+                pbHls("hls-key-loaded");
+              });
+              hls.on(Hls.Events.MANIFEST_LOADED, () => {
+                pbHls("hls-manifest-loaded");
+              });
+              hls.on(Hls.Events.FRAG_BUFFERED, () => {
+                pbHls("hls-frag-buffered");
               });
               hls.on(Hls.Events.FRAG_DECRYPTED, (_event, data) => {
                 console.log("[Player] Segment decrypted OK:", data.frag?.url?.slice(-40));
+                pbHls("hls-frag-decrypted");
               });
               // @ts-expect-error KEY_STATUS may not be in all hls.js versions
               hls.on(Hls.Events.KEY_STATUS, (_event, data: any) => {
@@ -2302,6 +2320,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
 
               hls.on(Hls.Events.MANIFEST_PARSED, () => {
                 if (!cancelled) {
+                  pbHls("hls-manifest-parsed");
                   clearTimeout(hlsManifestTimeout);
                   const clearT = () => { if (drmTimeout) clearTimeout(drmTimeout); };
                   audioEl.addEventListener("playing", clearT, { once: true });
@@ -2317,6 +2336,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                   }
 
                   resumeAudioContext();
+                  pbMark("T9-engine-ready");
                   if (useAppStore.getState().isPlaying) {
                     audioEl.play().catch((err) => {
                       if (err.name === "NotAllowedError") {
@@ -2426,6 +2446,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
               audioEl.crossOrigin = "anonymous";
               const playUrl = proxyStreamUrl(stream.url);
               audioEl.src = playUrl;
+              pbMark("T5-network-start", "progressive");
               // Re-apply volume after track change (audio element resets to 1.0 on new src)
               audioEl.volume = Math.pow(useAppStore.getState().volume / 100, 2);
 

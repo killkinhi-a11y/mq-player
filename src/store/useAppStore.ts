@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage, type StateStorage } from "zustand/middleware";
 import { type Track, type Message as ChatMessage, detectUserCountry, countryNameFromCode } from "@/lib/musicApi";
 import { themes, applyThemeToDOM } from "@/lib/themes";
+import { pbStart } from "@/lib/playbackTimeline";
 import { resetPollingSuspension, canPollProtected } from "@/lib/authGate";
 import { enableEQ as engineEnableEQ, disableEQ as engineDisableEQ, setEQBand as engineSetEQBand, setAllEQBands as engineSetAllEQBands, resetEQBands as engineResetEQBands, setAudioPlaybackRate as engineSetAudioPlaybackRate, getAudioElement, resumeAudioContext, getInactiveAudio, setCrossfadeEnabled as engineSetCrossfadeEnabled } from "@/lib/audioEngine";
 import { EQ_PRESETS } from "@/lib/eq";
@@ -1114,6 +1115,9 @@ export const useAppStore = create<AppState>()(
         // while previous track is still loading. Without this, rapid taps
         // cause currentTrack to flip back and forth.
         if (state._playLock && state.currentTrack?.id === track.id) return;
+
+        // T0 — real load attempt begins (instrumentation, see playbackTimeline)
+        pbStart(track.id, track.title || track.id);
 
         const newQueue = queue || state.queue;
         const index = newQueue.findIndex((t) => t.id === track.id);
