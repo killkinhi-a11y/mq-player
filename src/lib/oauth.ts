@@ -79,7 +79,22 @@ export function getGoogleRedirectUri(origin: string): string {
   return `${origin}/api/auth/google/callback`;
 }
 
-/** Build the Google consent screen URL (OIDC, code flow). */
+/**
+ * Build the Google consent screen URL (OIDC, code flow).
+ *
+ * SCOPE POLICY (do not widen casually):
+ * - Login needs exactly `openid email profile` — nothing else.
+ * - This is the ONLY place scopes are defined; the Google Cloud console
+ *   consent screen must stay in sync with this list.
+ * - Future Google APIs (YouTube / Gemini / Drive / Calendar) get their own
+ *   scope constants + their own env vars (e.g. GOOGLE_YOUTUBE_API_KEY) and
+ *   separate consent/verification on the Google side. Login-only clients
+ *   like this one should preferably stay minimal; a dedicated client is the
+ *   safer pattern for API access.
+ * - Access tokens are intentionally NOT persisted today (identity only).
+ *   If a future feature needs them, store them per-user against
+ *   AuthIdentity — never in cookies, never in the frontend.
+ */
 export function buildGoogleAuthUrl(origin: string, state: string): string {
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID!,

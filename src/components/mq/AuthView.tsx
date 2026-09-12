@@ -1097,6 +1097,23 @@ export default function AuthView() {
                 </button>
               </motion.div>
 
+              {/* Legal links — real routes (Google OAuth branding requirement) */}
+              <motion.div
+                className="mt-4 pt-4 flex items-center justify-center gap-2 text-xs"
+                style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.65, duration: 0.3 }}
+              >
+                <a href="/privacy" className="underline underline-offset-2 hover:opacity-80 transition-opacity py-2 px-1" style={{ color: "var(--mq-text-muted)" }}>
+                  Политика конфиденциальности
+                </a>
+                <span style={{ color: "var(--mq-text-muted)" }}>·</span>
+                <a href="/terms" className="underline underline-offset-2 hover:opacity-80 transition-opacity py-2 px-1" style={{ color: "var(--mq-text-muted)" }}>
+                  Условия использования
+                </a>
+              </motion.div>
+
             </div>
           </motion.div>
         )}
