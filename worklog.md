@@ -2506,3 +2506,100 @@ Stage Summary:
 - Next phases per task book: perf long-load root cause (7s cold
   outlier), states/empty/error, dark mode + OLED, landscape,
   benchmark vs Spotify/Yandex, 18-section final report.
+
+---
+Task ID: mobile-v73-p0-longload
+Agent: main (Super Z)
+Task: MOBILE PHASE 2 / PRIORITY 0 — long-load root cause (7s track load)
+
+Work Log:
+- Instrumented build deployed first (mq-build-6901a147): playbackTimeline.ts
+  (T0-T11 per-load marks, element one-shot listeners, Resource-Timing
+  waterfall + duplicate detection, window.__mqTimeline), Server-Timing on
+  proxy route, phase timings in stream route _diag.
+- PRODUCTION REPRO (fresh profile, demo mode, first real track click):
+  entry #1 total 4643ms — T1→T5 gap 3795ms. Server handler only 230ms
+  (diag phases). Resource timing: stream fetch client-observed 3788ms AND
+  a SECOND concurrent stream invocation 6492ms (CacheWarm twin fired
+  instantly on currentTrack change). Media: proxy first playable 825ms
+  (Server-Timing head;dur=126 — serial HEAD-then-GET), 3MB body 1719ms.
+  SW demo-mp3 precache NOT a factor (300B entries only). No middleware.
+  Second click (warm): 1253ms — matches audit's 1.27s warm baseline.
+- ROOT CAUSE (proven, not masked): first-play cold chain — nothing warms
+  stream/proxy routes before the first click (0 stream calls pre-click;
+  demo hero scTrackId=0 never resolves; CacheWarm requires isPlaying),
+  the click fires TWO concurrent cold invocations (click + CacheWarm
+  twin), and the proxy adds a serial HEAD-then-GET to every first media
+  request (range requests without cached length even ran a FULL no-Range
+  GET before the real range GET = double download).
+- FIX (a5a156c5, deployed as mq-build-a5a156c5):
+  1) Boot idle warmup in useAudioEngine (once, requestIdleCallback):
+     stream ?warmup=1 ping (instant route path, boots edge isolate),
+     proxy 1-byte-range ping (boots proxy isolate + keeps origin H2
+     alive), real-track resolve + 1-byte media range when scTrackId
+     known (resumed session / next queue track).
+  2) Proxy info-prefetch REMOVED entirely (no-Range: stream GET directly
+     with upstream headers; Range: forward immediately, 206 Content-Range
+     feeds lengthCache for 416 guards).
+  3) CacheWarm deferred 2.5s (never contends with a cold first click).
+- PRODUCTION AFTER (fresh profile, same protocol): first click total
+  1059ms (click→play externally 1116ms); stream roundtrip 552ms; media
+  first byte 2ms after URL; charts track 1050ms; warm switch 584ms;
+  playback advancing (0:11→0:16); auto-advance OK; ZERO console/page
+  errors. First play now FASTER than the old warm baseline.
+- Instrumentation note: Cache-Control:no-store responses (the warmup
+  ping, version.json) do NOT appear in Resource Timing (Chrome spec
+  behavior) — verify warmup pings via CDP network log, not perf entries.
+- QA gates: tsc clean; eslint 0 new; vitest 357/357 (count unchanged);
+  next build clean; production deployed + verified.
+
+Stage Summary:
+- P0 long-load CLOSED with before/after proof: 4643ms → 1059ms first
+  play (4.4x), root cause = cold request chain (zero warmup + twin cold
+  invocations + proxy HEAD-then-GET), fixed at loader/network-strategy
+  level; audio engine + WASM untouched per contract. Instrumentation
+  ships permanently for future regression proof.
+
+---
+Task ID: mobile-v73-phase2-audit-ship
+Agent: main (Super Z)
+Task: MOBILE PHASE 2 — remaining audits (P2/P6/P8/P10/P14), row fixes,
+deploy, production verify
+
+Work Log:
+- HOME AUDIT (P2, VLM on live 375px): rails already exist in code
+  (HScroll rails for recs categories 2+ + Недавно; ChartRows for
+  trending; HorizontalTrackRows for first category) — the earlier
+  audit note was stale. Real findings: aggressive single-line title
+  truncation ('Dracul...'), small row artwork (44px), poor scannability.
+- CHATS E2E (P10, production): empty state ✓, friends sheet + user
+  search with proper 'Никого не найдено' ✓, group creation →
+  conversation ✓, send message (timestamped) ✓, back → list with
+  last-message preview ✓, reopen → history persisted ✓, zero errors ✓.
+- DARK/OLED (P14, production): AMOLED theme live-verified via VLM —
+  true black bg, 21:1 primary contrast (AAA), muted text readable,
+  layered surfaces (no flat-hole), dock distinguishable. PASS.
+- CONTEXT MENU (P8): 10×48px items + maxH 607px + internal scroll +
+  z=10001 over dock already production-verified in v72 QA; 15+ items
+  use the same scroll mechanism. No new defects.
+- FIXES SHIPPED (12983f9c → mq-build-12983f9c):
+  HorizontalTrackRow 44→56px artwork + line-clamp-2 titles; ChartRow
+  40→48px + line-clamp-2; CompactTrackCard (rails) line-clamp-2. FP
+  hero already line-clamp-2 (v72). Rows keep >=44px targets.
+- PRODUCTION VERIFY on new build: artwork sizes live (4×56, 10×48),
+  14 rows rendered, first play on the NEW deployment 1236ms (P0 fix
+  generalizes across deploys — warmup absorbs new-isolate cold start),
+  zero console/page errors. Tests 357/357, tsc clean, build clean.
+- Screenshots: audit-home-375.png (BEFORE rows), after-v73-rows-375.png
+  (AFTER), audit-home-amoled-375.png (OLED audit), prod-v72-* from
+  phase 1.
+
+Stage Summary:
+- Phase 2 shipped: P0 long-load closed with proof (4643→1059/1236ms),
+  mobile audit round completed for the highest-risk surfaces, row
+  truncation/artwork fixed, chats E2E green, AMOLED green, production
+  verified on mq-build-12983f9c (version 73 series).
+- Deferred (documented, not defects): landscape pass, benchmark table,
+  Mixer 44px re-verification, 5-viewport sweep of every screen —
+  core interactions verified at 375; visual language/typography system
+  already unified in v68/v69/v72 work.
