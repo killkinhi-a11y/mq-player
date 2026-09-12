@@ -506,7 +506,7 @@ const ProfileView = React.memo(function ProfileView() {
                   <User className="w-14 h-14" style={{ color: "var(--mq-text-muted)" }} />
                 )}
               </div>
-              {/* Edit overlay — always visible on hover, with label */}
+              {/* Edit overlay — desktop hover affordance (touch uses the badge below) */}
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="absolute inset-0 rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
@@ -520,6 +520,15 @@ const ProfileView = React.memo(function ProfileView() {
                     <span className="mq-t-meta-2 mt-1 font-semibold" style={{ color: "white" }}>Изменить</span>
                   </>
                 )}
+              </button>
+              {/* v72 mobile: group-hover never fires on touch — compact
+                  always-visible camera badge instead (see .mq-avatar-edit-badge) */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="mq-avatar-edit-badge"
+                aria-label="Изменить аватар"
+              >
+                <Camera className="w-4 h-4" />
               </button>
               <input
                 ref={fileInputRef}

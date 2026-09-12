@@ -485,7 +485,7 @@ export default function SettingsView() {
               const isActive = activeTab === tab.id;
               return (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                  className="flex items-center gap-1.5 px-2.5 sm:px-4 min-h-[40px] py-1.5 rounded-full mq-t-meta-2 sm:text-sm font-semibold whitespace-nowrap transition-colors duration-150 flex-shrink-0"
+                  className="flex items-center gap-1.5 px-2.5 sm:px-4 min-h-[44px] py-1.5 rounded-full mq-t-meta-2 sm:text-sm font-semibold whitespace-nowrap transition-colors duration-150 flex-shrink-0"
                   style={{ background: isActive ? "var(--mq-accent)" : "transparent", color: isActive ? "#fff" : "var(--mq-text-muted)" }}>
                   <Icon className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">{tab.label}</span>

@@ -316,6 +316,30 @@ export default function MessengerView() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
+  // ── v72 iOS keyboard: visualViewport compensation ──
+  // Android is covered by viewport.interactiveWidget=resizes-content
+  // (layout.tsx). iOS Safari never resizes the layout viewport — fixed
+  // composers sit BEHIND the keyboard. Track the visual viewport and
+  // expose the keyboard height as a CSS var the composer consumes
+  // (padding-bottom), so it rides just above the keys.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!window.visualViewport) return;
+    const vv = window.visualViewport;
+    const update = () => {
+      const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      root.style.setProperty("--mq-kb-offset", kb > 24 ? `${Math.round(kb)}px` : "0px");
+    };
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+      root.style.setProperty("--mq-kb-offset", "0px");
+    };
+  }, []);
+
   // ── Mobile view sync ──
   useEffect(() => { setMobileView(activeChatId ? "chat" : "list"); }, [activeChatId]);
 
@@ -1240,14 +1264,14 @@ export default function MessengerView() {
                 </motion.button>
                 <motion.button whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
                   onClick={() => setShowNewGroup(true)}
-                  className="w-10 h-10 rounded-full flex items-center justify-center"
+                  className="w-11 h-11 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
                   aria-label="Новая группа" title="Новая группа">
                   <Users className="w-4 h-4" />
                 </motion.button>
                 <motion.button whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
                   onClick={() => setShowNewChat(true)}
-                  className="w-10 h-10 rounded-full flex items-center justify-center"
+                  className="w-11 h-11 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
                   aria-label="Новый чат">
                   <Plus className="w-4 h-4" />
@@ -1679,20 +1703,20 @@ export default function MessengerView() {
                     </span>
                   </div>
                   <motion.button onClick={stopRecording}
-                    className="w-10 h-10 rounded-full flex items-center justify-center"
+                    className="w-11 h-11 rounded-full flex items-center justify-center"
                     style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
                     aria-label="Отправить голосовое">
                     <Send className="w-4 h-4" />
                   </motion.button>
                   <motion.button onClick={cancelRecording}
-                    className="w-10 h-10 rounded-full flex items-center justify-center"
+                    className="w-11 h-11 rounded-full flex items-center justify-center"
                     style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#ef4444" }}
                     aria-label="Отменить запись">
                     <X className="w-4 h-4" />
                   </motion.button>
                 </div>
               ) : (
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2" style={{ paddingBottom: "var(--mq-kb-offset, 0px)" }}>
                   {showQuickEmojis && (
                     <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
                       className="flex gap-1">
@@ -1713,7 +1737,7 @@ export default function MessengerView() {
                   <div className="flex items-end gap-2">
                     <motion.button whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
                       onClick={() => setShowQuickEmojis((v) => !v)}
-                      className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                      className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
                       style={{
                         backgroundColor: showQuickEmojis
                           ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)"
@@ -1724,7 +1748,7 @@ export default function MessengerView() {
                     </motion.button>
                     <motion.button whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
                       onClick={startRecording}
-                      className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                      className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
                       style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
                       aria-label="Записать голосовое">
                       <Mic className="w-4 h-4" />
@@ -1742,7 +1766,7 @@ export default function MessengerView() {
                       style={inputStyle} />
                     <motion.button whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
                       onClick={handleSend} disabled={!inputText.trim() || isSending}
-                      className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                      className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
                       style={{
                         backgroundColor: inputText.trim() && !isSending
                           ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
@@ -19,6 +19,18 @@ const manrope = Manrope({
   subsets: ["latin", "cyrillic"],
   display: "swap",
 });
+
+// v72 MOBILE KEYBOARD CONTRACT: interactive-widget=resizes-content makes
+// Android Chrome resize the layout viewport when the soft keyboard opens
+// (dvh tracks it) — the chat composer rides ABOVE the keyboard instead of
+// hiding behind it. iOS is handled by the visualViewport hook in
+// MessengerView (composer offset CSS var).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  interactiveWidget: "resizes-content",
+};
 
 export const metadata: Metadata = {
   // rupert-seo-optimizer: title 50-60 chars, include primary keyword + brand

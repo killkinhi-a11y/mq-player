@@ -449,10 +449,14 @@ export default function SearchView() {
       )}
 
       {/* ── Search bar ── */}
+      {/* v72 mobile: field takes the FULL width; Фильтры/Загрузить move to
+          a compact 40px action row underneath (lg+ keeps the one-row layout).
+          Focus = neutral elevation (accent border read as an error state). */}
       <motion.div initial={animationsEnabled ? { opacity: 0, y: -8 } : undefined} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-        className="flex gap-2 sticky top-0 z-20 -mx-3 sm:-mx-4 lg:-mx-5 px-3 sm:px-4 lg:px-5 py-2.5"
+        className="sticky top-0 z-20 -mx-3 sm:-mx-4 lg:-mx-5 px-3 sm:px-4 lg:px-5 py-2.5"
         style={{ backgroundColor: "var(--mq-bg)" }}>
+        <div className="flex gap-2">
         <div className="flex-1 relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px]" style={{ color: isFocused ? "var(--mq-accent)" : "var(--mq-text-muted)", transition: "color 0.25s ease" }} />
           <Input
@@ -486,11 +490,11 @@ export default function SearchView() {
             }}
             className="pl-11 pr-11 min-h-[48px] mq-t-section font-medium"
             style={{
-              backgroundColor: "var(--mq-surface-1)",
+              backgroundColor: isFocused ? "var(--mq-surface-1)" : "var(--mq-surface-1)",
               borderRadius: 14,
-              border: isFocused ? "1.5px solid var(--mq-accent)" : "1px solid var(--mq-edge)",
+              border: isFocused ? "1.5px solid color-mix(in srgb, var(--mq-text) 30%, transparent)" : "1px solid var(--mq-edge)",
               color: "var(--mq-text)",
-              boxShadow: isFocused ? "0 0 0 3px color-mix(in srgb, var(--mq-accent) 12%, transparent)" : "none",
+              boxShadow: isFocused ? "0 1px 8px color-mix(in srgb, var(--mq-text) 8%, transparent)" : "none",
               transition: "border-color 0.2s ease, box-shadow 0.2s ease",
               outline: "none",
             }}
@@ -525,10 +529,11 @@ export default function SearchView() {
           )}
         </div>
 
-        {/* Filter toggle — quiet icon button, accent when active */}
+        {/* Filter toggle — quiet icon button, accent when active.
+            v72: hidden on mobile in this row (moved to the action row below). */}
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="w-11 h-11 rounded-[14px] flex items-center justify-center transition-colors duration-150 mt-[1px]"
+          className="hidden lg:flex w-11 h-11 rounded-[14px] items-center justify-center transition-colors duration-150 mt-[1px]"
           style={{
             backgroundColor: showFilters || selectedGenre ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "var(--mq-surface-1)",
             color: showFilters || selectedGenre ? "var(--mq-accent)" : "var(--mq-text-muted)",
@@ -540,10 +545,10 @@ export default function SearchView() {
           <SlidersHorizontal className="w-4 h-4" />
         </button>
 
-        {/* Upload button */}
+        {/* Upload button — v72: hidden on mobile in this row (moved below) */}
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="w-11 h-11 rounded-[14px] flex items-center justify-center transition-colors duration-150 mt-[1px]"
+          className="hidden lg:flex w-11 h-11 rounded-[14px] items-center justify-center transition-colors duration-150 mt-[1px]"
           style={{
             backgroundColor: "var(--mq-surface-1)",
             color: isUploading ? "var(--mq-accent)" : "var(--mq-text-muted)",
@@ -554,6 +559,39 @@ export default function SearchView() {
           <Upload className={`w-4 h-4 ${isUploading ? "animate-pulse" : ""}`} />
         </button>
         <input ref={fileInputRef} type="file" accept="audio/*" multiple onChange={handleFileUpload} className="hidden" />
+        </div>
+
+        {/* v72 mobile action row — Фильтры + Загрузить файлы (40px targets,
+            right-aligned, same quiet styling). lg:hidden. */}
+        <div className="flex lg:hidden items-center justify-end gap-2 mt-2">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="h-11 px-4 rounded-[12px] flex items-center gap-1.5 transition-colors duration-150"
+            style={{
+              backgroundColor: showFilters || selectedGenre ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "var(--mq-surface-1)",
+              color: showFilters || selectedGenre ? "var(--mq-accent)" : "var(--mq-text-muted)",
+              border: "1px solid " + (showFilters || selectedGenre ? "color-mix(in srgb, var(--mq-accent) 30%, transparent)" : "var(--mq-edge)"),
+            }}
+            aria-label="Фильтры"
+            aria-expanded={showFilters}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span className="mq-t-label text-[11px] font-semibold">Фильтры</span>
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="h-11 px-4 rounded-[12px] flex items-center gap-1.5 transition-colors duration-150"
+            style={{
+              backgroundColor: "var(--mq-surface-1)",
+              color: isUploading ? "var(--mq-accent)" : "var(--mq-text-muted)",
+              border: "1px solid var(--mq-edge)",
+            }}
+            aria-label="Загрузить файлы"
+          >
+            <Upload className={`w-4 h-4 ${isUploading ? "animate-pulse" : ""}`} />
+            <span className="mq-t-label text-[11px] font-semibold">Файлы</span>
+          </button>
+        </div>
       </motion.div>
 
       {/* ── Search suggestions — autocomplete-style dropdown ──

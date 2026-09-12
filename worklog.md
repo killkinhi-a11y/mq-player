@@ -2280,3 +2280,132 @@ Stage Summary:
 - v71: no press feedback anywhere, one slider DNA everywhere, no
   dead hover zones in settings, WASM opt-in. Ship: push -> Vercel
   -> production verify.
+
+---
+Task ID: mobile-phase-survey
+Agent: main (Super Z)
+Task: PHASE 0 SURVEY + MOBILE AUDIT of production v71 (e51d653) for the mobile-first redesign phase
+
+Work Log:
+- Survey: local main was a STALE diverged line (own root, 15 UUID commits,
+  no v71 work in src/) while origin/main = e51d653f (v71, production).
+  Backed up as branch backup-stale-line-e2e47db; reset --hard to
+  origin/main; recovered 75 baseline screenshots into download/screens/;
+  npm ci; tsc clean; vitest 357/357 (17 files). Baseline GREEN.
+- Mobile audit via agent-browser on PRODUCTION https://mq1.vercel.app,
+  375x844 primary + FP at 390/393/412/430; demo-mode login; real
+  interactions (nav, play, search typing, context menu, queue, FP open).
+- VLM visual audits on Home / Full Player / Context Menu / Search.
+
+MOBILE PRODUCT MAP (BEFORE):
+A. Nav/IA: MobileDock 5 tabs (Главная/Поиск/Библиотека/Чаты/Настройки),
+   fixed lg:hidden, safe-area ok. Dock nav row 51px; with mini player
+   113px. MobileNav.tsx deprecated dead code. Profile NOT a nav
+   destination (buried in Settings tabs). Favorites/History/Playlists
+   reachable both from Home chips AND Library tabs (IA redundancy).
+B. Home: greeting + Волна(40px btn) + hero now-playing (MobileNowHero
+   w/ dock de-dup) + vertical lists only (no horizontal rails).
+   CRITICAL touch: artist chips 18px height inside 60px rows; 14
+   sub-44px targets measured on Home alone.
+C. Search: field 48px tall but only 239px wide (Фильтры + Загрузить
+   buttons eat 36%); focus border reads as error state (VLM); chips +
+   sectioned results OK.
+D. Library: tabs (Избранное/Плейлисты/История) + in-library search +
+   sort; empty states present.
+E. Mini player: dock-embedded, 38px artwork, like/play/next, 2px
+   progress line, time label; NO swipe-up to Full Player (tap only);
+   .mq-mini:active scale(0.9) still present — violates v71 no-press
+   contract; .mq-nav:active opacity .6 too.
+F. Full Player: artwork 343, transport 76/56px, bottom action row
+   40x40 (<44). Cover gestures exist (down=close, L/R=skip). Title
+   25px — hierarchy exists but weak hero. QUEUE DRAWER BUG: opens as
+   absolute inset-0 z-20 REPLACING the player; its Закрыть closes the
+   whole player; drawer state PERSISTS — reopening FP shows queue
+   again (reproduced live on production).
+G. Context menu: proper bottom sheet 375x608, 12 items x 48px,
+   internal scroll works (702>606), maxHeight 607.68px. VLM: flat
+   same-weight list — no grouping, no destructive color, no safe
+   dismiss zone.
+H. Sound/Mixer: Settings→Звук = Mute + volume + EQ toggle; full
+   EqualizerView separate (desktop-grade).
+I. Chats: list + Друзья/Новая группа/Новый чат; keyboard flow
+   untested yet (Phase 10 pending).
+J. Performance: stream API cold 0.5s / cached 0.09s; click→play()
+   warm ≈ 1.27s; BUT first-ever cold play measured 7.17s (once, fresh
+   profile — HLS/encrypted + first-session init path suspected).
+   Track change refetches ENTIRE home feed (recommendations, trending,
+   apple-charts, spotify-charts, curated — 5 endpoints) on every
+   track switch. Next-track server warmup exists and works. Console:
+   zero page errors, only informative resolveStream logs.
+K. Typography: mq-t-* system (10/11/12/13/14) + FP inline 25/26px —
+   levels exist; FP title could be stronger hero (VLM).
+
+Stage Summary:
+- Baseline green at e51d653f; product map built; top issues:
+  (1) queue drawer state bug, (2) touch targets < 44px (artist chips,
+  FP action row, Волна), (3) Profile buried in Settings, (4) mini
+  player no swipe-up + press feedback regression in dock, (5) search
+  field too narrow + error-look focus, (6) home feed refetch per
+  track switch, (7) no horizontal rails on Home, (8) context menu
+  flat list, (9) cold-play 7s outlier path.
+
+---
+Task ID: mobile-v72-implementation
+Agent: main (Super Z)
+Task: MOBILE-FIRST REDESIGN implementation (v72) — nav IA, touch
+targets, search, full player, mini player gestures, context menu,
+chats keyboard, profile, perf
+
+Work Log:
+- IA/NAV: dock tab 5 = Профиль (was Настройки; settings stays reachable
+  via Profile shortcut row). Nav row 50→56px, every tab 75x56 target,
+  active accent hairline indicator (::before on .mq-nav-tab). Press
+  feedback removed from dock (.mq-nav:active opacity / .mq-mini:active
+  scale(0.9) — v71 no-press contract violation found in audit).
+  Deprecated MobileNav.tsx deleted (+ AppShell import/render).
+  Dock progress line 2→3px.
+- HOME/TOUCH: .mq-artist-link class (inline hit-area trick: padding
+  9px / margin -9px → ~36px target, zero visual change) applied to
+  all artist chips (TrackCard span, MainView x4). Волна 40→44px.
+  mq-menu-item 40→44px (+sheet separators breathe: 44px inset).
+- SEARCH: mobile field full-width 343px (was 239px — Фильтры/Загрузить
+  moved to 44px action row underneath, lg keeps one-row layout).
+  Focus state neutral (accent border read as error per VLM audit):
+  text-30% border + soft elevation shadow, icon keeps accent.
+- FULL PLAYER: title 25→28px hero (hierarchy 28/26/14/12); action row
+  40→44px; QUEUE DRAWER STATE BUG FIXED (panel/picker/menu state
+  survived close→reopen because the component early-returns but never
+  unmounts — reset effect on isOpen falling edge). Reproduced BEFORE
+  on production; verified AFTER locally (drawer closed, artwork 343px).
+- MINI PLAYER: swipe-up ≥40px → Full Player (touch handlers, tap-vs-
+  swipe disambiguation via gestureConsumed ref + 60ms click suppress);
+  verified via synthetic TouchEvent dispatch → FP opened.
+- CHATS/KEYBOARD: root viewport export interactiveWidget=resizes-
+  content (Android resizes layout viewport with keyboard); iOS
+  visualViewport hook sets --mq-kb-offset consumed as composer
+  paddingBottom; composer buttons 40→44px (emoji/mic/send).
+- PROFILE: avatar edit was hover-only (group-hover never fires on
+  touch — dead affordance on mobile). Added .mq-avatar-edit-badge
+  (34px accent camera chip, @media (hover:none)/(pointer:coarse)),
+  verified display:flex on touch viewport.
+- SETTINGS: tab chips min-h 40→44px.
+- PERF P0: home feed refetch on EVERY track switch killed. Root cause:
+  tasteSig included historyScIds (first-10 history) — every play
+  inserts a history entry → sig changes → 5-endpoint refetch. Sig now
+  = likes/dislikes/genres/artists only; API still receives fresh
+  history at fetch time (loadHomeFeed reads state). Verified: track
+  switch = exactly 1 stream request (was 5 endpoints + stream).
+- QA (agent-browser, 375x844 + FP at 390/393/412/430, fresh session
+  after documented stale-SW/port traps — EADDRINUSE double server
+  documented): dock 5x75x56 tabs; profile opens w/ badge; search 343px
+  field + 44px actions; FP 28px title + 6x44 actions + queue fix +
+  swipe-up; context sheet 48px items + 2 separators; EQ 11 faders;
+  playback green (time advances, pause state correct); ZERO console /
+  page / hydration errors. Tests 357/357; tsc clean; build exit 0.
+
+Stage Summary:
+- v72 mobile phase 1 shipped: IA (Profile destination), 44px touch
+  contract across dock/rows/menus/composer, search full-width, FP
+  queue-drawer root-cause fix + hero typography, mini-player swipe-up,
+  iOS/Android keyboard compensation, avatar touch affordance, feed
+  refetch P0 fix. Ready: push → Vercel → production verify.

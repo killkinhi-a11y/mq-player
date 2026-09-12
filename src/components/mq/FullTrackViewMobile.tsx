@@ -134,6 +134,21 @@ function FullTrackViewMobileInner() {
   const [showMore, setShowMore] = useState(false);
   const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
 
+  // v72 FIX: the player stays MOUNTED while closed (early return below does
+  // not unmount it), so panel/picker/menu state survived a close→reopen —
+  // reopening the player showed the queue drawer still covering everything.
+  // Reset all overlay state the moment the player closes.
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    if (wasOpenRef.current && !isOpen) {
+      setPanel(null);
+      setShowPlaylistPicker(false);
+      setShowMore(false);
+      setTrackMenu(null);
+    }
+    wasOpenRef.current = isOpen;
+  }, [isOpen]);
+
   // ── Refs for progress ──
   const seekInputRef = useRef<HTMLInputElement>(null);
   const timeCurrentRef = useRef<HTMLSpanElement>(null);
@@ -502,7 +517,7 @@ function FullTrackViewMobileInner() {
             Weight contrast: title 800 / artist regular-muted. */}
         <div className="mq-ft-anim px-4 flex items-end justify-between gap-3" style={{ flexShrink: 0, animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 60ms backwards" }}>
           <div className="min-w-0 flex-1">
-            <h1 className="mq-text-display text-[25px] leading-[1.15] tracking-[-0.015em] line-clamp-2 font-extrabold" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</h1>
+            <h1 className="mq-text-display text-[28px] leading-[1.12] tracking-[-0.02em] line-clamp-2 font-extrabold" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</h1>
             <button onClick={handleArtist} className="mq-t-body text-sm mt-1.5 flex items-center gap-1 max-w-full text-left group" style={{ color: "var(--mq-text-muted)" }}>
               <span className="truncate">{currentTrack.artist}</span>
               <ChevronUp className="w-3.5 h-3.5 flex-shrink-0 rotate-90 opacity-60" />
@@ -650,7 +665,7 @@ function FullTrackViewMobileInner() {
               aria-label={label}
               aria-pressed={on || undefined}
               title={label}
-              className="mq-ft-btn w-10 h-10 rounded-[13px] flex items-center justify-center"
+              className="mq-ft-btn w-11 h-11 rounded-[14px] flex items-center justify-center"
               style={{
                 backgroundColor: on
                   ? danger

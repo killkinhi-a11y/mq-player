@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { getAudioElement } from "@/lib/audioEngine";
 import { currentPlaybackPosition } from "@/lib/wasm-audio";
 import { formatDuration } from "@/lib/musicApi";
-import { Play, Pause, Heart, Music, Loader2, Home, Search, Library, MessageCircle, Settings } from "lucide-react";
+import { Play, Pause, Heart, Music, Loader2, Home, Search, Library, MessageCircle, User } from "lucide-react";
 import type { ViewType } from "@/store/useAppStore";
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -14,12 +14,15 @@ import type { ViewType } from "@/store/useAppStore";
 // RAF reads audio.currentTime for true 60fps
 // ═════════════════════════════════════════════════════════════════════════
 
-const NAV: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "messenger" | "settings" }[] = [
+// Mobile IA (v72): Profile is a primary destination — identity, stats,
+// settings + logout live there. Settings itself remains a full view,
+// reachable from Profile's shortcut row (and command palette).
+const NAV: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "messenger" | "profile" }[] = [
   { id: "main", icon: Home, label: "Главная" },
   { id: "search", icon: Search, label: "Поиск" },
   { id: "library", icon: Library, label: "Библиотека" },
   { id: "messenger", icon: MessageCircle, label: "Чаты", badgeKey: "messenger" },
-  { id: "settings", icon: Settings, label: "Настройки", badgeKey: "settings" },
+  { id: "profile", icon: User, label: "Профиль", badgeKey: "profile" },
 ];
 
 function MobileDockInner() {
@@ -112,6 +115,37 @@ function MobileDockInner() {
   const setBadge = supportUnreadCount;
 
   const openFull = useCallback(() => { if (currentTrack) setFullTrackViewOpen(true); }, [currentTrack, setFullTrackViewOpen]);
+
+  // ── Swipe-up gesture: drag the mini player up ≥40px → Full Player ──
+  // Uses passive listeners (no scroll blocking); tap still opens (click
+  // fires only when no meaningful move happened — we suppress it when the
+  // gesture consumed the touch).
+  const touchStartY = useRef<number | null>(null);
+  const touchStartX = useRef<number | null>(null);
+  const gestureConsumed = useRef(false);
+  const onMiniTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!currentTrack) return;
+    touchStartY.current = e.touches[0].clientY;
+    touchStartX.current = e.touches[0].clientX;
+    gestureConsumed.current = false;
+  }, [currentTrack]);
+  const onMiniTouchMove = useCallback((e: React.TouchEvent) => {
+    if (touchStartY.current === null || touchStartX.current === null) return;
+    const dy = touchStartY.current - e.touches[0].clientY;
+    const dx = Math.abs(e.touches[0].clientX - touchStartX.current);
+    if (dy > 40 && dx < 48 && !gestureConsumed.current) {
+      gestureConsumed.current = true;
+      setFullTrackViewOpen(true);
+    }
+  }, [setFullTrackViewOpen]);
+  const onMiniTouchEnd = useCallback(() => {
+    // Keep gestureConsumed=true through the synthetic click that follows
+    // the touchend, then reset on the NEXT touchstart. A real tap never
+    // sets it (no 40px movement).
+    window.setTimeout(() => { gestureConsumed.current = false; }, 60);
+    touchStartY.current = null;
+    touchStartX.current = null;
+  }, []);
   const onLike = useCallback((e: React.MouseEvent) => { e.stopPropagation(); if (currentTrack) toggleLike(currentTrack.id, currentTrack); }, [currentTrack, toggleLike]);
   const onPlay = useCallback((e: React.MouseEvent) => { e.stopPropagation(); togglePlay(); }, [togglePlay]);
   const onNav = useCallback((item: typeof NAV[number], active: boolean) => {
@@ -123,12 +157,19 @@ function MobileDockInner() {
     <div className="fixed lg:hidden left-0 right-0 z-[60]" style={{ bottom: 0 }}>
       <style>{`
         .mq-nav { transition: color .2s ease; -webkit-tap-highlight-color: transparent; user-select: none; }
-        .mq-nav:active { opacity: 0.6; }
-        .mq-mini { transition: transform .12s ease; -webkit-tap-highlight-color: transparent; user-select: none; }
-        .mq-mini:active { transform: scale(0.9); }
+        .mq-nav-tab { position: relative; transition: color .2s ease; }
+        .mq-nav-tab::before {
+          content: "";
+          position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+          width: 22px; height: 2.5px; border-radius: 0 0 3px 3px;
+          background: var(--mq-accent);
+          opacity: 0; transition: opacity .18s ease;
+        }
+        .mq-nav-tab[data-active="true"]::before { opacity: 1; }
+        .mq-mini { transition: none; -webkit-tap-highlight-color: transparent; user-select: none; }
         .mq-dock-progress-track {
           position: relative;
-          height: 2px;
+          height: 3px;
           background: var(--mq-glass-bg);
           cursor: default;
         }
@@ -166,8 +207,9 @@ function MobileDockInner() {
           </div>
         )}
         {currentTrack && (
-          <div className="flex items-center gap-2 px-3" style={{ height: "60px" }}>
-            <button onClick={openFull} className="mq-mini flex items-center gap-2.5 flex-1 min-w-0" style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
+        <div className="flex items-center gap-2 px-3" style={{ height: "60px", touchAction: "none" }}
+          onTouchStart={onMiniTouchStart} onTouchMove={onMiniTouchMove} onTouchEnd={onMiniTouchEnd}>
+            <button onClick={() => { if (!gestureConsumed.current) openFull(); }} className="mq-mini flex items-center gap-2.5 flex-1 min-w-0" style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
               <div className="rounded-md overflow-hidden flex-shrink-0" style={{ width: "38px", height: "38px" }}>
                 {currentTrack!.cover ? <img src={currentTrack!.cover} alt="" className="w-full h-full object-cover" />
                   : <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}><Music className="w-4 h-4" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} /></div>}
@@ -202,26 +244,28 @@ function MobileDockInner() {
         )}
         </div>
 
-        {/* Navigation */}
-        <div className="flex items-stretch justify-around" style={{ height: "var(--mq-nav-height-mobile, 50px)" }}>
+        {/* Navigation — 56px row (icon 22 + label 10 + gaps): every tab is a
+            full-height 44px+ touch target with an active accent hairline. */}
+        <div className="flex items-stretch justify-around" style={{ height: "var(--mq-nav-height-mobile, 56px)" }}>
           {NAV.map((item) => {
             const Icon = item.icon;
             const active = currentView === item.id;
-            const badge = item.badgeKey === "messenger" ? msgBadge : item.badgeKey === "settings" ? setBadge : 0;
+            const badge = item.badgeKey === "messenger" ? msgBadge : item.badgeKey === "profile" ? setBadge : 0;
             return (
               <button
                 key={item.id}
                 onClick={() => onNav(item, active)}
                 aria-current={active ? "page" : undefined}
                 aria-label={item.label}
-                className="mq-nav flex flex-col items-center justify-center gap-0.5 flex-1"
-                style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, color: active ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text-muted) 70%, transparent)" }}>
+                data-active={active}
+                className="mq-nav mq-nav-tab flex flex-col items-center justify-center gap-1 flex-1"
+                style={{ background: "transparent", border: "none", cursor: "pointer", padding: "4px 0", minHeight: 44, color: active ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text-muted) 72%, transparent)" }}>
                 <div className="relative">
                   <Icon className="w-[22px] h-[22px]" strokeWidth={active ? 2.3 : 1.7} />
                   {badge > 0 && <span className="absolute -top-1 -right-2 min-w-[14px] h-[14px] rounded-full flex items-center justify-center mq-t-badge font-bold px-1"
                     style={{ background: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}>{badge > 99 ? "99" : badge}</span>}
                 </div>
-                <span className="mq-t-meta-2 leading-none" style={{ opacity: active ? 1 : 0.8 }}>{item.label}</span>
+                <span className="mq-t-nav leading-none" style={{ opacity: active ? 1 : 0.85, fontSize: "10px" }}>{item.label}</span>
               </button>
             );
           })}

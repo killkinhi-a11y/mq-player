@@ -268,7 +268,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
           >
             {onArtistClick ? (
               <span
-                className="cursor-pointer hover:underline hover:text-[var(--mq-text)] transition-colors duration-150"
+                className="mq-artist-link cursor-pointer hover:underline hover:text-[var(--mq-text)] transition-colors duration-150 truncate"
                 onClick={(e) => {
                   e.stopPropagation();
                   onArtistClick(track.artist, track.cover);

@@ -736,7 +736,7 @@ button, a, [role="button"] {
 /* ── Player bar height CSS var for consistent spacing ── */
 :root {
   --mq-player-height-mobile: 90px;
-  --mq-nav-height-mobile: 50px;
+  --mq-nav-height-mobile: 56px;
   --mq-bottom-safe: calc(var(--mq-player-height-mobile) + var(--mq-nav-height-mobile) + env(safe-area-inset-bottom, 0px));
 }
 
@@ -3795,6 +3795,49 @@ a:focus-visible {
   line-height: 1.35;
   letter-spacing: -0.01em;
 }
+/* ── Artist link hit-area (mobile touch contract) ─────────────────────
+   Artist names are secondary inline actions inside 60px track rows.
+   Visual size stays the same; the HIT area grows to ~36px via the
+   negative-margin padding trick (net-zero layout shift). Primary
+   action = whole row (60px), so overlap stays inside the row. */
+.mq-artist-link {
+  display: inline-flex;
+  align-items: center;
+  padding-block: 9px;
+  margin-block: -9px;
+  min-height: 36px;
+  box-sizing: border-box;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mq-artist-link:hover { text-decoration: underline; }
+/* Block variant (truncate needs display:block; hit area still grows) */
+.mq-artist-link.mq-artist-link--block { display: block; min-height: 36px; align-items: center; }
+
+/* ── Avatar edit badge (touch devices) ──────────────────────────────
+   The edit overlay is group-hover gated — never fires on touch. This
+   compact always-visible badge restores the affordance on phones. */
+.mq-avatar-edit-badge {
+  display: none;
+}
+@media (hover: none), (pointer: coarse) {
+  .mq-avatar-edit-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: var(--mq-accent);
+    color: #fff;
+    box-shadow: 0 0 0 3px var(--mq-bg);
+    cursor: pointer;
+  }
+}
+
 .mq-t-artist {            /* artist name line */
   font-family: var(--mq-font-primary);
   font-size: 13px;
@@ -3946,8 +3989,13 @@ a:focus-visible {
 
 .mq-menu-sep {
   height: 1px;
-  margin: 5px 8px;
+  margin: 6px 12px;
   background: var(--mq-edge);
+}
+/* Bottom-sheet mode: separators breathe more — the grouped structure
+   (Playback / Library / Navigate / Share / Destructive) reads at a glance. */
+.mq-menu-sheet .mq-menu-sep {
+  margin: 7px 14px 7px 44px;
 }
 
 .mq-menu-item {
@@ -3955,8 +4003,8 @@ a:focus-visible {
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 40px;
-  padding: 8px 10px;
+  min-height: 44px;
+  padding: 10px 12px;
   border-radius: 8px;
   text-align: left;
   color: var(--mq-text);

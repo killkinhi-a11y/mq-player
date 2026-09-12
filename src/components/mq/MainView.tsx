@@ -167,14 +167,18 @@ function MainView() {
     const st = useAppStore.getState();
     const likedScIds = (st.likedTracksData || [])
       .map((t: any) => t.scTrackId).filter(Boolean).slice(0, 5).join(",");
-    const historyScIds = (st.history || [])
-      .slice(0, 10).map((h: any) => h.track?.scTrackId).filter(Boolean).join(",");
+    // v72 PERF FIX: listening history is DELIBERATELY excluded from the
+    // signature. Every track switch inserts a history entry — with it in
+    // the sig, each switch refetched the whole home feed (recs + trending
+    // + apple + spotify + curated = 5 endpoints). Real taste signals only:
+    // likes, dislikes, genres, artists. The API still receives the FRESH
+    // history (loadHomeFeed reads it from state at fetch time); the feed
+    // simply refreshes on taste changes + TTL, not on every skip.
     const dislikedIds = (st.dislikedTrackIds || []).slice(0, 50).join(",");
     const favNames = (st.favoriteArtists || []).map((a: any) => a.username).filter(Boolean);
     const artists = [...new Set([...favNames, ...tasteProfile.topArtists])].slice(0, 5).join(",");
     return JSON.stringify([
       likedScIds,
-      historyScIds,
       dislikedIds,
       tasteProfile.topGenres.slice(0, 8).join(","),
       artists,
@@ -393,7 +397,7 @@ function MainView() {
           <button
             onClick={() => (wave.radioMode ? wave.pauseWave() : wave.startWave())}
             disabled={wave.waveLoading}
-            className={`shrink-0 ${currentTrack ? "flex" : "hidden lg:flex"} items-center gap-2 rounded-full pl-3 pr-4 h-10 transition-all`}
+            className={`shrink-0 ${currentTrack ? "flex" : "hidden lg:flex"} items-center gap-2 rounded-full pl-3 pr-4 h-11 transition-all`}
             style={{
               backgroundColor: wave.radioMode
                 ? "color-mix(in srgb, var(--mq-accent) 16%, transparent)"
@@ -1060,7 +1064,7 @@ function FeaturedCard({
             </h2>
             <button
               onClick={onArtistClick}
-              className="mq-t-artist mt-1 hover:underline text-left"
+              className="mq-artist-link mq-artist-link--block mq-t-artist mt-1 hover:underline text-left truncate"
             >
               {track.artist}
             </button>
@@ -1347,7 +1351,7 @@ function MobileNowHero({
           </p>
           <span
             onClick={(e) => { e.stopPropagation(); onArtistClick(hero.artist); }}
-            className="mq-t-artist truncate block max-w-full"
+            className="mq-artist-link mq-artist-link--block mq-t-artist truncate max-w-full"
             aria-label={`Артист: ${hero.artist}`}
           >
             {hero.artist}
@@ -1608,7 +1612,7 @@ function HorizontalTrackRow({
         </p>
         <button
           onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-          className="mq-t-artist block max-w-full text-left truncate hover:underline"
+          className="mq-artist-link mq-artist-link--block mq-t-artist max-w-full text-left truncate hover:underline"
         >
           {track.artist}
         </button>
@@ -1743,7 +1747,7 @@ function ChartRow({
         </p>
         <button
           onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-          className="mq-t-artist block max-w-full text-left truncate hover:underline"
+          className="mq-artist-link mq-artist-link--block mq-t-artist max-w-full text-left truncate hover:underline"
         >
           {track.artist}
         </button>

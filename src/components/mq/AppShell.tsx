@@ -85,7 +85,6 @@ const FullTrackView = dynamic(() => import("@/components/mq/FullTrackView"), { s
 const FullTrackViewMobile = dynamic(() => import("@/components/mq/FullTrackViewMobile"), { ssr: false });
 const KeyboardShortcutsHelp = dynamic(() => import("@/components/mq/KeyboardShortcutsHelp").then(m => ({ default: m.KeyboardShortcutsHelp })), { ssr: false });
 const NavBar = dynamic(() => import("@/components/mq/NavBar"), { ssr: false });
-const MobileNav = dynamic(() => import("@/components/mq/MobileNav"), { ssr: false });
 const MobileDock = dynamic(() => import("@/components/mq/MobileDock"), { ssr: false });
 const NotificationPanel = dynamic(() => import("@/components/mq/NotificationPanel"), { ssr: false });
 const MaintenanceBanner = dynamic(() => import("@/components/mq/MaintenanceBanner"), { ssr: false });
@@ -740,7 +739,6 @@ export default function AppShell() {
       {/* Mobile: unified dock (player + nav in one glass container) */}
       <Suspense fallback={null}>{showNav && !hideUiForFullscreen && <MobileDock />}</Suspense>
       {/* Desktop: separate nav bar (PlayerBar already rendered above) */}
-      <Suspense fallback={null}>{showNav && !hideUiForFullscreen && <MobileNav />}</Suspense>
       <Suspense fallback={null}>{isAuthenticated && <NotificationPanel isOpen={notifPanelOpen} onClose={() => setNotifPanelOpen(false)} />}</Suspense>
       <Suspense fallback={null}>{isAuthenticated && <OnboardingTour />}</Suspense>
     </div>
