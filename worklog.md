@@ -2440,3 +2440,69 @@ Stage Summary:
   Contents: read+write for killkinhi-a11y/mq-player) and run
   `git push origin main` (Vercel auto-deploys from GitHub), then
   verify https://mq1.vercel.app version.json = 72 / dceab75b.
+
+---
+Task ID: mobile-v72-deploy-unblocked
+Agent: main (Super Z)
+Task: Unblock v72 ship with user-provided credentials (Vercel token
++ new GitHub PAT), deploy to production, live mobile QA
+
+Work Log:
+- User supplied two tokens: Vercel API token (valid, user
+  killkinhi-5353) + new fine-grained GitHub PAT.
+- GitHub PAT verified: authenticates as killkinhi-a11y, REST /repos
+  OK, BUT Contents:write still denied (git/refs POST + contents PUT
+  both 403 "Resource not accessible by personal access token";
+  /repos permissions field shows the USER's collaborator perms, not
+  the token's — repo is public so reads work regardless). GitHub
+  mirror push remains BLOCKED; origin/main stays at e51d653f (v71).
+- DEPLOY PATH: Vercel CLI direct from local (bypasses GitHub).
+  Staging dir built via `git archive HEAD` (exact committed state,
+  excluding worktree noise: 2066-file mode-bit churn + skills/ churn
+  — NOT committed, left as-is). .vercel/project.json written manually
+  (mq1 / prj_5BaGhJQWIgpOI6rot5nyOHsrl8uH, team
+  killkinhi-5353s-projects).
+- Identity parity: temp project env VERCEL_GIT_COMMIT_SHA=
+  a4e7d32618525e1e1c5baab37f99c59cd8cc510b (accepted by API) so the
+  CLI deploy stamps the same buildId a future git push of a4e7d326
+  would produce — no spurious UpdateBanner when push unblocks.
+- `vercel deploy --prod --yes --token=…` → build 29s, total 1m;
+  aliased to https://mq1.vercel.app. version.json now: version 73,
+  buildId mq-build-a4e7d326, commit a4e7d326. (Version 73 not 72:
+  nextVersionNumber bumps per NEW deployed commit — v71 deploy of
+  e51d653f followed the same rule; "72" was only the local stamp at
+  dceab75b.) Temp env DELETED after deploy (id zN13ALPNtkypAXIX,
+  removal confirmed) so future deploys stamp truthfully.
+- PRODUCTION MOBILE QA (agent-browser, 375x844, fresh session,
+  demo mode): dock 5 tabs x 75x56 (Главная/Поиск/Библиотека/Чаты/
+  Профиль, active indicator on) ✓; playback live (time advancing,
+  auto-advance chain Ambient Dreams→Jazz Evening→Rock Energy) ✓;
+  mini-player swipe-up (synthetic TouchEvent dy=60) → FP opened ✓;
+  FP hero title 28px (home h1 = 24px — hierarchy correct) ✓; FP
+  action row all >=44px (44/44/44/56/76/56/44/44/44) + secondary
+  chips 44px ✓; QUEUE DRAWER STATE FIX verified live: queue open →
+  close FP → reopen → panel reset closed (two false "regression"
+  readings during QA were my own click-order mistakes — queue sheet
+  is a fullscreen z-20 overlay covering FP chrome BY DESIGN; sheet
+  z=10001 > dock z=60) ✓; search field 343px full-width ✓; Profile
+  destination full render (avatar edit as real touch button,
+  shortcuts, activity, account) ✓; context sheet 10 items x 48px,
+  maxH 607.68px, overflow-y auto, last item fully visible ✓; Chats
+  view renders ✓; ZERO console/page errors across whole session ✓.
+- Production screenshots saved:
+  download/screens/prod-v72-home-375.png,
+  download/screens/prod-v72-fullplayer-375.png.
+- Cleanup: .deploy-v72 staging + log removed; worktree noise left
+  uncommitted (mode bits + skills churn, not project code).
+
+Stage Summary:
+- v72 (mobile phase 1) is LIVE on production: https://mq1.vercel.app
+  = version 73 / mq-build-a4e7d326. Full mobile QA green on
+  production. Vercel deploy path works WITHOUT GitHub (CLI + token).
+- REMAINING BLOCKER: GitHub mirror push — new PAT still lacks
+  Contents:read+write on killkinhi-a11y/mq-player (origin/main stuck
+  at v71). Needs a PAT with Contents write, or push from a machine
+  with working creds. Local main = a4e7d326 (3 commits ahead).
+- Next phases per task book: perf long-load root cause (7s cold
+  outlier), states/empty/error, dark mode + OLED, landscape,
+  benchmark vs Spotify/Yandex, 18-section final report.
