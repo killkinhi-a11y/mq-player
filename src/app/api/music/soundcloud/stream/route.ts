@@ -35,13 +35,37 @@ const CLIENT_IDS = SOUNDCLOUD_CLIENT_IDS;
 
 // ── In-memory stream resolution cache ──
 // Vercel Edge reuses isolates across requests within a region, so this cache
-// persists for warm instances. Keyed by trackId, TTL 5 minutes — SoundCloud
-// CDN URLs are short-lived but 5 min is safe.
+// persists for warm instances. Keyed by trackId.
 // Typical hit: repeat play / preloaded next track / wave radio re-visits.
+//
+// EXPIRY-AWARE (root cause fixed 2026-09-12): SC CDN URLs are CloudFront-
+// signed with an AWS:EpochTime validity measured at ≈ 4 MINUTES. The old
+// flat 5-min TTL served URLs whose signature had already died → proxy 502 →
+// client retry dance ("track loads forever"). The TTL is now capped by the
+// resolved URL's own Policy expiry (60 s safety margin); entries without a
+// parseable Policy fall back to 3 min.
 const STREAM_CACHE_TTL_MS = 5 * 60 * 1000;
+const STREAM_CACHE_FALLBACK_TTL_MS = 3 * 60 * 1000;
+const STREAM_CACHE_SAFETY_MS = 60 * 1000;
 interface StreamCacheEntry {
   data: Record<string, unknown>;
   expiresAt: number;
+}
+
+/** CloudFront signed URL → epoch-ms expiry (0 when unknown). Edge-safe. */
+function scUrlExpiresAtMs(url: unknown): number {
+  try {
+    if (typeof url !== "string") return 0;
+    const m = url.match(/[?&]Policy=([^&]+)/);
+    if (!m) return 0;
+    let b64 = decodeURIComponent(m[1]).replace(/-/g, "+").replace(/_/g, "/");
+    while (b64.length % 4) b64 += "=";
+    const json = JSON.parse(atob(b64));
+    const epoch = json?.Statement?.[0]?.Condition?.DateLessThan?.["AWS:EpochTime"];
+    return typeof epoch === "number" ? epoch * 1000 : 0;
+  } catch {
+    return 0;
+  }
 }
 const streamCache = new Map<string, StreamCacheEntry>();
 
@@ -61,9 +85,14 @@ function setCachedStream(trackId: string, data: Record<string, unknown>): void {
     const firstKey = streamCache.keys().next().value;
     if (firstKey) streamCache.delete(firstKey);
   }
+  // Never cache past the URL signature's own expiry (60 s safety margin).
+  const urlExpiry = scUrlExpiresAtMs(data.url);
+  const ttl = urlExpiry
+    ? Math.max(30 * 1000, Math.min(STREAM_CACHE_TTL_MS, urlExpiry - Date.now() - STREAM_CACHE_SAFETY_MS))
+    : STREAM_CACHE_FALLBACK_TTL_MS;
   streamCache.set(trackId, {
     data,
-    expiresAt: Date.now() + STREAM_CACHE_TTL_MS,
+    expiresAt: Date.now() + ttl,
   });
 }
 

@@ -535,12 +535,38 @@ export function createManifestInterceptor(audioEl: HTMLAudioElement): (xhr: XMLH
 
 // ── Client-side resolved-stream cache (Task 8: slow track loading) ──
 // Replays (from history/likes/queue re-entry) skip the 2-5s resolve round
-// trip entirely. TTL 15 min — CDN URLs are signed with longer validity, and
-// any stale URL is caught by the audio error handler which re-resolves with
-// { noCache: true }. In-flight dedupe: concurrent callers share one promise.
+// trip entirely. In-flight dedupe: concurrent callers share one promise.
+//
+// TTL / EXPIRY (root cause fixed 2026-09-12): SoundCloud CDN URLs are
+// CloudFront-signed with an AWS:EpochTime validity that is now ≈ 4 MINUTES
+// (measured on a freshly resolved URL; it used to be much longer, which is
+// why the original 15-min TTL was safe). A cached stream whose URL is past
+// expiry hands the engine a dead URL → proxy 502 → fatal → element fallback
+// → MEDIA_ERR → retry dance = the "one track loads forever" bug. Cache hits
+// therefore require the URL signature to STILL be valid (with a 60 s safety
+// margin). Entries without a parseable Policy fall back to a conservative
+// 3-min TTL.
 const STREAM_CACHE_TTL = 15 * 60 * 1000;
-const streamCache = new Map<number, { stream: StreamResult; at: number }>();
+const STREAM_URL_SAFETY_MS = 60 * 1000; // never serve a URL expiring within 60s
+const STREAM_URL_FALLBACK_TTL = 3 * 60 * 1000;
+const streamCache = new Map<number, { stream: StreamResult; at: number; expiresAt: number }>();
 const streamInFlight = new Map<number, Promise<StreamResult | null>>();
+
+/** Decode a signed CDN URL's CloudFront Policy → epoch-ms expiry (0 if unknown). */
+function scUrlExpiresAt(url: string): number {
+  try {
+    const m = url.match(/[?&]Policy=([^&]+)/);
+    if (!m) return 0;
+    let b64 = decodeURIComponent(m[1]);
+    b64 = b64.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    const json = JSON.parse(atob(b64));
+    const epoch = json?.Statement?.[0]?.Condition?.DateLessThan?.["AWS:EpochTime"];
+    return typeof epoch === 'number' ? epoch * 1000 : 0;
+  } catch {
+    return 0;
+  }
+}
 
 /**
  * Track-loading optimization: prefetch the NEXT queued track's stream URL
@@ -644,9 +670,10 @@ export async function resolveSoundCloudStream(
   const useCache = !opts?.noCache;
   if (useCache) {
     const hit = streamCache.get(scTrackId);
-    if (hit && Date.now() - hit.at < STREAM_CACHE_TTL) {
+    if (hit && Date.now() < hit.expiresAt - STREAM_URL_SAFETY_MS) {
       return hit.stream;
     }
+    if (hit) streamCache.delete(scTrackId); // expired entry — drop, don't serve
   }
   const existing = streamInFlight.get(scTrackId);
   if (existing) return existing;
@@ -737,7 +764,11 @@ export async function resolveSoundCloudStream(
 }
 
 function cacheResolvedStream(scTrackId: number, stream: StreamResult) {
-  streamCache.set(scTrackId, { stream, at: Date.now() });
+  const urlExpiry = scUrlExpiresAt(stream.url);
+  const expiresAt = urlExpiry
+    ? Math.min(urlExpiry, Date.now() + STREAM_CACHE_TTL)
+    : Date.now() + STREAM_URL_FALLBACK_TTL;
+  streamCache.set(scTrackId, { stream, at: Date.now(), expiresAt });
   // Cap the cache (oldest-insert eviction) — Map preserves insertion order.
   if (streamCache.size > 50) {
     const oldest = streamCache.keys().next().value;
@@ -1918,15 +1949,27 @@ export function useAudioEngine(params: UseAudioEngineParams) {
           const st3 = useAppStore.getState();
           const trackId3 = st3.currentTrack?.id;
           const pos = positionSec ?? st3.progress ?? 0;
-          setTimeout(() => {
+          // Dead-URL fast path (root cause 2026-09-12): an HTTP 401/403/410
+          // from the CDN means the signed URL expired (SC signatures live
+          // ~4 min). Retrying the element path with the SAME dead URL just
+          // guarantees a MEDIA_ERR + 1.5 s stall. Re-resolve first, then
+          // reload at position with the fresh URL.
+          const deadUrl = /HTTP 4(01|03|10)/.test(String(reason));
+          setTimeout(async () => {
             if (useAppStore.getState().currentTrack?.id !== trackId3) return;
             const el = getAudioElement();
             if (!el || !url) return;
+            let elUrl = url;
+            if (deadUrl && currentTrack.scTrackId) {
+              const fresh = await resolveSoundCloudStream(currentTrack.scTrackId, { noCache: true });
+              if (useAppStore.getState().currentTrack?.id !== trackId3) return;
+              if (fresh?.url) elUrl = proxyStreamUrl(fresh.url);
+            }
             try {
               const prevHls2 = (el as any)._hlsInstance;
               if (prevHls2) { try { prevHls2.destroy(); } catch {} delete (el as any)._hlsInstance; }
               el.crossOrigin = "anonymous";
-              el.src = url;
+              el.src = elUrl;
               el.volume = Math.pow(useAppStore.getState().volume / 100, 2);
               el.load();
               if (useAppStore.getState().isPlaying) {

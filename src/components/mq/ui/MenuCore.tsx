@@ -108,7 +108,10 @@ export default function MenuCore({
       const rect = el.getBoundingClientRect();
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      if (vw < 768) return; // sheet mode — CSS pins to bottom, nothing to do
+      if (vw < 768) {
+        el.style.maxHeight = ""; // sheet owns its height (72vh CSS cap)
+        return;
+      }
 
       const margin = 8;
       let left = align === "end" ? anchor.x - rect.width : anchor.x;
@@ -131,6 +134,18 @@ export default function MenuCore({
       }
       // Last-resort vertical clamp (both sides tight — e.g. tiny window).
       top = Math.min(Math.max(top, margin), Math.max(margin, vh - bottomInset - margin - rect.height));
+
+      // Tall menu, BOTH sides tight: cap the surface to the larger side so a
+      // REAL scroll area appears inside the menu (contract: bottom action
+      // buttons must stay reachable). The ResizeObserver re-runs place() once
+      // with the capped height — this converges, no oscillation (cap only
+      // shrinks, and a shrunk menu needs no further cap).
+      const avail = Math.max(spaceBelow, spaceAbove) - 8;
+      if (rect.height > avail && avail >= 160) {
+        el.style.maxHeight = `${Math.floor(avail)}px`;
+      } else if (el.style.maxHeight && rect.height <= avail) {
+        el.style.maxHeight = "";
+      }
 
       // Horizontal clamp.
       left = Math.min(Math.max(left, margin), Math.max(margin, vw - margin - rect.width));
@@ -211,8 +226,15 @@ export default function MenuCore({
   );
 
   // Close-on-scroll contract:
-  //  • USER scrolls (wheel / touch-drag) → close immediately. A fixed-viewport
-  //    menu detaches from its trigger as soon as the page moves.
+  //  • USER scrolls the PAGE (wheel / touch-drag OUTSIDE the menu) → close
+  //    immediately. A fixed-viewport menu detaches from its trigger as soon
+  //    as the page moves.
+  //  • Scrolling INSIDE the menu surface NEVER closes it — the menu is
+  //    scrollable (max-height + overflow-y) and its bottom items are only
+  //    reachable by wheel/touch/keyboard. Root cause fixed 2026-09-12:
+  //    window-level wheel + capture-phase scroll listeners saw the menu's
+  //    own scrolling as "user scrolled the page" → the menu closed on the
+  //    first wheel tick, cutting off the unreachable action buttons.
   //  • PROGRAMMATIC scrolls (scrollIntoView with global `scroll-behavior:
   //    smooth`, focus jumps, list virtualization) fire trailing scroll events
   //    for ~500ms that must NOT insta-close a freshly opened menu → 600ms
@@ -221,17 +243,24 @@ export default function MenuCore({
   const openedAtRef = useRef(Date.now());
   const userScrolledRef = useRef(false);
   useEffect(() => {
+    const isInsideSurface = (t: EventTarget | null) => {
+      const node = t as Node | null;
+      if (!node || !surfaceRef.current) return false;
+      return node === surfaceRef.current || surfaceRef.current.contains(node);
+    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
         close();
       }
     };
-    const markUserScroll = () => {
+    const markUserScroll = (e: WheelEvent | TouchEvent) => {
+      if (isInsideSurface(e.target)) return; // wheel/drag ON the menu = its own scroll
       userScrolledRef.current = true;
     };
-    const onScroll = () => {
+    const onScroll = (e: Event) => {
       if (isMobileViewport()) return; // sheet: bottom-anchored, scroll-safe
+      if (isInsideSurface(e.target)) return; // the menu scrolling itself
       if (userScrolledRef.current) {
         close();
         return;
@@ -320,6 +349,10 @@ export default function MenuCore({
       role="menu"
       aria-label={ariaLabel}
       tabIndex={-1}
+      // v68+: the surface is a scrollable region — FullTrackView's wheel
+      // hijack (wheel = volume outside [data-scrollable]) must not steal the
+      // wheel over an open menu.
+      data-scrollable="true"
       onKeyDown={handleKeyDown}
       className={`mq-menu-surface${isSheet ? " mq-menu-sheet" : ""}`}
       style={{
