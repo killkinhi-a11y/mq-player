@@ -225,7 +225,7 @@ export default function HistoryView() {
               <>
                 <motion.button
                   /* §HOVER: own tap transition — no inherited delays. */
-                  whileTap={{ scale: 0.95, transition: { duration: 0.08 } }}
+
                   onClick={handlePlayAll}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold"
                   style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
@@ -237,7 +237,7 @@ export default function HistoryView() {
                   /* §HOVER: transition-all removed (it transitioned transform
                      and chased Framer's per-frame tap writes → double
                      animation); CSS keeps color props only. */
-                  whileTap={{ scale: 0.9, transition: { duration: 0.08 } }}
+
                   onClick={() => setShowClearConfirm(true)}
                   className="flex items-center justify-center w-9 h-9 rounded-xl transition-colors"
                   style={{ color: "#ff6b6b", backgroundColor: "rgba(224,49,49,0.08)", border: "1px solid rgba(224,49,49,0.12)" }}
@@ -503,7 +503,7 @@ export default function HistoryView() {
                     {/* Play all in group button */}
                     {group.items.length > 1 && (
                       <motion.button
-                        whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
+
                         onClick={(e) => {
                           e.stopPropagation();
                           const tracks = group.items.map(g => g.track);
@@ -718,7 +718,7 @@ export default function HistoryView() {
           </p>
           <div className="flex flex-col items-center gap-2.5">
             <motion.button
-              whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+
               onClick={() => useAppStore.getState().setView("main")}
               className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-semibold"
               style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
@@ -763,7 +763,7 @@ export default function HistoryView() {
               </p>
               <div className="flex items-center gap-3">
                 <motion.button
-                  whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+
                   onClick={() => setShowClearConfirm(false)}
                   className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium"
                   style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text)" }}
@@ -771,7 +771,7 @@ export default function HistoryView() {
                   Отмена
                 </motion.button>
                 <motion.button
-                  whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+
                   onClick={() => { clearHistory(); setShowClearConfirm(false); }}
                   className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium"
                   style={{ backgroundColor: "#ef4444", color: "#fff" }}

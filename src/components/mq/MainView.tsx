@@ -37,10 +37,10 @@ import { useLongPress } from "@/hooks/useLongPress";
 
 function getWaveGradient(): string {
   // Layered composition instead of a single flat diagonal:
-  //   1. radial "light pool" top-left — the card reads as lit from a corner,
-  //      giving depth without any asset or extra request;
-  //   2. softer diagonal base wash;
-  //   3. deep vignette toward bottom-right so content stays high-contrast.
+  // 1. radial "light pool" top-left — the card reads as lit from a corner,
+  // giving depth without any asset or extra request;
+  // 2. softer diagonal base wash;
+  // 3. deep vignette toward bottom-right so content stays high-contrast.
   // (VLM audit: the previous single linear gradient looked "flat/cheap".)
   return [
     `radial-gradient(120% 150% at 16% 6%, color-mix(in srgb, var(--mq-accent) 36%, var(--mq-bg)) 0%, color-mix(in srgb, var(--mq-accent) 22%, var(--mq-bg)) 36%, transparent 64%)`,
@@ -142,7 +142,6 @@ function MainView() {
 
   // ── Wave engine (logic separated from UI) ──
   const wave = useWaveEngine();
-
 
   // ── Taste profile ──
   const tasteProfile = useMemo(() => {
@@ -269,7 +268,6 @@ function MainView() {
     return cat ? reasonForRec(cat.id) : "Подобрано для тебя";
   }, [featuredTrack, currentTrack, recCategories]);
 
-
   // ── Play rec track in context of all visible tracks ──
   // If the clicked track is already current, toggle play/pause instead
   // of restarting it from 0:00. This matches Spotify-like UX where tapping
@@ -369,9 +367,9 @@ function MainView() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* HEADER — compact greeting + discovery line (restructured: the     */}
-      {/* old serif hero shrank into a single quiet row; the screen now     */}
-      {/* belongs to real content, not typography).                          */}
+      {/* HEADER — compact greeting + discovery line (restructured: the */}
+      {/* old serif hero shrank into a single quiet row; the screen now */}
+      {/* belongs to real content, not typography). */}
       {/* ════════════════════════════════════════════════════════════════ */}
       <ScrollReveal direction="up" delay={0}>
         <header className="mb-4 lg:mb-6 flex items-end justify-between gap-4">
@@ -395,7 +393,7 @@ function MainView() {
           <button
             onClick={() => (wave.radioMode ? wave.pauseWave() : wave.startWave())}
             disabled={wave.waveLoading}
-            className={`shrink-0 ${currentTrack ? "flex" : "hidden lg:flex"} items-center gap-2 rounded-full pl-3 pr-4 h-10 transition-all active:scale-95`}
+            className={`shrink-0 ${currentTrack ? "flex" : "hidden lg:flex"} items-center gap-2 rounded-full pl-3 pr-4 h-10 transition-all`}
             style={{
               backgroundColor: wave.radioMode
                 ? "color-mix(in srgb, var(--mq-accent) 16%, transparent)"
@@ -417,9 +415,9 @@ function MainView() {
       </ScrollReveal>
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* FEATURED — one dominant content block (new). Real data: the top   */}
-      {/* personal recommendation or the currently playing track. No glow,   */}
-      {/* no decorative blur — flat split card with a hard accent edge.      */}
+      {/* FEATURED — one dominant content block (new). Real data: the top */}
+      {/* personal recommendation or the currently playing track. No glow, */}
+      {/* no decorative blur — flat split card with a hard accent edge. */}
       {/* ════════════════════════════════════════════════════════════════ */}
       {/* Desktop featured card (mobile uses MobileNowHero below) */}
       <div className="hidden lg:block">
@@ -440,12 +438,12 @@ function MainView() {
       </div>
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* CONTINUE LISTENING + QUICK ACTIONS — two-column band (new). Left:  */}
-      {/* real current track with progress; right: dense action grid.        */}
+      {/* CONTINUE LISTENING + QUICK ACTIONS — two-column band (new). Left: */}
+      {/* real current track with progress; right: dense action grid. */}
       {/* ════════════════════════════════════════════════════════════════ */}
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* MOBILE — new Home composition (Task 3): the NOW hero owns the       */}
-      {/* first screen; desktop keeps Featured + ContinueListening below.      */}
+      {/* MOBILE — new Home composition (Task 3): the NOW hero owns the */}
+      {/* first screen; desktop keeps Featured + ContinueListening below. */}
       {/* ════════════════════════════════════════════════════════════════ */}
       <div className="lg:hidden">
         <ScrollReveal direction="up" delay={0.02}>
@@ -510,9 +508,9 @@ function MainView() {
       </div>
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* PERSONALIZED FOR YOU — horizontal discovery (restructured): the    */}
-      {/* first category renders as horizontal track ROWS (new rhythm), the  */}
-      {/* rest as compact square cards. Real recommendations only.           */}
+      {/* PERSONALIZED FOR YOU — horizontal discovery (restructured): the */}
+      {/* first category renders as horizontal track ROWS (new rhythm), the */}
+      {/* rest as compact square cards. Real recommendations only. */}
       {/* ════════════════════════════════════════════════════════════════ */}
       {personalCategories.length > 0 && (
         <Section title="Для вас" icon={Sparkles} action={<span className="mq-t-meta mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>по твоей истории и лайкам</span>}>
@@ -578,8 +576,8 @@ function MainView() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* RECENTLY PLAYED — horizontal compact row (was a 5-column grid).    */}
-      {/* Real listening history only; hidden entirely when empty.           */}
+      {/* RECENTLY PLAYED — horizontal compact row (was a 5-column grid). */}
+      {/* Real listening history only; hidden entirely when empty. */}
       {/* ════════════════════════════════════════════════════════════════ */}
       {recentTracks.length > 0 && (
         <Section
@@ -611,8 +609,8 @@ function MainView() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* NEW / TRENDING — numbered chart rows (new): real trending +        */}
-      {/* Apple/Spotify chart data, presented as a ranked list.              */}
+      {/* NEW / TRENDING — numbered chart rows (new): real trending + */}
+      {/* Apple/Spotify chart data, presented as a ranked list. */}
       {/* ════════════════════════════════════════════════════════════════ */}
       {chartCategories.length > 0 && (
         <Section title="Новое и в тренде" icon={Flame} action={<span className="mq-t-meta mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>обновляется каждый час</span>}>
@@ -636,7 +634,7 @@ function MainView() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* FRIENDS LISTENING NOW — social widget (below the fold now)         */}
+      {/* FRIENDS LISTENING NOW — social widget (below the fold now) */}
       {/* ════════════════════════════════════════════════════════════════ */}
       {listeningFriends.length > 0 && (
         <Section title="Друзья слушают" icon={User}>
@@ -739,7 +737,7 @@ function MainView() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* PLAYLISTS — user's playlists grid (moved below the fold)           */}
+      {/* PLAYLISTS — user's playlists grid (moved below the fold) */}
       {/* ════════════════════════════════════════════════════════════════ */}
       <Section
         title="Плейлисты"
@@ -807,7 +805,7 @@ function MainView() {
       </Section>
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* FAVORITE ARTISTS (below the fold)                                   */}
+      {/* FAVORITE ARTISTS (below the fold) */}
       {/* ════════════════════════════════════════════════════════════════ */}
       {favoriteArtists.length > 0 && (
         <Section title="Любимые артисты" icon={User}>
@@ -827,7 +825,7 @@ function MainView() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* CURATED PLAYLISTS (below the fold)                                  */}
+      {/* CURATED PLAYLISTS (below the fold) */}
       {/* ════════════════════════════════════════════════════════════════ */}
       {curatedPlaylists.length > 0 && (
         <Section title="Подборки редакции" icon={Sparkles}>
@@ -940,7 +938,6 @@ function MainView() {
   );
 }
 
-
 // ═════════════════════════════════════════════════════════════════════════
 // SECTION WRAPPER — unified styling for all sections
 // ═════════════════════════════════════════════════════════════════════════
@@ -986,12 +983,12 @@ function Section({
 // PHASE O HOME — new card components
 //
 // Five card types, used where each genuinely fits (§3.5):
-//   FeaturedCard         — one dominant block for the featured track
-//   ContinueListeningCard— current track + real progress
-//   QuickActionGrid      — dense navigation with real counts
-//   HorizontalTrackRow   — wide row card (personal picks)
-//   CompactTrackCard     — small square card (discovery rows, recent)
-//   ChartRow             — numbered ranked row (trending / charts)
+// FeaturedCard — one dominant block for the featured track
+// ContinueListeningCard— current track + real progress
+// QuickActionGrid — dense navigation with real counts
+// HorizontalTrackRow — wide row card (personal picks)
+// CompactTrackCard — small square card (discovery rows, recent)
+// ChartRow — numbered ranked row (trending / charts)
 // No glow, no decorative blur, no fake metrics. All states real.
 // ═════════════════════════════════════════════════════════════════════════
 
@@ -1089,7 +1086,7 @@ function FeaturedCard({
           {/* Primary + secondary actions */}
           <div className="flex items-center gap-2.5 mt-1">
             <motion.button
-              whileTap={animationsEnabled ? { scale: 0.96 } : undefined}
+
               onClick={onPlay}
               className="h-11 px-6 rounded-xl flex items-center gap-2 mq-t-btn transition-colors"
               style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
@@ -1162,7 +1159,7 @@ function ContinueListeningCard({
     >
       <button
         onClick={onToggle}
-        className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform active:scale-95"
+        className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform"
         style={{ backgroundColor: "var(--mq-accent)" }}
         aria-label={isPlaying ? "Пауза" : "Продолжить"}
       >
@@ -1361,7 +1358,7 @@ function MobileNowHero({
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
             onClick={isNow ? onToggle : onPlayFallback}
-            className="w-11 h-11 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+            className="w-11 h-11 rounded-full flex items-center justify-center transition-transform"
             style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
             aria-label={isNow ? (isPlaying ? "Пауза" : "Продолжить") : "Слушать"}
           >
@@ -1374,7 +1371,7 @@ function MobileNowHero({
           {isNow && (
             <button
               onClick={onNext}
-              className="w-11 h-11 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+              className="w-11 h-11 rounded-full flex items-center justify-center transition-transform"
               style={{ color: "var(--mq-text-muted)" }}
               aria-label="Следующий трек"
             >
@@ -1413,7 +1410,7 @@ function HeroWaveCTA({ compact = false }: { compact?: boolean }) {
       <button
         onClick={() => (wave.radioMode ? wave.pauseWave() : wave.startWave())}
         disabled={wave.waveLoading}
-        className="w-full flex items-center gap-3 px-3 py-3.5 active:scale-[0.99] transition-transform disabled:opacity-60 text-left"
+        className="w-full flex items-center gap-3 px-3 py-3.5 transition-transform disabled:opacity-60 text-left"
         aria-label={wave.radioMode ? "Пауза Волны" : "Запустить Волну"}
       >
         <div
@@ -1451,7 +1448,7 @@ function HeroWaveCTA({ compact = false }: { compact?: boolean }) {
     <button
       onClick={() => (wave.radioMode ? wave.pauseWave() : wave.startWave())}
       disabled={wave.waveLoading}
-      className="w-full h-12 rounded-2xl flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform disabled:opacity-60"
+      className="w-full h-12 rounded-2xl flex items-center justify-center gap-2.5 transition-transform disabled:opacity-60"
       style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
       aria-label="Запустить Волну"
     >
@@ -1488,7 +1485,7 @@ function MobileQuickRow({
         <button
           key={label}
           onClick={onClick}
-          className="flex flex-col items-center gap-1.5 py-2 rounded-xl active:scale-95 transition-transform"
+          className="flex flex-col items-center gap-1.5 py-2 rounded-xl transition-transform"
           aria-label={`${label}${count > 0 ? ` — ${count}` : ""}`}
         >
           <div className="relative">
@@ -1809,7 +1806,7 @@ function PlaylistCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
       whileHover={{ y: -4, transition: { duration: 0.15, ease: "easeOut" } }}
-      whileTap={{ scale: 0.97, transition: { duration: 0.1 } }}
+
       onClick={onClick}
       className="group relative text-left cursor-pointer rounded-2xl overflow-hidden w-full"
       style={{
@@ -2073,7 +2070,7 @@ function ArtistCircleCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
       whileHover={{ y: -4, transition: { duration: 0.15, ease: "easeOut" } }}
-      whileTap={{ scale: 0.97, transition: { duration: 0.1 } }}
+
       onClick={onClick}
       className="text-left cursor-pointer group flex flex-col items-center"
     >
@@ -2133,7 +2130,7 @@ function CuratedPlaylistCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
       whileHover={{ y: -4, transition: { duration: 0.15, ease: "easeOut" } }}
-      whileTap={{ scale: 0.97, transition: { duration: 0.1 } }}
+
       onClick={onPlay}
       className="text-left cursor-pointer group rounded-2xl overflow-hidden w-full"
       style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)", boxShadow: "var(--mq-shadow-premium-md)" }}

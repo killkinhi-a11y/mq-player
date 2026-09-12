@@ -163,7 +163,7 @@ function VoiceMessageBubble({ voiceUrl, duration, isMine }: {
 
   return (
     <div className="flex items-center gap-2 min-w-[180px] py-0.5">
-      <motion.button whileTap={{ scale: 0.9, transition: { duration: 0.08 }} } onClick={toggle}
+      <motion.button onClick={toggle}
         className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
         style={{ backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 22%, transparent)" : "var(--mq-accent)", color: "#fff" }}
         aria-label={playing ? "Пауза" : "Воспроизвести"}>
@@ -1185,7 +1185,7 @@ export default function MessengerView() {
           <p className="text-xs mb-4" style={{ color: "var(--mq-text-muted)" }}>
             Проверьте подключение и попробуйте снова
           </p>
-          <motion.button whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+          <motion.button
             onClick={() => { setLoadError(false); fetchFriends(); fetchGroupChats(); }}
             className="px-4 py-2 rounded-xl text-xs font-semibold"
             style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
@@ -1230,7 +1230,7 @@ export default function MessengerView() {
               <div className="flex items-center gap-1.5">
                 {/* Task 9: Friends access — opens the real FriendsView
                     (requests, online statuses, add-friend, listen invites). */}
-                <motion.button whileTap={{ scale: 0.95, transition: { duration: 0.08 }} } whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+                <motion.button whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
                   onClick={() => setView("friends")}
                   className="h-10 px-3 sm:px-3.5 rounded-full flex items-center gap-1.5"
                   style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
@@ -1238,14 +1238,14 @@ export default function MessengerView() {
                   <Contact className="w-4 h-4" />
                   <span className="hidden sm:inline text-xs font-medium">Друзья</span>
                 </motion.button>
-                <motion.button whileTap={{ scale: 0.95, transition: { duration: 0.08 }} } whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+                <motion.button whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
                   onClick={() => setShowNewGroup(true)}
                   className="w-10 h-10 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
                   aria-label="Новая группа" title="Новая группа">
                   <Users className="w-4 h-4" />
                 </motion.button>
-                <motion.button whileTap={{ scale: 0.95, transition: { duration: 0.08 }} } whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+                <motion.button whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
                   onClick={() => setShowNewChat(true)}
                   className="w-10 h-10 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
@@ -1293,7 +1293,7 @@ export default function MessengerView() {
                     {searchQuery.trim() ? "Попробуйте другой запрос" : "Найдите друзей — и здесь появятся чаты"}
                   </p>
                   {!searchQuery.trim() && (
-                    <motion.button whileTap={{ scale: 0.95, transition: { duration: 0.08 }} } whileHover={{ scale: 1.02, transition: { duration: 0.12, ease: "easeOut" }} }
+                    <motion.button whileHover={{ scale: 1.02, transition: { duration: 0.12, ease: "easeOut" }} }
                       onClick={() => setShowNewChat(true)}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold"
                       style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
@@ -1331,7 +1331,7 @@ export default function MessengerView() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: Math.min(i * 0.025, 0.3), duration: 0.2 }}
                       /* §HOVER: own tap transition — entrance delay never leaks. */
-                      whileTap={{ scale: 0.99, transition: { duration: 0.08 } }}
+
                       onClick={() => {
                         if (item.type === "group") {
                           setSelectedGroupId(item.id); setSelectedContact(null);
@@ -1397,7 +1397,7 @@ export default function MessengerView() {
             {/* Header */}
             <div className="p-3 sm:p-4 flex items-center gap-3 border-b" style={hairlineBorder}>
               {isMobileView && (
-                <motion.button whileTap={{ scale: 0.9, transition: { duration: 0.08 }} } onClick={handleMobileBack}
+                <motion.button onClick={handleMobileBack}
                   className="p-1" style={{ color: "var(--mq-text-muted)" }} aria-label="Назад">
                   <ArrowLeft className="w-5 h-5" />
                 </motion.button>
@@ -1453,7 +1453,7 @@ export default function MessengerView() {
               )}
               {/* In-chat search toggle button */}
               <motion.button
-                whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
+
                 onClick={() => {
                   setShowInChatSearch(!showInChatSearch);
                   if (showInChatSearch) setInChatSearch("");
@@ -1678,13 +1678,13 @@ export default function MessengerView() {
                       Запись… {formatDuration(recordingDuration)}
                     </span>
                   </div>
-                  <motion.button whileTap={{ scale: 0.9, transition: { duration: 0.08 }} } onClick={stopRecording}
+                  <motion.button onClick={stopRecording}
                     className="w-10 h-10 rounded-full flex items-center justify-center"
                     style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
                     aria-label="Отправить голосовое">
                     <Send className="w-4 h-4" />
                   </motion.button>
-                  <motion.button whileTap={{ scale: 0.9, transition: { duration: 0.08 }} } onClick={cancelRecording}
+                  <motion.button onClick={cancelRecording}
                     className="w-10 h-10 rounded-full flex items-center justify-center"
                     style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#ef4444" }}
                     aria-label="Отменить запись">
@@ -1697,7 +1697,7 @@ export default function MessengerView() {
                     <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
                       className="flex gap-1">
                       {QUICK_EMOJIS.map((emoji) => (
-                        <motion.button key={emoji} whileHover={{ scale: 1.2, transition: { duration: 0.12, ease: "easeOut" }} } whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+                        <motion.button key={emoji} whileHover={{ scale: 1.2, transition: { duration: 0.12, ease: "easeOut" }} }
                           onClick={() => {
                             setInputText((p) => p + emoji);
                             setShowQuickEmojis(false);
@@ -1711,7 +1711,7 @@ export default function MessengerView() {
                     </motion.div>
                   )}
                   <div className="flex items-end gap-2">
-                    <motion.button whileTap={{ scale: 0.9, transition: { duration: 0.08 }} } whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+                    <motion.button whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
                       onClick={() => setShowQuickEmojis((v) => !v)}
                       className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
                       style={{
@@ -1722,7 +1722,7 @@ export default function MessengerView() {
                       }} aria-label="Эмодзи">
                       <Smile className="w-4 h-4" />
                     </motion.button>
-                    <motion.button whileTap={{ scale: 0.9, transition: { duration: 0.08 }} } whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+                    <motion.button whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
                       onClick={startRecording}
                       className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
                       style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
@@ -1740,7 +1740,7 @@ export default function MessengerView() {
                       placeholder="Сообщение…" rows={1}
                       className="flex-1 px-4 py-2.5 rounded-2xl text-sm outline-none resize-none max-h-[120px]"
                       style={inputStyle} />
-                    <motion.button whileTap={{ scale: 0.9, transition: { duration: 0.08 }} } whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+                    <motion.button whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
                       onClick={handleSend} disabled={!inputText.trim() || isSending}
                       className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
                       style={{
@@ -1858,7 +1858,7 @@ export default function MessengerView() {
                       <motion.button key={user.id}
                         /* §HOVER one-owner: CSS owns background (class below), Framer owns
                            only the tap transform. */
-                        whileTap={{ scale: 0.98, transition: { duration: 0.08 } }}
+
                         onClick={() => handleStartChat(user)}
                         className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-colors hover:bg-[color-mix(in_srgb,var(--mq-text)_4%,transparent)]">
                         <Avatar src={user.avatar} name={user.username} id={user.id} size={40} />
@@ -1942,7 +1942,7 @@ export default function MessengerView() {
                       <motion.button key={user.id}
                         /* §HOVER one-owner: CSS owns background (class below), Framer owns
                            only the tap transform. */
-                        whileTap={{ scale: 0.98, transition: { duration: 0.08 } }}
+
                         onClick={() => setSelectedMembers((p) =>
                           selected ? p.filter((x) => x !== user.id) : [...p, user.id])}
                         className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-colors hover:bg-[color-mix(in_srgb,var(--mq-text)_4%,transparent)]">
@@ -2042,7 +2042,7 @@ export default function MessengerView() {
                       <motion.button key={user.id}
                         /* §HOVER one-owner: CSS owns background (class below), Framer owns
                            only the tap transform. */
-                        whileTap={{ scale: 0.98, transition: { duration: 0.08 } }}
+
                         disabled={alreadyIn}
                         onClick={() => setAddMembersTarget((p) =>
                           selected ? p.filter((x) => x !== user.id) : [...p, user.id])}
@@ -2157,7 +2157,7 @@ export default function MessengerView() {
                   {/* Actions */}
                   <div className="flex items-center gap-2 mt-5 w-full">
                     <motion.button
-                      whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+
                       onClick={() => {
                         setShowProfile(null);
                       }}
@@ -2171,7 +2171,7 @@ export default function MessengerView() {
                       Написать
                     </motion.button>
                     <motion.button
-                      whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+
                       onClick={() => {
                         setSelectedContact(friend.id);
                         setShowProfile(null);

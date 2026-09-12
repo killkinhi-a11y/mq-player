@@ -379,7 +379,7 @@ export default function AdminDashboard() {
                 <motion.div
                   key={item.href}
                   whileHover={{ x: 3 }}
-                  whileTap={{ scale: 0.98 }}
+
                 >
                   <Link
                     href={item.href}

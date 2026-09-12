@@ -59,8 +59,8 @@ function CardTitle({ icon: Icon, title }: { icon: React.ElementType; title: stri
 }
 
 /** Phase M #14/#16 — honest system + deployment diagnostics.
- *  Shows ONLY real runtime data (audio engine actually in use, current build,
- *  deployment version). Advanced, collapsed by default. */
+ * Shows ONLY real runtime data (audio engine actually in use, current build,
+ * deployment version). Advanced, collapsed by default. */
 function SystemDiagnosticsCard() {
   const { state, info, checkNow, applyUpdate } = useUpdateManager();
   const [open, setOpen] = useState(false);
@@ -157,11 +157,14 @@ function SettingRow({
   icon: React.ElementType; label: string; subtitle?: string; value?: string;
   onClick?: () => void; danger?: boolean; rightElement?: React.ReactNode;
 }) {
-  const Wrapper = onClick ? motion.button : "div";
+  /* §HOVER/§PRESS (v71): plain button + CSS hover tint (one owner).
+     Was: Framer whileTap press-scale + whileHover bg — press feedback
+     removed app-wide; hover now matches SettingToggle (CSS only). */
+  const Wrapper: "button" | "div" = onClick ? "button" : "div";
   return (
     <Wrapper
-      {...(onClick ? { whileTap: { scale: 0.99 }, whileHover: { backgroundColor: "var(--mq-overlay-hover)" }, onClick } : {})}
-      className="w-full flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-3.5 text-left transition-colors"
+      {...(onClick ? { onClick } : {})}
+      className={`w-full flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-3.5 text-left transition-colors hover:bg-[var(--mq-overlay-hover)] focus-visible:bg-[var(--mq-overlay-hover)]`}
       style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
     >
       <div
@@ -546,25 +549,22 @@ export default function SettingsView() {
                     Вы уверены? Все данные будут удалены безвозвратно.
                   </p>
                   <div className="flex gap-2">
-                    <motion.button
-                      whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
+                    <button
                       onClick={handleDeleteAccount}
                       disabled={deleting}
-                      className="flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+                      className="flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-[filter] duration-150 hover:brightness-110 disabled:opacity-60"
                       style={{ backgroundColor: "var(--mq-error, #ef4444)", color: "var(--mq-text-on-accent, #fff)" }}
                     >
                       {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                       Удалить навсегда
-                    </motion.button>
-                    <motion.button
-                      whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
-                      whileHover={{ scale: 1.02, transition: { duration: 0.12, ease: "easeOut" }} }
+                    </button>
+                    <button
                       onClick={() => setDeleteConfirm(false)}
                       className="px-4 py-2.5 rounded-xl text-sm font-medium transition-colors hover:bg-[var(--mq-overlay-hover)]"
                       style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border-thin)" }}
                     >
                       Отмена
-                    </motion.button>
+                    </button>
                   </div>
                 </div>
               )}
@@ -625,18 +625,13 @@ export default function SettingsView() {
                   {Object.entries(themes).map(([key, theme]: [string, any]) => {
                     const isActive = currentTheme === key;
                     return (
-                      <motion.button
+                      <button
                         key={key}
-                        whileTap={{ scale: 0.96, transition: { duration: 0.08 }} }
                         onClick={() => setTheme(key)}
                         aria-pressed={isActive}
                         title={theme.name || key}
-                        className="group relative p-2 rounded-xl flex flex-col items-center gap-1.5 transition-colors duration-200"
-                        style={{
-                          backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "var(--mq-overlay-hover)",
-                          border: isActive ? "1px solid var(--mq-border-accent)" : "1px solid var(--mq-border-hairline)",
-                          boxShadow: isActive ? "0 0 0 3px color-mix(in srgb, var(--mq-accent) 18%, transparent)" : "none",
-                        }}
+                        data-active={isActive}
+                        className="mq-swatch group relative p-2 rounded-xl flex flex-col items-center gap-1.5"
                       >
                         {/* Mini UI preview — the theme's own colors: background,
                             card block, accent bar + dot. Communicates the actual
@@ -668,7 +663,7 @@ export default function SettingsView() {
                         </div>
                         <span className="mq-t-meta-2 font-medium truncate w-full text-center" style={{ color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)" }}>{theme.name || key}</span>
                         {isActive && <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}><Check className="w-2.5 h-2.5" style={{ color: "var(--mq-text-on-accent, #fff)" }} /></div>}
-                      </motion.button>
+                      </button>
                     );
                   })}
                       </div>
@@ -683,11 +678,12 @@ export default function SettingsView() {
               <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                 <div className="flex flex-wrap gap-2">
                   {accentPresets.map(color => (
-                    <motion.button key={color} whileTap={{ scale: 0.9, transition: { duration: 0.08 }} } whileHover={{ scale: 1.1, transition: { duration: 0.12, ease: "easeOut" }} } onClick={() => setCustomAccent(color)}
-                      className="w-9 h-9 rounded-full flex items-center justify-center"
+                    <button key={color} onClick={() => setCustomAccent(color)}
+                      aria-label={`Акцент ${color}`}
+                      className="mq-accent-dot w-9 h-9 rounded-full flex items-center justify-center"
                       style={{ backgroundColor: color, boxShadow: customAccent === color ? `0 0 0 3px var(--mq-bg), 0 0 0 5px ${color}` : "none" }}>
                       {customAccent === color && <Check className="w-4 h-4" style={{ color: "var(--mq-text-on-accent, #fff)" }} />}
-                    </motion.button>
+                    </button>
                   ))}
                   <label className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer" style={{ backgroundColor: "var(--mq-glass-bg)", border: "1px dashed var(--mq-border-medium)" }}>
                     <input type="color" value={customAccent || "#e03131"} onChange={(e) => setCustomAccent(e.target.value)} className="opacity-0 absolute w-0 h-0" />
@@ -734,7 +730,7 @@ export default function SettingsView() {
               />
               <SettingToggle icon={Headphones} label="Пространственное аудио" subtitle="3D-звучание" value={spatialAudioEnabled} onCheckedChange={setSpatialAudioEnabled} />
               <SettingToggle icon={Zap} label="Gapless" subtitle="Без пауз между треками" value={gaplessEnabled} onCheckedChange={setGaplessEnabled} />
-              <SettingToggle icon={Cpu} label="WASM-движок" subtitle={wasmEngineEnabled ? "Rust-декодер + DSP (прогрессивные треки)" : "Стандартный браузерный декодер"} value={wasmEngineEnabled} onCheckedChange={setWasmEngineEnabled} />
+              <SettingToggle icon={Cpu} label="WASM-движок (эксперимент)" subtitle={wasmEngineEnabled ? "Rust-декодер + DSP · возможны щелчки на стыках" : "Стандартный браузерный декодер (рекомендуется)"} value={wasmEngineEnabled} onCheckedChange={setWasmEngineEnabled} />
               {/* Playback rate — segmented control (was a cyclic button whose
                   value was only discoverable after tapping; PART E 3.5). */}
               <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
@@ -837,30 +833,30 @@ export default function SettingsView() {
               <CardTitle icon={Download} title="Скачать приложение" />
               <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <motion.a whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} } whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
+                  <a
                     href="https://github.com/killkinhi-a11y/mq-player/releases/download/v1.0.1/MQ-Player-Setup.zip" target="_blank" rel="noopener noreferrer"
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}>
+                    className="mq-dl-link flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer">
                     <Monitor className="w-5 h-5" style={{ color: "#3b82f6" }} />
                     <span className="mq-t-meta-2 font-semibold" style={{ color: "var(--mq-text)" }}>Windows</span>
-                  </motion.a>
-                  <motion.a whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} } whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
+                  </a>
+                  <a
                     href="https://github.com/killkinhi-a11y/mq-player/releases" target="_blank" rel="noopener noreferrer"
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}>
+                    className="mq-dl-link flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer">
                     <Apple className="w-5 h-5" style={{ color: "#a855f7" }} />
                     <span className="mq-t-meta-2 font-semibold" style={{ color: "var(--mq-text)" }}>macOS</span>
-                  </motion.a>
-                  <motion.a whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} } whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
+                  </a>
+                  <a
                     href="https://github.com/killkinhi-a11y/mq-player/releases" target="_blank" rel="noopener noreferrer"
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}>
+                    className="mq-dl-link flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer">
                     <Terminal className="w-5 h-5" style={{ color: "#eab308" }} />
                     <span className="mq-t-meta-2 font-semibold" style={{ color: "var(--mq-text)" }}>Linux</span>
-                  </motion.a>
-                  <motion.a whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} } whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
+                  </a>
+                  <a
                     href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/mq-player.apk" target="_blank" rel="noopener noreferrer" download
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer relative" style={{ backgroundColor: "color-mix(in srgb, #3ddc84 8%, var(--mq-surface-1))", border: "1px solid color-mix(in srgb, #3ddc84 25%, transparent)" }}>
+                    className="mq-dl-link mq-dl-link--android flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer relative">
                     <Smartphone className="w-5 h-5" style={{ color: "#3ddc84" }} />
                     <span className="mq-t-meta-2 font-semibold" style={{ color: "color-mix(in srgb, #3ddc84 80%, var(--mq-text))" }}>Android APK</span>
-                  </motion.a>
+                  </a>
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-2 pt-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                   <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>

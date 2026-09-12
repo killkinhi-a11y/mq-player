@@ -338,7 +338,7 @@ function FullTrackViewMobileInner() {
           user-select: none;
           -webkit-user-select: none;
         }
-        .mq-ft-btn:active { transform: scale(0.88); }
+        /* §PRESS (v71): press-scale removed — hover/focus feedback only */
         .mq-ft-seek-input {
           -webkit-appearance: none;
           appearance: none;
@@ -350,38 +350,38 @@ function FullTrackViewMobileInner() {
           -webkit-tap-highlight-color: transparent;
           touch-action: none;
         }
-        .mq-ft-seek-input::-webkit-slider-runnable-track {
+        input.mq-ft-seek-input::-webkit-slider-runnable-track {
           height: 6px;
           border-radius: 3px;
           background: linear-gradient(to right,
             var(--mq-accent) 0%, var(--mq-accent) var(--mq-seek-pct, 0%),
-            var(--mq-glass-bg-hover) var(--mq-seek-pct, 0%), var(--mq-glass-bg-hover) 100%);
+            var(--mq-glass-bg) var(--mq-seek-pct, 0%), var(--mq-glass-bg) 100%);
+          box-shadow: var(--mq-shadow-inner-glow);
         }
-        .mq-ft-seek-input::-webkit-slider-thumb {
+        input.mq-ft-seek-input::-webkit-slider-thumb {
           -webkit-appearance: none;
           appearance: none;
-          /* MQ signature: SQUARE fader cap — same design language as the EQ
-             faders (pro audio), not the generic round dot */
-          width: 18px;
-          height: 18px;
+          /* MQ signature fader cap — v71 unified 16px family */
+          width: 16px;
+          height: 16px;
           border-radius: 5px;
           background: var(--mq-card);
-          border: 2px solid var(--mq-accent);
-          margin-top: -6px;
+          border: 2px solid color-mix(in srgb, var(--mq-text-muted) 55%, var(--mq-card));
+          margin-top: -5px;
           cursor: pointer;
           box-shadow: 0 1px 6px rgba(0,0,0,0.35), 0 0 0 4px color-mix(in srgb, var(--mq-accent) 20%, transparent);
         }
-        .mq-ft-seek-input::-moz-range-track {
+        input.mq-ft-seek-input::-moz-range-track {
           height: 5px;
           border-radius: 3px;
           background: var(--mq-glass-bg-hover);
         }
-        .mq-ft-seek-input::-moz-range-progress {
+        input.mq-ft-seek-input::-moz-range-progress {
           height: 5px;
           border-radius: 3px;
           background: var(--mq-accent);
         }
-        .mq-ft-seek-input::-moz-range-thumb {
+        input.mq-ft-seek-input::-moz-range-thumb {
           width: 14px;
           height: 14px;
           border-radius: 4px;
@@ -400,23 +400,47 @@ function FullTrackViewMobileInner() {
           cursor: pointer;
           touch-action: none;
         }
-        .mq-ft-vol::-webkit-slider-runnable-track {
-          height: 5px;
+        input.mq-ft-vol::-webkit-slider-runnable-track {
+          height: 6px;
           border-radius: 3px;
-          background: linear-gradient(to right, var(--mq-accent) 0%, var(--mq-accent) var(--mq-vol-pct, 0%), var(--mq-glass-bg-hover) var(--mq-vol-pct, 0%), var(--mq-glass-bg-hover) 100%);
+          background: linear-gradient(to right, var(--mq-accent) 0%, var(--mq-accent) var(--mq-vol-pct, 0%), var(--mq-glass-bg) var(--mq-vol-pct, 0%), var(--mq-glass-bg) 100%);
+          box-shadow: var(--mq-shadow-inner-glow);
         }
-        .mq-ft-vol::-webkit-slider-thumb {
+        input.mq-ft-vol::-webkit-slider-thumb {
           -webkit-appearance: none;
           appearance: none;
-          width: 14px;
-          height: 14px;
-          border-radius: 50%;
-          background: var(--mq-text);
-          margin-top: -4.5px;
+          /* MQ signature fader cap (v71) — same DNA as EQ/settings */
+          width: 16px;
+          height: 16px;
+          border-radius: 5px;
+          background-color: var(--mq-card);
+          background-image: linear-gradient(var(--mq-text-muted), var(--mq-text-muted));
+          background-size: 8px 2px;
+          background-position: center;
+          background-repeat: no-repeat;
+          border: 2px solid color-mix(in srgb, var(--mq-text-muted) 55%, var(--mq-card));
+          margin-top: -5px;
+          cursor: pointer;
+          box-shadow: var(--mq-shadow-sm);
+        }
+        input.mq-ft-vol:active::-webkit-slider-thumb {
+          border-color: var(--mq-accent);
+          box-shadow: var(--mq-shadow-accent-hover), 0 0 0 5px color-mix(in srgb, var(--mq-accent) 16%, transparent);
+        }
+        input.mq-ft-vol::-moz-range-track { height: 6px; border-radius: 3px; background: var(--mq-glass-bg); box-shadow: var(--mq-shadow-inner-glow); }
+        input.mq-ft-vol::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--mq-accent); }
+        input.mq-ft-vol::-moz-range-thumb {
+          width: 16px;
+          height: 16px;
+          border-radius: 5px;
+          background-color: var(--mq-card);
+          background-image: linear-gradient(var(--mq-text-muted), var(--mq-text-muted));
+          background-size: 8px 2px;
+          background-position: center;
+          background-repeat: no-repeat;
+          border: 2px solid color-mix(in srgb, var(--mq-text-muted) 55%, var(--mq-card));
           cursor: pointer;
         }
-        .mq-ft-vol::-moz-range-track { height: 5px; border-radius: 3px; background: var(--mq-glass-bg-hover); }
-        .mq-ft-vol::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--mq-text); border: none; cursor: pointer; }
       `}</style>
 
       {/* Ambient glow behind the artwork — one radial accent pool.

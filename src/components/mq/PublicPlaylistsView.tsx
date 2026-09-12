@@ -160,7 +160,7 @@ export default function PublicPlaylistsView() {
 
           <div className="flex items-center gap-3 mb-6">
             <motion.button
-              whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+
               onClick={() => {
                 if (selectedPlaylist.tracks.length > 0) {
                   playTrack(selectedPlaylist.tracks[0], selectedPlaylist.tracks);
@@ -171,7 +171,7 @@ export default function PublicPlaylistsView() {
               <Play className="w-4 h-4" /> Play all
             </motion.button>
             <motion.button
-              whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
+
               onClick={() => togglePlaylistLike(selectedPlaylist.id)}
               className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm cursor-pointer"
               style={{
@@ -212,12 +212,12 @@ export default function PublicPlaylistsView() {
             Публичные плейлисты
           </h2>
           <div className="flex items-center gap-2">
-            <motion.button whileTap={{ scale: 0.9, transition: { duration: 0.08 }} } onClick={() => setPublishDialogOpen(true)}
+            <motion.button onClick={() => setPublishDialogOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer"
               style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
               <Send className="w-3.5 h-3.5" /> Опубликовать
             </motion.button>
-            <motion.button whileTap={{ scale: 0.9, transition: { duration: 0.08 }} } onClick={handleRefresh}
+            <motion.button onClick={handleRefresh}
               className="p-2 rounded-lg cursor-pointer"
               style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}>
               <RefreshCw className="w-4 h-4" />
@@ -362,7 +362,7 @@ export default function PublicPlaylistsView() {
                     </p>
                   </div>
 
-                  <motion.button whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
+                  <motion.button
                     onClick={handlePublish} disabled={publishing || !publishPlaylistId}
                     className="w-full mt-4 py-3 rounded-xl text-sm font-medium cursor-pointer disabled:opacity-40"
                     style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
@@ -398,7 +398,7 @@ function PlaylistCard({ playlist, index, onClick, onLike, onDislikeTags, animati
       /* §HOVER: gesture transition declared inline — the entrance stagger
          delay (index*0.05) must never leak into the hover response. */
       whileHover={{ y: -2, transition: { duration: 0.15, ease: "easeOut" } }}
-      whileTap={{ scale: 0.98, transition: { duration: 0.1 } }}
+
       className="rounded-xl overflow-hidden cursor-pointer group"
       style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
       onClick={onClick}
@@ -432,14 +432,14 @@ function PlaylistCard({ playlist, index, onClick, onLike, onDislikeTags, animati
             <span className="flex items-center gap-1"><Heart className="w-3 h-3" />{playlist.likeCount}</span>
             <span className="flex items-center gap-1"><Play className="w-3 h-3" />{playlist.playCount}</span>
           </div>
-          <motion.button whileTap={{ scale: 0.96, transition: { duration: 0.08 }} }
+          <motion.button
             onClick={(e) => { e.stopPropagation(); onLike(); }}
             className="p-1 cursor-pointer"
             style={{ color: playlist.isLiked ? "#ef4444" : "var(--mq-text-muted)" }}>
             <Heart className={`w-4 h-4 ${playlist.isLiked ? "fill-current" : ""}`} />
           </motion.button>
           {onDislikeTags && playlist.tags.length > 0 && (
-            <motion.button whileTap={{ scale: 0.96, transition: { duration: 0.08 }} }
+            <motion.button
               onClick={(e) => { e.stopPropagation(); onDislikeTags(); }}
               className="p-1 cursor-pointer"
               style={{ color: "var(--mq-text-muted)" }}

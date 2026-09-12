@@ -555,14 +555,22 @@ main {
   box-shadow: inset 0 0 0 1px rgba(224,64,251,0.15), 0 0 12px rgba(224,64,251,0.04);
 }
 
-/* Range input styling */
+/* ── Range input baseline — v71 fader-cap system ─────────────────────
+   Applies directly to RAW range inputs (EQ limiter threshold). Every
+   component slider (volume .mq-hslider/.mq-vslider, settings
+   input.mq-range-*, mobile input.mq-ft-*) layers per-class rules on
+   top — their selectors are prefixed with `input.` so they tie this
+   baseline's specificity and win by source order (the old baseline
+   was a generic accent BALL that outranked every per-class cap and
+   silently red-balled the whole app). */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   height: 6px;
   border-radius: 3px;
-  background: var(--mq-border);
+  background: var(--mq-glass-bg);
   outline: none;
+  cursor: pointer;
 }
 
 input[type="range"]::-webkit-slider-thumb {
@@ -570,21 +578,34 @@ input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   width: 16px;
   height: 16px;
-  border-radius: 50%;
-  background: var(--mq-accent);
-  cursor: pointer;
-  /* Flat shadow only — custom sliders carry no glow either (pro-audio look) */
+  border-radius: 5px;
+  background-color: var(--mq-card);
+  background-image: linear-gradient(var(--mq-text-muted), var(--mq-text-muted));
+  background-size: 8px 2px;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: 2px solid color-mix(in srgb, var(--mq-text-muted) 55%, var(--mq-card));
   box-shadow: var(--mq-shadow-sm);
+  cursor: pointer;
+}
+
+input[type="range"]:hover::-webkit-slider-thumb,
+input[type="range"]:active::-webkit-slider-thumb {
+  border-color: var(--mq-accent);
 }
 
 input[type="range"]::-moz-range-thumb {
   width: 16px;
   height: 16px;
-  border-radius: 50%;
-  background: var(--mq-accent);
-  cursor: pointer;
-  border: none;
+  border-radius: 5px;
+  background-color: var(--mq-card);
+  background-image: linear-gradient(var(--mq-text-muted), var(--mq-text-muted));
+  background-size: 8px 2px;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: 2px solid color-mix(in srgb, var(--mq-text-muted) 55%, var(--mq-card));
   box-shadow: var(--mq-shadow-sm);
+  cursor: pointer;
 }
 
 /* Color input */
@@ -1579,10 +1600,6 @@ html.blood-theme body::before {
   background: var(--mq-glass-bg-hover);
 }
 
-.mq-card-cinematic:active {
-  transform: translateY(0) scale(0.99);
-  box-shadow: var(--mq-shadow-float);
-}
 
 /* ── Floating Hero Card — Phase 2B: calm surface. Was: glass-bg +
    blur(60px) + dramatic shadow + specular sheen. Now: solid elevated
@@ -2418,102 +2435,186 @@ html.blood-theme body::before {
   }
 }
 
-/* ═══ Volume Slider — global styles (no per-instance <style> blocks) ═══ */
-.mq-hslider-input {
+/* ═══ MQ SLIDER SYSTEM v2 — unified "pro fader" language (v71)
+
+   ONE visual family for every volume slider in the app (Settings,
+   Full Player, Full Player Mobile) — the same DNA as the EQ fader
+   bank and the mobile seek bar:
+   · rail: 6px capsule, glass surface + inner glow
+   · fill: solid accent capsule
+   · cap: 16px rounded-square fader cap (card surface, 2px border,
+     center line) — MUTED border at rest, ACCENT border + halo while
+     grabbed
+   · desktop: the cap is HIDDEN at rest and reveals on hover/grab/
+     focus (the value IS the fill — no resting knob chrome); touch
+     devices keep the cap always visible (no hover there)
+   · NO scale-on-press (§PRESS: press-moment feedback removed app-wide;
+     the grab halo is drag state, not a click flash)
+   Firefox gets the same geometry via -moz pseudo-elements. ═══ */
+
+/* ── shared cap recipe (webkit) ── */
+input.mq-hslider-input::-webkit-slider-thumb,
+input.mq-vslider-input::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  height: 20px;
-  background: transparent;
-  outline: none;
-  cursor: pointer;
-}
-.mq-hslider-input::-webkit-slider-runnable-track {
-  height: 4px;
-  border-radius: 2px;
-  background: linear-gradient(to right,
-    var(--mq-accent) 0%, var(--mq-accent) var(--mq-vol, 0%),
-    rgba(255,255,255,0.1) var(--mq-vol, 0%), rgba(255,255,255,0.1) 100%);
-}
-.mq-hslider-input::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  background-color: var(--mq-card);
+  /* center line — 8×2 fader marker */
+  background-image: linear-gradient(var(--mq-text-muted), var(--mq-text-muted));
+  background-size: 8px 2px;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: 2px solid color-mix(in srgb, var(--mq-text-muted) 55%, var(--mq-card));
+  box-shadow: var(--mq-shadow-sm);
   margin-top: -5px;
   cursor: pointer;
-  transition: transform 0.1s ease;
-}
-.mq-hslider-input:active::-webkit-slider-thumb {
-  transform: scale(1.25);
-}
-.mq-hslider-input::-moz-range-track {
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255,255,255,0.1);
-}
-.mq-hslider-input::-moz-range-progress {
-  height: 4px;
-  border-radius: 2px;
-  background: var(--mq-accent);
-}
-.mq-hslider-input::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #fff;
-  border: none;
-  cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  opacity: 0;
+  transform: scale(0.55);
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
 }
 
-/* Vertical slider */
-.mq-vslider-input {
+/* ── reveal: hover / grab / keyboard focus (desktop) ── */
+input.mq-hslider-input:hover::-webkit-slider-thumb,
+input.mq-hslider-input:active::-webkit-slider-thumb,
+input.mq-hslider-input:focus-visible::-webkit-slider-thumb,
+input.mq-vslider-input:hover::-webkit-slider-thumb,
+input.mq-vslider-input:active::-webkit-slider-thumb,
+input.mq-vslider-input:focus-visible::-webkit-slider-thumb {
+  opacity: 1;
+  transform: scale(1);
+  border-color: var(--mq-accent);
+}
+input.mq-hslider-input:active::-webkit-slider-thumb,
+input.mq-vslider-input:active::-webkit-slider-thumb {
+  box-shadow: var(--mq-shadow-accent-hover),
+    0 0 0 5px color-mix(in srgb, var(--mq-accent) 16%, transparent);
+}
+
+/* ── touch: no hover state exists — cap always visible ── */
+@media (hover: none) {
+  input.mq-hslider-input::-webkit-slider-thumb,
+  input.mq-vslider-input::-webkit-slider-thumb {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ── horizontal volume slider ── */
+input.mq-hslider-input {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 24px;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+}
+input.mq-hslider-input::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right,
+    var(--mq-accent) 0%, var(--mq-accent) var(--mq-vol, 0%),
+    var(--mq-glass-bg) var(--mq-vol, 0%), var(--mq-glass-bg) 100%);
+  box-shadow: var(--mq-shadow-inner-glow);
+}
+inputinput.mq-hslider-input:focus-visible::-webkit-slider-runnable-track {
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--mq-accent) 30%, transparent),
+    var(--mq-shadow-inner-glow);
+}
+input.mq-hslider-input::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--mq-glass-bg);
+  box-shadow: var(--mq-shadow-inner-glow);
+}
+input.mq-hslider-input::-moz-range-progress {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--mq-accent);
+}
+input.mq-hslider-input::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  background-color: var(--mq-card);
+  background-image: linear-gradient(var(--mq-text-muted), var(--mq-text-muted));
+  background-size: 8px 2px;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: 2px solid color-mix(in srgb, var(--mq-text-muted) 55%, var(--mq-card));
+  box-shadow: var(--mq-shadow-sm);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms ease, border-color 150ms ease;
+}
+input.mq-hslider-input:hover::-moz-range-thumb,
+input.mq-hslider-input:active::-moz-range-thumb,
+input.mq-hslider-input:focus-visible::-moz-range-thumb {
+  opacity: 1;
+  border-color: var(--mq-accent);
+}
+
+/* ── vertical volume slider (rotated input, same recipe) ── */
+input.mq-vslider-input {
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
   outline: none;
   cursor: pointer;
 }
-.mq-vslider-input::-webkit-slider-runnable-track {
-  height: 4px;
-  border-radius: 2px;
+input.mq-vslider-input::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
   background: linear-gradient(to right,
     var(--mq-accent) 0%, var(--mq-accent) var(--mq-vol, 0%),
-    rgba(255,255,255,0.1) var(--mq-vol, 0%), rgba(255,255,255,0.1) 100%);
+    var(--mq-glass-bg) var(--mq-vol, 0%), var(--mq-glass-bg) 100%);
+  box-shadow: var(--mq-shadow-inner-glow);
 }
-.mq-vslider-input::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
-  margin-top: -5px;
-  cursor: pointer;
+input.mq-vslider-input::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--mq-glass-bg);
+  box-shadow: var(--mq-shadow-inner-glow);
 }
-.mq-vslider-input::-moz-range-track {
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255,255,255,0.1);
-}
-.mq-vslider-input::-moz-range-progress {
-  height: 4px;
-  border-radius: 2px;
+input.mq-vslider-input::-moz-range-progress {
+  height: 6px;
+  border-radius: 3px;
   background: var(--mq-accent);
 }
-.mq-vslider-input::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #fff;
-  border: none;
+input.mq-vslider-input::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  background-color: var(--mq-card);
+  background-image: linear-gradient(var(--mq-text-muted), var(--mq-text-muted));
+  background-size: 8px 2px;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: 2px solid color-mix(in srgb, var(--mq-text-muted) 55%, var(--mq-card));
+  box-shadow: var(--mq-shadow-sm);
   cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  opacity: 0;
+  transition: opacity 150ms ease, border-color 150ms ease;
 }
+input.mq-vslider-input:hover::-moz-range-thumb,
+input.mq-vslider-input:active::-moz-range-thumb,
+input.mq-vslider-input:focus-visible::-moz-range-thumb {
+  opacity: 1;
+  border-color: var(--mq-accent);
+}
+@media (hover: none) {
+  .mq-hslider-input::-moz-range-thumb,
+  input.mq-vslider-input::-moz-range-thumb {
+    opacity: 1;
+  }
+}
+
 
 /* ═══ Mobile performance optimizations ═══ */
 /* Disable backdrop-blur on mobile — extremely GPU-expensive, causes jank */
@@ -2559,33 +2660,9 @@ canvas {
    ANIMATIONS & MICRO-INTERACTIONS — enhanced UX for mobile + desktop
    ═════════════════════════════════════════════════════════════════════════ */
 
-/* 1. Ripple effect on buttons (material-style) */
-@keyframes mq-ripple {
-  to { transform: scale(4); opacity: 0; }
-}
-.mq-ripple {
-  position: relative;
-  overflow: hidden;
-}
-.mq-ripple::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.3);
-  transform: translate(-50%, -50%) scale(0);
-  opacity: 0;
-  pointer-events: none;
-  transition: transform 0.4s ease-out, opacity 0.4s ease-out;
-}
-.mq-ripple:active::after {
-  transform: translate(-50%, -50%) scale(4);
-  opacity: 0.3;
-  animation: mq-ripple 0.5s ease-out;
-}
+/* 1. Ripple effect — REMOVED (zero usages + press-flash family):
+   the press-moment visual feedback was removed app-wide (user spec:
+   no pressed-button highlighting). Hover/focus/data-active remain. */
 
 /* 2. Smooth card hover lift (desktop) — §F: the old broad selector
    `[class*="rounded-2xl"][class*="cursor-pointer"]` matched Framer-
@@ -2984,7 +3061,6 @@ a:focus-visible {
 }
 
 .tg-btn-primary:disabled { opacity: 0.5; }
-.tg-btn-primary:active:not(:disabled) { transform: scale(0.97); }
 
 .tg-icon-btn {
   background: color-mix(in srgb, var(--mq-text) 6%, transparent);
@@ -3001,7 +3077,6 @@ a:focus-visible {
   flex-shrink: 0;
 }
 
-.tg-icon-btn:active { background: color-mix(in srgb, var(--mq-text) 12%, transparent); }
 .tg-icon-btn:disabled { opacity: 0.4; }
 
 .tg-search-btn {
@@ -3019,7 +3094,6 @@ a:focus-visible {
   flex-shrink: 0;
 }
 
-.tg-search-btn:active { transform: scale(0.95); }
 .tg-search-btn:disabled { opacity: 0.5; }
 
 /* ── Header ────────────────────────────────────────────────────────── */
@@ -3114,7 +3188,6 @@ a:focus-visible {
   transition: background 0.12s;
 }
 
-.tg-card:active { background: color-mix(in srgb, var(--mq-text) 8%, transparent); }
 .tg-card-playing { background: color-mix(in srgb, var(--mq-accent) 12%, transparent); }
 
 .tg-card-cover {
@@ -3199,7 +3272,6 @@ a:focus-visible {
   transition: background 0.1s, transform 0.1s;
 }
 
-.tg-card-btn:active { background: color-mix(in srgb, var(--mq-text) 12%, transparent); transform: scale(0.9); }
 .tg-card-btn.liked { color: var(--mq-accent, #e03131); }
 
 /* ── Playlist grid ─────────────────────────────────────────────────── */
@@ -3225,7 +3297,6 @@ a:focus-visible {
   transition: transform 0.1s, background 0.12s;
 }
 
-.tg-playlist-card:active { transform: scale(0.97); background: color-mix(in srgb, var(--mq-text) 10%, transparent); }
 
 .tg-playlist-cover {
   width: 100%;
@@ -3390,7 +3461,6 @@ a:focus-visible {
   cursor: pointer;
 }
 
-.tg-player-btn:active { background: color-mix(in srgb, var(--mq-text) 10%, transparent); }
 .tg-player-btn:disabled { opacity: 0.3; }
 
 .tg-player-btn-main {
@@ -3402,7 +3472,6 @@ a:focus-visible {
   font-size: 14px;
 }
 
-.tg-player-btn-main:active { transform: scale(0.92); }
 
 /* ── Bottom nav ────────────────────────────────────────────────────── */
 
@@ -3549,7 +3618,6 @@ a:focus-visible {
   transition: background 0.12s;
 }
 
-.tg-sheet-item:active { background: color-mix(in srgb, var(--mq-text) 6%, transparent); }
 .tg-sheet-item:disabled { opacity: 0.5; }
 
 .tg-sheet-item-icon {
@@ -3590,7 +3658,6 @@ a:focus-visible {
   font-size: 16px;
 }
 
-.tg-refresh-btn:active { background: color-mix(in srgb, var(--mq-text) 12%, transparent); }
 .tg-refresh-btn:disabled { opacity: 0.4; }
 
 /* ── Debug info ────────────────────────────────────────────────────── */
@@ -3900,9 +3967,6 @@ a:focus-visible {
   background: var(--mq-overlay-hover);
   outline: none;
 }
-.mq-menu-item:active:not(:disabled) {
-  background: var(--mq-surface-2);
-}
 .mq-menu-item:disabled {
   opacity: 0.4;
   cursor: default;
@@ -4104,11 +4168,64 @@ a:focus-visible {
 .mq-icon-btn:hover {
   background-color: var(--mq-overlay-hover);
 }
-.mq-icon-btn:active {
-  background-color: color-mix(in srgb, var(--mq-text) 8%, transparent);
-}
 .mq-icon-btn[data-active="true"] {
   background-color: var(--mq-active-bg, color-mix(in srgb, var(--mq-accent) 15%, transparent));
+}
+
+/* ── §HOVER: Settings — CSS-only hover for swatch/dot/link pickers ──────
+   (v71). Was: Framer whileHover/whileTap scale — press feedback removed
+   app-wide; hover scale on tiny targets is also jumpy. CSS owns every
+   property; state rides on data-active. Inactive swatches previously had
+   NO hover feedback at all (inline background beat every class). */
+.mq-swatch {
+  background-color: var(--mq-overlay-hover);
+  border: 1px solid var(--mq-border-hairline);
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+.mq-swatch:hover,
+.mq-swatch:focus-visible {
+  background-color: color-mix(in srgb, var(--mq-text) 6%, transparent);
+  border-color: var(--mq-edge);
+}
+.mq-swatch[data-active="true"] {
+  background-color: color-mix(in srgb, var(--mq-accent) 10%, transparent);
+  border-color: var(--mq-border-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mq-accent) 18%, transparent);
+}
+.mq-swatch[data-active="true"]:hover {
+  background-color: color-mix(in srgb, var(--mq-accent) 14%, transparent);
+}
+
+.mq-accent-dot {
+  transition: transform 150ms ease;
+}
+.mq-accent-dot:hover,
+.mq-accent-dot:focus-visible {
+  transform: scale(1.08);
+}
+
+.mq-dl-link {
+  background-color: var(--mq-input-bg);
+  border: 1px solid var(--mq-border-thin);
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+.mq-dl-link--android {
+  background-color: color-mix(in srgb, #3ddc84 8%, var(--mq-surface-1));
+  border-color: color-mix(in srgb, #3ddc84 25%, transparent);
+}
+.mq-dl-link:hover,
+.mq-dl-link:focus-visible {
+  border-color: var(--mq-edge);
+  background-color: var(--mq-surface-2);
+}
+
+.mq-pb-vol .mq-pb-vol-cap {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.mq-pb-vol:hover .mq-pb-vol-cap,
+.mq-pb-vol:focus-visible .mq-pb-vol-cap {
+  opacity: 1;
 }
 
 /* ── TrackCard (unified interactive card row, ~1500 instances) ────────── */

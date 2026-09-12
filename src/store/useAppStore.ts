@@ -21,7 +21,10 @@ type PlaybackState = "idle" | "buffering" | "loading" | "playing" | "paused" | "
 // v10: bumped to force migration that resets radioMode (was persisting
 // "wave always active" bug from v8/v9 localStorage).
 // v11: persist username/email/avatar for instant display on reload
-const STORE_VERSION = 11;
+// v12: wasmEngineEnabled reset to false — the WASM engine is now
+// opt-in (default-ON shipped audible crackle to every user; persisted
+// "true" was almost never an explicit choice, so migration clears it).
+const STORE_VERSION = 12;
 const STORAGE_KEY = "mq-store-v8";
 
 // Nuke stale data BEFORE Zustand tries to hydrate.
@@ -667,7 +670,11 @@ const initialState = {
 
   // Gapless playback
   gaplessEnabled: true as boolean,
-  wasmEngineEnabled: true as boolean,
+  // WASM Rust engine — OFF by default (v71). Production telemetry:
+  // the AudioWorklet ring (~0.74s) accumulates underruns at track start /
+  // seek / gapless handoff → audible crackle ("пердит"). Opt-in only:
+  // Settings → Звук → WASM-движок (experimental).
+  wasmEngineEnabled: false as boolean,
   replayGainEnabled: false as boolean,
 
   // Cobalt SNIP bypass
@@ -3003,7 +3010,10 @@ export const useAppStore = create<AppState>()(
             crossfadeEnabled: old?.crossfadeEnabled ?? initialState.crossfadeEnabled,
             crossfadeDuration: old?.crossfadeDuration ?? initialState.crossfadeDuration,
             gaplessEnabled: old?.gaplessEnabled ?? initialState.gaplessEnabled,
-            wasmEngineEnabled: old?.wasmEngineEnabled ?? initialState.wasmEngineEnabled,
+            // v12: NOT carried over — forced to the new default (false).
+            // Default-ON WASM shipped audible crackle; persisted "true"
+            // was a default, not a user choice. Opt back in via Settings.
+            wasmEngineEnabled: false,
             replayGainEnabled: old?.replayGainEnabled ?? initialState.replayGainEnabled,
             eqEnabled: old?.eqEnabled ?? initialState.eqEnabled,
             eqBands: old?.eqBands ?? initialState.eqBands,

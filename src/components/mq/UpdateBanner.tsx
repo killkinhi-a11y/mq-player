@@ -9,14 +9,14 @@
  *
  * UX guarantees:
  * - Detection NEVER interrupts playback (#24) — this banner appears only
- *   from a user-visible state change; audio path is untouched.
+ * from a user-visible state change; audio path is untouched.
  * - No auto-reload (#47): reload happens ONLY from the «Обновить» click
- *   inside UpdateManager.applyUpdate().
+ * inside UpdateManager.applyUpdate().
  * - Mobile (#35): top placement + safe-area; never covers player/nav/seek.
  * - a11y (#42): role="status" + aria-live=polite; unambiguous button labels;
- *   keyboard focusable; 44px touch targets.
+ * keyboard focusable; 44px touch targets.
  * - Motion (#36): opacity + translateY only, 220ms, disabled under
- *   prefers-reduced-motion.
+ * prefers-reduced-motion.
  */
 
 import { memo } from "react";
@@ -93,7 +93,7 @@ function UpdateBannerBase() {
                   type="button"
                   onClick={applyUpdate}
                   className="mq-update-apply h-11 min-w-[128px] rounded-lg px-4 text-sm font-semibold
-                             transition-transform duration-100 active:scale-[0.98]"
+                             transition-transform duration-100"
                   style={{
                     backgroundColor: "var(--mq-accent)",
                     color: "var(--mq-text-on-accent, #fff)",

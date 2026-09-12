@@ -932,7 +932,7 @@ export default function AuthView() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.25, duration: 0.3 }}
-                className="flex items-center justify-center gap-2.5 w-full min-h-[44px] rounded-xl text-sm font-medium transition-[filter,transform] duration-200 hover:brightness-95 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-2.5 w-full min-h-[44px] rounded-xl text-sm font-medium transition-[filter,transform] duration-200 hover:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ backgroundColor: "#ffffff", color: "#1f2937", border: "1px solid #e5e7eb" }}
               >
                 {googleRedirecting || (tgBotLoading && providers === null) ? (

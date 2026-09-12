@@ -83,7 +83,7 @@ function RangeSliderBase({
         style={{
           WebkitAppearance: "none",
           appearance: "none",
-          height: "8px",
+          height: "24px",
           background: "transparent",
           outline: "none",
           cursor: "pointer",
@@ -98,45 +98,78 @@ function RangeSliderBase({
         <span className="text-xs flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>{maxLabel}</span>
       )}
       <style>{`
-        .mq-range-${sliderId}::-webkit-slider-runnable-track {
-          height: 8px;
-          border-radius: 4px;
+        input.mq-range-${sliderId}::-webkit-slider-runnable-track {
+          height: 6px;
+          border-radius: 3px;
           background: linear-gradient(to right,
             ${accent} 0%, ${accent} ${pct}%,
-            rgba(255,255,255,0.08) ${pct}%, rgba(255,255,255,0.08) 100%);
+            var(--mq-glass-bg) ${pct}%, var(--mq-glass-bg) 100%);
+          box-shadow: var(--mq-shadow-inner-glow);
         }
-        .mq-range-${sliderId}::-webkit-slider-thumb {
+        input.mq-range-${sliderId}:focus-visible::-webkit-slider-runnable-track {
+          box-shadow:
+            0 0 0 2px color-mix(in srgb, var(--mq-accent) 30%, transparent),
+            var(--mq-shadow-inner-glow);
+        }
+        /* MQ signature fader cap — same DNA as the EQ bank (v71).
+           No scale-on-press: the accent border + halo is grab state. */
+        input.mq-range-${sliderId}::-webkit-slider-thumb {
           -webkit-appearance: none;
           appearance: none;
-          width: 18px;
-          height: 18px;
-          border-radius: 50%;
-          background: #fff;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.4), 0 0 0 2px ${accent};
+          width: 16px;
+          height: 16px;
+          border-radius: 5px;
+          background-color: var(--mq-card);
+          background-image: linear-gradient(var(--mq-text-muted), var(--mq-text-muted));
+          background-size: 8px 2px;
+          background-position: center;
+          background-repeat: no-repeat;
+          border: 2px solid color-mix(in srgb, var(--mq-text-muted) 55%, var(--mq-card));
+          box-shadow: var(--mq-shadow-sm);
           margin-top: -5px;
           cursor: pointer;
-          transition: transform 0.15s ease;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        input.mq-range-${sliderId}:hover::-webkit-slider-thumb,
+        input.mq-range-${sliderId}:active::-webkit-slider-thumb,
+        input.mq-range-${sliderId}:focus-visible::-webkit-slider-thumb {
+          border-color: ${accent};
         }
         .mq-range-${sliderId}:active::-webkit-slider-thumb {
-          transform: scale(1.3);
+          box-shadow: var(--mq-shadow-accent-hover),
+            0 0 0 5px color-mix(in srgb, var(--mq-accent) 16%, transparent);
         }
-        .mq-range-${sliderId}::-moz-range-track {
-          height: 8px;
-          border-radius: 4px;
-          background: rgba(255,255,255,0.08);
+        input.mq-range-${sliderId}::-moz-range-track {
+          height: 6px;
+          border-radius: 3px;
+          background: var(--mq-glass-bg);
+          box-shadow: var(--mq-shadow-inner-glow);
         }
-        .mq-range-${sliderId}::-moz-range-progress {
-          height: 8px;
-          border-radius: 4px;
+        input.mq-range-${sliderId}::-moz-range-progress {
+          height: 6px;
+          border-radius: 3px;
           background: ${accent};
         }
-        .mq-range-${sliderId}::-moz-range-thumb {
-          width: 18px;
-          height: 18px;
-          border-radius: 50%;
-          background: #fff;
-          border: 2px solid ${accent};
+        input.mq-range-${sliderId}::-moz-range-thumb {
+          width: 16px;
+          height: 16px;
+          border-radius: 5px;
+          background-color: var(--mq-card);
+          background-image: linear-gradient(var(--mq-text-muted), var(--mq-text-muted));
+          background-size: 8px 2px;
+          background-position: center;
+          background-repeat: no-repeat;
+          border: 2px solid color-mix(in srgb, var(--mq-text-muted) 55%, var(--mq-card));
+          box-shadow: var(--mq-shadow-sm);
           cursor: pointer;
+        }
+        input.mq-range-${sliderId}:hover::-moz-range-thumb,
+        input.mq-range-${sliderId}:active::-moz-range-thumb {
+          border-color: ${accent};
+        }
+        .mq-range-${sliderId}:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
         }
       `}</style>
     </div>

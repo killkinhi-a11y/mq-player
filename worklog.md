@@ -2240,3 +2240,43 @@ Stage Summary:
 - Credentials still needed from admin: GOOGLE_CLIENT_ID/SECRET (+ redirect
   URI in Google Console), BotFather /setdomain for the widget. Without
   them the buttons show honest "not configured" — no mock success.
+
+---
+Task ID: v71-ux-audit
+Agent: main (Super Z)
+Task: 4 user-requested fixes — (1) remove pressed-button visual
+highlight, (2) redesign volume sliders + progress bar, (3) audit
+hover effects in every settings tab, (4) WASM engine off by default.
+
+Work Log:
+- PHASE 0: local tree was 12 behind origin/main (f3ef5af) with stale
+  uncommitted v68 WIP already upstream → resynced (backup patch kept),
+  tree clean at f3ef5af.
+- W1 press: codemod removed 150 whileTap + 25 active: classes across
+  33 files; 8 CSS :active press rules deleted (rows keep touch tint).
+  Live-verified: play buttons transform "none" while pressed.
+- W2 sliders: ONE family = EQ fader-cap DNA (16px squircle cap, card
+  bg, 2px muted->accent border, 8x2 center line, accent halo while
+  grabbed; 6px glass capsule rail). Root cause found: legacy
+  `input[type=range]::-webkit-slider-thumb` accent BALL outranked
+  every per-class rule by specificity → rewritten baseline +
+  input.-prefixed per-class rules. Rewrote: globals volume system,
+  RangeSlider, ProgressBar (state-driven cap reveal, rail 4->6px),
+  PlayerBar volume (plain-CSS hover reveal), mobile seek/vol.
+- W3 settings hover: SettingRow -> plain button + CSS; swatches
+  .mq-swatch (hover was DEAD — inline bg beat all classes); accent
+  dots .mq-accent-dot; download links .mq-dl-link. All 5 tabs green.
+- W4 wasm: default false, STORE_VERSION 12 migration resets persisted
+  true, read === true, honest settings labels (эксперимент/щелчки/
+  рекомендуется).
+- Verification: tsc clean, vitest 357/357, next build 0. Browser QA:
+  cap reveal 0->1 live, volume drag store-sync, progress tooltip +
+  cap accent, fontSize slider pixel-mapped squircle + center line,
+  mobile seek cap VLM-confirmed, full-player volume 24px hit area +
+  pixel-perfect cap, WASM toggle OFF (thumb x=3), zero page errors,
+  playback green on element path.
+
+Stage Summary:
+- v71: no press feedback anywhere, one slider DNA everywhere, no
+  dead hover zones in settings, WASM opt-in. Ship: push -> Vercel
+  -> production verify.

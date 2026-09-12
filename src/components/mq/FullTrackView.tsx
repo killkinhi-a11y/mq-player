@@ -1260,7 +1260,7 @@ export default function FullTrackView() {
         </button>
         <motion.button
           onClick={togglePlay}
-          whileTap={{ scale: 0.94, transition: { duration: 0.08 }} }
+
           aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
           className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center relative"
           style={{ backgroundColor: "var(--mq-accent)" }}
@@ -1703,7 +1703,7 @@ export default function FullTrackView() {
                           </div>
                         )}
                       </div>
-    
+
                     </div>
                   </motion.aside>
                 </>

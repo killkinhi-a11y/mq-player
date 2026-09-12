@@ -143,7 +143,7 @@ export const ShareSheet = memo(function ShareSheet({
             <div className="px-5 pb-5 space-y-2">
               {/* Copy link */}
               <motion.button
-                whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
+
                 onClick={handleCopy}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl mq-icon-btn"
                 style={{ ["--mq-rest-bg" as string]: "var(--mq-glass-bg)" }}
@@ -156,7 +156,7 @@ export const ShareSheet = memo(function ShareSheet({
 
               {/* Download QR */}
               <motion.button
-                whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
+
                 onClick={handleDownloadQR}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl mq-icon-btn"
                 style={{ ["--mq-rest-bg" as string]: "var(--mq-glass-bg)" }}
@@ -168,7 +168,7 @@ export const ShareSheet = memo(function ShareSheet({
               {/* Native share (mobile only) */}
               {typeof navigator !== "undefined" && "share" in navigator && (
                 <motion.button
-                  whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
+
                   onClick={handleNativeShare}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors"
                   style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}

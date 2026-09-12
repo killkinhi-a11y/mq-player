@@ -84,7 +84,6 @@ function saveSearchHistory(items: string[]) {
   try { localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(items.slice(0, MAX_HISTORY))); } catch {}
 }
 
-
 export default function SearchView() {
   const searchQuery = useAppStore((s) => s.searchQuery);
   const setSearchQuery = useAppStore((s) => s.setSearchQuery);
@@ -180,7 +179,6 @@ export default function SearchView() {
       }, 0);
     }
   }, [currentView]);
-
 
   // Debounced search
   useEffect(() => {
@@ -426,7 +424,7 @@ export default function SearchView() {
                 transition={{ delay: 0.08 + i * 0.03, duration: 0.3 }}
                 /* §HOVER: own tap transition — entrance delay never leaks
                    into the press feedback. */
-                whileTap={{ scale: 0.98, transition: { duration: 0.1 } }}
+
                 onClick={() => playTrack(track, quickPicks)}
                 className="flex items-center gap-2.5 p-2.5 rounded-[var(--mq-r-card)] text-left cursor-pointer group transition-colors duration-150"
                 style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
@@ -517,7 +515,7 @@ export default function SearchView() {
             <motion.button
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+
               onClick={handleClearSearch}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center mq-icon-btn"
               style={{ ["--mq-rest-bg" as string]: "color-mix(in srgb, var(--mq-text) 8%, transparent)", color: "var(--mq-text-muted)" }}
@@ -664,7 +662,7 @@ export default function SearchView() {
                 Недавние запросы
               </h3>
               <motion.button
-                whileTap={{ scale: 0.94, transition: { duration: 0.08 }} }
+
                 onClick={handleClearHistory}
                 className="flex items-center gap-1.5 px-2 py-1 rounded-lg mq-t-meta-2 font-medium transition-colors hover:bg-[var(--mq-overlay-hover)]"
                 style={{ color: "var(--mq-text-muted)" }}
@@ -697,7 +695,7 @@ export default function SearchView() {
                         stagger delay (i*0.03) and fought `transition-all`. */}
                     <button
                       onClick={() => handleHistoryClick(query)}
-                      className="flex items-center gap-2 pl-2.5 pr-1.5 py-1.5 rounded-xl text-xs font-medium bg-[var(--mq-card)] hover:bg-[var(--mq-card-hover)] hover:scale-[1.03] active:scale-[0.96] transition-[background-color,transform] duration-150 cursor-pointer"
+                      className="flex items-center gap-2 pl-2.5 pr-1.5 py-1.5 rounded-xl text-xs font-medium bg-[var(--mq-card)] hover:bg-[var(--mq-card-hover)] hover:scale-[1.03] transition-[background-color,transform] duration-150 cursor-pointer"
                       style={{
                         color: "var(--mq-text-muted)",
                         border: "1px solid var(--mq-border-thin)",
@@ -711,7 +709,7 @@ export default function SearchView() {
                           e.stopPropagation();
                           handleRemoveHistoryItem(query);
                         }}
-                        className="w-4 h-4 rounded-full flex items-center justify-center transition-opacity ml-0.5 sm:opacity-0 sm:group-hover:opacity-60 sm:group-hover:pointer-events-auto hover:!opacity-100 active:scale-90"
+                        className="w-4 h-4 rounded-full flex items-center justify-center transition-opacity ml-0.5 sm:opacity-0 sm:group-hover:opacity-60 sm:group-hover:pointer-events-auto hover:!opacity-100"
                         style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)" }}
                       >
                         <X className="w-2.5 h-2.5" />
@@ -927,7 +925,7 @@ export default function SearchView() {
                   /* §F: hover = CSS only (stagger delay was leaking into the
                      whileHover tween; transition-all fought framer writes). */
                   onClick={() => handleTrendingClick(term)}
-                  className="px-4 py-2 rounded-xl text-xs font-medium bg-[var(--mq-card)] hover:bg-[var(--mq-card-hover)] hover:scale-[1.04] active:scale-[0.96] transition-[background-color,transform] duration-150 cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-medium bg-[var(--mq-card)] hover:bg-[var(--mq-card-hover)] hover:scale-[1.04] transition-[background-color,transform] duration-150 cursor-pointer"
                   style={{
                     color: "var(--mq-text-muted)",
                     border: "1px solid var(--mq-border-thin)",
@@ -964,7 +962,7 @@ export default function SearchView() {
                 transition={{ delay: i * 0.03, duration: 0.2 }}
                 /* §F: hover = CSS only — see note above. */
                 onClick={() => handleTrendingClick(term)}
-                className="px-4 py-2 rounded-xl text-xs font-medium bg-[var(--mq-card)] hover:bg-[var(--mq-card-hover)] hover:scale-[1.04] active:scale-[0.96] transition-[background-color,transform] duration-150 cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-medium bg-[var(--mq-card)] hover:bg-[var(--mq-card-hover)] hover:scale-[1.04] transition-[background-color,transform] duration-150 cursor-pointer"
                 style={{
                   color: "var(--mq-text-muted)",
                   border: "1px solid var(--mq-border-thin)",
@@ -976,7 +974,6 @@ export default function SearchView() {
           </div>
         </motion.div>
       )}
-
 
     </div>
   );

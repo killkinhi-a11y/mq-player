@@ -107,7 +107,7 @@ export default function PlaylistCard({ playlist, index = 0 }: PlaylistCardProps)
           <motion.button
             initial={{ scale: 0.5, opacity: 0 }}
             whileHover={{ scale: 1.08, transition: { duration: 0.12, ease: "easeOut" }} }
-            whileTap={{ scale: 0.92, transition: { duration: 0.08 }} }
+
             onClick={handlePlay}
             className="w-14 h-14 rounded-full flex items-center justify-center"
             style={{

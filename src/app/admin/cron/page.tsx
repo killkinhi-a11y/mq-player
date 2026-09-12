@@ -147,7 +147,7 @@ export default function AdminCronPage() {
         </div>
         <motion.button
           whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+
           onClick={handleCleanup}
           disabled={cleanupLoading}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"

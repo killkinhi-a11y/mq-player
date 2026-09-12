@@ -49,6 +49,7 @@ function ProgressBarBase({
   const [internalDragging, setInternalDragging] = useState(false);
   const [hoveredPct, setHoveredPct] = useState<number | null>(null);
   const [hoveredTime, setHoveredTime] = useState<number | null>(null);
+  const [isFocused, setIsFocused] = useState(false);
   const rafRef = useRef(0);
 
   const isDragging = internalDragging || externalDragging;
@@ -182,9 +183,12 @@ function ProgressBarBase({
   // playerbar: compact vertical padding (8px hit area) so the docked bar
   // stays at ~72px total height (var(--mq-player-height-desktop)).
   const trackHeight = variant === "fulltrack" ? 6 : 4;
-  const thumbSize = variant === "fulltrack" ? 14 : 12;
+  const thumbSize = 16;
   const hitPadding = variant === "playerbar" ? 8 : 12;
-  const showThumbOnMobile = variant === "mobile" || variant === "fulltrack";
+  const alwaysShowThumb = variant === "mobile";
+
+  const isHot = isDragging || hoveredPct !== null || isFocused;
+  const hotTrackHeight = trackHeight + 2;
 
   const displayPct = isDragging ? progressPct : (hoveredPct ?? progressPct);
 
@@ -217,6 +221,8 @@ function ProgressBarBase({
         aria-valuetext={`${formatDuration(progress)} из ${formatDuration(duration)}`}
         aria-orientation="horizontal"
         onKeyDown={handleKeyDown}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
@@ -224,12 +230,15 @@ function ProgressBarBase({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Track background */}
+        {/* Track rail — capsule, glass surface + inner glow.
+            Grows 2px while hot (hover/drag) — grab affordance, not a
+            press flash. */}
         <div
           className="absolute left-0 right-0 rounded-full transition-all duration-150"
           style={{
-            height: isDragging ? trackHeight + 2 : trackHeight,
-            backgroundColor: "rgba(255,255,255,0.08)",
+            height: isHot ? hotTrackHeight : trackHeight,
+            backgroundColor: "var(--mq-glass-bg)",
+            boxShadow: "var(--mq-shadow-inner-glow)",
           }}
         />
 
@@ -250,30 +259,48 @@ function ProgressBarBase({
           )}
         </AnimatePresence>
 
-        {/* Progress fill — solid accent, no glow */}
+        {/* Progress fill — solid accent capsule */}
         <div
           className="absolute left-0 rounded-full pointer-events-none"
           style={{
-            height: isDragging ? trackHeight + 2 : trackHeight,
+            height: isHot ? hotTrackHeight : trackHeight,
             width: `${progressPct}%`,
             backgroundColor: "var(--mq-accent)",
             transition: isDragging ? "none" : "width 0.1s linear, height 0.15s ease",
           }}
         />
 
-        {/* Thumb */}
+        {/* Fader cap — MQ signature (v71): 16px rounded-square cap,
+            card surface + 2px border (muted rest → accent hot) + center
+            line. Hidden at rest on desktop (fill IS the value); reveals on
+            hover/grab/keyboard-focus; always visible on touch. No
+            scale-on-press — the accent halo is grab state. */}
         <div
-          className="absolute rounded-full pointer-events-none transition-all duration-150"
+          className="absolute rounded-[5px] pointer-events-none flex items-center justify-center"
           style={{
             left: `${displayPct}%`,
             marginLeft: -thumbSize / 2,
+            top: "50%",
             width: thumbSize,
             height: thumbSize,
-            backgroundColor: "#fff",
-            border: `1px solid var(--mq-accent)`,
-            opacity: isDragging ? 1 : (hoveredPct !== null ? 1 : (showThumbOnMobile ? 0.7 : 0)),
-            transform: isDragging ? "scale(1.2)" : "scale(1)",
-            transition: "opacity 0.15s ease, transform 0.15s ease",
+            marginTop: -thumbSize / 2,
+            backgroundColor: "var(--mq-card)",
+            backgroundImage:
+              "linear-gradient(var(--mq-text-muted), var(--mq-text-muted))",
+            backgroundSize: "8px 2px",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            border: `2px solid ${
+              isHot
+                ? "var(--mq-accent)"
+                : "color-mix(in srgb, var(--mq-text-muted) 55%, var(--mq-card))"
+            }`,
+            boxShadow: isDragging
+              ? "var(--mq-shadow-accent-hover), 0 0 0 5px color-mix(in srgb, var(--mq-accent) 16%, transparent)"
+              : "var(--mq-shadow-sm)",
+            opacity: isHot || alwaysShowThumb ? 1 : 0,
+            transition:
+              "opacity 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease",
           }}
         />
 

@@ -218,7 +218,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
               <motion.button
                 key={preset.id}
                 whileHover={{ scale: 1.04, transition: { duration: 0.12, ease: "easeOut" }} }
-                whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+
                 onClick={() => handlePresetClick(preset.id)}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium cursor-pointer transition-colors"
                 style={{
@@ -257,7 +257,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
         <div className="flex items-center gap-2 flex-shrink-0">
           {tracks.length > 0 && (
             <motion.button
-              whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+
               onClick={handlePlayAll}
               className="text-xs px-3 py-1.5 rounded-full font-medium cursor-pointer flex items-center gap-1"
               style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
@@ -267,7 +267,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
             </motion.button>
           )}
           <motion.button
-            whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
+
             onClick={handleRefresh}
             disabled={loading}
             className="p-1.5 rounded-lg cursor-pointer"
@@ -287,7 +287,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
             <motion.button
               key={preset.id}
               whileHover={{ scale: 1.04, transition: { duration: 0.12, ease: "easeOut" }} }
-              whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+
               onClick={() => handlePresetClick(preset.id)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap cursor-pointer transition-colors flex-shrink-0"
               style={{
@@ -399,7 +399,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
 
                     {/* Add to queue */}
                     <motion.button
-                      whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+
                       onClick={(e) => { e.stopPropagation(); addToUpNext(track); }}
                       className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                       style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
@@ -420,7 +420,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
           {/* Show more / less */}
           {tracks.length > 50 && (
             <motion.button
-              whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
+
               onClick={() => setShowAll(!showAll)}
               className="mt-3 w-full py-2 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
               style={{

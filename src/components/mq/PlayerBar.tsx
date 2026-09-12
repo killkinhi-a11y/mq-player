@@ -26,18 +26,18 @@ import MenuCore, { MenuHeader } from "./ui/MenuCore";
 // PLAYER BAR — desktop mini player (Phase 2B redesign)
 //
 // Design goals — "music control surface, not a toolbar":
-//   NOW PLAYING  → LEFT: artwork + track identity (click → full player)
-//   PLAYBACK     → CENTER: shuffle / prev / play / next / repeat + progress
-//   SECONDARY    → RIGHT: like, wave, volume, queue, more (⋯)
-//   ADVANCED     → More menu: EQ, dislike, share — NOT on the play level
+// NOW PLAYING → LEFT: artwork + track identity (click → full player)
+// PLAYBACK → CENTER: shuffle / prev / play / next / repeat + progress
+// SECONDARY → RIGHT: like, wave, volume, queue, more (⋯)
+// ADVANCED → More menu: EQ, dislike, share — NOT on the play level
 //
 // Removed in Phase 2B (visual noise):
-//   - ambient cover glow layer inside the bar
-//   - 40px backdrop blur + inner glow shadow → 16px blur + 1 top border
-//   - floating glass pill → docked full-width surface
-//   - magnetic play button, LikeBurst heart particles
-//   - infinite pulsing dots on wave/EQ buttons → static accent state
-//   - scale hover on every button → CSS hover tint only
+// - ambient cover glow layer inside the bar
+// - 40px backdrop blur + inner glow shadow → 16px blur + 1 top border
+// - floating glass pill → docked full-width surface
+// - magnetic play button, LikeBurst heart particles
+// - infinite pulsing dots on wave/EQ buttons → static accent state
+// - scale hover on every button → CSS hover tint only
 // ═════════════════════════════════════════════════════════════════════════
 
 export default function PlayerBar() {
@@ -366,7 +366,7 @@ export default function PlayerBar() {
                 </button>
 
                 <motion.button
-                  whileTap={{ scale: 0.92, transition: { duration: 0.08 }} }
+
                   onClick={() => { togglePlay(); hapticPlay(); }}
                   className="w-10 h-10 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: "var(--mq-accent)" }}
@@ -548,8 +548,13 @@ export default function PlayerBar() {
                     else if (e.key === "End") { e.preventDefault(); setVolume(100); }
                     else if (e.key === " " || e.key === "Enter") { e.preventDefault(); setVolume(volume > 0 ? 0 : (prevVolumeRef.current > 0 ? prevVolumeRef.current : 70)); }
                   }}
-                  className="relative cursor-pointer rounded-full group/vol focus-visible:outline-2 focus-visible:outline-[var(--mq-accent)]"
-                  style={{ width: 88, height: 4, backgroundColor: "var(--mq-glass-bg-hover)" }}
+                  className="mq-pb-vol relative cursor-pointer rounded-full group/vol focus-visible:outline-2 focus-visible:outline-[var(--mq-accent)]"
+                  style={{
+                    width: 88,
+                    height: 6,
+                    backgroundColor: "var(--mq-glass-bg)",
+                    boxShadow: "var(--mq-shadow-inner-glow)",
+                  }}
                 >
                   <div
                     ref={volFillRef}
@@ -561,10 +566,24 @@ export default function PlayerBar() {
                       backgroundColor: "var(--mq-accent)",
                     }}
                   />
+                  {/* MQ fader cap (v71) — same DNA as EQ/settings sliders.
+                      Hidden at rest, reveals on hover/focus (group/vol). */}
                   <div
                     ref={volThumbRef}
-                    className="absolute left-0 top-1/2 w-3.5 h-3.5 rounded-full opacity-0 group-hover/vol:opacity-100 group-focus-within/vol:opacity-100 pointer-events-none"
-                    style={{ left: `${volume}%`, backgroundColor: "var(--mq-text-on-accent, #fff)", boxShadow: "0 0 0 1.5px var(--mq-accent)", transition: "opacity 0.15s" }}
+                    className="mq-pb-vol-cap absolute left-0 top-1/2 rounded-[5px] pointer-events-none"
+                    style={{
+                      left: `${volume}%`,
+                      width: 16,
+                      height: 16,
+                      transform: "translate(-50%, -50%)",
+                      backgroundColor: "var(--mq-card)",
+                      backgroundImage: "linear-gradient(var(--mq-text-muted), var(--mq-text-muted))",
+                      backgroundSize: "8px 2px",
+                      backgroundPosition: "center",
+                      backgroundRepeat: "no-repeat",
+                      border: "2px solid color-mix(in srgb, var(--mq-text-muted) 55%, var(--mq-card))",
+                      boxShadow: "var(--mq-shadow-sm)",
+                    }}
                   />
                 </div>
               </div>

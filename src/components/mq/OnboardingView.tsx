@@ -11,14 +11,14 @@ import { Music, ChevronRight, ChevronLeft, Check, Loader2, Sparkles, Waves } fro
  * Task 6 improvements:
  * - Step progress bar (1/2, 2/2) — the user always knows where they are.
  * - Selected genres are PERSISTED into the store's tasteGenres (weight 60,
- *   above the "liked" threshold 20) — they genuinely drive /recommendations
- *   (genres param via extractTasteProfile) AND the Wave radio (tasteGenres
- *   param). Not decorative state.
+ * above the "liked" threshold 20) — they genuinely drive /recommendations
+ * (genres param via extractTasteProfile) AND the Wave radio (tasteGenres
+ * param). Not decorative state.
  * - onboardingComplete is persisted SERVER-side (completeOnboarding flag) —
- *   a fresh device/login no longer re-shows the wizard for a finished user.
+ * a fresh device/login no longer re-shows the wizard for a finished user.
  * - Finish is await-protected (no double-tap double-submit).
  * - Mobile-first: 44px chips, 48px footer buttons, sticky footer with real
- *   background (content never shows through the buttons).
+ * background (content never shows through the buttons).
  * - Loading state: skeleton artist tiles (honest — no fake content).
  */
 
@@ -303,7 +303,7 @@ export default function OnboardingView() {
                           return (
                             <motion.button
                               key={g.name}
-                              whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+
                               onClick={() => handleGenreToggle(g.name)}
                               aria-pressed={isSelected}
                               className="min-h-[44px] px-4 py-2.5 rounded-full text-sm font-medium"
@@ -387,7 +387,7 @@ export default function OnboardingView() {
                         transition={{ delay: Math.min(i * 0.04, 0.4), duration: 0.25 }}
                         /* §HOVER: own tap transition — entrance delay (up to
                            0.4s) never leaks into the press feedback. */
-                        whileTap={{ scale: 0.96, transition: { duration: 0.08 } }}
+
                         onClick={() => handleArtistToggle(artist)}
                         aria-pressed={isSelected}
                         className="relative flex flex-col items-center p-3 rounded-2xl min-h-[44px]"
@@ -468,7 +468,7 @@ export default function OnboardingView() {
           )}
           {step === "genres" ? (
             <motion.button
-              whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
+
               onClick={handleGenreContinue}
               disabled={selectedGenres.length < MIN_GENRES}
               className="flex items-center gap-2 px-6 min-h-[48px] rounded-xl text-sm font-semibold"
@@ -483,7 +483,7 @@ export default function OnboardingView() {
             </motion.button>
           ) : (
             <motion.button
-              whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
+
               onClick={handleFinish}
               disabled={finishing}
               className="flex items-center gap-2 px-6 min-h-[48px] rounded-xl text-sm font-semibold"

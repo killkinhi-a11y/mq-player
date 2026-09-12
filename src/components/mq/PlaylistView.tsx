@@ -469,7 +469,7 @@ export default function PlaylistView() {
         <motion.button
           initial={{ opacity: 0, x: -8 }}
           animate={{ opacity: 1, x: 0 }}
-          whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+
           onClick={() => setSelectedPlaylistId(null)}
           className="flex items-center gap-1.5 text-sm mb-5 -ml-1.5 rounded-lg px-2.5 py-1.5 transition-colors hover:bg-[var(--mq-overlay-hover)]"
           style={{ color: "var(--mq-text-muted)" }}
@@ -642,7 +642,7 @@ export default function PlaylistView() {
               {/* PRIMARY ACTIONS — one row, predictable order: play → shuffle → pin → menu */}
               <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
                 <motion.button
-                  whileTap={{ scale: 0.96, transition: { duration: 0.1 } }}
+
                   whileHover={{ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } }}
                   onClick={() => isPlPlaying ? togglePlay() : handlePlayAll(pl)}
                   disabled={pl.tracks.length === 0}
@@ -659,7 +659,7 @@ export default function PlaylistView() {
                   {isPlPlaying ? "Пауза" : "Слушать"}
                 </motion.button>
                 <motion.button
-                  whileTap={{ scale: 0.96, transition: { duration: 0.1 } }}
+
                   whileHover={{ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } }}
                   onClick={() => handleShufflePlay(pl)}
                   disabled={pl.tracks.length === 0}
@@ -815,7 +815,7 @@ export default function PlaylistView() {
         </div>
         <div className="flex items-center gap-2">
           <motion.button
-            whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+
             whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} }
             onClick={() => setShowCreate(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm"
@@ -825,7 +825,7 @@ export default function PlaylistView() {
             Создать
           </motion.button>
           <motion.button
-            whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+
             whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} }
             onClick={() => setShowImport(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium"
@@ -1296,7 +1296,7 @@ function PlaylistTile({
          leak into the hover/tap response (the "second effect appears with
          delay" bug). Framer owns transform; CSS owns colors. */
       whileHover={{ y: -3, transition: { duration: 0.15, ease: "easeOut" } }}
-      whileTap={{ scale: 0.98, transition: { duration: 0.1 } }}
+
       onClick={onOpen}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -1353,7 +1353,7 @@ function PlaylistTile({
           <motion.button
             initial={{ opacity: 0, scale: 0.8 }}
             whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
-            whileTap={{ scale: 0.92, transition: { duration: 0.08 }} }
+
             onClick={onPlay}
             className="absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity duration-300"
             style={{

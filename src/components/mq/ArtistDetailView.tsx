@@ -295,22 +295,22 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
             <ArtistStats info={info} tracks={tracks.length} compact />
             <div className="flex items-center gap-2 mt-3.5">
               <button onClick={heroPlay} disabled={popular.length === 0}
-                className="flex-1 flex items-center justify-center gap-2 h-12 rounded-full mq-t-section font-bold transition-all active:scale-[0.98]"
+                className="flex-1 flex items-center justify-center gap-2 h-12 rounded-full mq-t-section font-bold transition-all"
                 style={{ background: "var(--mq-accent)", color: "#fff", opacity: popular.length ? 1 : 0.4, boxShadow: "0 6px 22px color-mix(in srgb, var(--mq-accent) 32%, transparent)" }}>
                 <Play className="w-5 h-5" fill="currentColor" /> Слушать
               </button>
               <button onClick={heroShuffle} disabled={popular.length === 0} aria-label="Перемешать"
-                className="w-12 h-12 rounded-full flex items-center justify-center transition-colors active:scale-[0.96]"
+                className="w-12 h-12 rounded-full flex items-center justify-center transition-colors"
                 style={{ background: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)", opacity: popular.length ? 1 : 0.4 }}>
                 <Shuffle className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
               </button>
               <button onClick={handleFav} aria-label={isFav ? "Удалить из избранного" : "В избранное"}
-                className="w-12 h-12 rounded-full flex items-center justify-center transition-colors active:scale-[0.96]"
+                className="w-12 h-12 rounded-full flex items-center justify-center transition-colors"
                 style={{ background: isFav ? "color-mix(in srgb, var(--mq-accent) 16%, transparent)" : "var(--mq-surface-1)", border: `1px solid ${isFav ? "color-mix(in srgb, var(--mq-accent) 36%, transparent)" : "var(--mq-edge)"}` }}>
                 <Heart className="w-5 h-5" style={{ color: isFav ? "var(--mq-accent)" : "var(--mq-text)" }} fill={isFav ? "currentColor" : "none"} />
               </button>
               <button onClick={handleShare} aria-label="Поделиться"
-                className="w-12 h-12 rounded-full flex items-center justify-center transition-colors active:scale-[0.96]"
+                className="w-12 h-12 rounded-full flex items-center justify-center transition-colors"
                 style={{ background: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}>
                 <Share2 className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
               </button>
@@ -338,7 +338,7 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
             <ArtistStats info={info} tracks={tracks.length} />
             <div className="flex items-center gap-2.5 mt-6">
               <button onClick={heroPlay} disabled={popular.length === 0}
-                className="flex items-center gap-2 h-12 px-7 rounded-full mq-t-section font-bold transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="flex items-center gap-2 h-12 px-7 rounded-full mq-t-section font-bold transition-all hover:scale-[1.02]"
                 style={{ background: "var(--mq-accent)", color: "#fff", opacity: popular.length ? 1 : 0.4, boxShadow: "0 8px 28px color-mix(in srgb, var(--mq-accent) 34%, transparent)" }}>
                 <Play className="w-5 h-5" fill="currentColor" /> Слушать
               </button>

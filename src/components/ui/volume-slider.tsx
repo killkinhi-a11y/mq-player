@@ -69,7 +69,7 @@ function VolumeSliderBase({ volume, onChange, orientation = "horizontal", showIc
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       {showIcon && (
-        <button onClick={handleIconClick} aria-label="Mute" className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-90" style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}>
+        <button onClick={handleIconClick} aria-label="Mute" className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-transform" style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}>
           <Icon className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
         </button>
       )}

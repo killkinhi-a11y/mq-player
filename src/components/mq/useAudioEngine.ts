@@ -1824,7 +1824,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       const caps = probeWasmCapabilities();
       const source = track.source || (track.scTrackId ? "soundcloud" : "demo");
       if (!shouldUseWasmBackend({
-        enabled: st.wasmEngineEnabled !== false,
+        enabled: st.wasmEngineEnabled === true,
         isHls: streamFlags.isHls,
         isEncrypted: streamFlags.isEncrypted,
         source,

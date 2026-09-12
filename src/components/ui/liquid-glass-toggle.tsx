@@ -83,7 +83,7 @@ export function LiquidGlassToggle({
       onMouseLeave={handleMouseLeave}
       onMouseDown={() => !disabled && setPressed(true)}
       onMouseUp={() => setPressed(false)}
-      whileTap={!disabled ? { scale: 0.95 } : undefined}
+
     >
       {/* ── Track ── */}
       <motion.div

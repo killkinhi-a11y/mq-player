@@ -21,7 +21,6 @@ interface TrackData {
 
 // v69: canonical formatter (guards + h:mm:ss) replaces the local copy.
 
-
 export default function ShareTrackPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -392,7 +391,7 @@ export default function ShareTrackPage() {
 
               <button
                 onClick={handlePlayPause}
-                className="w-14 h-14 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
+                className="w-14 h-14 rounded-full flex items-center justify-center transition-transform hover:scale-105"
                 style={{
                   background: "#e03131",
                   color: "#fff",
@@ -418,7 +417,7 @@ export default function ShareTrackPage() {
           <div className="text-center">
             <a
               href="/play"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium transition-all hover:brightness-110 active:scale-95"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium transition-all hover:brightness-110"
               style={{
                 background: "rgba(255,255,255,0.08)",
                 color: "rgba(255,255,255,0.8)",

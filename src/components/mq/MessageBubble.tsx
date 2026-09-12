@@ -226,7 +226,7 @@ function VoicePlayer({
       <div className="flex items-center gap-3 min-w-[200px]">
         {/* Play / Pause */}
         <motion.button
-          whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
+
           whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
           onClick={togglePlay}
           className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
@@ -250,7 +250,7 @@ function VoicePlayer({
 
         {/* Speed control — cycles 1x → 1.5x → 2x → 1x */}
         <motion.button
-          whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
+
           onClick={cycleSpeed}
           className="mq-t-meta-2 font-bold tabular-nums flex-shrink-0 px-1.5 py-0.5 rounded-md transition-colors"
           style={{
@@ -712,7 +712,7 @@ export default function MessageBubble({
             backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 12%, transparent)" : "color-mix(in srgb, var(--mq-text) 5%, transparent)",
             border: `1px solid ${isMine ? "color-mix(in srgb, var(--mq-text) 15%, transparent)" : "color-mix(in srgb, var(--mq-text) 8%, transparent)"}`,
           }}
-          whileTap={{ scale: 0.98, transition: { duration: 0.08 }} }
+
           onClick={() => {
             useAppStore.getState().playTrack(sharedTrack, []);
           }}
@@ -873,7 +873,7 @@ export default function MessageBubble({
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                    whileTap={{ scale: 0.94, transition: { duration: 0.08 }} }
+
                     onClick={() => addReaction(emoji)}
                     className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full mq-t-meta-2 transition-colors"
                     style={{
@@ -918,7 +918,7 @@ export default function MessageBubble({
                     /* §HOVER: own gesture transitions — entrance spring+delay
                        never leaks into the hover/tap response. */
                     whileHover={{ scale: 1.3, y: -2, transition: { duration: 0.12, ease: "easeOut" } }}
-                    whileTap={{ scale: 0.9, transition: { duration: 0.08 } }}
+
                     onClick={() => addReaction(emoji)}
                     className="w-8 h-8 flex items-center justify-center rounded-full text-lg"
                   >
@@ -932,7 +932,7 @@ export default function MessageBubble({
           {/* ── Hover actions bar — reply + react ── */}
           <div className={`absolute ${isMine ? "right-full mr-1" : "left-full ml-1"} top-1/2 -translate-y-1/2 opacity-0 group-hover/msg:opacity-100 transition-opacity flex gap-0.5`}>
             <motion.button
-              whileTap={{ scale: 0.94, transition: { duration: 0.08 }} }
+
               onClick={() => setShowReactions(!showReactions)}
               className="w-7 h-7 rounded-full flex items-center justify-center"
               style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}
@@ -943,7 +943,7 @@ export default function MessageBubble({
             </motion.button>
             {onReplyClick && (
               <motion.button
-                whileTap={{ scale: 0.94, transition: { duration: 0.08 }} }
+
                 onClick={() => onReplyClick(message.id)}
                 className="w-7 h-7 rounded-full flex items-center justify-center"
                 style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}
