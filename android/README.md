@@ -47,24 +47,23 @@ strict HTTPS (`app/src/main/res/xml/network_security_config.xml`).
 
 ### Подпись релиза (секреты НЕ в git)
 
-1. Создайте свой keystore:
+1. Скопируйте `keystore.properties.example` → `keystore.properties`
+   (gitignored) и создайте свой keystore (шаблон команды — внутри
+   example-файла):
    ```bash
    keytool -genkeypair -v -keystore ~/mq-release.jks -keyalg RSA \
-     -keysize 2048 -validity 10000 -alias mq
+     -keysize 2048 -validity 10950 -storetype PKCS12 -alias mq-release
    ```
-2. Создайте `android/keystore.properties` (gitignored):
-   ```properties
-   storeFile=/absolute/path/to/mq-release.jks
-   storePassword=***
-   keyAlias=mq
-   keyPassword=***
-   ```
-3. `./gradlew assembleRelease` → подписанный APK.
+2. `./gradlew assembleRelease` → подписанный APK + `bundleRelease` → AAB.
    Без этого файла собирается **unsigned** release APK.
 
 Релизный APK из этого репозитория подписан self-signed ключом,
 сгенерированным локально вне git (для sideload-установки достаточно;
 для Google Play используйте собственный ключ).
+
+> SHA-256 отпечаток релизного сертификата добавлен в
+> `public/.well-known/assetlinks.json` (вместе с debug-отпечатком) —
+> App Links auto-verify работает и для debug-, и для release-сборок.
 
 > **Важно про обновление с 1.0.0 → 1.0.1:** релиз 1.0.0 был подписан
 > другим self-signed ключом (ключ находился в сборочной песочнице и не
@@ -74,13 +73,34 @@ strict HTTPS (`app/src/main/res/xml/network_security_config.xml`).
 
 ### Deep links
 
-Приложение регистрирует кастомную схему `mq://`:
-- `mq://player` — открывает экран плеера (работает и на холодном старте,
-  и когда приложение уже запущено — singleTask + onNewIntent);
-- любой другой `mq://…` — просто поднимает приложение.
+Приложение регистрирует кастомные схемы:
+- `mqplayer://track|artist|playlist/{id}` — нативные deep links
+  (холодный старт, warm relaunch и фоновый режим — singleTask +
+  onNewIntent; неавторизованный пользователь сначала входит, затем
+  автоматически попадает на исходный адрес);
+- `mq://player` — legacy-ссылка, открывает экран плеера.
 
-HTTPS-ссылки (mq1.vercel.app) намеренно НЕ перехватываются — ими
-> продолжает владеть веб-версия.
+Android App Links (HTTPS, `autoVerify=true`):
+- `https://mq1.vercel.app/track/{id}` и `https://mq1.vercel.app/play?pl=|artist=`
+  — верифицируются через `https://mq1.vercel.app/.well-known/assetlinks.json`
+  (debug- и release-отпечатки). До успешной верификации система показывает
+  стандартный диалог выбора. Остальными HTTPS-ссылками mq1.vercel.app
+  продолжает владеть веб-версия.
+
+### Скачивание APK (Settings → «О приложении»)
+
+Постоянная ссылка на актуальный release-APK (GitHub Releases):
+
+```
+https://github.com/killkinhi-a11y/mq-player/releases/latest/download/MQPlayer.apk
+```
+
+Конвенция релизов: тег `android-vX.Y.Z`, ассеты
+`mq-player-vX.Y.Z-release.apk` (версионное имя) + `MQPlayer.apk`
+(стабильный алиас для постоянной ссылки) + `mq-player-vX.Y.Z-release.aab`
+(для Google Play) + `SHA256SUMS.txt` (контрольные суммы). Кнопка
+«Скачать Android-приложение» в настройках открывает эту ссылку через
+внешний браузер — стандартный Android-флоу скачивания/установки.
 
 ## Архитектура
 

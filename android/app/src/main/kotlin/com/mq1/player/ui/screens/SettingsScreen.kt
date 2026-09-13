@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
@@ -174,6 +175,27 @@ fun SettingsScreen(onLogout: () -> Unit, onBack: () -> Unit, onOpenProfile: () -
             Text("MQ Player для Android", style = MaterialTheme.typography.bodyMedium)
             Text(
                 "Версия ${com.mq1.player.BuildConfig.VERSION_NAME} · нативный клиент MQ (mq1.vercel.app)",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            // PART 1/16: REAL download link → permanent GitHub Releases URL
+            // (production resource; opens external browser → standard Android
+            // package-installer flow, no in-app auto-install).
+            Spacer(Modifier.height(12.dp))
+            val context = androidx.compose.ui.platform.LocalContext.current
+            Button(
+                onClick = { com.mq1.player.data.AppRelease.openDownload(context) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp) // ≥ 44dp touch target
+            ) {
+                Icon(Icons.Filled.Download, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Скачать Android-приложение")
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Актуальный APK с официальной страницы релизов GitHub",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
