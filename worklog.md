@@ -2928,3 +2928,111 @@ Stage Summary:
   to the physical-device QA pass; no fake loaders were added anywhere
   (loading states only wrap real fetches; Mixer screen has none — pure
   local state).
+
+---
+Task ID: release-apk-distribution
+Agent: main (Super Z)
+Task: Release 2.0.0 — Settings APK download link, release signing, GitHub
+Releases distribution, full APK static audit + security sweep, web regression
+(the 20-part release task; F9-F11 code untouched)
+
+Work Log:
+- AUDIT OF EXISTING INFRA: GitHub repo killkinhi-a11y/mq-player has an
+  established release convention — tag `android-vX.Y.Z`, asset
+  `mq-player-vX.Y.Z-release.apk` (old android-v1.0.0/1.0.1 were wrapper-era
+  3.6MB builds; v1.0.4x-50 used plain `mq-player.apk`). No permanent
+  `MQPlayer.apk` name existed before. Sandbox: full JDK found at
+  /tmp/my-project/.jdk (system java is JRE-only — first build failed on
+  missing javac), SDK at /tmp/my-project/.android-sdk (build-tools 35:
+  aapt2/apksigner/zipalign), gradle caches at /tmp/my-project/.gradle.
+  Background gradle jobs are killed by the sandbox (nohup+setsid both die)
+  → long builds must run foreground.
+- SETTINGS DOWNLOAD LINK (PART 1/16/17): new AppRelease.kt — permanent URL
+  https://github.com/killkinhi-a11y/mq-player/releases/latest/download/MQPlayer.apk
+  (production-only contract: https, no localhost/file/fake; asserted in
+  tests). SettingsScreen "О приложении" card: 48dp Button (≥44dp target,
+  tested) "Скачать Android-приложение" + honest caption; opens the external
+  browser via ACTION_VIEW → standard Android download/package-installer flow,
+  NO in-app auto-install. Real BuildConfig.VERSION_NAME shown (no fake
+  "latest version" — no version endpoint exists).
+- VERSION: versionCode 2→3, versionName 1.0.1→2.0.0 (native rewrite
+  milestone; separates from wrapper-era android-v1.0.x GitHub releases).
+  applicationId UNCHANGED: com.mq1.player (debug keeps .debug suffix).
+- SIGNING (PART 3): release keystore generated locally (RSA-2048, PKCS12,
+  30y validity) — mq-release.jks + keystore.properties are gitignored
+  (verified via git check-ignore); keystore.properties.example committed
+  as the template with CHANGE_ME placeholders. Gradle picked it up
+  automatically (existing signingConfigs block). Report shows
+  "configured = true" only; no passwords anywhere in git/logs. Release
+  cert SHA-256: 41:2E:86:DA:01:CE:D7:11:4C:99:B1:53:EA:53:DF:27:6F:D2:84:48:F7:E7:D7:5A:EA:0C:1F:C3:E7:1D:D1:F5
+  (public fingerprint — safe to publish; added to assetlinks.json).
+- BUILD (PART 4): testDebugUnitTest 90/90 GREEN (86 prior + 4 new
+  SettingsDownloadTest: render/real-version, ≥44dp target, click→ACTION_VIEW
+  via Robolectric intent capture, URL production contract; the click test
+  needed swipeUp×2 — button below the fold behind the 432dp theme grid).
+  assembleDebug (22.4MB), assembleRelease SIGNED (3.77MB, R8+shrink),
+  bundleRelease (7.4MB). Kotlin fix: Icons.Filled.Download is an extension
+  property — requires import, fully-qualified reference fails.
+- STATIC AUDIT (PART 5): apksigner verify → Verifies, signer SHA-256
+  412e86da… matches keystore; zipalign -c → OK; aapt2 badging →
+  com.mq1.player / versionCode 3 / versionName 2.0.0 / minSdk 26 /
+  targetSdk 35 / compileSdk 35; permissions minimal (INTERNET,
+  POST_NOTIFICATIONS, FOREGROUND_SERVICE(+MEDIA_PLAYBACK), WAKE_LOCK);
+  android:debuggable ABSENT in release (=false, correct);
+  networkSecurityConfig in release = base-config
+  cleartextTrafficPermitted=false ONLY (no debug domains — resource
+  shrinker obfuscates res names, found via per-file aapt2 dump);
+  MainActivity exported (launcher + deep links), MqPlaybackService
+  exported (MediaLibraryService) — both by design; deep link filters
+  (mq, mqplayer://track|artist|playlist, https autoVerify /track,/play)
+  confirmed in the MERGED manifest.
+- SECURITY SWEEP (PART 6): strings over every file of release APK +
+  extracted AAB: ZERO hits for localhost / 127.0.0.1 / 10.0.2.2 / ghp_ /
+  vcp_ / github_pat_ / GOOGLE_CLIENT_SECRET / TELEGRAM_BOT_TOKEN /
+  client_secret. Release dex contains exactly the production endpoints:
+  https://mq1.vercel.app (+ /play?artist=, /play?pl=, /track/ share URLs)
+  and the GitHub download URL. Source-tree diff scan clean (only
+  CHANGE_ME placeholders). No key material staged (verified pre-commit).
+- GITHUB RELEASE (PART 15): garbage sandbox commit dropped from local
+  main (reset to origin, only 7 intended files committed: 7041027f);
+  tag android-v2.0.0 pushed; release created with full RU notes (features,
+  install flow, signature-change warning, SHA-256 table, distribution
+  URLs). Assets: MQPlayer.apk (stable permanent name) +
+  mq-player-v2.0.0-release.apk (repo convention, same bytes) +
+  mq-player-v2.0.0-release.aab (Play Store) + mq-player-v2.0.0-debug.apk
+  + SHA256SUMS.txt. PERMANENT URL VERIFIED LIVE: 302→302→200,
+  content-type application/vnd.android.package-archive, content-length
+  3773552, downloaded file SHA-256 == built APK SHA-256 (byte-exact).
+  releases/latest resolves to android-v2.0.0.
+- WEB (PART 19): push auto-deployed (mq-build-7041027f, v76). Production
+  regression: / and /play 200; /track/21148106 200; assetlinks.json 200
+  application/json with BOTH fingerprints (debug 48:FC:60:B6… + release
+  41:2E:86:DA… → App Links auto-verify now covers release APKs);
+  /api/auth/me 401 (gate intact); /api/tracks/share 200. Browser E2E:
+  auth screen renders (Google/Telegram/Email/Register/Demo), demo login →
+  home (Wave+recommendations+sections), Search screen, player bar with
+  full controls after playing, Settings screen — 0 page errors; screenshots
+  download/screens/web-regression-v76-{home-player,settings}.png.
+- DEVICE QA (PART 8-14, honest): NO KVM (/dev/kvm absent), NO emulator
+  binary, NO system images in the sandbox, 2GB cgroup RAM — emulator
+  cannot run here (same conclusion as F8/F9-F11 sessions). Install/launch/
+  background-playback/lock-screen/process-death/network-failure/HLS-DRM
+  on-device/rotation/logcat remain DEFERRED to a physical-device pass.
+  Compensating verification actually performed: 90/90 Robolectric tests
+  (framework-stub UI + intent capture), full static APK/AAB audit, binary
+  secret sweep, production API + web E2E of the SAME endpoints the APK
+  calls. No "DRM verified" claims — code-path verified, device check
+  pending.
+
+Stage Summary:
+- Release 2.0.0 SHIPPED: signed APK + AAB published via GitHub Releases
+  with stable permanent link (byte-integrity verified end-to-end).
+- Settings download button live (48dp, production URL, tested).
+- Release signing configured; keystore.properties.example committed;
+  key material 100% out of git (check-ignored + staged-diff scan).
+- assetlinks.json now carries the release fingerprint → App Links
+  auto-verify ready for release APKs (web v76 deployed, regression green).
+- Remaining (honest): on-device runtime QA pass (install, background
+  playback, lock screen, process death, offline, Widevine CDM handshake,
+  performance timings) requires a physical device/emulator outside this
+  sandbox.
