@@ -2880,3 +2880,51 @@ Stage Summary:
 - Known limitations (honest): displayName/bio not in backend; App Links
   auto-verify needs the release keystore entry (F16); https-link tapping
   shows the chooser until verification succeeds; device QA deferred.
+
+---
+Task ID: f9-f10-f11-verify
+Agent: main (Super Z)
+Task: F9-F11 live verification, deploy chain, and fixes found by real QA
+
+Work Log:
+- WEB DEEP LINK — REAL BUGS FOUND & FIXED BY LIVE BROWSER TESTING:
+  * Bug 1: the first AppShell edit was a SILENT NO-OP (replace marker had
+    4-space indent vs the file's 2 — write() rewrote unchanged content; the
+    F9-F11 commit message wrongly claimed it). Caught because the live
+    browser showed ?artist=Nirvana landing on Home. Deployed without it;
+    fixed in a87abbb0.
+  * Bug 2: params consumed at mount were CLOBBERED by the async zustand
+    rehydrate → moved consumption to after _hasHydrated && isAuthenticated
+    (auth-restore semantics, same as the native queue).
+  * Bug 3: the history-sync effect replaceState('/play') wipes the query
+    string before any effect-declared parser runs → parse moved INTO the
+    first render (useRef initializer). a34df87f.
+  * Test-side red herring: the browser was serving the app from the PWA
+    Service Worker cache (mq-static-v4) — cleared SW+caches, then everything
+    verified LIVE: /play?artist=Nirvana → artist view renders (Nirvana, 21
+    трек, genre rock, tracks listed; screenshot
+    download/screens/f11-web-artist-deeplink.png); /play?pl={real id} →
+    playlist view with the fetched playlist (screenshot
+    f11-web-playlist-deeplink.png); bad ids fall through to home honestly.
+- DEPLOY CHAIN: 3 deploys (165bbe47 → a87abbb0 → a34df87f), all via push to
+  origin/main (GitHub auto-deploy). Production regression after final:
+  /play 200, /track/{id} 200, assetlinks.json 200 application/json,
+  /api/auth/me 401 (auth gate intact), /api/tracks/share live resolver OK.
+  version.json = mq-build-a34df87f.
+- LOCAL GIT HYGIENE: a stray sandbox-garbage commit (3540 files: skills/,
+  tool-results/) was sitting on local main — reset to origin/main (tree
+  kept) and committed ONLY the 32 intended F9-F11 files; secret scan of the
+  diff clean (the worklog's "ghp_…" is a redacted mention, no value).
+- Final state: 86/86 Android tests, 357/357 web tests, APK
+  download/MQPlayer-debug-f9f10f11.apk (22.6 MB), production
+  mq-build-a34df87f.
+
+Stage Summary:
+- F9/F10/F11 PROVEN: live contract 28/28 (profile), DSP math verified by
+  signal tests (mixer), live browser end-to-end (web deep links), production
+  deployed + regression clean.
+- Performance note (honest): no emulator/KVM in this sandbox → runtime
+  screen timings and rotation/gesture/Widevine device checks stay deferred
+  to the physical-device QA pass; no fake loaders were added anywhere
+  (loading states only wrap real fetches; Mixer screen has none — pure
+  local state).
