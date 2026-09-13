@@ -42,6 +42,8 @@ import com.mq1.player.ui.screens.FriendsScreen
 import com.mq1.player.ui.screens.FullPlayerScreen
 import com.mq1.player.ui.screens.HomeScreen
 import com.mq1.player.ui.screens.LibraryScreen
+import com.mq1.player.ui.screens.MixerScreen
+import com.mq1.player.ui.screens.MyProfileScreen
 import com.mq1.player.ui.screens.PlaylistScreen
 import com.mq1.player.ui.screens.SearchScreen
 import com.mq1.player.ui.screens.SettingsScreen
@@ -62,6 +64,10 @@ object Routes {
     const val PLAYLIST = "playlist/{id}"
     const val CHAT_DETAIL = "chat/{peerId}/{peerName}"
     const val USER_PROFILE = "user/{id}"
+    // F9: own profile (account + content + editing)
+    const val MY_PROFILE = "profile"
+    // F10: native mixer (control surface over the real DSP chain)
+    const val MIXER = "mixer"
 
     fun artist(name: String) = "artist/" + android.net.Uri.encode(name)
     fun playlist(id: String) = "playlist/$id"
@@ -96,6 +102,8 @@ fun MqAppNavHost(
 
     val queue by player.controller.queue.collectAsState()
     val index by player.controller.currentIndex.collectAsState()
+    // F9: favorites for the profile's play-from-likes action
+    val likes by player.favorites.collectAsState(initial = emptyList())
     val isPlaying by player.controller.isPlaying.collectAsState()
     val position by player.controller.positionMs.collectAsState()
     val duration by player.controller.durationMs.collectAsState()
@@ -106,6 +114,40 @@ fun MqAppNavHost(
     androidx.compose.runtime.LaunchedEffect(openPlayerRequest) {
         if (openPlayerRequest > 0) {
             navController.navigate(Routes.FULL_PLAYER) { launchSingleTop = true }
+        }
+    }
+
+    // ── F11 deep links: navigate as soon as the user is authenticated. ────
+    // Cold start while logged out → Login/Onboarding run first; the link
+    // sits in DeepLinkQueue and is delivered right after Main composes —
+    // the destination is never lost.
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val deepLinkVersion by com.mq1.player.deeplink.DeepLinkQueue.version.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(deepLinkVersion) {
+        val link = com.mq1.player.deeplink.DeepLinkQueue.take() ?: return@LaunchedEffect
+        when (link) {
+            is com.mq1.player.deeplink.DeepLink.Artist -> {
+                navController.navigate(Routes.artist(link.name))
+            }
+            is com.mq1.player.deeplink.DeepLink.Playlist -> {
+                navController.navigate(Routes.playlist(link.id))
+            }
+            is com.mq1.player.deeplink.DeepLink.Track -> {
+                // resolve the public track metadata, then play + open player
+                val track = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    com.mq1.player.di.ServiceLocator.musicRepository.sharedTrack(link.scTrackId)
+                }
+                if (track != null) {
+                    com.mq1.player.di.ServiceLocator.playbackController.playQueue(listOf(track))
+                    navController.navigate(Routes.FULL_PLAYER) { launchSingleTop = true }
+                } else {
+                    android.widget.Toast.makeText(
+                        context, "Трек недоступен", android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+            com.mq1.player.deeplink.DeepLink.Player -> Unit // handled directly
         }
     }
 
@@ -215,13 +257,38 @@ fun MqAppNavHost(
                         onBack = { navController.popBackStack() },
                         onOpenChat = { peerId, peerName ->
                             navController.navigate(Routes.chat(peerId, peerName))
-                        }
+                        },
+                        // F9: self-view → the full own profile screen
+                        onOpenMyProfile = { navController.navigate(Routes.MY_PROFILE) }
                     )
                 }
                 composable(Routes.SETTINGS) {
                     SettingsScreen(
                         onLogout = onLogout,
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        onOpenProfile = { navController.navigate(Routes.MY_PROFILE) }
+                    )
+                }
+                // F9: own profile — account, content, editing, logout shortcut
+                composable(Routes.MY_PROFILE) {
+                    MyProfileScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenChat = { peerId, peerName ->
+                            navController.navigate(Routes.chat(peerId, peerName))
+                        },
+                        onOpenArtist = { name -> navController.navigate(Routes.artist(name)) },
+                        onOpenPlaylist = { id -> navController.navigate(Routes.playlist(id)) },
+                        onOpenFriends = { navController.navigate(Routes.FRIENDS) },
+                        onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                        onOpenFullPlayer = {
+                            navController.navigate(Routes.FULL_PLAYER) { launchSingleTop = true }
+                        },
+                        onLogout = onLogout,
+                        playTracks = { startIndex ->
+                            if (likes.isNotEmpty()) {
+                                player.controller.playQueue(likes, startIndex)
+                            }
+                        }
                     )
                 }
                 composable(
@@ -235,8 +302,14 @@ fun MqAppNavHost(
                 ) {
                     FullPlayerScreen(
                         onClose = { navController.popBackStack() },
-                        onOpenArtist = { name -> navController.navigate(Routes.artist(name)) }
+                        onOpenArtist = { name -> navController.navigate(Routes.artist(name)) },
+                        // F10: mixer entry from the player
+                        onOpenMixer = { navController.navigate(Routes.MIXER) }
                     )
+                }
+                // F10: native mixer — real DSP control surface
+                composable(Routes.MIXER) {
+                    MixerScreen(onBack = { navController.popBackStack() })
                 }
                 composable(Routes.ARTIST) { entry ->
                     val name = entry.arguments?.getString("name") ?: ""

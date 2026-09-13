@@ -53,7 +53,8 @@ import com.mq1.player.ui.vm.UserProfileViewModel
 fun UserProfileScreen(
     userId: String,
     onBack: () -> Unit,
-    onOpenChat: (peerId: String, peerName: String) -> Unit
+    onOpenChat: (peerId: String, peerName: String) -> Unit,
+    onOpenMyProfile: () -> Unit = {}
 ) {
     val vm: UserProfileViewModel = viewModel()
     val ui by vm.ui.collectAsState()
@@ -206,11 +207,20 @@ fun UserProfileScreen(
                                 TextButton(onClick = { vm.removeFriend() }) { Text("Отклонить") }
                             }
                         }
-                        "self" -> Text(
-                            "Это ваш профиль",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        "self" -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "Это ваш профиль",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Button(
+                                onClick = onOpenMyProfile,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Открыть мой профиль")
+                            }
+                        }
                         else -> { // "none"
                             if (ui.busy) {
                                 CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(24.dp))

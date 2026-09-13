@@ -11,6 +11,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 
@@ -156,8 +157,14 @@ class PlaylistViewModel : ViewModel() {
     fun loadById(id: String) {
         viewModelScope.launch {
             _ui.value = _ui.value.copy(loading = true)
-            val playlist = repo.playlist(id)
-            _ui.value = _ui.value.copy(current = playlist, loading = false)
+            // F11: deep links point at ARBITRARY playlists (public or own) —
+            // resolve by id directly, not via the list endpoints
+            val playlist = repo.playlistById(id) ?: repo.playlist(id)
+            _ui.value = _ui.value.copy(
+                current = playlist,
+                loading = false,
+                error = if (playlist == null) "Плейлист недоступен" else null
+            )
         }
     }
 
@@ -600,5 +607,189 @@ class LyricsViewModel : ViewModel() {
                 _ui.value.copy(loading = false, unavailable = true)
             }
         }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// F9 — own profile: account (server) + local content + friends (hub) + editing
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Own profile. Data sources (all REAL, no invented state):
+ *  - GET /api/user/profile   → account: username, email, avatar, role, createdAt
+ *  - GET /api/auth/me        → account state: confirmed, telegramUsername
+ *  - GET /api/playlists?myOnly=true → my playlists
+ *  - LocalStore favorites    → likes (web parity: per-device, documented)
+ *  - LocalStore history      → recent activity
+ *  - SocialHub               → friends + online (shared F7 state)
+ * Editing: POST /api/user/avatar + POST /api/auth/update-username (web contract);
+ * the session cache is updated so every surface sees the new identity.
+ */
+class MyProfileViewModel : ViewModel() {
+
+    data class ProfileUi(
+        // ── Account (server) ──
+        val userId: String = "",
+        val username: String = "",
+        val email: String? = null,
+        val avatar: String? = null,
+        val role: String = "user",
+        val createdAt: String? = null,
+        val telegramUsername: String? = null,
+        val confirmed: Boolean? = null,
+        // ── Content ──
+        val playlists: List<com.mq1.player.data.api.PlaylistDto> = emptyList(),
+        val likes: List<Track> = emptyList(),
+        val history: List<Track> = emptyList(),
+        val friends: List<com.mq1.player.data.api.Friend> = emptyList(),
+        val online: Map<String, Boolean> = emptyMap(),
+        // ── States ──
+        val loading: Boolean = true,
+        val error: String? = null,
+        val savingUsername: Boolean = false,
+        val savingAvatar: Boolean = false,
+        /** Snackbar result messages (edit outcomes). */
+        val message: String? = null
+    ) {
+        /** Top artists derived from likes — tap → artist screen. */
+        val topArtists: List<String>
+            get() = likes.groupBy { it.artist }
+                .filterKeys { it.isNotBlank() }
+                .map { (artist, tracks) -> artist to tracks.size }
+                .sortedByDescending { it.second }
+                .take(8)
+                .map { it.first }
+    }
+
+    private val profileRepo = ServiceLocator.profileRepository
+    private val playlistsRepo = ServiceLocator.playlistRepository
+    private val local = ServiceLocator.localStore
+    private val hub = ServiceLocator.socialHub
+
+    private val _ui = MutableStateFlow(ProfileUi())
+    val ui: StateFlow<ProfileUi> = _ui
+
+    init {
+        // Local content (favorites/history) and social state — live flows.
+        viewModelScope.launch {
+            local.favorites.collect { likes ->
+                _ui.value = _ui.value.copy(likes = likes)
+            }
+        }
+        viewModelScope.launch {
+            local.history.collect { history ->
+                _ui.value = _ui.value.copy(history = history.take(20))
+            }
+        }
+        viewModelScope.launch {
+            hub.state.collect { s ->
+                _ui.value = _ui.value.copy(friends = s.friends, online = s.online)
+            }
+        }
+        refresh()
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _ui.value = _ui.value.copy(loading = true, error = null)
+
+            val account = profileRepo.myProfile()
+            if (account.isFailure) {
+                _ui.value = _ui.value.copy(
+                    loading = false,
+                    error = account.exceptionOrNull()?.message ?: "Профиль недоступен"
+                )
+                return@launch
+            }
+            val me = runCatching {
+                ServiceLocator.api.me().body()
+            }.getOrNull()
+
+            val myPlaylists = runCatching { playlistsRepo.myPlaylists() }.getOrElse { emptyList() }
+
+            _ui.value = _ui.value.copy(
+                userId = account.getOrThrow().id,
+                username = account.getOrThrow().username,
+                email = account.getOrThrow().email,
+                avatar = account.getOrThrow().avatar,
+                role = account.getOrThrow().role,
+                createdAt = account.getOrThrow().createdAt,
+                telegramUsername = me?.telegramUsername,
+                confirmed = me?.confirmed,
+                playlists = myPlaylists,
+                loading = false
+            )
+        }
+    }
+
+    /** Username availability (used with debounce by the edit dialog). */
+    suspend fun checkUsername(name: String): com.mq1.player.data.api.UsernameCheckResponse? =
+        profileRepo.checkUsername(name, _ui.value.userId).getOrNull()
+
+    fun saveUsername(newUsername: String) {
+        if (_ui.value.savingUsername) return
+        val localError = com.mq1.player.data.repo.ProfileRepository.validateUsername(newUsername)
+        if (localError != null || newUsername == _ui.value.username) {
+            _ui.value = _ui.value.copy(message = localError ?: "Имя не изменилось")
+            return
+        }
+        viewModelScope.launch {
+            _ui.value = _ui.value.copy(savingUsername = true)
+            profileRepo.updateUsername(newUsername)
+                .onSuccess { response ->
+                    _ui.value = _ui.value.copy(
+                        username = response.username ?: newUsername,
+                        savingUsername = false,
+                        message = response.message ?: "Имя обновлено"
+                    )
+                    // Session cache → all surfaces (Settings, chats, hub gate).
+                    local.sessionUser.firstOrNull()?.let { cached ->
+                        local.setSessionUser(cached.copy(username = response.username ?: newUsername))
+                    }
+                }
+                .onFailure {
+                    _ui.value = _ui.value.copy(
+                        savingUsername = false,
+                        message = it.message ?: "Ошибка сохранения имени"
+                    )
+                }
+        }
+    }
+
+    fun saveAvatar(imageBytes: ByteArray) {
+        if (_ui.value.savingAvatar) return
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val dataUrl = com.mq1.player.data.repo.ProfileRepository.bitmapToAvatarDataUrl(imageBytes)
+            if (dataUrl == null) {
+                _ui.value = _ui.value.copy(message = "Не удалось прочитать изображение")
+                return@launch
+            }
+            _ui.value = _ui.value.copy(savingAvatar = true, avatar = dataUrl) // optimistic
+            profileRepo.uploadAvatar(dataUrl)
+                .onSuccess { response ->
+                    _ui.value = _ui.value.copy(
+                        avatar = response.avatar ?: dataUrl,
+                        savingAvatar = false,
+                        message = response.message ?: "Аватарка обновлена"
+                    )
+                    local.sessionUser.firstOrNull()?.let { cached ->
+                        local.setSessionUser(cached.copy(avatar = dataUrl))
+                    }
+                }
+                .onFailure {
+                    _ui.value = _ui.value.copy(
+                        // rollback to the server value we still have in profile
+                        avatar = runCatching {
+                            profileRepo.myProfile().getOrNull()?.avatar
+                        }.getOrNull() ?: _ui.value.avatar,
+                        savingAvatar = false,
+                        message = it.message ?: "Ошибка загрузки аватара"
+                    )
+                }
+        }
+    }
+
+    fun consumeMessage() {
+        _ui.value = _ui.value.copy(message = null)
     }
 }

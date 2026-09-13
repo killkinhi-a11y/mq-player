@@ -89,10 +89,20 @@ object ServiceLocator {
     val socialRepository: SocialRepository by lazy { SocialRepository(api) }
     val chatRepository: ChatRepository by lazy { ChatRepository(api, localStore) }
 
+    /** F9: own profile (account data, avatar/username editing). */
+    val profileRepository: com.mq1.player.data.repo.ProfileRepository by lazy {
+        com.mq1.player.data.repo.ProfileRepository(api)
+    }
+
     /** F7: friends/requests/unread badges — one shared state holder. */
     val socialHub: SocialHub by lazy { SocialHub(socialRepository, localStore, appScope) }
 
     val playbackController: PlaybackController by lazy { PlaybackController(appContext) }
+
+    /** F10: mixer DSP + params/meters state + persistence. */
+    val mixerEngine: com.mq1.player.mixer.MixerEngine by lazy {
+        com.mq1.player.mixer.MixerEngine(appContext, appScope)
+    }
 
     fun init(context: Context) {
         appContext = context.applicationContext

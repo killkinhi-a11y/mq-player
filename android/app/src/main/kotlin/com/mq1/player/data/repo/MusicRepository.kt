@@ -43,6 +43,28 @@ class MusicRepository(
      * (pure selection logic — unit-tested in PlayerStreamSelectionTest).
      */
 
+    /**
+     * F11: deep-link track resolution via the PUBLIC share endpoint
+     * (works even before login — /api/tracks/share?scTrackId=).
+     */
+    suspend fun sharedTrack(scTrackId: Long): Track? {
+        if (scTrackId <= 0) return null
+        return runCatching {
+            val resp = api.sharedTrack(scTrackId.toString())
+            val body = resp.body() ?: return@runCatching null
+            Track(
+                id = "sc-$scTrackId",
+                title = body.title,
+                artist = body.artist,
+                album = "",
+                duration = body.duration,
+                cover = body.cover,
+                genre = body.genre,
+                scTrackId = body.scTrackId
+            )
+        }.getOrNull()
+    }
+
     suspend fun search(query: String): List<Track> {
         val q = query.trim()
         if (q.isEmpty()) return emptyList()

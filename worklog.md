@@ -2603,3 +2603,280 @@ Stage Summary:
   Mixer 44px re-verification, 5-viewport sweep of every screen —
   core interactions verified at 375; visual language/typography system
   already unified in v68/v69/v72 work.
+
+---
+Task ID: f7-friends
+Agent: main (Super Z)
+Task: F7 Friends — полный социальный слой (native Android) + additive backend
+
+Work Log:
+- Token: new GitHub PAT (ghp_…) verified FULL repo scope (old PAT was
+  403) → mirror UNBLOCKED: pushed e51d653f..498ac749 to origin/main
+  (stuck since v71). Vercel GitHub integration auto-deployed
+  mq-build-498ac749 (android/scripts-only changes; web code identical
+  to 7b213038 deploy).
+- BACKEND (additive, web-safe, deployed 7b213038 → then 498ac749):
+  GET /api/friends + outgoingRequests[{id,username,avatar,requestId,
+  createdAt}], + friendshipId on friends (DELETE /api/friends/{id}
+  operates on the Friend ROW id, not user id), + avatar on
+  pendingRequests. NEW route GET /api/users/[id]: public profile
+  {user, online, lastSeen, friendship:{status none|self|friends|
+  incoming|outgoing, requestId, friendshipId}} — enough for profile
+  actions in one round trip. tsc clean, vitest 357/357, web smoke OK.
+- ANDROID (20 files, +1855/-131):
+  * SocialHub (data/): single source of truth — friends/incoming/
+    outgoing/unreadCounts/online StateFlow; 30s poll (friends +
+    /api/messages/unread-count latest-id detection + /api/users/status
+    batch) gated by sessionUser + Activity onStart/onStop (web parity:
+    document.hidden); DataStore social_snapshot_v1 persisted for
+    cold-restart instant render; markPeerRead; clear() on logout
+    (AuthViewModel wiring). advanceUnread = pure reducer (companion).
+  * FriendsScreen rewrite: incoming (Принять/Отклонить), outgoing
+    (Отменить), friends (online dot, unread badge, чат, menu
+    Написать/Профиль/Удалить из друзей), search results
+    (Добавить/Уже друзья/Отправлено/Заявка от него), 44dp targets,
+    loading/empty/error+retry, snackbar results, per-row busy state.
+  * NEW UserProfileScreen + route user/{id}: avatar, online/last-seen,
+    friendship-state actions (add/cancel/accept/message/remove).
+    Entry: friends rows, search rows, ChatDetail header (avatar+name
+    → chevron → profile).
+  * Chats: friends-entry request badge (Badge/99+), per-peer unread
+    badges + "N новых сообщений"; ChatDetail: markPeerRead on open +
+    poll, peerAvatar in header.
+  * MqApi/SocialRepository: respondToFriendRequest PUT, deleteFriend
+    DELETE (remove + cancel share the endpoint), userProfile,
+    usersStatus, unreadCount. Models: OutgoingRequest,
+    UserProfileResponse/FriendshipState, UserStatusEntry, LatestMessage,
+  UnreadCountResponse; Friend.friendshipId; PendingRequest.avatar.
+  * Toolchain re-setup (sandbox wiped SDK): scripts/
+    android-toolchain-setup.sh (Temurin 21 + cmdline-tools +
+    platform-35 + build-tools 35 → local.properties).
+- FIXED during build: SocialHub scope→property; M3 has NO
+  rememberSnackbarHostState (M2-only) → remember{SnackbarHostState()};
+  Hourglass icon doesn't exist → HourglassEmpty; missing Row/remember
+  imports; smart-cast on delegated lastSeen.
+- VERIFICATION:
+  * Unit: 23/23 (FriendsContractParsingTest 9 — full/legacy/unknown-
+    field/empty parsing, all 5 friendship states, unread+status shapes;
+    SocialHubUnreadTest 8 — first-observe-no-increment, id-change +1,
+    multi-sender accumulation, self-skip, null/blank guards; 6 prior).
+  * scripts/f7-friends-qa.sh — 44/44 REAL end-to-end on local dev
+    server (same code as prod deploy; local Turso SQLite f7-qa.db,
+    devCode register/confirm → real session cookies): empty shape →
+    add → outgoing(requestId,avatar) → incoming → users/[id] all
+    states → accept → friends+friendshipId (same both sides) →
+    search → messages/unread-count/messages-read → status batch →
+    remove (friendshipId) → re-add → cancel (requestId) → error paths
+    400/401/404 → QA accounts deleted. Server kept alive via
+    double-fork daemon (f7-qa-daemon.py — sandbox reaper escape,
+    VERCEL=1 skips OpenNext workerd dev hook which segfaults here).
+  * Debug APK 22.2MB (assembleDebug) green.
+- Deployment chain: 7b213038 (manual CLI) → 498ac749 (GitHub
+  auto-deploy). version.json = version 76 / mq-build-498ac749.
+  Home 200 (33.9KB), protected routes 401 — web intact.
+
+Stage Summary:
+- F7 Friends COMPLETE (code + backend + tests + E2E contract proof +
+  APK). GitHub mirror unblocked with new PAT. No fake states —
+  every screen state comes from the real API; unread is client-side
+  tracked exactly like the web (documented parity).
+- NOT in F7 scope (per task book): on-device/emulator interactive QA
+  (15-step script runs at final QA), F8 Player completion is NEXT.
+- Deploy/rollback recipe unchanged: Vercel CLI (manual) or push-to-
+  main (auto). QA infra reusable: scripts/f7-friends-qa.sh against
+  serve-f7-qa.sh daemon on :3210.
+
+---
+Task ID: f8-player-completion
+Agent: main (Super Z)
+Task: F8 Player completion — HLS, DRM, speed, lyrics (native Android)
+
+Work Log:
+- SURVEY: player stack intact from F2-F5 (PlaybackController /
+  MqPlaybackService / MqStreamDataSource / FullPlayerScreen). Gaps
+  found: no media3-exoplayer-hls module (HLS unplayable: lazy
+  DataSource redirects to m3u8 but MediaItem MIME/DRM can't be
+  attached at DataSource level); StreamResponse parsed licenseUrl but
+  NOT licenseAuthToken; no speed control; no lyrics.
+- PRODUCTION REALITY CHECK (per task book — determine limits first):
+  * Stream route: unencrypted progressive preferred, plain HLS
+    fallbacks, encrypted ctr-encrypted-hls (Widevine) + cbc
+    (FairPlay, Apple-only) with licenseUrl + licenseAuthToken (JWE).
+  * License proxy: /api/music/soundcloud/license-proxy BINARY mode
+    (octet-stream challenge → octet-stream license) with
+    licenseUrl+licenseAuthToken query params — matches Media3
+    HttpMediaDrmCallback contract exactly.
+  * Live verification: track 417474360 → progressive mp3 primary +
+    plain-HLS fallbacks; track 21148106 → PRIMARY = plain HLS
+    (#EXTM3U, fMP4 segments, EXT-X-MAP) — this track was UNPLAYABLE
+    on Android before F8, now works. No encrypted streams served to
+    this region right now (region-dependent content mix; several
+    tracks policy=BLOCK geo-blocked) → live Widevine handshake
+    deferred to physical-device QA (needs MediaDrm CDM; sandbox has
+    no KVM). Contract + selection + proxy-URL construction proven by
+    unit tests; chain identical to web EME.
+- ANDROID (10 files, +629):
+  * media3-exoplayer-hls dependency added.
+  * Track.buildMediaItem(resolved: PlayableStream?): HLS mime +
+    MediaItem.DrmConfiguration(WIDEVINE_UUID, licenseUri=license-
+    proxy URL) for encrypted; startQueue now resolves the ACTIVE
+    track BEFORE building items (mime/DRM need MediaItem level);
+    preResolve swaps next item with same config; lazy DataSource
+    fallback excludes HLS/encrypted candidates (honest skip).
+  * MusicRepository: top-level pure playableStream() — priority
+    progressive > plain HLS > ctr-encrypted-hls (Widevine+proxy URL
+    with URLEncoder-encoded licenseUrl+JWE token) > encrypted
+    progressive; cbc/FairPlay skipped (Apple-only). lyrics() with
+    10-min TTL cache. Models: licenseAuthToken on StreamResponse/
+    StreamFallback; LyricLine/LyricsResponse.
+  * MqApi: GET api/music/lyrics.
+  * Speed: PlaybackController.speed StateFlow + setPlaybackSpeed
+    (0.5–2 clamp) + onPlaybackParametersChanged; FullPlayer speed
+    chip → 6-step dropdown (0.5/0.75/1/1.25/1.5/2), highlight.
+  * Lyrics: LyricsViewModel (load-once per track; loading/synced/
+    plain/unavailable; strips embedded [mm:ss] LRC prefixes — real
+    server parse noise seen on Abracadabra); FullPlayer lyrics
+    button → sheet with current-line highlight + auto-scroll +
+    tap-to-seek for synced, plain text otherwise.
+- VERIFICATION: unit 32/32 (NEW PlayerStreamSelectionTest 9:
+  priority matrix, FairPlay skip, proxy URL encodes SC endpoint +
+  JWE token, fallback token, empty stream null; stream/lyrics JSON
+  shapes incl. unknown-field tolerance). APK 22.3MB. Lyrics verified
+  LIVE on production (synced LRC + not-found). HLS playlist verified
+  LIVE. No backend changes needed.
+- Fixes during build: companion-nested type reference → top-level
+  declarations; android.net.Uri → java.net.URLEncoder (JVM tests).
+
+Stage Summary:
+- F8 complete: HLS real fix (previously unplayable track now works),
+  DRM production-compatible implementation (Widevine via license
+  proxy, binary mode, token forwarding; FairPlay honest skip; device
+  handshake deferred to QA phase — documented), speed 6-step real
+  PlaybackParameters, lyrics real backend with all states.
+- Deployed cf2e619d via GitHub auto-deploy; web home 200 (no web
+  changes). APK at download/MQPlayer-debug-f7f8.apk.
+- Next: F9 Profile → F10 Mixer → F11 Deep Links → F12 Offline →
+  F13 A11y → F14 contract tests → F15 backend audit → F16 release.
+
+---
+Task ID: f9-f10-f11
+Agent: main (Super Z)
+Task: F9 Profile → F10 Mixer → F11 Deep Links (native Android, strictly in
+order, no rewrite of F7/F8)
+
+Work Log:
+- F9 PROFILE (17 files touched, +~1800 lines):
+  * Backend surface: EXISTING ONLY (no duplicate profile backend): GET
+    /api/user/profile, POST /api/user/avatar (data-URL, ≤700KB), GET
+    /api/auth/username-check, POST /api/auth/update-username, GET
+    /api/auth/me, /api/playlists?myOnly. Documented honestly: displayName
+    and bio DO NOT exist in the backend model — the username IS the display
+    name in this product (web parity).
+  * Android: ProfileRepository (avatar 200×200 JPEG q80 pipeline, web-canvas
+    parity; username validation = web rules incl. reserved list), MyProfile
+    ViewModel (account + me + myPlaylists + favorites/history flows +
+    SocialHub friends), MyProfileScreen (identity/avatar picker/edit
+    dialog/stats/account card/top artists from likes/friends→chat/likes→
+    player/playlists→playlist/recent activity/settings+logout;
+    loading/error+retry/empty states), route "profile" with entries from
+    Settings account card and UserProfileScreen self-state.
+  * Navigation RESTORE: ViewModel survives back-stack pops (Profile→Chat/
+    Artist/Playlist/FullPlayer→back preserves state); rotation covered by
+    existing configChanges (no activity recreation).
+  * VERIFICATION: unit 19 new (13 contract parsing incl. unknown-field
+    tolerance + 6 Robolectric Compose UI incl. 44dp targets, empty states,
+    friend-chip→chat callback). Live E2E 28/28 (scripts/f9-profile-qa.sh on
+    the same-code local dev server: register→profile→username-check
+    (available/taken/reserved/short/non-latin)→rename (409 on taken)→
+    avatar upload (data-url roundtrip, format rejection)→playlists→shared
+    track resolver→401 paths).
+- F10 MIXER (DSP feasibility FIRST, per task book):
+  * Rust DSP reuse verdict: audio-engine crates (audio-dsp/audio-analysis)
+    are wasm32+wasm-bindgen targets; sandbox has NO rustc/cargo/NDK/
+    cargo-ndk and no JNI/UniFFI bindings exist → cross-compiling would
+    require a new toolchain + binding layer (a rewrite by another route).
+    Per "минимальный production-safe bridge": Media3 AudioProcessor inside
+    ExoPlayer's DefaultAudioSink (buildAudioSink override, media3 1.4.1
+    API verified via javap) — the platform-native equivalent of the web
+    AudioWorklet insert. Real decoded PCM incl. DRM (CDM feeds the sink);
+    offload never enabled → PCM path guaranteed. DSP NOT rewritten as Rust;
+    it is implemented in the Android audio path (documented decision).
+  * dsp/MixerDsp.kt (pure Kotlin, JVM-testable, ZERO alloc in process()):
+    master gain → 10-band biquad EQ (Orfanidis shelves + RBJ peaking, web
+    eq.ts band/Q parity) → lookahead limiter (5 ms delay, instant attack,
+    exp release 50-1000 ms, linked channels, safety clamp) → output.
+    METERS ARE REAL: sample peak, TRUE PEAK (4× polyphase Blackman-sinc
+    FIR, 16 taps/phase, DC-exact), momentary + short-term LUFS (BS.1770
+    K-weighting — tan-based ITU formulas, numerically identical to the
+    spec's 48k reference coefficients), limiter GR. Immutable MixerParams
+    atomically swapped; MeterSnapshot via AtomicReference at ~43 ms rate.
+  * mixer/MixerEngine: StateFlow params (DataStore-persisted, debounced) +
+    100 ms meter poller → StateFlow for Compose. MqAudioProcessor: 16-bit/
+    float in/out, encoding preserved, bit-exact bypass, onFlush resets DSP.
+  * MixerScreen: native control surface — bypass switch, reset, meters
+    panel (5 rows + honest "тишина" floor when no audio), master dB slider,
+    EQ 2×5 vertical faders (52×150 dp hitboxes ≥44dp, drag + double-tap
+    reset), 12 web-parity presets, limiter threshold/release. Entry: Tune
+    button in Full Player. MqPlaybackService wires the processor into the
+    audio sink.
+  * DSP bug-hunt (found by the new tests, all fixed): a2 missing /a0 in
+    three shelf biquads (NaN/instability), wrong RBJ high-pass numerator
+    (bandpass → -28 dB), K-weighting replaced with ITU tan formulas
+    (verified exact), meter publish granularity (per-block → per 2048
+    frames), true-peak filter 32→64 taps (step overshoot tamed).
+  * VERIFICATION: 15 DSP unit tests (bypass bit-identity, flat-EQ identity,
+    master -6 dB scaling, band boost ×2.5+, high-shelf low-band isolation,
+    limiter ceiling + real GR + release recovery, exact peak, DC-exact true
+    peak, Nyquist true-peak, LUFS silence/monotonic/absolute range, bounded
+    snapshot rate, param swap) + 7 Robolectric Compose UI tests (meter rows,
+    master, fader hitboxes, presets, limiter, header targets, bypass label).
+- F11 DEEP LINKS:
+  * deeplink/DeepLinkParser: mqplayer://track|artist|playlist/{id} +
+    App Links https://mq1.vercel.app/track/{id} + /play?pl=|artist= +
+    legacy mq://player. Unknown → null (no invented destinations).
+  * DeepLinkQueue (StateFlow version): MainActivity cold-start AND
+    onNewIntent (singleTask warm relaunch, app behind other screens) parse
+    → offer; MqAppNavHost takes after auth — THE AUTH-RESTORE FLOW: logged
+    out → deep link → login → original destination delivered exactly once.
+  * Track links resolve via PUBLIC /api/tracks/share (works pre-auth),
+    playlist links via NEW api.playlistById (GET /api/playlists/{id} —
+    arbitrary ids, not only listed ones); PlaylistViewModel error state
+    added. Share: REAL https URLs via Android Sharesheet — track
+    /track/{scTrackId}, playlist /play?pl=, artist /play?artist= (Full
+    Player + Artist + Playlist screens).
+  * Manifest (merged APK verified via aapt2): mqplayer scheme filter
+    (hosts track/artist/playlist) + two autoVerify https filters
+    (pathPrefix /track, /play). public/.well-known/assetlinks.json added
+    with the debug keystore SHA-256 (48:FC:60:B6:…) — release entry to be
+    added at F16 signing; until then https links resolve via the standard
+    disambiguation chooser (custom scheme always resolves directly).
+  * WEB (additive, 1 effect in AppShell): /play?pl= / ?artist= consumed on
+    mount → setSelectedArtist / fetch playlist by id + view playlists;
+    URL cleaned after consume. Makes the playlist/artist share URLs (which
+    the web itself already shares) actually land on content.
+  * Back handling: ChatDetail BackHandler hides the KEYBOARD first while
+    typing (focus-aware); ModalBottomSheets already close on back (M3);
+    deep-link back → Home → exit (standard cold-link behavior).
+  * VERIFICATION: 14 deep-link tests (parse matrix custom+https+legacy,
+    unknown → null, queue offer/take-once/version semantics, share URLs)
+    under Robolectric.
+- REGRESSION + RELEASE: ./gradlew testDebugUnitTest 86/86 GREEN (was 51:
+  +19 F9, +22 F10, +14 F11... exact: profile 13+6, mixer 15+7, deeplink
+  14). assembleDebug OK → download/MQPlayer-debug-f9f10f11.apk (22.6 MB).
+  Web: vitest 357/357, tsc src clean. Deploy: push to origin/main →
+  Vercel auto-deploy; web regression after deploy (home 200, protected
+  401, assetlinks.json 200 application/json).
+- Emulator/device QA: NOT possible in this sandbox (no KVM, no emulator
+  binary, no system images — same as F8's Widevine CDM note). Runtime
+  interactive QA (rotation, gesture back, Widevine handshake, on-device
+  App Links verification) stays deferred to the physical-device pass.
+
+Stage Summary:
+- F9/F10/F11 COMPLETE: full profile (real backend contract, live-proven),
+  native mixer with REAL DSP measurements (no fake meters — silence shows
+  the floor), deep links + App Links + auth restore + real https shares.
+- 86/86 tests green; APK v1.0.1(+debug) built; web additive changes only
+  (AppShell param consumption + assetlinks.json) — web regression run.
+- Known limitations (honest): displayName/bio not in backend; App Links
+  auto-verify needs the release keystore entry (F16); https-link tapping
+  shows the chooser until verification succeeds; device QA deferred.

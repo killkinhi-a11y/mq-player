@@ -26,6 +26,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -54,6 +56,7 @@ fun ChatDetailScreen(
     val vm: ChatDetailViewModel = viewModel()
     val ui by vm.ui.collectAsState()
     var input by remember { mutableStateOf("") }
+    var inputFocused by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
     LaunchedEffect(peerId) { vm.load(peerId, peerName) }
@@ -152,6 +155,14 @@ fun ChatDetailScreen(
             )
         }
 
+        // F11: Android Back closes the KEYBOARD first while typing —
+        // only the second Back leaves the screen (standard IME behavior).
+        val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+        val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+        androidx.activity.compose.BackHandler(enabled = inputFocused) {
+            keyboard?.hide()
+            focusRequester.freeFocus()
+        }
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
@@ -163,7 +174,10 @@ fun ChatDetailScreen(
                 onValueChange = { input = it },
                 placeholder = { Text("Сообщение…") },
                 singleLine = true,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(focusRequester)
+                    .onFocusChanged { inputFocused = it.isFocused }
             )
             Spacer(Modifier.width(8.dp))
             IconButton(

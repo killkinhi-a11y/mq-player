@@ -18,6 +18,10 @@ class PlaylistRepository(private val api: MqApi) {
         runCatching { api.playlists(search = null).playlists.firstOrNull { it.id == id } }
             .getOrNull()
 
+    /** F11: deep links need ARBITRARY playlist ids (not only listed ones). */
+    suspend fun playlistById(id: String): PlaylistDto? =
+        runCatching { api.playlistById(id).body()?.playlist }.getOrNull()
+
     suspend fun create(name: String, description: String = "", isPublic: Boolean = true): PlaylistDto? =
         runCatching { api.createPlaylist(PlaylistMutationBody(name = name, description = description, isPublic = isPublic)) }
             .getOrNull()?.body()

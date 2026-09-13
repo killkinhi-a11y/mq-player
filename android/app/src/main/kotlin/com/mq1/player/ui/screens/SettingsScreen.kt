@@ -52,7 +52,7 @@ import com.mq1.player.ui.theme.mqThemes
  * About + Logout.
  */
 @Composable
-fun SettingsScreen(onLogout: () -> Unit, onBack: () -> Unit) {
+fun SettingsScreen(onLogout: () -> Unit, onBack: () -> Unit, onOpenProfile: () -> Unit = {}) {
     val vm: com.mq1.player.ui.vm.SettingsViewModel = viewModel()
     val appearance by vm.appearance.collectAsState(initial = com.mq1.player.data.LocalStore.Appearance())
     val sessionUser by vm.sessionUser.collectAsState(initial = null)
@@ -68,10 +68,17 @@ fun SettingsScreen(onLogout: () -> Unit, onBack: () -> Unit) {
         Spacer(Modifier.height(52.dp))
         Text("Настройки", style = MaterialTheme.typography.headlineMedium)
 
-        // ── Account ──────────────────────────────────────────────────────────
+        // ── Account (F9: tap → own profile) ────────────────────────────────────
         Spacer(Modifier.height(16.dp))
-        SettingsCard("Аккаунт") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onOpenProfile)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(16.dp)
+            ) {
                 com.mq1.player.ui.components.Artwork(
                     url = sessionUser?.avatar, sizeDp = 48, corner = 24
                 )
@@ -81,9 +88,9 @@ fun SettingsScreen(onLogout: () -> Unit, onBack: () -> Unit) {
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(
-                        sessionUser?.role?.let { "Роль: $it" } ?: "",
+                        "Открыть профиль · редактирование",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }

@@ -76,7 +76,25 @@ class MqPlaybackService : MediaLibraryService() {
             }
         }
 
-        player = ExoPlayer.Builder(this)
+        // F10: the mixer DSP sits INSIDE ExoPlayer's AudioSink as an
+        // AudioProcessor — every decoded PCM block (incl. DRM) flows through
+        // it. Audio offload stays disabled (never enabled here), so the PCM
+        // path is guaranteed. media3 1.4.x injects via buildAudioSink().
+        val renderersFactory = object : androidx.media3.exoplayer.DefaultRenderersFactory(this) {
+            override fun buildAudioSink(
+                context: android.content.Context,
+                enableFloatOutput: Boolean,
+                enableAudioTrackPlaybackParams: Boolean
+            ): androidx.media3.exoplayer.audio.AudioSink {
+                return androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
+                    .setEnableFloatOutput(enableFloatOutput)
+                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                    .setAudioProcessors(arrayOf(ServiceLocator.mixerEngine.processor))
+                    .build()
+            }
+        }
+
+        player = ExoPlayer.Builder(this, renderersFactory)
             .setMediaSourceFactory(DefaultMediaSourceFactory(streamFactory))
             .setAudioAttributes(
                 AudioAttributes.Builder()

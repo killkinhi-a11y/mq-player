@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.DropdownMenu
@@ -80,7 +81,8 @@ import com.mq1.player.ui.vm.PlayerViewModel
 @Composable
 fun FullPlayerScreen(
     onClose: () -> Unit,
-    onOpenArtist: (String) -> Unit = {}
+    onOpenArtist: (String) -> Unit = {},
+    onOpenMixer: () -> Unit = {}
 ) {
     val vm: PlayerViewModel = viewModel()
     val controller = vm.controller
@@ -347,11 +349,21 @@ fun FullPlayerScreen(
                         }
                     }
                     Spacer(Modifier.width(8.dp))
+                    // F10: mixer — real DSP control surface
+                    IconButton(onClick = onOpenMixer, modifier = Modifier.size(44.dp)) {
+                        Icon(Icons.Filled.Tune, contentDescription = "Микшер",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Spacer(Modifier.width(8.dp))
                     IconButton(onClick = {
+                        // F11: real HTTPS share URL — the public track page
+                        val trackUrl = "https://mq1.vercel.app/track/" +
+                            (track.scTrackId ?: track.id)
                         val share = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
                             putExtra(Intent.EXTRA_TEXT,
-                                "Слушаю в MQ: ${track.artist} — ${track.title}")
+                                "${track.artist} — ${track.title}\n$trackUrl")
+                            putExtra(Intent.EXTRA_TITLE, track.title)
                         }
                         context.startActivity(Intent.createChooser(share, "Поделиться"))
                     }, modifier = Modifier.size(44.dp)) {

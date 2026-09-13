@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -34,12 +35,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mq1.player.data.api.Track
 import com.mq1.player.di.ServiceLocator
 import com.mq1.player.ui.components.Artwork
+import com.mq1.player.ui.components.EmptyState
+import com.mq1.player.ui.components.ErrorState
 import com.mq1.player.ui.components.LoadingState
 import com.mq1.player.ui.components.TrackRow
 import com.mq1.player.ui.vm.PlayerViewModel
@@ -49,6 +53,7 @@ import com.mq1.player.ui.vm.PlaylistViewModel
 @Composable
 fun PlaylistScreen(playlistId: String, onBack: () -> Unit) {
     val vm: PlaylistViewModel = viewModel()
+    val context = LocalContext.current
     val player: PlayerViewModel = viewModel()
     val ui by vm.ui.collectAsState()
     val queue by player.controller.queue.collectAsState()
@@ -63,9 +68,31 @@ fun PlaylistScreen(playlistId: String, onBack: () -> Unit) {
             playlist.userId == sessionUser?.userId
 
     Column(Modifier.fillMaxSize()) {
-        Box(Modifier.padding(horizontal = 4.dp)) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             IconButton(onClick = onBack, modifier = Modifier.padding(top = 44.dp)) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+            }
+            Spacer(Modifier.weight(1f))
+            // F11: share the playlist via the REAL https URL (same link the
+            // web app shares: /play?pl=)
+            IconButton(
+                onClick = {
+                    playlist ?: return@IconButton
+                    val url = com.mq1.player.deeplink.DeepLinkParser.sharePlaylistUrl(playlist.id)
+                    val share = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(android.content.Intent.EXTRA_TEXT, "${playlist.name}\n$url")
+                    }
+                    context.startActivity(android.content.Intent.createChooser(share, "Поделиться"))
+                },
+                modifier = Modifier.padding(top = 44.dp)
+            ) {
+                Icon(Icons.Filled.Share, contentDescription = "Поделиться плейлистом")
             }
         }
 

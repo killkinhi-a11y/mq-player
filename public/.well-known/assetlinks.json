@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.mq1.player",
+      "sha256_cert_fingerprints": [
+        "48:FC:60:B6:D8:AD:A3:48:3D:98:ED:B2:22:E3:47:E8:1E:ED:EF:89:AF:0C:64:85:5B:93:E2:C0:F3:9F:BC:97"
+      ]
+    }
+  }
+]

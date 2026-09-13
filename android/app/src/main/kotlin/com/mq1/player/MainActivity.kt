@@ -67,11 +67,25 @@ class MainActivity : ComponentActivity() {
         handleDeepLink(intent)
     }
 
-    /** mq://player → open the Full Player; other mq:// links simply bring the app forward. */
+    /**
+     * F11: mqplayer://track|artist|playlist/{id}, App Links
+     * https://mq1.vercel.app/track|play, and the legacy mq://player.
+     * Cold start AND warm relaunch take the same path: the parsed
+     * destination lands in DeepLinkQueue; the NavHost navigates to it as
+     * soon as the user is authenticated (Login/Onboarding finish first —
+     * the destination is never dropped).
+     */
     private fun handleDeepLink(intent: Intent?) {
         val data = intent?.data ?: return
-        if (data.scheme != "mq") return
-        if (data.host == "player") ServiceLocator.playbackController.requestOpenPlayer()
+        val link = com.mq1.player.deeplink.DeepLinkParser.parse(data)
+        when (link) {
+            is com.mq1.player.deeplink.DeepLink.Player ->
+                // legacy behavior — direct player open (no auth dependency)
+                ServiceLocator.playbackController.requestOpenPlayer()
+            is com.mq1.player.deeplink.DeepLink ->
+                com.mq1.player.deeplink.DeepLinkQueue.offer(link)
+            null -> Unit // unknown link → just bring the app forward
+        }
     }
 
     private fun maybeRequestNotificationPermission() {

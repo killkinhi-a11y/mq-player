@@ -163,6 +163,10 @@ data class PlaylistDto(
     val updatedAt: String = ""
 )
 
+// GET /api/playlists/{id} → {playlist: {...}}
+@Serializable
+data class PlaylistDtoResponse(val playlist: PlaylistDto? = null)
+
 @Serializable
 data class PlaylistsResponse(
     val playlists: List<PlaylistDto> = emptyList(),
@@ -324,6 +328,53 @@ data class AiChatResponse(
     val reply: String = "",
     val tracks: List<Track> = emptyList(),
     val queries: List<String> = emptyList()
+)
+
+// ── Own profile (F9) — existing backend surface, no new endpoints ────────────
+
+// GET /api/user/profile → {id, username, email, avatar, role, createdAt}
+@Serializable
+data class MyProfileResponse(
+    val id: String = "",
+    val username: String = "",
+    val email: String? = null,
+    val avatar: String? = null,
+    val role: String = "user",
+    val createdAt: String? = null
+)
+
+// GET /api/auth/username-check?username=X&excludeId=Y → {available, error}
+@Serializable
+data class UsernameCheckResponse(
+    val available: Boolean = false,
+    val error: String? = null
+)
+
+// POST /api/auth/update-username {username} → {message, username}
+@Serializable
+data class UpdateUsernameResponse(
+    val message: String? = null,
+    val username: String? = null
+)
+
+// POST /api/user/avatar {avatar: dataUrl} → {message, avatar}
+@Serializable
+data class AvatarUpdateResponse(
+    val message: String? = null,
+    val avatar: String? = null
+)
+
+// ── Shared track (F11 deep links) — /api/tracks/share?scTrackId= ─────────────
+// Public (no auth) — resolves a share link's track into playable metadata.
+@Serializable
+data class SharedTrackResponse(
+    val title: String = "",
+    val artist: String = "",
+    val cover: String = "",
+    val duration: Double = 0.0,
+    val genre: String = "",
+    val scTrackId: Long = 0,
+    val description: String? = null
 )
 
 // ── Favorite artists / onboarding ────────────────────────────────────────────

@@ -26,13 +26,45 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Deep links: custom scheme mq:// (mq://player opens the player).
-                 No https filter — the web app keeps owning browser links. -->
+            <!-- Legacy deep link: mq://player opens the Full Player. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="mq" />
+            </intent-filter>
+            <!-- F11 native deep links: mqplayer://track|artist|playlist/{id} -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="mqplayer" />
+                <data android:host="track" />
+                <data android:host="artist" />
+                <data android:host="playlist" />
+            </intent-filter>
+            <!-- F11 Android App Links: https://mq1.vercel.app/track/{id} and
+                 /play?pl=|artist= — verified against
+                 https://mq1.vercel.app/.well-known/assetlinks.json.
+                 (assetlinks.json carries the debug keystore SHA-256 now; the
+                 release entry is added at F16 signing setup.) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="mq1.vercel.app"
+                    android:pathPrefix="/track" />
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="mq1.vercel.app"
+                    android:pathPrefix="/play" />
             </intent-filter>
         </activity>
 

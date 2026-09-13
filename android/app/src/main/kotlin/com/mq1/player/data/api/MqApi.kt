@@ -90,6 +90,11 @@ interface MqApi {
     @POST("api/playlists/like")
     suspend fun likePlaylist(@Body body: PlaylistLikeBody): Response<SimpleResult>
 
+    // GET /api/playlists/{id} — single playlist (public or own); used by
+    // deep links: arbitrary ids are not in the list responses
+    @GET("api/playlists/{id}")
+    suspend fun playlistById(@Path("id") id: String): Response<PlaylistDtoResponse>
+
     // ── Friends ─────────────────────────────────────────────────────────────
 
     @GET("api/friends")
@@ -136,6 +141,28 @@ interface MqApi {
 
     @POST("api/ai/chat")
     suspend fun aiChat(@Body body: AiChatBody): Response<AiChatResponse>
+
+    // ── Own profile (F9) — existing web endpoints, same contract ──────────
+
+    @GET("api/user/profile")
+    suspend fun myProfile(): Response<MyProfileResponse>
+
+    @POST("api/user/avatar")
+    suspend fun updateAvatar(@Body body: Map<String, String>): Response<AvatarUpdateResponse>
+
+    @GET("api/auth/username-check")
+    suspend fun usernameCheck(
+        @Query("username") username: String,
+        @Query("excludeId") excludeId: String = ""
+    ): Response<UsernameCheckResponse>
+
+    @POST("api/auth/update-username")
+    suspend fun updateUsername(@Body body: Map<String, String>): Response<UpdateUsernameResponse>
+
+    // ── Shared track resolution (F11 deep links; public) ──────────────────
+
+    @GET("api/tracks/share")
+    suspend fun sharedTrack(@Query("scTrackId") scTrackId: String): Response<SharedTrackResponse>
 
     // ── Listener preferences / onboarding ───────────────────────────────────
 
