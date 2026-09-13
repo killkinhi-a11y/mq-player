@@ -265,6 +265,53 @@ export default function AppShell() {
   }, []);
 
 
+  // ── F11 deep-link params: ?pl= / ?artist= ───────────────────────────────
+  // The web app itself shares these URLs (PlaylistView shareUrl) and the
+  // native Android app shares the same https links. /play is the SPA shell,
+  // so the params select the content after load. Playlist resolution uses
+  // the same /api/playlists/[id] route as the mobile app (public or own).
+  //
+  // Parse ONCE at mount; APPLY after the store rehydrated AND the user is
+  // authenticated (otherwise the async zustand rehydrate clobbers the
+  // selection; logged-out visitors get the link applied right after login
+  // — same auth-restore semantics as the native app).
+  const pendingLinkRef = useRef<{ pl: string | null; artist: string | null; consumed: boolean } | null>(null);
+  const linkHydrated = useAppStore((s) => s._hasHydrated);
+  const linkAuthenticated = useAppStore((s) => s.isAuthenticated);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (pendingLinkRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const pl = params.get("pl");
+    const artist = params.get("artist");
+    pendingLinkRef.current = { pl, artist, consumed: false };
+  }, []);
+  useEffect(() => {
+    const pending = pendingLinkRef.current;
+    if (!pending || pending.consumed) return;
+    if (!linkHydrated || !linkAuthenticated) return; // wait for auth restore
+    if (pending.pl === null && pending.artist === null) return;
+    pending.consumed = true;
+    // Clean the URL so refresh / back doesn't re-trigger navigation
+    window.history.replaceState(null, "", window.location.pathname);
+    if (pending.artist) {
+      useAppStore.getState().setSelectedArtist({ name: pending.artist });
+    } else if (pending.pl) {
+      fetch(`/api/playlists/${encodeURIComponent(pending.pl)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          const p = data?.playlist;
+          if (!p) return;
+          useAppStore.setState((s) => ({
+            playlists: [p, ...s.playlists.filter((x) => x.id !== p.id)],
+            selectedPlaylistId: p.id,
+            currentView: "playlists",
+          }));
+        })
+        .catch(() => { /* deep link is best-effort; app loads normally */ });
+    }
+  }, [linkHydrated, linkAuthenticated]);
+
   // P2: PWA install prompt — capture for Android install button
   useEffect(() => {
     if (typeof window === "undefined") return;
