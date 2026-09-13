@@ -52,7 +52,9 @@ data class StreamFallback(
     val protocol: String = "",
     val isHls: Boolean = false,
     val isEncrypted: Boolean = false,
-    val quality: String = ""
+    val quality: String = "",
+    val licenseUrl: String? = null,
+    val licenseAuthToken: String? = null
 )
 
 @Serializable
@@ -68,8 +70,26 @@ data class StreamResponse(
     val fullDuration: Double? = null,
     val trackAuthorization: String? = null,
     val licenseUrl: String? = null,
+    // F8: JWE token — MUST reach the license proxy (same contract as web EME)
+    val licenseAuthToken: String? = null,
     val fallbackStreams: List<StreamFallback> = emptyList(),
     val error: String? = null
+)
+
+// ── Lyrics (F8) ──────────────────────────────────────────────────────────────
+
+@Serializable
+data class LyricLine(
+    val time: Double = 0.0,
+    val text: String = ""
+)
+
+@Serializable
+data class LyricsResponse(
+    val lyrics: List<LyricLine> = emptyList(),
+    val plainText: String = "",
+    val synced: Boolean = false,
+    val source: String? = null
 )
 
 @Serializable

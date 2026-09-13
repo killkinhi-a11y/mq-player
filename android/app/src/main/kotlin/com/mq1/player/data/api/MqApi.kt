@@ -44,6 +44,14 @@ interface MqApi {
         @Query("limit") limit: Int = 20
     ): ArtistTracksResponse
 
+    // ── Lyrics (F8) — rate-limited, not auth-gated ─────────────────────────
+
+    @GET("api/music/lyrics")
+    suspend fun lyrics(
+        @Query("artist") artist: String,
+        @Query("title") title: String
+    ): Response<LyricsResponse>
+
     // ── Wave / recommendations ──────────────────────────────────────────────
 
     @GET("api/music/recommendations")

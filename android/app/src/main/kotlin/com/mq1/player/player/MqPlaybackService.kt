@@ -54,10 +54,21 @@ class MqPlaybackService : MediaLibraryService() {
                 runBlocking {
                     val resolved = ServiceLocator.musicRepository.resolveStreamById(trackId)
                     resolved?.let { r ->
+                        // F8: the LAZY path can only serve candidates that play
+                        // WITHOUT MediaItem-level config: unencrypted progressive
+                        // streams. HLS needs the m3u8 mime type and encrypted HLS
+                        // needs the Widevine DRM configuration — both are attached
+                        // by PlaybackController (startQueue resolves the active
+                        // item up front, preResolve swaps the next one in).
+                        // Encrypted/HLS candidates are therefore excluded here
+                        // on purpose (they would fail after redirect).
                         val urls = buildList {
                             ServiceLocator.musicRepository.playableUrl(r)?.let { add(it) }
-                            r.fallbackStreams.mapNotNull { f -> f.url.takeIf { it.isNotBlank() } }
-                                .forEach { add(it) }
+                            r.fallbackStreams
+                                .filter { f ->
+                                    f.url.isNotBlank() && !f.isHls && !f.isEncrypted
+                                }
+                                .forEach { add(it.url) }
                         }.distinct()
                         MqStreamDataSource.ResolvedStream(urls)
                     }

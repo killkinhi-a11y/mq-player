@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
@@ -33,6 +35,8 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,6 +46,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -61,6 +66,7 @@ import androidx.media3.common.Player
 import com.mq1.player.ui.components.Artwork
 import com.mq1.player.ui.components.TrackRow
 import com.mq1.player.ui.components.formatDuration
+import com.mq1.player.ui.vm.LyricsViewModel
 import com.mq1.player.ui.vm.PlayerViewModel
 
 /**
@@ -90,10 +96,16 @@ fun FullPlayerScreen(
     val networkWaiting by controller.networkWaiting.collectAsState()
     val shuffleEnabled by controller.shuffleEnabled.collectAsState()
     val repeatMode by controller.repeatMode.collectAsState()
+    val speed by controller.speed.collectAsState()
     val favorites by vm.favorites.collectAsState(initial = emptyList())
     val track = queue.getOrNull(index)
 
+    val lyricsVm: LyricsViewModel = viewModel()
+    val lyricsUi by lyricsVm.ui.collectAsState()
+
     var queueOpen by remember { mutableStateOf(false) }
+    var lyricsOpen by remember { mutableStateOf(false) }
+    var speedMenuOpen by remember { mutableStateOf(false) }
     var seekValue by remember(track?.id, duration) { mutableFloatStateOf(position.toFloat()) }
     var userSeeking by remember { mutableStateOf(false) }
 
@@ -110,7 +122,7 @@ fun FullPlayerScreen(
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp)
         ) {
-            // Top bar: back + queue
+            // Top bar: back + lyrics + queue
             Row(
                 Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -119,6 +131,15 @@ fun FullPlayerScreen(
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Закрыть плеер")
                 }
                 Spacer(Modifier.weight(1f))
+                IconButton(
+                    onClick = {
+                        lyricsOpen = true
+                        track?.let { lyricsVm.loadIfNeeded(it) }
+                    },
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Icon(Icons.Filled.Lyrics, contentDescription = "Текст песни")
+                }
                 IconButton(onClick = { queueOpen = true }, modifier = Modifier.size(44.dp)) {
                     Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = "Очередь (${queue.size})")
                 }
@@ -271,7 +292,7 @@ fun FullPlayerScreen(
 
                 Spacer(Modifier.height(12.dp))
 
-                // Favorite + share
+                // Favorite + speed + share
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
@@ -286,6 +307,44 @@ fun FullPlayerScreen(
                             tint = if (isFav) MaterialTheme.colorScheme.primary
                                    else MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    // F8: playback speed (0.5–2×, natural pitch)
+                    Box {
+                        androidx.compose.material3.TextButton(
+                            onClick = { speedMenuOpen = true },
+                            modifier = Modifier.height(44.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                horizontal = 12.dp, vertical = 6.dp
+                            )
+                        ) {
+                            Text(
+                                if (speed == 1.0f) "1×" else "${speed}×",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = if (speed != 1.0f) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = speedMenuOpen,
+                            onDismissRequest = { speedMenuOpen = false }
+                        ) {
+                            listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { s ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (s == 1.0f) "1× (обычная)" else "${s}×",
+                                            color = if (s == speed) MaterialTheme.colorScheme.primary
+                                                    else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
+                                    onClick = {
+                                        controller.setPlaybackSpeed(s)
+                                        speedMenuOpen = false
+                                    }
+                                )
+                            }
+                        }
                     }
                     Spacer(Modifier.width(8.dp))
                     IconButton(onClick = {
@@ -326,6 +385,88 @@ fun FullPlayerScreen(
                     )
                 }
             }
+        }
+    }
+
+    // F8: lyrics sheet — real data only (loading / synced / plain / not found)
+    if (lyricsOpen) {
+        ModalBottomSheet(
+            onDismissRequest = { lyricsOpen = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            Text(
+                "Текст песни",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+            when {
+                lyricsUi.loading -> com.mq1.player.ui.components.LoadingState(label = "Ищем текст…")
+                lyricsUi.unavailable -> com.mq1.player.ui.components.EmptyState(
+                    "Текст для этого трека не найден"
+                )
+                lyricsUi.synced -> SyncedLyricsList(
+                    lines = lyricsUi.lines,
+                    positionMs = position,
+                    onSeek = { controller.seekTo(it) }
+                )
+                else -> Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(420.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp)
+                ) {
+                    Text(
+                        lyricsUi.plainText,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(bottom = 24.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Synced lyrics: current line highlighted + auto-scrolled, tap line → seek. */
+@Composable
+private fun SyncedLyricsList(
+    lines: List<com.mq1.player.data.api.LyricLine>,
+    positionMs: Long,
+    onSeek: (Long) -> Unit
+) {
+    val listState = rememberLazyListState()
+    val positionSec = positionMs / 1000.0
+    val currentIndex = lines.indexOfLast { it.time <= positionSec }
+
+    // Auto-scroll: keep the current line roughly centered.
+    LaunchedEffect(currentIndex) {
+        if (currentIndex >= 0) {
+            runCatching { listState.animateScrollToItem(currentIndex) }
+        }
+    }
+
+    LazyColumn(
+        state = listState,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            horizontal = 20.dp, vertical = 8.dp
+        ),
+        modifier = Modifier.height(440.dp)
+    ) {
+        itemsIndexed(lines, key = { i, _ -> i }) { i, line ->
+            val isCurrent = i == currentIndex
+            Text(
+                line.text.ifBlank { "♪" },
+                style = if (isCurrent) MaterialTheme.typography.titleMedium
+                        else MaterialTheme.typography.bodyLarge,
+                color = if (isCurrent) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Start,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = line.text.isNotBlank()) { onSeek((line.time * 1000).toLong()) }
+                    .padding(vertical = 8.dp)
+            )
         }
     }
 }

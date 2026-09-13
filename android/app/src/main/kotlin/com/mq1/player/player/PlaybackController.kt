@@ -16,6 +16,8 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.MoreExecutors
 import com.mq1.player.data.api.Track
+import com.mq1.player.data.repo.PlayableStream
+import com.mq1.player.data.repo.playableStream
 import com.mq1.player.di.ServiceLocator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -83,6 +85,11 @@ class PlaybackController(private val context: Context) {
 
     private val _repeatMode = MutableStateFlow(Player.REPEAT_MODE_OFF)
     val repeatMode: StateFlow<Int> = _repeatMode.asStateFlow()
+
+    // F8: playback speed — 0.5 / 0.75 / 1.0 / 1.25 / 1.5 / 2.0, player-wide
+    // (ExoPlayer PlaybackParameters; audio pitch stays natural)
+    private val _speed = MutableStateFlow(1.0f)
+    val speed: StateFlow<Float> = _speed.asStateFlow()
 
     // Deep links (mq://player): monotonically increasing request counter;
     // the NavHost observes it and opens the Full Player once per request.
@@ -153,11 +160,25 @@ class PlaybackController(private val context: Context) {
         _waveMode.value = wave
         _error.value = null
 
-        val items = tracks.mapIndexed { i, t -> t.buildMediaItem(preferredIndex = i == safeIndex) }
+        // F8: resolve the FIRST track before building its MediaItem so HLS
+        // gets the right mime type and encrypted streams get their DRM
+        // configuration up front (the lazy DataSource path cannot attach
+        // either — same reason the web resolves before feeding HLS.js).
+        // TTL cache + single-flight make this free for repeats.
+        val firstStream = tracks.getOrNull(safeIndex)?.let { t ->
+            t.scTrackId?.let { ServiceLocator.musicRepository.resolveStreamById(it) }
+        }?.let { playableStream(it, com.mq1.player.BuildConfig.API_BASE) }
+
+        val items = tracks.mapIndexed { i, t ->
+            if (i == safeIndex && firstStream != null) {
+                t.buildMediaItem(resolved = firstStream)
+            } else {
+                t.buildMediaItem(resolved = null)
+            }
+        }
         applyOrDefer(items, safeIndex, 0L)
 
         // Pre-resolve the active stream so playback starts instantly.
-        preResolve(tracks.getOrNull(safeIndex))
         preResolve(tracks.getOrNull(safeIndex + 1))
     }
 
@@ -184,7 +205,7 @@ class PlaybackController(private val context: Context) {
         if (tracks.isEmpty()) return
         val c = controller ?: return
         _queue.value = _queue.value + tracks
-        c.addMediaItems(tracks.map { it.buildMediaItem(preferredIndex = false) })
+        c.addMediaItems(tracks.map { it.buildMediaItem(resolved = null) })
         scope.launch { preResolve(tracks.firstOrNull()) }
     }
 
@@ -195,7 +216,7 @@ class PlaybackController(private val context: Context) {
         }
         c.addMediaItems(
             (_currentIndex.value + 1).coerceAtLeast(0),
-            listOf(track.buildMediaItem(preferredIndex = false))
+            listOf(track.buildMediaItem(resolved = null))
         )
         scope.launch { preResolve(track) }
     }
@@ -240,6 +261,17 @@ class PlaybackController(private val context: Context) {
     fun setShuffle(enabled: Boolean) { controller?.shuffleModeEnabled = enabled }
 
     fun setRepeatMode(mode: Int) { controller?.repeatMode = mode }
+
+    /** F8: set playback speed (clamped to the supported ladder). */
+    fun setPlaybackSpeed(speed: Float) {
+        val clamped = when {
+            speed < 0.5f -> 0.5f
+            speed > 2f -> 2f
+            else -> speed
+        }
+        _speed.value = clamped
+        controller?.setPlaybackSpeed(clamped)
+    }
 
     fun stop() {
         controller?.run {
@@ -310,12 +342,16 @@ class PlaybackController(private val context: Context) {
      * Resolve the real CDN URL for a track and swap the lazy URI in the
      * player's media item (if it is the current/next item). The TTL cache in
      * MusicRepository makes this free for repeated plays.
+     * F8: the rebuilt item now carries the HLS mime AND the Widevine DRM
+     * configuration for encrypted streams (license proxy = backend route).
      */
     private suspend fun preResolve(track: Track?) {
         if (track == null) return
         val id = track.scTrackId ?: return
         val resolved = ServiceLocator.musicRepository.resolveStreamById(id) ?: return
-        val url = ServiceLocator.musicRepository.playableUrl(resolved) ?: return
+        val playable = playableStream(
+            resolved, com.mq1.player.BuildConfig.API_BASE
+        ) ?: return
 
         val c = controller ?: return
         val itemIndex = c.currentMediaItemIndex
@@ -327,10 +363,19 @@ class PlaybackController(private val context: Context) {
             val key = track.scTrackId?.toString() ?: track.id
             if (item.mediaId == key && item.localConfiguration?.uri?.scheme == MqStreamDataSource.SCHEME) {
                 val rebuilt = item.buildUpon()
-                    .setUri(android.net.Uri.parse(url))
+                    .setUri(android.net.Uri.parse(playable.url))
                     .setMimeType(
-                        if (resolved.isHls) androidx.media3.common.MimeTypes.APPLICATION_M3U8 else null
+                        if (playable.isHls) androidx.media3.common.MimeTypes.APPLICATION_M3U8 else null
                     )
+                    .apply {
+                        if (playable.isEncrypted && playable.licenseProxyUrl != null) {
+                            setDrmConfiguration(
+                                MediaItem.DrmConfiguration.Builder(androidx.media3.common.C.WIDEVINE_UUID)
+                                    .setLicenseUri(android.net.Uri.parse(playable.licenseProxyUrl))
+                                    .build()
+                            )
+                        }
+                    }
                     .build()
                 // Replace in place: only safe when player not currently reading it
                 if (i != itemIndex || !c.isPlaying) {
@@ -373,6 +418,10 @@ class PlaybackController(private val context: Context) {
 
         override fun onRepeatModeChanged(repeatMode: Int) {
             _repeatMode.value = repeatMode
+        }
+
+        override fun onPlaybackParametersChanged(playbackParameters: androidx.media3.common.PlaybackParameters) {
+            _speed.value = playbackParameters.speed
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -469,11 +518,29 @@ class PlaybackController(private val context: Context) {
 }
 
 // MediaItem construction lives here so the service stays declarative.
-private fun Track.buildMediaItem(preferredIndex: Boolean): MediaItem {
+// F8: `resolved` (when known) attaches the HLS mime type and, for encrypted
+// streams, the Widevine license-proxy configuration — without it ExoPlayer
+// cannot pick an HLS media source or run the DRM handshake.
+private fun Track.buildMediaItem(resolved: PlayableStream?): MediaItem {
     val key = scTrackId?.toString() ?: id
     return MediaItem.Builder()
         .setMediaId(key)
-        .setUri(MqStreamDataSource.lazyUri(scTrackId ?: 0L))
+        .setUri(
+            if (resolved != null) android.net.Uri.parse(resolved.url)
+            else MqStreamDataSource.lazyUri(scTrackId ?: 0L)
+        )
+        .setMimeType(
+            if (resolved?.isHls == true) androidx.media3.common.MimeTypes.APPLICATION_M3U8 else null
+        )
+        .apply {
+            if (resolved?.isEncrypted == true && resolved.licenseProxyUrl != null) {
+                setDrmConfiguration(
+                    MediaItem.DrmConfiguration.Builder(androidx.media3.common.C.WIDEVINE_UUID)
+                        .setLicenseUri(android.net.Uri.parse(resolved.licenseProxyUrl))
+                        .build()
+                )
+            }
+        }
         .setMediaMetadata(
             MediaMetadata.Builder()
                 .setTitle(title)

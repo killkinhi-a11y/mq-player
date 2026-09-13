@@ -114,6 +114,8 @@ dependencies {
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.session)
     implementation(libs.media3.common)
+    // F8: HLS media source (incl. Widevine SAMPLE-AES-CTR encrypted variants)
+    implementation(libs.media3.exoplayer.hls)
 
     implementation(libs.retrofit)
     implementation(libs.retrofit.kotlinx.serialization)

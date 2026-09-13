@@ -554,3 +554,51 @@ class PlayerViewModel : ViewModel() {
     val controller: PlaybackController = ServiceLocator.playbackController
     val favorites = ServiceLocator.localStore.favorites
 }
+
+/**
+ * F8 Lyrics — real data only: /api/music/lyrics (lrclib-backed, 10-min cache
+ * in MusicRepository). States: loading / synced / plain / unavailable.
+ */
+class LyricsViewModel : ViewModel() {
+
+    data class LyricsUi(
+        val trackKey: String = "",
+        val lines: List<com.mq1.player.data.api.LyricLine> = emptyList(),
+        val plainText: String = "",
+        val synced: Boolean = false,
+        val loading: Boolean = false,
+        /** true when the fetch completed but nothing was found. */
+        val unavailable: Boolean = false
+    )
+
+    private val music = ServiceLocator.musicRepository
+    private val _ui = MutableStateFlow(LyricsUi())
+    val ui: StateFlow<LyricsUi> = _ui
+
+    /** Load (once per track) when the lyrics panel opens. */
+    fun loadIfNeeded(track: com.mq1.player.data.api.Track) {
+        val key = track.scTrackId?.toString() ?: track.id
+        if (_ui.value.trackKey == key && (_ui.value.loading || _ui.value.synced ||
+                _ui.value.plainText.isNotBlank() || _ui.value.unavailable)) return
+        _ui.value = LyricsUi(trackKey = key, loading = true)
+        viewModelScope.launch {
+            val result = music.lyrics(track.artist, track.title)
+            _ui.value = if (result == null) {
+                _ui.value.copy(loading = false, unavailable = true)
+            } else if (result.synced && result.lyrics.isNotEmpty()) {
+                // Server-side LRC parse occasionally leaves an embedded
+                // [mm:ss.xx] prefix in the text — strip it for display.
+                val embeddedTs = Regex("^\\[\\d{2}:\\d{2}(?:[.:]\\d{2,3})?]\\s*")
+                _ui.value.copy(
+                    loading = false,
+                    lines = result.lyrics.map { it.copy(text = it.text.replace(embeddedTs, "")) },
+                    synced = true
+                )
+            } else if (result.plainText.isNotBlank()) {
+                _ui.value.copy(loading = false, plainText = result.plainText)
+            } else {
+                _ui.value.copy(loading = false, unavailable = true)
+            }
+        }
+    }
+}
