@@ -3,7 +3,12 @@ import { database } from "@/lib/database";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { withAuth, validateContentType } from "@/lib/withAuth";
 
-// GET /api/friends — list accepted friends + pending requests received
+// GET /api/friends — accepted friends + pending requests received + sent
+// F7 (native app): response extended additively — `friendshipId` on friends
+// (DELETE /api/friends/{id} operates on the Friend row id, not the user id),
+// `avatar` on pendingRequests, and a new `outgoingRequests` array.
+// The web client reads only the fields it knows — extra fields are ignored,
+// so this stays fully backward-compatible.
 async function getHandler(
   req: NextRequest,
   ctx: { params: Promise<Record<string, string>>; userId: string; userRole: string }
@@ -14,9 +19,10 @@ async function getHandler(
     // Get all friend relations where this user is involved
     const friendships = await database.findFriends(userId);
 
-    // Separate into accepted friends and pending incoming requests
-    const friends: { id: string; username: string; avatar: string; addedAt: string }[] = [];
-    const pendingRequests: { id: string; username: string; requestId: string }[] = [];
+    // Separate into accepted friends / incoming / outgoing pending requests
+    const friends: { id: string; username: string; avatar: string; addedAt: string; friendshipId: string }[] = [];
+    const pendingRequests: { id: string; username: string; avatar: string; requestId: string }[] = [];
+    const outgoingRequests: { id: string; username: string; avatar: string; requestId: string; createdAt: string }[] = [];
 
     for (const f of friendships) {
       if (f.status === "accepted") {
@@ -26,18 +32,31 @@ async function getHandler(
           username: friendUser.username,
           avatar: friendUser.avatar || "",
           addedAt: f.updatedAt,
+          friendshipId: f.id,
         });
-      } else if (f.status === "pending" && f.addresseeId === userId) {
-        // Pending request received by this user
-        pendingRequests.push({
-          id: f.requester.id,
-          username: f.requester.username,
-          requestId: f.id,
-        });
+      } else if (f.status === "pending") {
+        if (f.addresseeId === userId) {
+          // Pending request received by this user
+          pendingRequests.push({
+            id: f.requester.id,
+            username: f.requester.username,
+            avatar: f.requester.avatar || "",
+            requestId: f.id,
+          });
+        } else if (f.requesterId === userId) {
+          // Pending request sent by this user (F7: outgoing + cancel)
+          outgoingRequests.push({
+            id: f.addressee.id,
+            username: f.addressee.username,
+            avatar: f.addressee.avatar || "",
+            requestId: f.id,
+            createdAt: f.updatedAt,
+          });
+        }
       }
     }
 
-    return NextResponse.json({ friends, pendingRequests });
+    return NextResponse.json({ friends, pendingRequests, outgoingRequests });
   } catch (error) {
     console.error("Get friends error:", error);
     return NextResponse.json({ error: "Ошибка при загрузке друзей" }, { status: 500 });
