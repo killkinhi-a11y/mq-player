@@ -1,5 +1,6 @@
 package com.mq1.player.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,11 +16,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -75,15 +80,30 @@ fun ChatsScreen(
                     style = MaterialTheme.typography.headlineMedium,
                     modifier = Modifier.weight(1f)
                 )
+                // F7: friends entry with incoming-request badge
                 IconButton(
                     onClick = onOpenFriends,
                     modifier = Modifier.size(44.dp)
                 ) {
-                    Icon(
-                        Icons.Filled.Group,
-                        contentDescription = "Друзья",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    if (ui.requestCount > 0) {
+                        BadgedBox(
+                            badge = {
+                                Badge { Text(if (ui.requestCount > 99) "99+" else ui.requestCount.toString()) }
+                            }
+                        ) {
+                            Icon(
+                                Icons.Filled.Group,
+                                contentDescription = "Друзья — ${ui.requestCount} заявок",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        Icon(
+                            Icons.Filled.Group,
+                            contentDescription = "Друзья",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -180,6 +200,7 @@ fun ChatsScreen(
             item { EmptyState("Нет друзей — найдите их через иконку друзей сверху") }
         } else {
             items(ui.friends, key = { it.id }) { friend ->
+                val unread = ui.unreadCounts[friend.id] ?: 0
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -187,7 +208,24 @@ fun ChatsScreen(
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Artwork(url = friend.avatar, sizeDp = 44, corner = 22)
+                    Box {
+                        Artwork(url = friend.avatar, sizeDp = 44, corner = 22)
+                        if (unread > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.primary)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    .align(Alignment.TopEnd)
+                            ) {
+                                Text(
+                                    if (unread > 99) "99+" else unread.toString(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                            }
+                        }
+                    }
                     Column(
                         Modifier
                             .weight(1f)
@@ -200,9 +238,10 @@ fun ChatsScreen(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            "Открыть чат",
+                            if (unread > 0) "$unread новых сообщений" else "Открыть чат",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (unread > 0) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     Icon(

@@ -234,6 +234,8 @@ class WaveViewModel : ViewModel() {
 class ChatsViewModel : ViewModel() {
     data class ChatsUi(
         val friends: List<com.mq1.player.data.api.Friend> = emptyList(),
+        val unreadCounts: Map<String, Int> = emptyMap(),
+        val requestCount: Int = 0,
         val aiMessages: List<com.mq1.player.data.api.AiChatMessage> = emptyList(),
         val aiTyping: Boolean = false,
         val aiSuggested: List<Track> = emptyList()
@@ -241,14 +243,25 @@ class ChatsViewModel : ViewModel() {
 
     private val social = ServiceLocator.socialRepository
     private val chat = ServiceLocator.chatRepository
+    private val hub = ServiceLocator.socialHub
     private val _ui = MutableStateFlow(ChatsUi())
     val ui: StateFlow<ChatsUi> = _ui
 
-    fun refresh() {
+    init {
+        // F7: friends list + per-peer unread badges + request badge from the hub
         viewModelScope.launch {
-            val friends = social.friends()?.friends ?: emptyList()
-            _ui.value = _ui.value.copy(friends = friends)
+            hub.state.collect { s ->
+                _ui.value = _ui.value.copy(
+                    friends = s.friends,
+                    unreadCounts = s.unreadCounts,
+                    requestCount = s.requestCount
+                )
+            }
         }
+    }
+
+    fun refresh() {
+        hub.refreshNow()
     }
 
     fun askAi(message: String) {
@@ -268,18 +281,26 @@ class ChatDetailViewModel : ViewModel() {
     data class ChatDetailUi(
         val peerId: String = "",
         val peerName: String = "",
+        val peerAvatar: String? = null,
         val messages: List<com.mq1.player.data.api.MessageDto> = emptyList(),
         val loading: Boolean = true,
         val error: String? = null
     )
 
     private val social = ServiceLocator.socialRepository
+    private val hub = ServiceLocator.socialHub
     private val _ui = MutableStateFlow(ChatDetailUi())
     val ui: StateFlow<ChatDetailUi> = _ui
     private var pollJob: Job? = null
 
     fun load(peerId: String, peerName: String) {
-        _ui.value = ChatDetailUi(peerId = peerId, peerName = peerName)
+        _ui.value = ChatDetailUi(
+            peerId = peerId,
+            peerName = peerName,
+            peerAvatar = hub.state.value.friends.firstOrNull { it.id == peerId }?.avatar
+        )
+        // F7: opening the chat clears that peer's unread badge
+        hub.markPeerRead(peerId)
         fetch()
         pollJob?.cancel()
         pollJob = viewModelScope.launch {
@@ -293,7 +314,14 @@ class ChatDetailViewModel : ViewModel() {
     private fun fetch() {
         viewModelScope.launch {
             val messages = social.messages(_ui.value.peerId)
-            _ui.value = _ui.value.copy(messages = messages, loading = false)
+            if (messages.isEmpty() && _ui.value.messages.isEmpty() && _ui.value.loading) {
+                // Distinguish "no messages yet" from a failed fetch: poll keeps
+                // retrying silently either way (5s cadence, real data only).
+                _ui.value = _ui.value.copy(loading = false)
+            } else {
+                _ui.value = _ui.value.copy(messages = messages, loading = false)
+                hub.markPeerRead(_ui.value.peerId)
+            }
         }
     }
 
@@ -316,46 +344,184 @@ class ChatDetailViewModel : ViewModel() {
 class FriendsViewModel : ViewModel() {
     data class FriendsUi(
         val friends: List<com.mq1.player.data.api.Friend> = emptyList(),
-        val pending: List<com.mq1.player.data.api.PendingRequest> = emptyList(),
+        val incoming: List<com.mq1.player.data.api.PendingRequest> = emptyList(),
+        val outgoing: List<com.mq1.player.data.api.OutgoingRequest> = emptyList(),
+        val online: Map<String, Boolean> = emptyMap(),
+        val unreadCounts: Map<String, Int> = emptyMap(),
         val found: List<com.mq1.player.data.api.UserDto> = emptyList(),
         val query: String = "",
+        val searching: Boolean = false,
+        /** Initial sync in flight (first poll after foreground/login). */
         val loading: Boolean = true,
+        /** Last sync failed and we have no data yet → full-screen error+retry. */
+        val error: Boolean = false,
+        /** Result snackbar (action outcomes). */
+        val message: String? = null,
+        /** Row ids with an in-flight action (disable buttons, show progress). */
+        val busyIds: Set<String> = emptySet()
+    )
+
+    private val social = ServiceLocator.socialRepository
+    private val hub = ServiceLocator.socialHub
+    private val _ui = MutableStateFlow(FriendsUi())
+    val ui: StateFlow<FriendsUi> = _ui
+    private var searchJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            hub.state.collect { s ->
+                _ui.value = _ui.value.copy(
+                    friends = s.friends,
+                    incoming = s.incoming,
+                    outgoing = s.outgoing,
+                    online = s.online,
+                    unreadCounts = s.unreadCounts,
+                    loading = !s.synced,
+                    error = s.syncError && !s.synced
+                )
+            }
+        }
+    }
+
+    fun retry() = hub.refreshNow()
+
+    fun search(query: String) {
+        _ui.value = _ui.value.copy(query = query)
+        searchJob?.cancel()
+        if (query.length < 2) {
+            _ui.value = _ui.value.copy(found = emptyList(), searching = false)
+            return
+        }
+        searchJob = viewModelScope.launch {
+            delay(300) // debounce — same as web
+            _ui.value = _ui.value.copy(searching = true)
+            val results = social.searchUsers(query)
+            // Only current query's results survive (stale-response guard)
+            if (query == _ui.value.query) {
+                _ui.value = _ui.value.copy(found = results, searching = false)
+            }
+        }
+    }
+
+    private fun runAction(rowKey: String, action: suspend () -> Result<Unit>, onSuccess: String) {
+        if (rowKey in _ui.value.busyIds) return
+        _ui.value = _ui.value.copy(busyIds = _ui.value.busyIds + rowKey)
+        viewModelScope.launch {
+            action()
+                .onSuccess {
+                    _ui.value = _ui.value.copy(message = onSuccess)
+                    hub.refreshNow()
+                }
+                .onFailure { _ui.value = _ui.value.copy(message = it.message ?: "Ошибка") }
+            _ui.value = _ui.value.copy(busyIds = _ui.value.busyIds - rowKey)
+        }
+    }
+
+    fun add(user: com.mq1.player.data.api.UserDto) =
+        runAction("u" + user.id, { social.addFriend(user.id) }, "Запрос отправлен ${user.username}")
+
+    fun accept(request: com.mq1.player.data.api.PendingRequest) =
+        runAction("r" + request.requestId, { social.respondToRequest(request.requestId, accept = true) }, "${request.username} теперь в друзьях")
+
+    fun reject(request: com.mq1.player.data.api.PendingRequest) =
+        runAction("r" + request.requestId, { social.respondToRequest(request.requestId, accept = false) }, "Заявка отклонена")
+
+    fun cancel(request: com.mq1.player.data.api.OutgoingRequest) =
+        runAction("r" + request.requestId, { social.deleteFriend(request.requestId) }, "Запрос отменён")
+
+    fun remove(friend: com.mq1.player.data.api.Friend) =
+        runAction("f" + friend.id, { social.deleteFriend(friend.friendshipId) }, "${friend.username} удалён из друзей")
+
+    fun consumeMessage() {
+        _ui.value = _ui.value.copy(message = null)
+    }
+}
+
+/** F7: public user profile — data + friendship-state actions. */
+class UserProfileViewModel : ViewModel() {
+    data class ProfileUi(
+        val userId: String = "",
+        val user: com.mq1.player.data.api.UserDto = com.mq1.player.data.api.UserDto(),
+        val online: Boolean = false,
+        val lastSeen: String? = null,
+        val friendship: com.mq1.player.data.api.FriendshipState = com.mq1.player.data.api.FriendshipState(),
+        val loading: Boolean = true,
+        val error: String? = null,
+        val busy: Boolean = false,
         val message: String? = null
     )
 
     private val social = ServiceLocator.socialRepository
-    private val _ui = MutableStateFlow(FriendsUi())
-    val ui: StateFlow<FriendsUi> = _ui
+    private val hub = ServiceLocator.socialHub
+    private val _ui = MutableStateFlow(ProfileUi())
+    val ui: StateFlow<ProfileUi> = _ui
 
-    fun refresh() {
+    fun load(userId: String) {
+        if (_ui.value.userId == userId && !_ui.value.loading) return
+        _ui.value = ProfileUi(userId = userId)
+        fetch()
+    }
+
+    fun refresh() = fetch()
+
+    private fun fetch() {
+        val id = _ui.value.userId
+        if (id.isBlank()) return
         viewModelScope.launch {
-            val response = social.friends()
-            _ui.value = _ui.value.copy(
-                friends = response?.friends ?: emptyList(),
-                pending = response?.pendingRequests ?: emptyList(),
-                loading = false
-            )
+            social.userProfile(id)
+                .onSuccess { p ->
+                    _ui.value = _ui.value.copy(
+                        user = p.user,
+                        online = p.online,
+                        lastSeen = p.lastSeen,
+                        friendship = p.friendship,
+                        loading = false,
+                        error = null
+                    )
+                }
+                .onFailure {
+                    _ui.value = _ui.value.copy(loading = false, error = it.message ?: "Профиль недоступен")
+                }
         }
     }
 
-    fun search(query: String) {
-        _ui.value = _ui.value.copy(query = query)
-        if (query.length < 2) {
-            _ui.value = _ui.value.copy(found = emptyList())
-            return
-        }
+    private fun runAction(action: suspend () -> Result<Unit>, onSuccess: String) {
+        if (_ui.value.busy) return
+        _ui.value = _ui.value.copy(busy = true)
         viewModelScope.launch {
-            delay(250)
-            _ui.value = _ui.value.copy(found = social.searchUsers(query))
-        }
-    }
-
-    fun add(user: com.mq1.player.data.api.UserDto) {
-        viewModelScope.launch {
-            social.addFriend(user.id)
-                .onSuccess { _ui.value = _ui.value.copy(message = "Запрос отправлен ${user.username}") }
+            action()
+                .onSuccess {
+                    _ui.value = _ui.value.copy(message = onSuccess)
+                    fetch() // re-read server state (friendship status changed)
+                    hub.refreshNow()
+                }
                 .onFailure { _ui.value = _ui.value.copy(message = it.message ?: "Ошибка") }
+            _ui.value = _ui.value.copy(busy = false)
         }
+    }
+
+    fun addFriend() = runAction(
+        { social.addFriend(_ui.value.user.id) },
+        "Запрос отправлен ${_ui.value.user.username}"
+    )
+
+    fun cancelRequest() = runAction(
+        { social.deleteFriend(_ui.value.friendship.requestId ?: "") },
+        "Запрос отменён"
+    )
+
+    fun acceptRequest() = runAction(
+        { social.respondToRequest(_ui.value.friendship.requestId ?: "", accept = true) },
+        "${_ui.value.user.username} теперь в друзьях"
+    )
+
+    fun removeFriend() = runAction(
+        { social.deleteFriend(_ui.value.friendship.friendshipId ?: "") },
+        "${_ui.value.user.username} удалён из друзей"
+    )
+
+    fun consumeMessage() {
+        _ui.value = _ui.value.copy(message = null)
     }
 }
 

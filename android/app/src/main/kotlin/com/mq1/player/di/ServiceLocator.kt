@@ -4,6 +4,7 @@ import android.content.Context
 import com.mq1.player.BuildConfig
 import com.mq1.player.data.LocalStore
 import com.mq1.player.data.SecureCookieJar
+import com.mq1.player.data.SocialHub
 import com.mq1.player.data.api.MqApi
 import com.mq1.player.data.repo.AuthRepository
 import com.mq1.player.data.repo.ChatRepository
@@ -87,6 +88,9 @@ object ServiceLocator {
     val playlistRepository: PlaylistRepository by lazy { PlaylistRepository(api) }
     val socialRepository: SocialRepository by lazy { SocialRepository(api) }
     val chatRepository: ChatRepository by lazy { ChatRepository(api, localStore) }
+
+    /** F7: friends/requests/unread badges — one shared state holder. */
+    val socialHub: SocialHub by lazy { SocialHub(socialRepository, localStore, appScope) }
 
     val playbackController: PlaybackController by lazy { PlaybackController(appContext) }
 

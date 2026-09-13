@@ -45,6 +45,7 @@ import com.mq1.player.ui.screens.LibraryScreen
 import com.mq1.player.ui.screens.PlaylistScreen
 import com.mq1.player.ui.screens.SearchScreen
 import com.mq1.player.ui.screens.SettingsScreen
+import com.mq1.player.ui.screens.UserProfileScreen
 import com.mq1.player.ui.screens.WaveScreen
 import com.mq1.player.ui.vm.PlayerViewModel
 
@@ -60,11 +61,13 @@ object Routes {
     const val ARTIST = "artist/{name}"
     const val PLAYLIST = "playlist/{id}"
     const val CHAT_DETAIL = "chat/{peerId}/{peerName}"
+    const val USER_PROFILE = "user/{id}"
 
     fun artist(name: String) = "artist/" + android.net.Uri.encode(name)
     fun playlist(id: String) = "playlist/$id"
     fun chat(peerId: String, peerName: String) =
         "chat/$peerId/" + android.net.Uri.encode(peerName)
+    fun userProfile(userId: String) = "user/$userId"
 }
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector)
@@ -87,6 +90,9 @@ fun MqAppNavHost(
     val currentRoute = backStack?.destination?.route
     val showChrome = currentRoute in tabs.map { it.route }
     val player: PlayerViewModel = viewModel()
+
+    // F7: shared social state — Chats tab unread badge
+    val socialState by com.mq1.player.di.ServiceLocator.socialHub.state.collectAsState()
 
     val queue by player.controller.queue.collectAsState()
     val index by player.controller.currentIndex.collectAsState()
@@ -122,6 +128,7 @@ fun MqAppNavHost(
                     }
                     NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                         tabs.forEach { tab ->
+                            val badgeCount = if (tab.route == Routes.CHATS) socialState.totalUnread else 0
                             NavigationBarItem(
                                 selected = currentRoute == tab.route,
                                 onClick = {
@@ -131,7 +138,19 @@ fun MqAppNavHost(
                                         restoreState = true
                                     }
                                 },
-                                icon = { Icon(tab.icon, contentDescription = tab.label) },
+                                icon = {
+                                    if (badgeCount > 0) {
+                                        androidx.compose.material3.BadgedBox(
+                                            badge = {
+                                                androidx.compose.material3.Badge {
+                                                    Text(if (badgeCount > 99) "99+" else badgeCount.toString())
+                                                }
+                                            }
+                                        ) { Icon(tab.icon, contentDescription = tab.label) }
+                                    } else {
+                                        Icon(tab.icon, contentDescription = tab.label)
+                                    }
+                                },
                                 label = { Text(tab.label) }
                             )
                         }
@@ -179,9 +198,25 @@ fun MqAppNavHost(
                     )
                 }
                 composable(Routes.FRIENDS) {
-                    FriendsScreen { peerId, peerName ->
-                        navController.navigate(Routes.chat(peerId, peerName))
-                    }
+                    FriendsScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenChat = { peerId, peerName ->
+                            navController.navigate(Routes.chat(peerId, peerName))
+                        },
+                        onOpenProfile = { userId ->
+                            navController.navigate(Routes.userProfile(userId))
+                        }
+                    )
+                }
+                composable(Routes.USER_PROFILE) { entry ->
+                    val userId = entry.arguments?.getString("id") ?: ""
+                    UserProfileScreen(
+                        userId = userId,
+                        onBack = { navController.popBackStack() },
+                        onOpenChat = { peerId, peerName ->
+                            navController.navigate(Routes.chat(peerId, peerName))
+                        }
+                    )
                 }
                 composable(Routes.SETTINGS) {
                     SettingsScreen(
@@ -214,7 +249,12 @@ fun MqAppNavHost(
                 composable(Routes.CHAT_DETAIL) { entry ->
                     val peerId = entry.arguments?.getString("peerId") ?: ""
                     val peerName = entry.arguments?.getString("peerName") ?: ""
-                    ChatDetailScreen(peerId, peerName, onBack = { navController.popBackStack() })
+                    ChatDetailScreen(
+                        peerId = peerId,
+                        peerName = peerName,
+                        onBack = { navController.popBackStack() },
+                        onOpenProfile = { navController.navigate(Routes.userProfile(peerId)) }
+                    )
                 }
             }
         }

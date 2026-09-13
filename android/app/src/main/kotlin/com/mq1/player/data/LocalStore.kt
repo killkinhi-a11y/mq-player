@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import com.mq1.player.data.api.Friend
+import com.mq1.player.data.api.OutgoingRequest
+import com.mq1.player.data.api.PendingRequest
 import com.mq1.player.data.api.Track
 
 private val Context.dataStore by preferencesDataStore(name = "mq_local_v1")
@@ -43,6 +46,8 @@ class LocalStore(private val context: Context) {
         val favorites = stringPreferencesKey("favorite_tracks")
         val history = stringPreferencesKey("history_tracks")
         val likedScIds = stringSetPreferencesKey("liked_sc_ids")
+        // F7: social snapshot — instant render after process restart, then re-sync
+        val socialSnapshot = stringPreferencesKey("social_snapshot_v1")
     }
 
     val sessionUser: Flow<SessionUser?> = context.dataStore.data.map { p ->
@@ -150,6 +155,29 @@ class LocalStore(private val context: Context) {
 
     val likedScIds: Flow<Set<String>> =
         context.dataStore.data.map { it[Keys.likedScIds] ?: emptySet() }
+
+    // ── Social snapshot (F7: friends + requests + unread, survives restart) ─
+
+    /** Persisted social state (online presence is deliberately NOT persisted). */
+    @kotlinx.serialization.Serializable
+    data class SocialSnapshot(
+        val friends: List<Friend> = emptyList(),
+        val incoming: List<PendingRequest> = emptyList(),
+        val outgoing: List<OutgoingRequest> = emptyList(),
+        val unreadCounts: Map<String, Int> = emptyMap(),
+        val lastMessageId: String? = null
+    )
+
+    val socialSnapshot: Flow<SocialSnapshot?> = context.dataStore.data.map { p ->
+        p[Keys.socialSnapshot]?.let { runCatching { json.decodeFromString<SocialSnapshot>(it) }.getOrNull() }
+    }
+
+    suspend fun setSocialSnapshot(snapshot: SocialSnapshot?) {
+        context.dataStore.edit { p ->
+            if (snapshot == null) p.remove(Keys.socialSnapshot)
+            else p[Keys.socialSnapshot] = json.encodeToString(snapshot)
+        }
+    }
 
     // ── Full logout wipe ────────────────────────────────────────────────────
 

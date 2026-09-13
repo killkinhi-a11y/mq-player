@@ -48,6 +48,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        // F7: resume social sync (friends/requests/unread badges) in foreground
+        ServiceLocator.socialHub.start()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Web parity: pause polling while backgrounded (document.hidden)
+        ServiceLocator.socialHub.stop()
+    }
+
     /** Warm deep-link delivery (singleTask → existing instance gets onNewIntent). */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)

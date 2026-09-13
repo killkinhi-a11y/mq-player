@@ -90,10 +90,30 @@ interface MqApi {
     @POST("api/friends")
     suspend fun addFriend(@Body body: AddFriendBody): Response<SimpleResult>
 
+    @PUT("api/friends/{id}")
+    suspend fun respondToFriendRequest(
+        @Path("id") requestId: String,
+        @Body body: FriendActionBody
+    ): Response<SimpleResult>
+
+    // Works for BOTH: removing an accepted friend (id = friendshipId) and
+    // cancelling an outgoing request (id = requestId — same Friend row id).
+    @DELETE("api/friends/{id}")
+    suspend fun deleteFriend(@Path("id") id: String): Response<SimpleResult>
+
     @GET("api/users/search")
     suspend fun usersSearch(@Query("q") query: String, @Query("excludeId") excludeId: String = ""): UsersSearchResponse
 
+    @GET("api/users/{id}")
+    suspend fun userProfile(@Path("id") userId: String): Response<UserProfileResponse>
+
+    @GET("api/users/status")
+    suspend fun usersStatus(@Query("ids") ids: String): UsersStatusResponse
+
     // ── Messages ────────────────────────────────────────────────────────────
+
+    @GET("api/messages/unread-count")
+    suspend fun unreadCount(): UnreadCountResponse
 
     @GET("api/messages")
     suspend fun messages(

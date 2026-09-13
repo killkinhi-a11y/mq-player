@@ -50,6 +50,7 @@ class AuthViewModel : ViewModel() {
     }
 
     fun onLoggedIn(user: LocalStore.SessionUser) {
+        ServiceLocator.socialHub.start()
         viewModelScope.launch {
             val onboarded = local.onboardingComplete.firstOrNull() ?: false
             _state.value = if (onboarded) Ui.Main else Ui.Onboarding
@@ -63,6 +64,7 @@ class AuthViewModel : ViewModel() {
     fun logout(onDone: () -> Unit) {
         viewModelScope.launch {
             ServiceLocator.playbackController.stop()
+            ServiceLocator.socialHub.clear()
             auth.logout()
             _state.value = Ui.Login
             onDone()

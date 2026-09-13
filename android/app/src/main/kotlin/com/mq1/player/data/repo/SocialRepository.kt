@@ -3,12 +3,16 @@ package com.mq1.player.data.repo
 import com.mq1.player.data.api.AddFriendBody
 import com.mq1.player.data.api.AiChatBody
 import com.mq1.player.data.api.AiChatMessage
+import com.mq1.player.data.api.FriendActionBody
 import com.mq1.player.data.api.FriendsResponse
 import com.mq1.player.data.api.MqApi
 import com.mq1.player.data.api.MessageDto
 import com.mq1.player.data.api.SendMessageBody
 import com.mq1.player.data.api.Track
+import com.mq1.player.data.api.UnreadCountResponse
 import com.mq1.player.data.api.UserDto
+import com.mq1.player.data.api.UserProfileResponse
+import com.mq1.player.data.api.UserStatusEntry
 import kotlinx.coroutines.flow.firstOrNull
 
 class SocialRepository(private val api: MqApi) {
@@ -23,6 +27,39 @@ class SocialRepository(private val api: MqApi) {
         val response = api.addFriend(AddFriendBody(userId))
         if (!response.isSuccessful) error(response.errorBody()?.string()?.substringBefore('\n') ?: "Не удалось отправить запрос")
     }
+
+    /** accept / reject an INCOMING request (id = requestId from GET /api/friends). */
+    suspend fun respondToRequest(requestId: String, accept: Boolean): Result<Unit> = runCatching {
+        val response = api.respondToFriendRequest(requestId, FriendActionBody(if (accept) "accept" else "reject"))
+        if (!response.isSuccessful) {
+            error(response.errorBody()?.string()?.substringBefore('\n')
+                ?: if (accept) "Не удалось принять заявку" else "Не удалось отклонить заявку")
+        }
+    }
+
+    /**
+     * Remove an accepted friend (id = friendshipId) OR cancel an outgoing
+     * request (id = requestId) — both are Friend row ids on the same endpoint.
+     */
+    suspend fun deleteFriend(friendRowId: String): Result<Unit> = runCatching {
+        val response = api.deleteFriend(friendRowId)
+        if (!response.isSuccessful) error(response.errorBody()?.string()?.substringBefore('\n') ?: "Не удалось выполнить операцию")
+    }
+
+    suspend fun userProfile(userId: String): Result<UserProfileResponse> = runCatching {
+        val response = api.userProfile(userId)
+        val body = response.body() ?: error("Пустой ответ сервера")
+        if (!response.isSuccessful) error("Профиль не найден")
+        body
+    }
+
+    suspend fun userStatuses(ids: List<String>): Map<String, UserStatusEntry> {
+        if (ids.isEmpty()) return emptyMap()
+        return runCatching { api.usersStatus(ids.joinToString(",").take(800)).statuses }.getOrElse { emptyMap() }
+    }
+
+    suspend fun latestIncomingMessage(): UnreadCountResponse? =
+        runCatching { api.unreadCount() }.getOrNull()
 
     suspend fun messages(peerId: String, since: String? = null): List<MessageDto> =
         runCatching { api.messages(receiverId = peerId, since = since).messages }.getOrElse { emptyList() }

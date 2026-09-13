@@ -1,5 +1,6 @@
 package com.mq1.player.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,9 +17,11 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -41,7 +45,12 @@ import com.mq1.player.ui.vm.ChatDetailViewModel
 
 /** Direct message chat with a friend — polling every 5s while open. */
 @Composable
-fun ChatDetailScreen(peerId: String, peerName: String, onBack: () -> Unit) {
+fun ChatDetailScreen(
+    peerId: String,
+    peerName: String,
+    onBack: () -> Unit,
+    onOpenProfile: () -> Unit = {}
+) {
     val vm: ChatDetailViewModel = viewModel()
     val ui by vm.ui.collectAsState()
     var input by remember { mutableStateOf("") }
@@ -69,13 +78,37 @@ fun ChatDetailScreen(peerId: String, peerName: String, onBack: () -> Unit) {
             ) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
             }
-            Text(
-                peerName,
-                style = MaterialTheme.typography.titleLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 4.dp)
-            )
+            // F7: header tap → peer profile
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable(onClick = onOpenProfile)
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
+            ) {
+                com.mq1.player.ui.components.Artwork(
+                    url = ui.peerAvatar,
+                    sizeDp = 36,
+                    corner = 18,
+                    contentDescription = null
+                )
+                Text(
+                    peerName,
+                    style = MaterialTheme.typography.titleLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 10.dp)
+                )
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = "Профиль",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
 
         LazyColumn(

@@ -175,20 +175,34 @@ data class Friend(
     val id: String = "",
     val username: String = "",
     val avatar: String = "",
-    val addedAt: String = ""
+    val addedAt: String = "",
+    // F7: Friend row id — DELETE /api/friends/{id} operates on this, not the user id
+    val friendshipId: String = ""
 )
 
 @Serializable
 data class PendingRequest(
     val id: String = "",
     val username: String = "",
-    val requestId: String = ""
+    val requestId: String = "",
+    val avatar: String = ""
+)
+
+@Serializable
+data class OutgoingRequest(
+    val id: String = "",
+    val username: String = "",
+    val requestId: String = "",
+    val avatar: String = "",
+    val createdAt: String = ""
 )
 
 @Serializable
 data class FriendsResponse(
     val friends: List<Friend> = emptyList(),
-    val pendingRequests: List<PendingRequest> = emptyList()
+    val pendingRequests: List<PendingRequest> = emptyList(),
+    // F7: requests we sent (cancel via DELETE /api/friends/{requestId})
+    val outgoingRequests: List<OutgoingRequest> = emptyList()
 )
 
 @Serializable
@@ -203,6 +217,33 @@ data class UsersSearchResponse(val users: List<UserDto> = emptyList())
 
 @Serializable
 data class AddFriendBody(val addresseeId: String)
+
+@Serializable
+data class FriendActionBody(val action: String)
+
+// GET /api/users/[id] — public profile + caller-relative friendship state
+@Serializable
+data class UserProfileResponse(
+    val user: UserDto = UserDto(),
+    val online: Boolean = false,
+    val lastSeen: String? = null,
+    val friendship: FriendshipState = FriendshipState()
+)
+
+@Serializable
+data class FriendshipState(
+    // none | self | friends | incoming | outgoing
+    val status: String = "none",
+    val requestId: String? = null,
+    val friendshipId: String? = null
+)
+
+// GET /api/users/status?ids=… — batch online presence (5-min threshold server-side)
+@Serializable
+data class UserStatusEntry(val online: Boolean = false, val lastSeen: String? = null)
+
+@Serializable
+data class UsersStatusResponse(val statuses: Map<String, UserStatusEntry> = emptyMap())
 
 // ── Messages / chats ─────────────────────────────────────────────────────────
 
@@ -229,6 +270,22 @@ data class SendMessageBody(
 
 @Serializable
 data class SendMessageResponse(val message: MessageDto? = null)
+
+// GET /api/messages/unread-count — returns only the LATEST incoming message
+// (new-message detection); total unread is tracked client-side (SocialHub),
+// same model as the web app's unreadCounts.
+@Serializable
+data class UnreadCountResponse(val latestMessage: LatestMessage? = null)
+
+@Serializable
+data class LatestMessage(
+    val id: String = "",
+    val content: String = "",
+    val senderId: String = "",
+    val senderUsername: String = "",
+    val senderAvatar: String = "",
+    val createdAt: String = ""
+)
 
 // ── AI chat ──────────────────────────────────────────────────────────────────
 
