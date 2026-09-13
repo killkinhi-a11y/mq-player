@@ -3036,3 +3036,57 @@ Stage Summary:
   playback, lock screen, process death, offline, Widevine CDM handshake,
   performance timings) requires a physical device/emulator outside this
   sandbox.
+
+---
+Task ID: web-apk-url-fix
+Agent: main (Super Z)
+Task: Fix the web «СКАЧАТЬ ПРИЛОЖЕНИЕ» block — Android APK button pointed
+at a 404 GitHub URL; replace with the real permanent release URL
+
+Work Log:
+- ROOT CAUSE: SettingsView.tsx:855 (Settings → Ещё → «Скачать приложение»)
+  targeted …/releases/latest/download/mq-player.apk (lowercase asset name)
+  — no such asset in the latest release (android-v2.0.0 ships MQPlayer.apk)
+  → GitHub 404. Confirmed live: old URL → 404, new URL → 200. The same
+  wrong string also sat in /api/app-version apkUrl (legacy Capacitor
+  consumer — useAppUpdate hook, no active importers).
+- FIX (surgical, 2 strings): SettingsView Android href and app-version
+  apkUrl now https://github.com/killkinhi-a11y/mq-player/releases/latest/download/MQPlayer.apk
+  Appearance/wording/Windows/macOS/Linux/«Все версии» untouched (verified
+  in production DOM — all four hrefs + captions byte-identical to before);
+  no new component; no new release; latest/ (not version-specific).
+- REGRESSION TEST: src/__tests__/lib/android-apk-url-regression.test.ts
+  (5 tests): exact href contract on SettingsView + app-version route,
+  forbidden 404-URL absence (incl. MobileDock/FullTrackViewMobile sweep),
+  anchor keeps target/download attrs + mq-dl-link--android class, URL
+  invariants (https-only, latest-not-tag-pinned, no localhost).
+- GATES: vitest 362/362 (357 + 5 new); tsc src clean (skills/ errors are
+  sandbox noise outside the project); eslint 0 errors (4 pre-existing
+  warnings in SettingsView at lines 366/508 — untouched by this change).
+- PUSH BLOCKER: a sandbox auto-snapshot commit (c31540ee, thousands of
+  skills/ files) landed between the worklog push and the fix — GitHub
+  Push Protection rejected the push ("Push cannot contain secrets").
+  Resolved by resetting to origin/main and cherry-picking only the fix
+  commit (a1141bab); diff scanned clean. Deploy: mq-build-a1141bab (v77).
+- URL PROOF: 302→302→200, content-type application/vnd.android.package-archive,
+  3,773,552 bytes; downloaded file SHA-256 2394ed25… == release asset;
+  apksigner verify OK; badging com.mq1.player / 2.0.0 / versionCode 3.
+- BROWSER QA (production, deployed build): Settings → Ещё → block renders
+  with all 4 tiles + caption + «Все версии →»; Android href in DOM exact;
+  CLICK → Chromium DownloadMetadata captured the full chain
+  mq1.vercel.app/play?v=settings → releases/latest/download/MQPlayer.apk
+  → releases/download/android-v2.0.0/MQPlayer.apk → release-assets…
+  (attachment; filename=MQPlayer.apk; application/vnd.android.package-archive);
+  file landed in ~/Downloads, SHA-256 == release asset, apksigner OK.
+  HOVER ok (screenshot); KEYBOARD focus ok (native anchor, outline=solid,
+  Enter → new download with same SHA-256); MOBILE 375×812: block renders,
+  href exact, click → download (same bytes). Screenshots:
+  download/screens/apk-block-{desktop-hover,mobile-375}.png.
+
+Stage Summary:
+- Android APK button on production now serves the real signed 2.0.0 APK
+  from the permanent latest-release URL — proven end-to-end with real
+  browser clicks on desktop + mobile, keyboard activation, and SHA-256
+  equality of the downloaded artifact.
+- Wrong URL locked out by a 5-test regression contract; web suite 362/362.
+- No visual/text/other-platform changes; no new release created.
