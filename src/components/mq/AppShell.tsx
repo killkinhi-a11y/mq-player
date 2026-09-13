@@ -275,17 +275,19 @@ export default function AppShell() {
   // authenticated (otherwise the async zustand rehydrate clobbers the
   // selection; logged-out visitors get the link applied right after login
   // — same auth-restore semantics as the native app).
-  const pendingLinkRef = useRef<{ pl: string | null; artist: string | null; consumed: boolean } | null>(null);
+  // Parse DURING FIRST RENDER (not in an effect): the history-sync effect
+  // below runs replaceState("/play") on mount, which would wipe the query
+  // string before an effect-declared parser could read it.
+  const pendingLinkRef = useRef<{ pl: string | null; artist: string | null; consumed: boolean } | null>(
+    typeof window === "undefined" || typeof URLSearchParams === "undefined"
+      ? null
+      : (() => {
+          const params = new URLSearchParams(window.location.search);
+          return { pl: params.get("pl"), artist: params.get("artist"), consumed: false };
+        })()
+  );
   const linkHydrated = useAppStore((s) => s._hasHydrated);
   const linkAuthenticated = useAppStore((s) => s.isAuthenticated);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (pendingLinkRef.current) return;
-    const params = new URLSearchParams(window.location.search);
-    const pl = params.get("pl");
-    const artist = params.get("artist");
-    pendingLinkRef.current = { pl, artist, consumed: false };
-  }, []);
   useEffect(() => {
     const pending = pendingLinkRef.current;
     if (!pending || pending.consumed) return;
