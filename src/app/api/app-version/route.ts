@@ -11,7 +11,7 @@ export async function GET() {
     latestVersion: process.env.APP_VERSION || "1.0.50",
     downloadUrl: "https://github.com/killkinhi-a11y/mq-player/releases/latest",
     minVersion: "1.0.0",
-    apkUrl: "https://github.com/killkinhi-a11y/mq-player/releases/latest/download/mq-player.apk",
+    apkUrl: "https://github.com/killkinhi-a11y/mq-player/releases/latest/download/MQPlayer.apk",
   }, {
     headers: {
       "Cache-Control": "no-cache, no-store, must-revalidate",

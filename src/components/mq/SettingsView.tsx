@@ -852,7 +852,7 @@ export default function SettingsView() {
                     <span className="mq-t-meta-2 font-semibold" style={{ color: "var(--mq-text)" }}>Linux</span>
                   </a>
                   <a
-                    href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/mq-player.apk" target="_blank" rel="noopener noreferrer" download
+                    href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/MQPlayer.apk" target="_blank" rel="noopener noreferrer" download
                     className="mq-dl-link mq-dl-link--android flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer relative">
                     <Smartphone className="w-5 h-5" style={{ color: "#3ddc84" }} />
                     <span className="mq-t-meta-2 font-semibold" style={{ color: "color-mix(in srgb, #3ddc84 80%, var(--mq-text))" }}>Android APK</span>
