@@ -1,0 +1,622 @@
+     1→"use client";
+     2→
+     3→import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+     4→import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
+     5→import { useAppStore } from "@/store/useAppStore";
+     6→import {
+     7→  Heart, Trash2, Play, Pause, Clock, Music, Users, X,
+     8→  Search, Shuffle, ArrowDownUp, ListFilter, ChevronDown,
+     9→  Timer, Disc3, Sparkles, CheckCircle2, ThumbsDown,
+    10→  CheckSquare, Square, ListPlus, Tag, Filter, SlidersHorizontal,
+    11→  CalendarDays, MoreHorizontal,
+    12→} from "lucide-react";
+    13→import { formatDuration, formatTrackDuration, type Track } from "@/lib/musicApi";
+    14→import ContextMenu from "./ContextMenu";
+    15→import { useTrackContextMenu } from "@/hooks/useTrackContextMenu";
+    16→
+    17→type TabType = "liked" | "disliked" | "subscriptions";
+    18→type SortOption = "default" | "title" | "artist" | "duration" | "dateAdded";
+    19→
+    20→export default function FavoritesView() {
+    21→  const likedTracksData = useAppStore((s) => s.likedTracksData);
+    22→  const likedTrackIds = useAppStore((s) => s.likedTrackIds);
+    23→  const dislikedTrackIds = useAppStore((s) => s.dislikedTrackIds);
+    24→  const dislikedTracksData = useAppStore((s) => s.dislikedTracksData);
+    25→  const favoriteArtists = useAppStore((s) => s.favoriteArtists);
+    26→  const isPlaying = useAppStore((s) => s.isPlaying);
+    27→  const currentTrack = useAppStore((s) => s.currentTrack);
+    28→  const toggleLike = useAppStore((s) => s.toggleLike);
+    29→  const toggleDislike = useAppStore((s) => s.toggleDislike);
+    30→  const playTrack = useAppStore((s) => s.playTrack);
+    31→  const togglePlay = useAppStore((s) => s.togglePlay);
+    32→  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+    33→  const compactMode = useAppStore((s) => s.compactMode);
+    34→  const removeFavoriteArtist = useAppStore((s) => s.removeFavoriteArtist);
+    35→  const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
+    36→  const playlists = useAppStore((s) => s.playlists);
+    37→  const addToPlaylist = useAppStore((s) => s.addToPlaylist);
+    38→
+    39→  const [activeTab, setActiveTab] = useState<TabType>("liked");
+    40→  const [searchQuery, setSearchQuery] = useState("");
+    41→  const [sortBy, setSortBy] = useState<SortOption>("default");
+    42→  const [showSortMenu, setShowSortMenu] = useState(false);
+    43→  const sortMenuRef = useRef<HTMLDivElement>(null);
+    44→
+    45→  // Context menu (right-click / long-press / 3-dot button)
+    46→  const { contextMenu, closeContextMenu, handleContextMenu, handleMoreClick } = useTrackContextMenu();
+    47→
+    48→  // Batch selection state
+    49→  const [batchMode, setBatchMode] = useState(false);
+    50→  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    51→  const [showPlaylistMenu, setShowPlaylistMenu] = useState(false);
+    52→
+    53→  // Active filter tag
+    54→  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+    55→
+    56→  // Close sort menu on outside click
+    57→  const handleSortOutsideClick = useCallback((e: React.MouseEvent) => {
+    58→    if (sortMenuRef.current && !sortMenuRef.current.contains(e.target as Node)) {
+    59→      setShowSortMenu(false);
+    60→    }
+    61→  }, []);
+    62→
+    63→  // ── Extract unique genres & artists for filter tags ──
+    64→  const filterTags = useMemo(() => {
+    65→    const tracks = activeTab === "liked" ? likedTracksData : dislikedTracksData;
+    66→    const genres = new Map<string, number>();
+    67→    const artists = new Map<string, number>();
+    68→    for (const t of tracks) {
+    69→      if (t.genre) genres.set(t.genre, (genres.get(t.genre) || 0) + 1);
+    70→      if (t.artist) artists.set(t.artist, (artists.get(t.artist) || 0) + 1);
+    71→    }
+    72→    const genreTags = Array.from(genres.entries())
+    73→      .filter(([, c]) => c >= 1)
+    74→      .sort((a, b) => b[1] - a[1])
+    75→      .slice(0, 6)
+    76→      .map(([g]) => ({ type: "genre" as const, value: g }));
+    77→    const artistTags = Array.from(artists.entries())
+    78→      .filter(([, c]) => c >= 2)
+    79→      .sort((a, b) => b[1] - a[1])
+    80→      .slice(0, 4)
+    81→      .map(([a]) => ({ type: "artist" as const, value: a }));
+    82→    return [...artistTags, ...genreTags];
+    83→  }, [activeTab, likedTracksData, dislikedTracksData]);
+    84→
+    85→  // ── Filtered & sorted data ──
+    86→  const filteredTracks = useMemo(() => {
+    87→    const tracks = activeTab === "liked" ? likedTracksData : dislikedTracksData;
+    88→    let result = [...tracks];
+    89→
+    90→    // Filter tag
+    91→    if (activeFilter) {
+    92→      const [filterType, filterValue] = activeFilter.split("::");
+    93→      if (filterType === "genre") {
+    94→        result = result.filter(t => t.genre === filterValue);
+    95→      } else if (filterType === "artist") {
+    96→        result = result.filter(t => t.artist === filterValue);
+    97→      }
+    98→    }
+    99→
+   100→    // Search filter
+   101→    if (searchQuery.trim()) {
+   102→      const q = searchQuery.toLowerCase();
+   103→      result = result.filter(
+   104→        t => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q) || (t.genre || "").toLowerCase().includes(q)
+   105→      );
+   106→    }
+   107→
+   108→    // Sort
+   109→    switch (sortBy) {
+   110→      case "title":
+   111→        result.sort((a, b) => a.title.localeCompare(b.title));
+   112→        break;
+   113→      case "artist":
+   114→        result.sort((a, b) => a.artist.localeCompare(b.artist));
+   115→        break;
+   116→      case "duration":
+   117→        result.sort((a, b) => (b.duration || 0) - (a.duration || 0));
+   118→        break;
+   119→      case "dateAdded":
+   120→        // Keep original order (most recent first) - likedTracksData is already in this order
+   121→        break;
+   122→    }
+   123→
+   124→    return result;
+   125→  }, [activeTab, likedTracksData, dislikedTracksData, searchQuery, sortBy, activeFilter]);
+   126→
+   127→  const filteredArtists = useMemo(() => {
+   128→    let result = [...favoriteArtists];
+   129→    if (searchQuery.trim()) {
+   130→      const q = searchQuery.toLowerCase();
+   131→      result = result.filter(
+   132→        a => a.username.toLowerCase().includes(q) || (a.genre && a.genre.toLowerCase().includes(q))
+   133→      );
+   134→    }
+   135→    return result;
+   136→  }, [favoriteArtists, searchQuery]);
+   137→
+   138→  const tracks = activeTab === "subscriptions" ? [] : filteredTracks;
+   139→  const artists = activeTab === "subscriptions" ? filteredArtists : [];
+   140→
+   141→  // ── Progressive rendering (M4) ──
+   142→  // Render only the first N tracks, load more when sentinel enters viewport.
+   143→  // Avoids rendering 500+ DOM subtrees for large favorites lists.
+   144→  const VISIBLE_INITIAL = 30;
+   145→  const VISIBLE_STEP = 30;
+   146→  const [visibleCount, setVisibleCount] = useState(VISIBLE_INITIAL);
+   147→  const sentinelRef = useRef<HTMLDivElement | null>(null);
+   148→
+   149→  // Reset visible count when the underlying tracks array changes identity
+   150→  // (new search, tab switch, filter change)
+   151→  useEffect(() => {
+   152→    setVisibleCount(VISIBLE_INITIAL);
+   153→  }, [filteredTracks, activeTab]);
+   154→
+   155→  useEffect(() => {
+   156→    const sentinel = sentinelRef.current;
+   157→    if (!sentinel) return;
+   158→    if (visibleCount >= tracks.length) return;
+   159→
+   160→    const observer = new IntersectionObserver(
+   161→      (entries) => {
+   162→        for (const entry of entries) {
+   163→          if (entry.isIntersecting) {
+   164→            setVisibleCount((prev) => Math.min(prev + VISIBLE_STEP, tracks.length));
+   165→          }
+   166→        }
+   167→      },
+   168→      { rootMargin: "300px" },
+   169→    );
+   170→    observer.observe(sentinel);
+   171→    return () => observer.disconnect();
+   172→  }, [visibleCount, tracks.length]);
+   173→
+   174→  // ── Total duration for liked tracks ──
+   175→  const totalDuration = useMemo(() => {
+   176→    if (activeTab !== "liked") return 0;
+   177→    return filteredTracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+   178→  }, [activeTab, filteredTracks]);
+   179→
+   180→  const formatTotalDuration = (seconds: number) => {
+   181→    if (seconds === 0) return "";
+   182→    const h = Math.floor(seconds / 3600);
+   183→    const m = Math.floor((seconds % 3600) / 60);
+   184→    if (h > 0) return `${h} ч ${m} мин`;
+   185→    return `${m} мин`;
+   186→  };
+   187→
+   188→  // ── Handlers ──
+   189→  const handlePlayTrack = useCallback((track: Track) => {
+   190→    if (currentTrack?.id === track.id) {
+   191→      togglePlay();
+   192→    } else {
+   193→      playTrack(track, tracks);
+   194→    }
+   195→  }, [currentTrack, togglePlay, playTrack, tracks]);
+   196→
+   197→  const handlePlayAll = useCallback(() => {
+   198→    if (tracks.length > 0) playTrack(tracks[0], tracks);
+   199→  }, [tracks, playTrack]);
+   200→
+   201→  const handleShuffleAll = useCallback(() => {
+   202→    if (tracks.length === 0) return;
+   203→    const shuffled = [...tracks];
+   204→    for (let i = shuffled.length - 1; i > 0; i--) {
+   205→      const j = Math.floor(Math.random() * (i + 1));
+   206→      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+   207→    }
+   208→    playTrack(shuffled[0], shuffled);
+   209→  }, [tracks, playTrack]);
+   210→
+   211→  const handleRemoveTrack = useCallback((trackId: string, track: Track) => {
+   212→    if (activeTab === "liked") {
+   213→      toggleLike(trackId, track);
+   214→    } else {
+   215→      toggleDislike(trackId, track);
+   216→    }
+   217→    // Remove from batch selection if present
+   218→    setSelectedIds(prev => {
+   219→      const next = new Set(prev);
+   220→      next.delete(trackId);
+   221→      return next;
+   222→    });
+   223→  }, [activeTab, toggleLike, toggleDislike]);
+   224→
+   225→  const handleArtistClick = useCallback((artist: typeof favoriteArtists[0]) => {
+   226→    setSelectedArtist({
+   227→      name: artist.username,
+   228→      avatar: artist.avatar || undefined,
+   229→      genre: artist.genre || undefined,
+   230→      followers: artist.followers || undefined,
+   231→      trackCount: artist.trackCount || undefined,
+   232→    });
+   233→  }, [setSelectedArtist]);
+   234→
+   235→  // ── Batch actions ──
+   236→  const toggleBatchSelection = useCallback((trackId: string) => {
+   237→    setSelectedIds(prev => {
+   238→      const next = new Set(prev);
+   239→      if (next.has(trackId)) next.delete(trackId);
+   240→      else next.add(trackId);
+   241→      return next;
+   242→    });
+   243→  }, []);
+   244→
+   245→  const selectAll = useCallback(() => {
+   246→    setSelectedIds(new Set(tracks.map(t => t.id)));
+   247→  }, [tracks]);
+   248→
+   249→  const deselectAll = useCallback(() => {
+   250→    setSelectedIds(new Set());
+   251→  }, []);
+   252→
+   253→  const handleBatchRemove = useCallback(() => {
+   254→    for (const id of selectedIds) {
+   255→      const track = tracks.find(t => t.id === id);
+   256→      if (track) {
+   257→        if (activeTab === "liked") toggleLike(id, track);
+   258→        else toggleDislike(id, track);
+   259→      }
+   260→    }
+   261→    setSelectedIds(new Set());
+   262→    setBatchMode(false);
+   263→  }, [selectedIds, tracks, activeTab, toggleLike, toggleDislike]);
+   264→
+   265→  const handleBatchAddToPlaylist = useCallback((playlistId: string) => {
+   266→    for (const id of selectedIds) {
+   267→      const track = tracks.find(t => t.id === id);
+   268→      if (track) addToPlaylist(playlistId, track);
+   269→    }
+   270→    setSelectedIds(new Set());
+   271→    setBatchMode(false);
+   272→    setShowPlaylistMenu(false);
+   273→  }, [selectedIds, tracks, addToPlaylist]);
+   274→
+   275→  const exitBatchMode = useCallback(() => {
+   276→    setBatchMode(false);
+   277→    setSelectedIds(new Set());
+   278→  }, []);
+   279→
+   280→  const formatNumber = (num: number) => {
+   281→    if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
+   282→    if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
+   283→    return num.toString();
+   284→  };
+   285→
+   286→  const tabs: { id: TabType; label: string; icon: typeof Heart; count: number; color: string }[] = [
+   287→    { id: "liked", label: "Понравившиеся", icon: Heart, count: likedTracksData.length, color: "#ef4444" },
+   288→    { id: "disliked", label: "Не понравившиеся", icon: ThumbsDown, count: dislikedTracksData.length, color: "#f97316" },
+   289→    { id: "subscriptions", label: "Подписки", icon: Users, count: favoriteArtists.length, color: "#8b5cf6" },
+   290→  ];
+   291→
+   292→  const sortOptions: { id: SortOption; label: string; icon: typeof ArrowDownUp }[] = [
+   293→    { id: "default", label: "По умолчанию", icon: ListFilter },
+   294→    { id: "dateAdded", label: "По дате добавления", icon: CalendarDays },
+   295→    { id: "title", label: "По названию", icon: ArrowDownUp },
+   296→    { id: "artist", label: "По артисту", icon: ArrowDownUp },
+   297→    { id: "duration", label: "По длительности", icon: Clock },
+   298→  ];
+   299→
+   300→  const isSearchActive = searchQuery.trim().length > 0;
+   301→
+   302→  return (
+   303→    <div
+   304→      className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28"} max-w-[var(--mq-container-narrow)] mx-auto`}
+   305→      onClick={handleSortOutsideClick}
+   306→    >
+   307→      {/* ── Header ── */}
+   308→      <motion.div
+   309→        initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
+   310→        animate={{ opacity: 1, y: 0 }}
+   311→        transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+   312→      >
+   313→        <div className="flex items-center gap-3 mb-1">
+   314→          <motion.div
+   315→            /* §HOVER: gesture carries its own spring — crisp, no overshoot */
+   316→            whileHover={{ scale: 1.06, transition: { type: "spring", stiffness: 400, damping: 25 } }}
+   317→            className="w-10 h-10 rounded-xl flex items-center justify-center"
+   318→            style={{
+   319→              backgroundColor: activeTab === "subscriptions"
+   320→                ? "rgba(139,92,246,0.1)"
+   321→                : activeTab === "disliked"
+   322→                ? "rgba(249,115,22,0.1)"
+   323→                : "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
+   324→              border: "1px solid var(--mq-border-thin)",
+   325→            }}
+   326→          >
+   327→            {activeTab === "subscriptions" ? (
+   328→              <Users className="w-4.5 h-4.5" style={{ color: "#8b5cf6" }} />
+   329→            ) : activeTab === "disliked" ? (
+   330→              <ThumbsDown className="w-4.5 h-4.5" style={{ color: "#f97316" }} />
+   331→            ) : (
+   332→              <Heart className="w-4.5 h-4.5" style={{ color: "#ef4444" }} />
+   333→            )}
+   334→          </motion.div>
+   335→          <div className="flex-1 min-w-0">
+   336→            <h1 className="text-lg font-bold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
+   337→              Избранное
+   338→            </h1>
+   339→            <p className="mq-t-meta-2 mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+   340→              {likedTrackIds.length} понр. · {dislikedTrackIds.length} не понр. · {favoriteArtists.length} подписок
+   341→            </p>
+   342→          </div>
+   343→          {/* Batch mode toggle */}
+   344→          {activeTab !== "subscriptions" && filteredTracks.length > 0 && (
+   345→            <motion.button
+   346→              /* §HOVER: own tap transition; transition-all removed (CSS chased
+   347→                 Framer's per-frame transform writes → double animation). */
+   348→
+   349→              onClick={() => {
+   350→                if (batchMode) exitBatchMode();
+   351→                else setBatchMode(true);
+   352→              }}
+   353→              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors duration-150"
+   354→              style={{
+   355→                backgroundColor: batchMode ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
+   356→                color: batchMode ? "var(--mq-text)" : "var(--mq-text-muted)",
+   357→              }}
+   358→              title={batchMode ? "Отменить выбор" : "Выбрать несколько"}
+   359→            >
+   360→              <SlidersHorizontal className="w-3.5 h-3.5" />
+   361→            </motion.button>
+   362→          )}
+   363→        </div>
+   364→      </motion.div>
+   365→
+   366→      {/* ── Pill-style tab switcher ── */}
+   367→      <motion.div
+   368→        initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
+   369→        animate={{ opacity: 1, y: 0 }}
+   370→        transition={{ delay: 0.06, duration: 0.3 }}
+   371→        className="mt-4 mb-3"
+   372→      >
+   373→        <LayoutGroup>
+   374→          <div
+   375→            className="flex gap-1 p-1 rounded-xl"
+   376→            style={{
+   377→              backgroundColor: "var(--mq-card)",
+   378→              border: "1px solid var(--mq-border-thin)",
+   379→            }}
+   380→          >
+   381→            {tabs.map((tab) => {
+   382→              const Icon = tab.icon;
+   383→              const isActive = activeTab === tab.id;
+   384→              return (
+   385→                <motion.button
+   386→                  key={tab.id}
+   387→
+   388→                  onClick={() => { setActiveTab(tab.id); setSearchQuery(""); setSortBy("default"); setActiveFilter(null); exitBatchMode(); }}
+   389→                  className="relative flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-colors duration-200 cursor-pointer"
+   390→                  style={{
+   391→                    color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)",
+   392→                  }}
+   393→                >
+   394→                  {isActive && (
+   395→                    <motion.div
+   396→                      layoutId="activeTabBg"
+   397→                      className="absolute inset-0 rounded-lg"
+   398→                      style={{
+   399→                        backgroundColor: tab.color,
+   400→                        opacity: 0.2,
+   401→                        boxShadow: "var(--mq-shadow-xs)",
+   402→                      }}
+   403→                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+   404→                    />
+   405→                  )}
+   406→                  <span className="relative z-10 flex items-center gap-1.5">
+   407→                    <Icon className="w-3.5 h-3.5" style={{ color: isActive ? tab.color : undefined }} />
+   408→                    <span className="hidden sm:inline">{tab.label}</span>
+   409→                    <span
+   410→                      className="mq-t-meta-2 px-1.5 py-0.5 rounded-full font-bold"
+   411→                      style={{
+   412→                        backgroundColor: isActive ? `${tab.color}22` : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
+   413→                        color: isActive ? tab.color : "var(--mq-text-muted)",
+   414→                      }}
+   415→                    >
+   416→                      {tab.count}
+   417→                    </span>
+   418→                  </span>
+   419→                </motion.button>
+   420→              );
+   421→            })}
+   422→          </div>
+   423→        </LayoutGroup>
+   424→      </motion.div>
+   425→
+   426→      {/* ── Filter tags ── */}
+   427→      {activeTab !== "subscriptions" && filterTags.length > 1 && (
+   428→        <motion.div
+   429→          initial={animationsEnabled ? { opacity: 0, y: 8 } : undefined}
+   430→          animate={{ opacity: 1, y: 0 }}
+   431→          transition={{ delay: 0.08, duration: 0.3 }}
+   432→          className="flex gap-1.5 mb-3 overflow-x-auto pb-1 scrollbar-none"
+   433→          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+   434→        >
+   435→          <motion.button
+   436→
+   437→            onClick={() => setActiveFilter(null)}
+   438→            className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg mq-t-meta-2 font-medium transition-colors duration-200 cursor-pointer"
+   439→            style={{
+   440→              backgroundColor: !activeFilter ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "color-mix(in srgb, var(--mq-text) 4%, transparent)",
+   441→              color: !activeFilter ? "var(--mq-accent)" : "var(--mq-text-muted)",
+   442→              border: !activeFilter ? "1px solid var(--mq-border-accent)" : "1px solid var(--mq-border-thin)",
+   443→            }}
+   444→          >
+   445→            <Filter className="w-3 h-3" />
+   446→            Все
+   447→          </motion.button>
+   448→          {filterTags.map(tag => {
+   449→            const tagKey = `${tag.type}::${tag.value}`;
+   450→            const isActive = activeFilter === tagKey;
+   451→            return (
+   452→              <motion.button
+   453→                key={tagKey}
+   454→
+   455→                onClick={() => setActiveFilter(isActive ? null : tagKey)}
+   456→                className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg mq-t-meta-2 font-medium transition-colors duration-200 cursor-pointer"
+   457→                style={{
+   458→                  backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "color-mix(in srgb, var(--mq-text) 4%, transparent)",
+   459→                  color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
+   460→                  border: isActive ? "1px solid var(--mq-border-accent)" : "1px solid var(--mq-border-thin)",
+   461→                }}
+   462→              >
+   463→                {tag.type === "genre" ? <Tag className="w-3 h-3" /> : <Disc3 className="w-3 h-3" />}
+   464→                {tag.value}
+   465→              </motion.button>
+   466→            );
+   467→          })}
+   468→        </motion.div>
+   469→      )}
+   470→
+   471→      {/* ── Action bar: Search + Sort + Shuffle ── */}
+   472→      <motion.div
+   473→        initial={animationsEnabled ? { opacity: 0, y: 15 } : undefined}
+   474→        animate={{ opacity: 1, y: 0 }}
+   475→        transition={{ delay: 0.1 }}
+   476→        className="flex items-center gap-2.5 mb-4"
+   477→      >
+   478→        {/* Search bar */}
+   479→        <div
+   480→          className="flex-1 flex items-center gap-2.5 px-4 py-2.5 rounded-2xl transition-colors duration-150"
+   481→          style={{
+   482→            backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)",
+   483→            border: searchQuery ? "1.5px solid var(--mq-accent)" : "1px solid var(--mq-border-thin)",
+   484→            boxShadow: searchQuery ? "0 0 0 3px color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "none",
+   485→          }}
+   486→        >
+   487→          <Search className="w-3.5 h-3.5 flex-shrink-0" style={{ color: searchQuery ? "var(--mq-accent)" : "var(--mq-text-muted)", transition: "color 0.2s ease" }} />
+   488→          <input
+   489→            type="text"
+   490→            value={searchQuery}
+   491→            onChange={(e) => setSearchQuery(e.target.value)}
+   492→            placeholder={activeTab === "subscriptions" ? "Найти артиста..." : "Найти трек..."}
+   493→            className="bg-transparent outline-none text-xs w-full"
+   494→            style={{ color: "var(--mq-text)" }}
+   495→          />
+   496→          {searchQuery && (
+   497→            <motion.button
+   498→              initial={{ scale: 0 }}
+   499→              animate={{ scale: 1 }}
+   500→
+   501→              onClick={() => setSearchQuery("")}
+   502→              className="flex-shrink-0 cursor-pointer w-5 h-5 rounded-full flex items-center justify-center"
+   503→              style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 10%, transparent)", color: "var(--mq-text-muted)" }}
+   504→            >
+   505→              <X className="w-3 h-3" />
+   506→            </motion.button>
+   507→          )}
+   508→        </div>
+   509→
+   510→        {/* Sort button */}
+   511→        {activeTab !== "subscriptions" && (
+   512→          <div className="relative" ref={sortMenuRef}>
+   513→            <motion.button
+   514→
+   515→              onClick={(e) => { e.stopPropagation(); setShowSortMenu(!showSortMenu); }}
+   516→              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors duration-200"
+   517→              style={{
+   518→                backgroundColor: sortBy !== "default" ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
+   519→                color: sortBy !== "default" ? "var(--mq-text)" : "var(--mq-text-muted)",
+   520→                boxShadow: sortBy !== "default" ? "0 2px 8px rgba(0,0,0,0.15)" : "none",
+   521→              }}
+   522→            >
+   523→              <ArrowDownUp className="w-3.5 h-3.5" />
+   524→            </motion.button>
+   525→
+   526→            {/* Sort dropdown */}
+   527→            <AnimatePresence>
+   528→              {showSortMenu && (
+   529→                <motion.div
+   530→                  initial={{ opacity: 0, y: -5, scale: 0.95 }}
+   531→                  animate={{ opacity: 1, y: 0, scale: 1 }}
+   532→                  exit={{ opacity: 0, y: -5, scale: 0.95 }}
+   533→                  transition={{ duration: 0.15 }}
+   534→                  className="absolute right-0 top-full mt-2 w-52 rounded-xl overflow-hidden z-50 shadow-xl"
+   535→                  style={{
+   536→                    backgroundColor: "var(--mq-card)",
+   537→                    border: "1px solid var(--mq-border-thin)",
+   538→                    boxShadow: "var(--mq-shadow-float)",
+   539→                  }}
+   540→                >
+   541→                  <div className="px-3 py-2">
+   542→                    <p className="mq-t-meta-2 font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Сортировка</p>
+   543→                  </div>
+   544→                  {sortOptions.map((opt) => {
+   545→                    const Icon = opt.icon;
+   546→                    return (
+   547→                      <motion.button
+   548→                        key={opt.id}
+   549→
+   550→                        onClick={(e) => { e.stopPropagation(); setSortBy(opt.id); setShowSortMenu(false); }}
+   551→                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs cursor-pointer transition-colors"
+   552→                        style={{
+   553→                          color: sortBy === opt.id ? "var(--mq-accent)" : "var(--mq-text)",
+   554→                          backgroundColor: sortBy === opt.id ? "color-mix(in srgb, var(--mq-text) 4%, transparent)" : "transparent",
+   555→                        }}
+   556→                      >
+   557→                        <Icon className="w-3.5 h-3.5" />
+   558→                        {opt.label}
+   559→                        {sortBy === opt.id && (
+   560→                          <CheckCircle2 className="w-3 h-3 ml-auto" style={{ color: "var(--mq-accent)" }} />
+   561→                        )}
+   562→                      </motion.button>
+   563→                    );
+   564→                  })}
+   565→                </motion.div>
+   566→              )}
+   567→            </AnimatePresence>
+   568→          </div>
+   569→        )}
+   570→
+   571→        {/* Shuffle — tracks tabs only */}
+   572→        {activeTab !== "subscriptions" && !batchMode && (
+   573→          <motion.button
+   574→            whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } }}
+   575→
+   576→            onClick={handleShuffleAll}
+   577→            disabled={tracks.length === 0}
+   578→            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer disabled:opacity-30 transition-colors duration-200"
+   579→            style={{
+   580→              backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)",
+   581→              color: "var(--mq-text-muted)",
+   582→            }}
+   583→            title="Перемешать"
+   584→          >
+   585→            <Shuffle className="w-3.5 h-3.5" />
+   586→          </motion.button>
+   587→        )}
+   588→      </motion.div>
+   589→
+   590→      {/* ── Batch action bar ── */}
+   591→      {batchMode && activeTab !== "subscriptions" && (
+   592→        <motion.div
+   593→          initial={{ opacity: 0, y: -10, height: 0 }}
+   594→          animate={{ opacity: 1, y: 0, height: "auto" }}
+   595→          exit={{ opacity: 0, y: -10, height: 0 }}
+   596→          className="flex items-center gap-2 mb-3 px-1"
+   597→        >
+   598→          <span className="mq-t-meta-2 font-medium" style={{ color: "var(--mq-text-muted)" }}>
+   599→            Выбрано: {selectedIds.size}
+   600→          </span>
+   601→          <div className="flex-1" />
+   602→          <motion.button
+   603→
+   604→            onClick={selectedIds.size === tracks.length ? deselectAll : selectAll}
+   605→            className="mq-t-meta-2 font-medium px-3 py-1.5 rounded-lg cursor-pointer"
+   606→            style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text)" }}
+   607→          >
+   608→            {selectedIds.size === tracks.length ? "Снять все" : "Выбрать все"}
+   609→          </motion.button>
+   610→          {activeTab === "liked" && playlists.length > 0 && selectedIds.size > 0 && (
+   611→            <div className="relative">
+   612→              <motion.button
+   613→
+   614→                onClick={() => setShowPlaylistMenu(!showPlaylistMenu)}
+   615→                className="mq-t-meta-2 font-medium px-3 py-1.5 rounded-lg cursor-pointer flex items-center gap-1"
+   616→                style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}
+   617→              >
+   618→                <ListPlus className="w-3 h-3" />
+   619→                В плейлист
+   620→              </motion.button>
+
+[showing lines 1-620 of 1228; use offset=621 with limit to continue reading]

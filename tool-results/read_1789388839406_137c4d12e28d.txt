@@ -1,0 +1,466 @@
+   137→   236→   236→                    contentAlignment = Alignment.CenterStart
+   138→   237→   237→                ) {
+   139→   238→   238→                    Row(
+   140→   239→   239→                        Modifier.fillMaxSize().padding(start = 12.dp, end = 10.dp),
+   141→   240→   240→                        verticalAlignment = Alignment.CenterVertically,
+   142→   241→   241→                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+   143→   242→   242→                    ) {
+   144→   243→   243→                        MqIcon(
+   145→   244→   244→                            icon = MqIcons.Search, size = 16.dp,
+   146→   245→   245→                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+   147→   246→   246→                        )
+   148→   247→   247→                        Box(Modifier.weight(1f)) {
+   149→   248→   248→                            BasicTextField(
+   150→   249→   249→                                value = query,
+   151→   250→   250→                                onValueChange = onQueryChange,
+   152→   251→   251→                                singleLine = true,
+   153→   252→   252→                                textStyle = TextStyle(
+   154→   253→   253→                                    fontFamily = MqType.body.fontFamily,
+   155→   254→   254→                                    fontSize = 14.sp,
+   156→   255→   255→                                    fontWeight = FontWeight.Medium,
+   157→   256→   256→                                    color = MaterialTheme.colorScheme.onBackground,
+   158→   257→   257→                                ),
+   159→   258→   258→                                modifier = Modifier.fillMaxWidth()
+   160→   259→   259→                            )
+   161→   260→   260→                            if (query.isEmpty()) {
+   162→   261→   261→                                Text(
+   163→   262→   262→                                    "Поиск в библиотеке...",
+   164→   263→   263→                                    style = TextStyle(
+   165→   264→   264→                                        fontFamily = MqType.body.fontFamily,
+   166→   265→   265→                                        fontSize = 14.sp,
+   167→   266→   266→                                        fontWeight = FontWeight.Medium,
+   168→   267→   267→                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+   169→   268→   268→                                    ),
+   170→   269→   269→                                    maxLines = 1,
+   171→   270→   270→                                    overflow = TextOverflow.Ellipsis,
+   172→   271→   271→                                )
+   173→   272→   272→                            }
+   174→   273→   273→                        }
+   175→   274→   274→                        if (query.isNotEmpty()) {
+   176→   275→   275→                            Box(
+   177→   276→   276→                                modifier = Modifier
+   178→   277→   277→                                    .size(24.dp)
+   179→   278→   278→                                    .clip(CircleShape)
+   180→   279→   279→                                    .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f))
+   181→   280→   280→                                    .clickable { onQueryChange("") },
+   182→   281→   281→                                contentAlignment = Alignment.Center
+   183→   282→   282→                            ) {
+   184→   283→   283→                                MqIcon(
+   185→   284→   284→                                    icon = MqIcons.X, size = 14.dp,
+   186→   285→   285→                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+   187→   286→   286→                                )
+   188→   287→   287→                            }
+   189→   288→   288→                        }
+   190→   289→   289→                    }
+   191→   290→   290→                }
+   192→   291→   291→                // web <select> Недавние / По названию / По артисту
+   193→   292→   292→                Row(
+   194→   293→   293→                    modifier = Modifier
+   195→   294→   294→                        .height(40.dp)
+   196→   295→   295→                        .clip(RoundedCornerShape(12.dp))
+   197→   296→   296→                        .background(MaterialTheme.colorScheme.surfaceContainer)
+   198→   297→   297→                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.22f), RoundedCornerShape(12.dp))
+   199→   298→   298→                        .clickable { onSortChange((sort + 1) % 3) }
+   200→   299→   299→                        .padding(horizontal = 10.dp),
+   201→   300→   300→                    verticalAlignment = Alignment.CenterVertically,
+   202→   301→   301→                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+   203→   302→   302→                ) {
+   204→   303→   303→                    Text(
+   205→   304→   304→                        when (sort) { 1 -> "По названию"; 2 -> "По артисту"; else -> "Недавние" },
+   206→   305→   305→                        // web: text-xs font-medium = 12/500
+   207→   306→   306→                        style = MqType.meta.copy(fontWeight = FontWeight.Medium),
+   208→   307→   307→                        color = MaterialTheme.colorScheme.onBackground,
+   209→   308→   308→                    )
+   210→   309→   309→                    MqIcon(
+   211→   310→   310→                        icon = MqIcons.ChevronDown, size = 14.dp,
+   212→   311→   311→                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+   213→   312→   312→                    )
+   214→   313→   313→                }
+   215→   314→   314→            }
+   216→   315→   315→            Spacer(Modifier.height(16.dp))
+   217→   316→   316→        }
+   218→   317→   317→
+   219→   318→   318→        // ── tab content ─────────────────────────────────────────────────
+   220→   319→   319→        when (activeTab) {
+   221→   320→   320→            0 -> favoritesTab(
+   222→   321→   321→                favorites = filteredFavorites,
+   223→   322→   322→                likedCount = favorites.size,
+   224→   323→   323→                query = query,
+   225→   324→   324→                playingTrackId = playingTrackId,
+   226→   325→   325→                favoriteIds = favoriteIds,
+   227→   326→   326→                sort = sort,
+   228→   327→   327→                onQueryChange = onQueryChange,
+   229→   328→   328→                onSortChange = onSortChange,
+   230→   329→   329→                onPlayQueue = onPlayQueue,
+   231→   330→   330→                onFavorite = onFavorite,
+   232→   331→   331→                onGoHome = onGoHome,
+   233→   332→   332→            )
+   234→   333→   333→            1 -> playlistsTab(
+   235→   334→   334→                ui = ui,
+   236→   335→   335→                playlists = filteredPlaylists,
+   237→   336→   336→                showCreate = showCreate,
+   238→   337→   337→                createName = createName,
+   239→   338→   338→                onCreateToggle = onCreateToggle,
+   240→   339→   339→                onCreateNameChange = onCreateNameChange,
+   241→   340→   340→                onCreateConfirm = onCreateConfirm,
+   242→   341→   341→                onOpenPlaylist = onOpenPlaylist,
+   243→   342→   342→                onPlayQueue = onPlayQueue,
+   244→   343→   343→            )
+   245→   344→   344→            else -> historyTab(
+   246→   345→   345→                history = filteredHistory,
+   247→   346→   346→                query = query,
+   248→   347→   347→                playingTrackId = playingTrackId,
+   249→   348→   348→                favoriteIds = favoriteIds,
+   250→   349→   349→                onQueryChange = onQueryChange,
+   251→   350→   350→                onPlayQueue = onPlayQueue,
+   252→   351→   351→                onFavorite = onFavorite,
+   253→   352→   352→                onClearHistory = onClearHistory,
+   254→   353→   353→                onGoHome = onGoHome,
+   255→   354→   354→            )
+   256→   355→   355→        }
+   257→   356→   356→    }
+   258→   357→   357→}
+   259→   358→   358→
+   260→   359→   359→// ── tab bar ───────────────────────────────────────────────────────────────
+   261→   360→   360→
+   262→   361→   361→@Composable
+   263→   362→   362→private fun LibraryTabBar(
+   264→   363→   363→    activeTab: Int,
+   265→   364→   364→    favCount: Int,
+   266→   365→   365→    plCount: Int,
+   267→   366→   366→    histCount: Int,
+   268→   367→   367→    onTabChange: (Int) -> Unit,
+   269→   368→   368→) {
+   270→   369→   369→    val tabs = listOf(
+   271→   370→   370→        Triple(MqIcons.Heart, "Избранное", favCount),
+   272→   371→   371→        Triple(MqIcons.ListMusic, "Плейлисты", plCount),
+   273→   372→   372→        Triple(MqIcons.Clock, "История", histCount),
+   274→   373→   373→    )
+   275→   374→   374→    Column(
+   276→   375→   375→        Modifier
+   277→   376→   376→            .padding(horizontal = 16.dp)
+   278→   377→   377→            .fillMaxWidth()
+   279→   378→   378→    ) {
+   280→   379→   379→        Row(Modifier.fillMaxWidth()) {
+   281→   380→   380→            tabs.forEachIndexed { i, (icon, label, count) ->
+   282→   381→   381→                val active = activeTab == i
+   283→   382→   382→                Column(
+   284→   383→   383→                    modifier = Modifier
+   285→   384→   384→                        .weight(1f)
+   286→   385→   385→                        .height(48.dp)
+   287→   386→   386→                        .clickable { onTabChange(i) },
+   288→   387→   387→                    horizontalAlignment = Alignment.CenterHorizontally
+   289→   388→   388→                ) {
+   290→   389→   389→                    Row(
+   291→   390→   390→                        Modifier.weight(1f).fillMaxWidth(),
+   292→   391→   391→                        verticalAlignment = Alignment.CenterVertically,
+   293→   392→   392→                        horizontalArrangement = Arrangement.Center
+   294→   393→   393→                    ) {
+   295→   394→   394→                        MqIcon(
+   296→   395→   395→                            icon = icon, size = 16.dp,
+   297→   396→   396→                            tint = if (active) MaterialTheme.colorScheme.primary
+   298→   397→   397→                            else MaterialTheme.colorScheme.onSurfaceVariant,
+   299→   398→   398→                        )
+   300→   399→   399→                        Spacer(Modifier.width(8.dp))
+   301→   400→   400→                        Text(
+   302→   401→   401→                            label,
+   303→   402→   402→                            // web: text-sm font-medium = 14/500
+   304→   403→   403→                            style = MqType.body.copy(
+   305→   404→   404→                                fontSize = 14.sp,
+   306→   405→   405→                                fontWeight = FontWeight.Medium,
+   307→   406→   406→                            ),
+   308→   407→   407→                            color = if (active) MaterialTheme.colorScheme.primary
+   309→   408→   408→                            else MaterialTheme.colorScheme.onSurfaceVariant,
+   310→   409→   409→                        )
+   311→   410→   410→                        if (count > 0) {
+   312→   411→   411→                            Spacer(Modifier.width(6.dp))
+   313→   412→   412→                            Text(
+   314→   413→   413→                                count.toString(),
+   315→   414→   414→                                style = MqType.meta2.copy(fontWeight = FontWeight.SemiBold),
+   316→   415→   415→                                color = if (active) MaterialTheme.colorScheme.primary
+   317→   416→   416→                                else MaterialTheme.colorScheme.onSurfaceVariant,
+   318→   417→   417→                                modifier = Modifier
+   319→   418→   418→                                    .clip(RoundedCornerShape(50))
+   320→   419→   419→                                    .background(
+   321→   420→   420→                                        if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+   322→   421→   421→                                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f)
+   323→   422→   422→                                    )
+   324→   423→   423→                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+   325→   424→   424→                            )
+   326→   425→   425→                        }
+   327→   426→   426→                    }
+   328→   427→   427→                }
+   329→   428→   428→            }
+   330→   429→   429→        }
+   331→   430→   430→        // bottom hairline + 2dp accent underline inside the active third
+   332→   431→   431→        // web: border-b 1px thin (22%) + h-0.5 (2px) accent indicator
+   333→   432→   432→        Box(
+   334→   433→   433→            Modifier
+   335→   434→   434→                .fillMaxWidth()
+   336→   435→   435→                .height(2.dp)
+   337→   436→   436→        ) {
+   338→   437→   437→            Box(
+   339→   438→   438→                Modifier
+   340→   439→   439→                    .fillMaxWidth()
+   341→   440→   440→                    .height(1.dp)
+   342→   441→   441→                    .align(Alignment.BottomCenter)
+   343→   442→   442→                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.22f))
+   344→   443→   443→            )
+   345→   444→   444→            Row(Modifier.fillMaxSize()) {
+   346→   445→   445→                tabs.forEachIndexed { i, _ ->
+   347→   446→   446→                    Box(Modifier.weight(1f).fillMaxHeight()) {
+   348→   447→   447→                        if (activeTab == i) {
+   349→   448→   448→                            Box(
+   350→   449→   449→                                Modifier
+   351→   450→   450→                                    .fillMaxSize()
+   352→   451→   451→                                    .padding(horizontal = 8.dp)
+   353→   452→   452→                                    .background(
+   354→   453→   453→                                        MaterialTheme.colorScheme.primary,
+   355→   454→   454→                                        RoundedCornerShape(50)
+   356→   455→   455→                                    )
+   357→   456→   456→                            )
+   358→   457→   457→                        }
+   359→   458→   458→                    }
+   360→   459→   459→                }
+   361→   460→   460→            }
+   362→   461→   461→        }
+   363→   462→   462→    }
+   364→   463→   463→}
+   365→   464→   464→
+   366→   465→   465→// ── FAVORITES (FavoritesView port) ────────────────────────────────────────
+   367→   466→   466→
+   368→   467→   467→private fun LazyListScope.favoritesTab(
+   369→   468→   468→    favorites: List<Track>,
+   370→   469→   469→    likedCount: Int,
+   371→   470→   470→    query: String,
+   372→   471→   471→    playingTrackId: String?,
+   373→   472→   472→    favoriteIds: Set<String>,
+   374→   473→   473→    sort: Int,
+   375→   474→   474→    onQueryChange: (String) -> Unit,
+   376→   475→   475→    onSortChange: (Int) -> Unit,
+   377→   476→   476→    onPlayQueue: (List<Track>, Int) -> Unit,
+   378→   477→   477→    onFavorite: (Track) -> Unit,
+   379→   478→   478→    onGoHome: () -> Unit,
+   380→   479→   479→) {
+   381→   480→   480→    // web double padding: LibraryView p-16 + FavoritesView p-16 → content at 32
+   382→   481→   481→    item {
+   383→   482→   482→        Column(Modifier.padding(horizontal = 16.dp)) {
+   384→   483→   483→            Spacer(Modifier.height(16.dp))
+   385→   484→   484→            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+   386→   485→   485→                // 40×40 r12 icon chip (web: color-mix accent 12% + border-thin)
+   387→   486→   486→                Box(
+   388→   487→   487→                    modifier = Modifier
+   389→   488→   488→                        .size(40.dp)
+   390→   489→   489→                        .clip(RoundedCornerShape(12.dp))
+   391→   490→   490→                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+   392→   491→   491→                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.22f), RoundedCornerShape(12.dp)),
+   393→   492→   492→                    contentAlignment = Alignment.Center
+   394→   493→   493→                ) {
+   395→   494→   494→                    MqIcon(icon = MqIcons.Heart, size = 18.dp, tint = LikedRed)
+   396→   495→   495→                }
+   397→   496→   496→                Column(Modifier.weight(1f)) {
+   398→   497→   497→                    Text(
+   399→   498→   498→                        "Избранное",
+   400→   499→   499→                        style = MqType.section.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold),
+   401→   500→   500→                        color = MaterialTheme.colorScheme.onBackground,
+   402→   501→   501→                    )
+   403→   502→   502→                    Text(
+   404→   503→   503→                        "$likedCount понр. · 0 не понр. · 0 подписок",
+   405→   504→   504→                        style = MqType.meta2,
+   406→   505→   505→                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+   407→   506→   506→                    )
+   408→   507→   507→                }
+   409→   508→   508→                // web batch-mode toggle (visible when the list is non-empty)
+   410→   509→   509→                if (favorites.isNotEmpty()) {
+   411→   510→   510→                    Box(
+   412→   511→   511→                        modifier = Modifier
+   413→   512→   512→                            .size(36.dp)
+   414→   513→   513→                            .clip(RoundedCornerShape(12.dp))
+   415→   514→   514→                            .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.06f))
+   416→   515→   515→                            .clickable { },
+   417→   516→   516→                        contentAlignment = Alignment.Center
+   418→   517→   517→                    ) {
+   419→   518→   518→                        MqIcon(
+   420→   519→   519→                            icon = MqIcons.SlidersHorizontal, size = 14.dp,
+   421→   520→   520→                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+   422→   521→   521→                        )
+   423→   522→   522→                    }
+   424→   523→   523→                }
+   425→   524→   524→            }
+   426→   525→   525→        }
+   427→   526→   526→    }
+   428→   527→   527→
+   429→   528→   528→    // pill tabs (Понравившиеся / Не понравившиеся / Подписки — icons + counts)
+   430→   529→   529→    item {
+   431→   530→   530→        FavPillTabs(liked = likedCount)
+   432→   531→   531→    }
+   433→   532→   532→
+   434→   533→   533→    // action bar: «Найти трек...» + sort + shuffle
+   435→   534→   534→    item {
+   436→   535→   535→        Row(
+   437→   536→   536→            Modifier
+   438→   537→   537→                .padding(horizontal = 16.dp)
+   439→   538→   538→                .padding(bottom = 16.dp),
+   440→   539→   539→            verticalAlignment = Alignment.CenterVertically,
+   441→   540→   540→            horizontalArrangement = Arrangement.spacedBy(10.dp)
+   442→   541→   541→        ) {
+   443→   542→   542→            Row(
+   444→   543→   543→                modifier = Modifier
+   445→   544→   544→                    .weight(1f)
+   446→   545→   545→                    .height(40.dp)
+   447→   546→   546→                    .clip(RoundedCornerShape(16.dp))
+   448→   547→   547→                    .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.04f))
+   449→   548→   548→                    .border(
+   450→   549→   549→                        if (query.isNotEmpty()) 1.5.dp else 1.dp,
+   451→   550→   550→                        if (query.isNotEmpty()) MaterialTheme.colorScheme.primary
+   452→   551→   551→                        else MaterialTheme.colorScheme.outline,
+   453→   552→   552→                        RoundedCornerShape(16.dp)
+   454→   553→   553→                    )
+   455→   554→   554→                    .padding(horizontal = 16.dp),
+   456→   555→   555→                verticalAlignment = Alignment.CenterVertically,
+   457→   556→   556→                horizontalArrangement = Arrangement.spacedBy(10.dp)
+   458→   557→   557→            ) {
+   459→   558→   558→                MqIcon(
+   460→   559→   559→                    icon = MqIcons.Search, size = 14.dp,
+   461→   560→   560→                    tint = if (query.isNotEmpty()) MaterialTheme.colorScheme.primary
+   462→   561→   561→                    else MaterialTheme.colorScheme.onSurfaceVariant,
+   463→   562→   562→                )
+   464→   563→   563→                Box(Modifier.weight(1f)) {
+   465→   564→   564→                    BasicTextField(
+   466→   565→   565→                        value = query,
+   467→   566→   566→                        onValueChange = onQueryChange,
+   468→   567→   567→                        singleLine = true,
+   469→   568→   568→                        textStyle = TextStyle(
+   470→   569→   569→                            fontFamily = MqType.body.fontFamily,
+   471→   570→   570→                            fontSize = 12.sp,
+   472→   571→   571→                            color = MaterialTheme.colorScheme.onBackground,
+   473→   572→   572→                        ),
+   474→   573→   573→                        modifier = Modifier.fillMaxWidth()
+   475→   574→   574→                    )
+   476→   575→   575→                    if (query.isEmpty()) {
+   477→   576→   576→                        Text(
+   478→   577→   577→                            "Найти трек...",
+   479→   578→   578→                            style = TextStyle(
+   480→   579→   579→                                fontFamily = MqType.body.fontFamily,
+   481→   580→   580→                                fontSize = 12.sp,
+   482→   581→   581→                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+   483→   582→   582→                            ),
+   484→   583→   583→                            maxLines = 1,
+   485→   584→   584→                        )
+   486→   585→   585→                    }
+   487→   586→   586→                }
+   488→   587→   587→                if (query.isNotEmpty()) {
+   489→   588→   588→                    Box(
+   490→   589→   589→                        modifier = Modifier
+   491→   590→   590→                            .size(20.dp)
+   492→   591→   591→                            .clip(CircleShape)
+   493→   592→   592→                            .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.10f))
+   494→   593→   593→                            .clickable { onQueryChange("") },
+   495→   594→   594→                        contentAlignment = Alignment.Center
+   496→   595→   595→                    ) {
+   497→   596→   596→                        MqIcon(
+   498→   597→   597→                            icon = MqIcons.X, size = 12.dp,
+   499→   598→   598→                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+   500→   599→   599→                        )
+   501→   600→   600→                    }
+   502→   601→   601→                }
+   503→   602→   602→            }
+   504→   603→   603→            // sort (web ArrowDownUp → ArrowUpRight in MqIcons)
+   505→   604→   604→            Box(
+   506→   605→   605→                modifier = Modifier
+   507→   606→   606→                    .size(40.dp)
+   508→   607→   607→                    .clip(RoundedCornerShape(12.dp))
+   509→   608→   608→                    .background(
+   510→   609→   609→                        if (sort != 0) MaterialTheme.colorScheme.primary
+   511→   610→   610→                        else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.06f)
+   512→   611→   611→                    )
+   513→   612→   612→                    .clickable { onSortChange((sort + 1) % 3) },
+   514→   613→   613→                contentAlignment = Alignment.Center
+   515→   614→   614→            ) {
+   516→   615→   615→                MqIcon(
+   517→   616→   616→                    icon = MqIcons.ArrowUpRight, size = 14.dp,
+   518→   617→   617→                    tint = if (sort != 0) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+   519→   618→   618→                )
+   520→   619→   619→            }
+   521→   620→   620→            // shuffle — web disabled:opacity-30 when the list is empty
+   522→   621→   621→            Box(
+   523→   622→   622→                modifier = Modifier
+   524→   623→   623→                    .size(40.dp)
+   525→   624→   624→                    .clip(RoundedCornerShape(12.dp))
+   526→   625→   625→                    .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.06f))
+   527→   626→   626→                    .alpha(if (favorites.isNotEmpty()) 1f else 0.3f)
+   528→   627→   627→                    .clickable(enabled = favorites.isNotEmpty()) {
+   529→   628→   628→                        onPlayQueue(favorites.shuffled(), 0)
+   530→   629→   629→                    },
+   531→   630→   630→                contentAlignment = Alignment.Center
+   532→   631→   631→            ) {
+   533→   632→   632→                MqIcon(
+   534→   633→   633→                    icon = MqIcons.Shuffle, size = 14.dp,
+   535→   634→   634→                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+   536→   635→   635→                )
+   537→   636→   636→            }
+   538→   637→   637→        }
+   539→   638→   638→    }
+   540→   639→   639→
+   541→   640→   640→    // stats bar («Слушать все» + «Перемешать» + total time)
+   542→   641→   641→    if (favorites.isNotEmpty()) {
+   543→   642→   642→        item {
+   544→   643→   643→            Row(
+   545→   644→   644→                Modifier
+   546→   645→   645→                    .padding(horizontal = 16.dp)
+   547→   646→   646→                    .padding(bottom = 16.dp),
+   548→   647→   647→                verticalAlignment = Alignment.CenterVertically,
+   549→   648→   648→                horizontalArrangement = Arrangement.spacedBy(10.dp)
+   550→   649→   649→            ) {
+   551→   650→   650→                Row(
+   552→   651→   651→                    modifier = Modifier
+   553→   652→   652→                        .clip(RoundedCornerShape(50))
+   554→   653→   653→                        .background(MaterialTheme.colorScheme.primary)
+   555→   654→   654→                        .clickable { onPlayQueue(favorites, 0) }
+   556→   655→   655→                        .padding(horizontal = 20.dp, vertical = 10.dp),
+   557→   656→   656→                    verticalAlignment = Alignment.CenterVertically,
+   558→   657→   657→                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+   559→   658→   658→                ) {
+   560→   659→   659→                    MqIcon(icon = MqIcons.Play, size = 14.dp, tint = Color.White, fill = true, strokeWidth = 0f)
+   561→   660→   660→                    Text(
+   562→   661→   661→                        "Слушать все",
+   563→   662→   662→                        // web: text-xs font-semibold = 12/600, color --mq-text
+   564→   663→   663→                        style = MqType.meta.copy(fontWeight = FontWeight.SemiBold),
+   565→   664→   664→                        color = MaterialTheme.colorScheme.onBackground,
+   566→   665→   665→                    )
+   567→   666→   666→                }
+   568→   667→   667→                Row(
+   569→   668→   668→                    modifier = Modifier
+   570→   669→   669→                        .clip(RoundedCornerShape(50))
+   571→   670→   670→                        .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.06f))
+   572→   671→   671→                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.22f), RoundedCornerShape(50))
+   573→   672→   672→                        .clickable { onPlayQueue(favorites.shuffled(), 0) }
+   574→   673→   673→                        .padding(horizontal = 16.dp, vertical = 10.dp),
+   575→   674→   674→                    verticalAlignment = Alignment.CenterVertically,
+   576→   675→   675→                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+   577→   676→   676→                ) {
+   578→   677→   677→                    MqIcon(icon = MqIcons.Shuffle, size = 14.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+   579→   678→   678→                    Text(
+   580→   679→   679→                        "Перемешать",
+   581→   680→   680→                        style = MqType.meta.copy(fontWeight = FontWeight.SemiBold),
+   582→   681→   681→                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+   583→   682→   682→                    )
+   584→   683→   683→                }
+   585→   684→   684→                Spacer(Modifier.weight(1f))
+   586→   685→   685→                val total = favorites.sumOf { it.duration }
+   587→   686→   686→                if (total > 0) {
+   588→   687→   687→                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+   589→   688→   688→                        MqIcon(icon = MqIcons.Timer, size = 12.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+   590→   689→   689→                        Text(
+   591→   690→   690→                            formatTotal(total.toInt()),
+   592→   691→   691→                            style = MqType.meta2,
+   593→   692→   692→                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+   594→   693→   693→                        )
+   595→   694→   694→                    }
+   596→   695→   695→                }
+   597→   696→   696→            }
+   598→   697→   697→        }
+   599→   698→   698→    }
+   600→   699→   699→
+   601→
+   602→[showing lines 100-699 of 1721; use offset=700 with limit to continue reading]

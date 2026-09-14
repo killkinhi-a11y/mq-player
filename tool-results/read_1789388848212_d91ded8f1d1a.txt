@@ -1,0 +1,481 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+     4→import { useAppStore } from "@/store/useAppStore";
+     5→import { motion, AnimatePresence } from "framer-motion";
+     6→import { Moon, Star, Play, X, Pause, Clock, Sunrise, Zap, ChevronRight } from "lucide-react";
+     7→
+     8→// ── Time presets ──
+     9→const timeOptions = [5, 10, 15, 20, 25, 30, 45, 60, 90, 120, 150, 180];
+    10→const quickPresets = [15, 30, 45, 60, 90, 120];
+    11→
+    12→function formatOption(val: number): string {
+    13→  if (val < 60) return `${val} мин`;
+    14→  const h = Math.floor(val / 60);
+    15→  const m = val % 60;
+    16→  return m > 0 ? `${h} ч ${m} мин` : `${h} ч`;
+    17→}
+    18→
+    19→// ── Sleep cycle phases (90-minute cycles) ──
+    20→const SLEEP_CYCLE_MINUTES = 90;
+    21→
+    22→interface SleepPhase {
+    23→  name: string;
+    24→  startMin: number;
+    25→  endMin: number;
+    26→  color: string;
+    27→  label: string;
+    28→}
+    29→
+    30→const SLEEP_PHASES: SleepPhase[] = [
+    31→  { name: "light1", startMin: 0, endMin: 15, color: "#8b5cf6", label: "Лёгкий сон" },
+    32→  { name: "deep1", startMin: 15, endMin: 45, color: "#6366f1", label: "Глубокий сон" },
+    33→  { name: "light2", startMin: 45, endMin: 60, color: "#8b5cf6", label: "Лёгкий сон" },
+    34→  { name: "rem", startMin: 60, endMin: 75, color: "#06b6d4", label: "Фаза БДГ" },
+    35→  { name: "deep2", startMin: 75, endMin: 85, color: "#6366f1", label: "Глубокий сон" },
+    36→  { name: "wake", startMin: 85, endMin: 90, color: "#a78bfa", label: "Пробуждение" },
+    37→];
+    38→
+    39→function getSleepPhase(elapsedMinutes: number): SleepPhase {
+    40→  const pos = elapsedMinutes % SLEEP_CYCLE_MINUTES;
+    41→  for (const phase of SLEEP_PHASES) {
+    42→    if (pos >= phase.startMin && pos < phase.endMin) return phase;
+    43→  }
+    44→  return SLEEP_PHASES[0];
+    45→}
+    46→
+    47→// ── Sleep cycle recommendations ──
+    48→function getSleepCycleRecommendations(): { cycles: number; wakeTime: string; duration: string; quality: string; qualityColor: string }[] {
+    49→  const now = new Date();
+    50→  const fallAsleepMinutes = 14; // average
+    51→  const results: { cycles: number; wakeTime: string; duration: string; quality: string; qualityColor: string }[] = [];
+    52→
+    53→  for (let cycles = 3; cycles <= 7; cycles++) {
+    54→    const sleepMinutes = cycles * SLEEP_CYCLE_MINUTES;
+    55→    const wakeTime = new Date(now.getTime() + (fallAsleepMinutes + sleepMinutes) * 60000);
+    56→    const qualityMap: Record<number, { quality: string; qualityColor: string }> = {
+    57→      3: { quality: "Мало", qualityColor: "#f87171" },
+    58→      4: { quality: "Нормально", qualityColor: "#fbbf24" },
+    59→      5: { quality: "Хорошо", qualityColor: "#34d399" },
+    60→      6: { quality: "Отлично", qualityColor: "#60a5fa" },
+    61→      7: { quality: "Много", qualityColor: "#a78bfa" },
+    62→    };
+    63→    const q = qualityMap[cycles] || qualityMap[5];
+    64→    results.push({
+    65→      cycles,
+    66→      wakeTime: wakeTime.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+    67→      duration: formatOption(sleepMinutes),
+    68→      quality: q.quality,
+    69→      qualityColor: q.qualityColor,
+    70→    });
+    71→  }
+    72→  return results;
+    73→}
+    74→
+    75→// ── ScrollPicker (mobile) ──
+    76→function ScrollPicker({
+    77→  options,
+    78→  selected,
+    79→  onSelect,
+    80→}: {
+    81→  options: number[];
+    82→  selected: number;
+    83→  onSelect: (v: number) => void;
+    84→}) {
+    85→  const scrollRef = useRef<HTMLDivElement>(null);
+    86→  const scrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+    87→  const itemHeight = 48;
+    88→
+    89→  useEffect(() => {
+    90→    const idx = options.indexOf(selected);
+    91→    if (idx >= 0 && scrollRef.current) {
+    92→      const targetScroll = 72 + idx * itemHeight - (192 / 2 - itemHeight / 2);
+    93→      scrollRef.current.scrollTop = targetScroll;
+    94→    }
+    95→  }, [selected, options]);
+    96→
+    97→  const handleScroll = useCallback(() => {
+    98→    if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+    99→    scrollTimeout.current = setTimeout(() => {}, 150);
+   100→  }, []);
+   101→
+   102→  const handleScrollEnd = useCallback(() => {
+   103→    const el = scrollRef.current;
+   104→    if (!el) return;
+   105→    const scrollCenter = el.scrollTop + 192 / 2;
+   106→    const idx = Math.floor((scrollCenter - 72) / itemHeight);
+   107→    if (idx >= 0 && idx < options.length) {
+   108→      onSelect(options[idx]);
+   109→      const targetScroll = 72 + idx * itemHeight - (192 / 2 - itemHeight / 2);
+   110→      el.scrollTo({ top: targetScroll, behavior: "smooth" });
+   111→    }
+   112→  }, [options, onSelect]);
+   113→
+   114→  const getOpacity = useCallback(
+   115→    (idx: number) => {
+   116→      if (!scrollRef.current) return idx === options.indexOf(selected) ? 1 : 0.35;
+   117→      const scrollCenter = scrollRef.current.scrollTop + 192 / 2;
+   118→      const itemCenter = 72 + idx * itemHeight + itemHeight / 2;
+   119→      const distance = Math.abs(scrollCenter - itemCenter);
+   120→      if (distance < itemHeight / 2) return 1;
+   121→      if (distance > itemHeight * 2.5) return 0.15;
+   122→      return 0.35 + 0.65 * Math.max(0, 1 - distance / (itemHeight * 2.5));
+   123→    },
+   124→    [selected, options]
+   125→  );
+   126→
+   127→  const getScale = useCallback(
+   128→    (idx: number) => {
+   129→      if (!scrollRef.current) return idx === options.indexOf(selected) ? 1 : 0.9;
+   130→      const scrollCenter = scrollRef.current.scrollTop + 192 / 2;
+   131→      const itemCenter = 72 + idx * itemHeight + itemHeight / 2;
+   132→      const distance = Math.abs(scrollCenter - itemCenter);
+   133→      if (distance < itemHeight / 2) return 1;
+   134→      if (distance > itemHeight * 2) return 0.85;
+   135→      return 0.85 + 0.15 * Math.max(0, 1 - distance / (itemHeight * 2));
+   136→    },
+   137→    [selected, options]
+   138→  );
+   139→
+   140→  return (
+   141→    <div className="relative h-[192px] overflow-hidden rounded-2xl lg:hidden" style={{ backgroundColor: "var(--mq-card)" }}>
+   142→      <div className="absolute top-0 left-0 right-0 h-16 z-10 pointer-events-none rounded-t-2xl" style={{ background: "linear-gradient(var(--mq-card), transparent)" }} />
+   143→      <div className="absolute bottom-0 left-0 right-0 h-16 z-10 pointer-events-none rounded-b-2xl" style={{ background: "linear-gradient(transparent, var(--mq-card))" }} />
+   144→      <div className="absolute left-3 right-3 h-12 pointer-events-none z-[5] rounded-xl" style={{ backgroundColor: "var(--mq-accent)", opacity: 0.12, border: "1px solid var(--mq-accent)", top: "calc(50% - 24px)" }} />
+   145→      <div ref={scrollRef} onScroll={handleScroll} onTouchEnd={handleScrollEnd} onMouseUp={handleScrollEnd} className="h-full overflow-y-auto px-4" style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}>
+   146→        <div style={{ height: 72 }} />
+   147→        {options.map((val, idx) => (
+   148→          <div key={val} className="h-12 flex items-center justify-center cursor-pointer select-none" style={{ opacity: getOpacity(idx), transform: `scale(${getScale(idx)})`, transition: "opacity 0.15s ease, transform 0.15s ease" }} onClick={() => { onSelect(val); if (scrollRef.current) { const t = 72 + idx * itemHeight - (192 / 2 - itemHeight / 2); scrollRef.current.scrollTo({ top: t, behavior: "smooth" }); } }}>
+   149→            <span className="text-lg font-semibold tracking-wide" style={{ color: selected === val ? "var(--mq-accent)" : "var(--mq-text)" }}>{formatOption(val)}</span>
+   150→          </div>
+   151→        ))}
+   152→        <div style={{ height: 72 }} />
+   153→      </div>
+   154→    </div>
+   155→  );
+   156→}
+   157→
+   158→// ── Circular Timer Ring (PC) ──
+   159→function CircularTimer({ size = 280, progress, remainingSeconds, isRunning, isPaused }: { size?: number; progress: number; remainingSeconds: number; isRunning: boolean; isPaused: boolean }) {
+   160→  const radius = (size - 16) / 2;
+   161→  const circumference = 2 * Math.PI * radius;
+   162→  const strokeDashoffset = circumference * (1 - progress);
+   163→
+   164→  const hours = Math.floor(remainingSeconds / 3600);
+   165→  const minutes = Math.floor((remainingSeconds % 3600) / 60);
+   166→  const seconds = remainingSeconds % 60;
+   167→
+   168→  // Sleep phase
+   169→  const elapsedMinutes = progress > 0 ? (1 - progress) * (remainingSeconds / 60 + (1 - progress) * remainingSeconds / 60) : 0;
+   170→  const totalSetMinutes = remainingSeconds > 0 ? Math.round(remainingSeconds / (1 - progress + 0.001) / 60) : 0;
+   171→  const actualElapsed = totalSetMinutes > 0 ? totalSetMinutes * progress : 0;
+   172→  const phase = isRunning ? getSleepPhase(actualElapsed) : null;
+   173→  const currentCycle = totalSetMinutes > 0 ? Math.floor(actualElapsed / SLEEP_CYCLE_MINUTES) + 1 : 0;
+   174→
+   175→  return (
+   176→    <div className={`relative ${isRunning ? "timer-glow-pc" : ""}`}>
+   177→      <svg width={size} height={size} className="transform -rotate-90">
+   178→        {/* Background ring */}
+   179→        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--mq-border)" strokeWidth="6" opacity={0.3} />
+   180→        {/* Progress ring */}
+   181→        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="url(#timerGradPc)" strokeWidth="6" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} className="transition-all duration-1000 ease-linear" />
+   182→        {/* Glow track */}
+   183→        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="url(#timerGradPc)" strokeWidth="2" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} className="transition-all duration-1000 ease-linear" style={{ filter: "blur(6px)", opacity: 0.4 }} />
+   184→        <defs>
+   185→          <linearGradient id="timerGradPc" x1="0%" y1="0%" x2="100%" y2="100%">
+   186→            <stop offset="0%" stopColor="#8b5cf6" />
+   187→            <stop offset="50%" stopColor="#6366f1" />
+   188→            <stop offset="100%" stopColor="#06b6d4" />
+   189→          </linearGradient>
+   190→        </defs>
+   191→      </svg>
+   192→      {/* Center content */}
+   193→      <div className="absolute inset-0 flex flex-col items-center justify-center">
+   194→        {isPaused ? (
+   195→          <div className="flex items-center gap-2 mb-1">
+   196→            <Pause className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+   197→            <span className="text-xs font-medium" style={{ color: "var(--mq-accent)" }}>Пауза</span>
+   198→          </div>
+   199→        ) : null}
+   200→        <span className="font-bold tabular-nums tracking-wider" style={{ fontSize: hours > 0 ? "2.5rem" : "3.2rem", color: "var(--mq-text)", lineHeight: 1 }}>
+   201→          {hours > 0 && <span className="text-2xl font-light" style={{ color: "var(--mq-text-muted)" }}>{hours}:</span>}
+   202→          {minutes.toString().padStart(2, "0")}:{seconds.toString().padStart(2, "0")}
+   203→        </span>
+   204→        {phase && isRunning && (
+   205→          <motion.div key={phase.name} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="mt-2 text-center">
+   206→            <p className="mq-t-meta-2 font-medium" style={{ color: phase.color }}>Цикл {currentCycle} · {phase.label}</p>
+   207→            <div className="w-14 h-1 rounded-full mt-1 overflow-hidden" style={{ backgroundColor: "var(--mq-border)" }}>
+   208→              <div className="h-full rounded-full transition-all duration-1000" style={{ backgroundColor: phase.color, width: `${((phase.endMin / SLEEP_CYCLE_MINUTES) * 100)}%` }} />
+   209→            </div>
+   210→          </motion.div>
+   211→        )}
+   212→      </div>
+   213→    </div>
+   214→  );
+   215→}
+   216→
+   217→// ── Current Time Display ──
+   218→function CurrentTimeDisplay() {
+   219→  const [time, setTime] = useState(new Date());
+   220→  useEffect(() => { const i = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(i); }, []);
+   221→  return (
+   222→    <span className="tabular-nums tracking-wide" style={{ color: "var(--mq-text-muted)", fontSize: "0.85rem" }}>
+   223→      {time.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+   224→      <span style={{ opacity: 0.5 }}>:{time.getSeconds().toString().padStart(2, "0")}</span>
+   225→    </span>
+   226→  );
+   227→}
+   228→
+   229→// ── Main View ──
+   230→// Seeded PRNG (mulberry32) — module scope, pure factory: the same seed
+   231→// always yields the same starfield on server AND client (no hydration
+   232→// mismatch, no Math.random() during render).
+   233→function mulberry32(seed: number): () => number {
+   234→  let s = seed | 0;
+   235→  return () => {
+   236→    s = (s + 0x6d2b79f5) | 0;
+   237→    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+   238→    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+   239→    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+   240→  };
+   241→}
+   242→
+   243→export default function SleepTimerView() {
+   244→  const sleepTimerActive = useAppStore((s) => s.sleepTimerActive);
+   245→  const sleepTimerRemaining = useAppStore((s) => s.sleepTimerRemaining);
+   246→  const sleepTimerMinutes = useAppStore((s) => s.sleepTimerMinutes);
+   247→  const sleepTimerEndTime = useAppStore((s) => s.sleepTimerEndTime);
+   248→  const startSleepTimer = useAppStore((s) => s.startSleepTimer);
+   249→  const stopSleepTimer = useAppStore((s) => s.stopSleepTimer);
+   250→  const updateSleepTimer = useAppStore((s) => s.updateSleepTimer);
+   251→  const isPlaying = useAppStore((s) => s.isPlaying);
+   252→  const togglePlay = useAppStore((s) => s.togglePlay);
+   253→  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+   254→
+   255→  const [selectedMinutes, setSelectedMinutes] = useState(30);
+   256→
+   257→  // Deterministic starfield — same values on server and client (Math.random()
+   258→  // in render caused hydration mismatches + unstable renders).
+   259→  const stars = useMemo(() => {
+   260→    const rand = mulberry32(0x9e3779b9);
+   261→    return Array.from({ length: 12 }, (_, i) => ({
+   262→      id: i,
+   263→      x: rand() * 100,
+   264→      y: rand() * 100,
+   265→      size: rand() * 1.5 + 0.5,
+   266→      delay: rand() * 4,
+   267→    }));
+   268→  }, []);
+   269→
+   270→  useEffect(() => { if (!sleepTimerActive) return; const i = setInterval(updateSleepTimer, 1000); return () => clearInterval(i); }, [sleepTimerActive, updateSleepTimer]);
+   271→
+   272→  const handleStart = (minutes: number) => { startSleepTimer(minutes); if (!isPlaying) togglePlay(); };
+   273→
+   274→  // Keyboard shortcuts
+   275→  useEffect(() => {
+   276→    const handler = (e: KeyboardEvent) => {
+   277→      if (e.code === "Space") { e.preventDefault(); if (sleepTimerActive) stopSleepTimer(); else handleStart(selectedMinutes); }
+   278→      if (e.code === "Escape" && sleepTimerActive) { e.preventDefault(); stopSleepTimer(); }
+   279→    };
+   280→    window.addEventListener("keydown", handler);
+   281→    return () => window.removeEventListener("keydown", handler);
+   282→  }, [sleepTimerActive, selectedMinutes, stopSleepTimer, handleStart, isPlaying, togglePlay]);
+   283→
+   284→  const totalTime = sleepTimerMinutes * 60;
+   285→  const progress = totalTime > 0 ? 1 - sleepTimerRemaining / totalTime : 0;
+   286→  const wakeTimeStr = sleepTimerEndTime ? new Date(sleepTimerEndTime).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) : "--:--";
+   287→
+   288→  // Recommendations
+   289→  const recommendations = useMemo(() => getSleepCycleRecommendations(), []);
+   290→
+   291→  return (
+   292→    <div className="min-h-screen px-4 pt-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28 flex flex-col items-center relative overflow-hidden" style={{ backgroundColor: "var(--mq-bg)" }}>
+   293→      {/* Stars background */}
+   294→      <div className="absolute inset-0 pointer-events-none">
+   295→        {stars.map((star) => (
+   296→          <motion.div key={star.id} className="absolute rounded-full" style={{ left: `${star.x}%`, top: `${star.y}%`, width: star.size, height: star.size, backgroundColor: "var(--mq-accent)", opacity: 0.2 }} animate={animationsEnabled ? { opacity: [0.1, 0.4, 0.1], scale: [1, 1.3, 1] } : undefined} transition={{ duration: 3 + star.delay, repeat: Infinity, delay: star.delay, ease: "easeInOut" }} />
+   297→        ))}
+   298→      </div>
+   299→
+   300→      <AnimatePresence mode="wait">
+   301→        {!sleepTimerActive ? (
+   302→          /* ═══════════════════════════ PICKER MODE ═══════════════════════════ */
+   303→          <motion.div key="picker" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }} className="flex flex-col items-center w-full max-w-[var(--mq-container-narrow)] flex-1">
+   304→            {/* Header */}
+   305→            <motion.div className="flex flex-col items-center mb-6" animate={animationsEnabled ? { y: [0, -4, 0] } : undefined} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>
+   306→              <Moon className="w-10 h-10 mb-3" style={{ color: "var(--mq-accent)", opacity: 0.8 }} />
+   307→              <h1 className="text-2xl font-bold" style={{ color: "var(--mq-text)" }}>Таймер сна</h1>
+   308→              <div className="flex items-center gap-2 mt-1">
+   309→                <CurrentTimeDisplay />
+   310→              </div>
+   311→            </motion.div>
+   312→
+   313→            {/* Desktop: Grid presets (PC-optimized) */}
+   314→            <div className="hidden lg:grid grid-cols-6 gap-2 w-full mb-6">
+   315→              {quickPresets.map((val) => (
+   316→                <motion.button key={val} whileHover={{ scale: 1.05, y: -2, transition: { duration: 0.12, ease: "easeOut" } }} onClick={() => setSelectedMinutes(val)} className="py-3 rounded-xl text-sm font-semibold transition-colors" style={{ backgroundColor: selectedMinutes === val ? "var(--mq-accent)" : "var(--mq-card)", color: selectedMinutes === val ? "var(--mq-bg)" : "var(--mq-text-muted)", border: "1px solid", borderColor: selectedMinutes === val ? "var(--mq-accent)" : "var(--mq-border)", boxShadow: selectedMinutes === val ? "0 4px 16px var(--mq-glow)" : "none" }}>
+   317→                  {formatOption(val)}
+   318→                </motion.button>
+   319→              ))}
+   320→            </div>
+   321→
+   322→            {/* Mobile: Scroll picker */}
+   323→            <div className="w-full mb-6">
+   324→              <ScrollPicker options={timeOptions} selected={selectedMinutes} onSelect={setSelectedMinutes} />
+   325→            </div>
+   326→
+   327→            {/* Mobile: Quick presets */}
+   328→            <div className="flex gap-2 mb-6 flex-wrap justify-center lg:hidden">
+   329→              {[15, 30, 60, 90].map((val) => (
+   330→                <motion.button key={val} onClick={() => setSelectedMinutes(val)} className="px-4 py-2 rounded-full text-sm font-medium" style={{ backgroundColor: selectedMinutes === val ? "var(--mq-accent)" : "var(--mq-card)", color: selectedMinutes === val ? "var(--mq-bg)" : "var(--mq-text-muted)", border: "1px solid", borderColor: selectedMinutes === val ? "var(--mq-accent)" : "var(--mq-border)" }}>
+   331→                  {formatOption(val)}
+   332→                </motion.button>
+   333→              ))}
+   334→            </div>
+   335→
+   336→            {/* Start button */}
+   337→            <motion.button whileHover={{ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } }} onClick={() => handleStart(selectedMinutes)} className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl text-base font-semibold shadow-lg w-full max-w-sm" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-bg)" }}>
+   338→              <Play className="w-5 h-5" />
+   339→              Начать {formatOption(selectedMinutes)}
+   340→            </motion.button>
+   341→
+   342→            {/* Desktop: Sleep cycle recommendations */}
+   343→            <div className="hidden lg:block w-full mt-8">
+   344→              <div className="rounded-2xl p-5" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+   345→                <div className="flex items-center gap-2 mb-3">
+   346→                  <Zap className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+   347→                  <h3 className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>Циклы сна</h3>
+   348→                  <span className="mq-t-meta-2 ml-auto" style={{ color: "var(--mq-text-muted)" }}>~90 мин/цикл · 14 мин на засыпание</span>
+   349→                </div>
+   350→                <div className="grid grid-cols-5 gap-2">
+   351→                  {recommendations.map((rec) => (
+   352→                    <motion.div key={rec.cycles} whileHover={{ y: -2, transition: { duration: 0.12, ease: "easeOut" } }} className="rounded-xl p-3 text-center cursor-pointer transition-colors" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--mq-border)" }} onClick={() => { setSelectedMinutes(rec.cycles * SLEEP_CYCLE_MINUTES); }}>
+   353→                      <p className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>{rec.wakeTime}</p>
+   354→                      <p className="mq-t-meta-2 mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{rec.cycles} цикл</p>
+   355→                      <p className="mq-t-meta-2 mt-1 font-medium" style={{ color: rec.qualityColor }}>{rec.quality}</p>
+   356→                    </motion.div>
+   357→                  ))}
+   358→                </div>
+   359→              </div>
+   360→            </div>
+   361→
+   362→            {/* Keyboard shortcuts hint (PC) */}
+   363→            <div className="hidden lg:flex gap-4 mt-4 mq-t-meta-2" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+   364→              <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded mq-t-meta-2" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>Space</kbd>Старт</span>
+   365→              <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded mq-t-meta-2" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>Esc</kbd>Стоп</span>
+   366→            </div>
+   367→          </motion.div>
+   368→        ) : (
+   369→          /* ═══════════════════════════ ACTIVE MODE ═══════════════════════════ */
+   370→          <motion.div key="active" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} transition={{ duration: 0.3 }} className="flex flex-col items-center w-full max-w-[var(--mq-container-narrow)] flex-1">
+   371→            {/* Header */}
+   372→            <div className="flex flex-col items-center mb-6">
+   373→              <motion.div animate={animationsEnabled ? { y: [0, -6, 0], rotate: [0, 5, -5, 0] } : undefined} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}>
+   374→                <Moon className="w-12 h-12 mb-3" style={{ color: "var(--mq-accent)" }} />
+   375→              </motion.div>
+   376→              <h1 className="text-2xl font-bold mb-1" style={{ color: "var(--mq-text)" }}>Таймер сна</h1>
+   377→              <div className="flex items-center gap-1.5" style={{ color: "var(--mq-accent)" }}>
+   378→                <motion.div animate={animationsEnabled ? { opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8] } : undefined} transition={{ duration: 1.5, repeat: Infinity }}><Star className="w-3 h-3" fill="var(--mq-accent)" /></motion.div>
+   379→                <span className="text-sm font-medium">Активен</span>
+   380→                <motion.div animate={animationsEnabled ? { opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8] } : undefined} transition={{ duration: 1.5, repeat: Infinity, delay: 0.3 }}><Star className="w-3 h-3" fill="var(--mq-accent)" /></motion.div>
+   381→              </div>
+   382→            </div>
+   383→
+   384→            {/* Desktop: Circular Timer + Info side by side */}
+   385→            <div className="hidden lg:flex items-center gap-10 w-full justify-center mb-6">
+   386→              {/* Circular Timer */}
+   387→              <CircularTimer size={300} progress={progress} remainingSeconds={sleepTimerRemaining} isRunning={true} isPaused={false} />
+   388→              {/* Info panel */}
+   389→              <div className="space-y-5 flex-1 max-w-xs">
+   390→                {/* Wake time */}
+   391→                <div className="rounded-2xl p-4" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+   392→                  <div className="flex items-center gap-2 mb-2">
+   393→                    <Sunrise className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+   394→                    <span className="text-xs font-medium" style={{ color: "var(--mq-text-muted)" }}>Пробуждение</span>
+   395→                  </div>
+   396→                  <p className="text-3xl font-bold" style={{ color: "var(--mq-text)" }}>{wakeTimeStr}</p>
+   397→                </div>
+   398→
+   399→                {/* Duration */}
+   400→                <div className="rounded-2xl p-4" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+   401→                  <div className="flex items-center gap-2 mb-2">
+   402→                    <Clock className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+   403→                    <span className="text-xs font-medium" style={{ color: "var(--mq-text-muted)" }}>Длительность</span>
+   404→                  </div>
+   405→                  <p className="text-lg font-semibold" style={{ color: "var(--mq-text)" }}>{formatOption(sleepTimerMinutes)}</p>
+   406→                </div>
+   407→
+   408→                {/* Current sleep cycle */}
+   409→                <div className="rounded-2xl p-4" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+   410→                  <div className="flex items-center gap-2 mb-2">
+   411→                    <Moon className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+   412→                    <span className="text-xs font-medium" style={{ color: "var(--mq-text-muted)" }}>Цикл</span>
+   413→                  </div>
+   414→                  <SleepCycleBar progress={progress} totalMinutes={sleepTimerMinutes} />
+   415→                </div>
+   416→              </div>
+   417→            </div>
+   418→
+   419→            {/* Mobile: Timer display (original style) */}
+   420→            <div className="lg:hidden flex flex-col items-center mb-8">
+   421→              <motion.span className="text-6xl font-bold tabular-nums tracking-wider" style={{ color: "var(--mq-text)" }} key={`${Math.floor(sleepTimerRemaining / 60)}:${sleepTimerRemaining % 60}`} initial={animationsEnabled ? { scale: 1.05, opacity: 0.8 } : undefined} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.3 }}>
+   422→                {Math.floor(sleepTimerRemaining / 60).toString().padStart(2, "0")}:{(sleepTimerRemaining % 60).toString().padStart(2, "0")}
+   423→              </motion.span>
+   424→              <span className="text-sm mt-2" style={{ color: "var(--mq-text-muted)" }}>осталось</span>
+   425→              {/* Progress bar */}
+   426→              <div className="w-full h-2 rounded-full overflow-hidden mt-4 mb-2" style={{ backgroundColor: "var(--mq-border)", opacity: 0.4 }}>
+   427→                <motion.div className="h-full rounded-full" style={{ width: "100%", transformOrigin: "left", willChange: "transform", backgroundColor: "var(--mq-accent)", boxShadow: "0 0 12px var(--mq-glow)" }} initial={{ scaleX: 0 }} animate={{ scaleX: progress }} transition={{ duration: 0.5, ease: "linear" }} />
+   428→              </div>
+   429→              <div className="flex justify-between w-full">
+   430→                <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Пробуждение: {wakeTimeStr}</span>
+   431→                <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>{formatOption(sleepTimerMinutes)}</span>
+   432→              </div>
+   433→            </div>
+   434→
+   435→            {/* Stop button */}
+   436→            <motion.button whileHover={{ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } }} onClick={stopSleepTimer} className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl text-base font-semibold w-full max-w-sm" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}>
+   437→              <X className="w-5 h-5" />
+   438→              Отменить таймер
+   439→            </motion.button>
+   440→
+   441→            {/* Desktop keyboard hint */}
+   442→            <div className="hidden lg:flex gap-4 mt-4 mq-t-meta-2" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+   443→              <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded mq-t-meta-2" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>Space</kbd>Стоп</span>
+   444→            </div>
+   445→          </motion.div>
+   446→        )}
+   447→      </AnimatePresence>
+   448→    </div>
+   449→  );
+   450→}
+   451→
+   452→// ── Sleep Cycle Progress Bar ──
+   453→function SleepCycleBar({ progress, totalMinutes }: { progress: number; totalMinutes: number }) {
+   454→  const elapsed = totalMinutes * progress;
+   455→  const cycleNum = Math.floor(elapsed / SLEEP_CYCLE_MINUTES) + 1;
+   456→  const totalCycles = Math.ceil(totalMinutes / SLEEP_CYCLE_MINUTES);
+   457→  const phase = getSleepPhase(elapsed);
+   458→
+   459→  return (
+   460→    <div className="space-y-2">
+   461→      <div className="flex items-center justify-between">
+   462→        <span className="text-sm font-semibold" style={{ color: phase.color }}>{phase.label}</span>
+   463→        <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Цикл {cycleNum} из {totalCycles}</span>
+   464→      </div>
+   465→      {/* Phase bar */}
+   466→      <div className="flex h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--mq-border)", opacity: 0.4 }}>
+   467→        {SLEEP_PHASES.map((p) => {
+   468→          const widthPct = ((p.endMin - p.startMin) / SLEEP_CYCLE_MINUTES) * 100;
+   469→          const posInCycle = (elapsed % SLEEP_CYCLE_MINUTES);
+   470→          const isCurrentPhase = posInCycle >= p.startMin && posInCycle < p.endMin;
+   471→          return (
+   472→            <div key={p.name} className="h-full transition-opacity duration-500" style={{ width: `${widthPct}%`, backgroundColor: isCurrentPhase ? p.color : p.color, opacity: isCurrentPhase ? 1 : 0.25 }} />
+   473→          );
+   474→        })}
+   475→        {/* Position marker */}
+   476→        <div className="absolute h-3 w-0.5 rounded-full -translate-y-0.5 transition-all duration-1000" style={{ left: `${(elapsed % SLEEP_CYCLE_MINUTES) / SLEEP_CYCLE_MINUTES * 100}%`, backgroundColor: "#fff", top: "0", boxShadow: "0 0 6px rgba(255,255,255,0.5)", position: "relative" }} />
+   477→      </div>
+   478→    </div>
+   479→  );
+   480→}
+   481→
