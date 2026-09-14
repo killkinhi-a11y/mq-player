@@ -3438,3 +3438,35 @@ Stage Summary:
   sync, Home «Друзья слушают»/«В тренде» sections, trending endpoint wired
   but not yet surfaced, batch→playlist action. No device QA possible
   (no adb/KVM) — NOT VERIFIED on real hardware.
+
+---
+Task ID: parity-1 (release + verification)
+Agent: main (Super Z)
+Task: Release 2.3.0 + live verification + final report
+
+Work Log:
+- RELEASE 2.3.0 (versionCode 6): assembled + signed with the SAME key as
+  2.2.0 (cert 7d0eca5d…7330 — no rotation, in-place upgrade possible);
+  APK 4 151 612 B SHA-256 da2c6362611c940ff558bb6799f1c2963cf4a73a5eb12db4a4318217eb4ba2ea;
+  AAB 8 161 336 B; debuggable=false; package com.mq1.player unchanged.
+- GitHub release android-v2.3.0 (id 388480417): MQPlayer.apk + AAB +
+  SHA256SUMS.txt uploaded. PERMANENT URL verified end-to-end:
+  releases/latest/download/MQPlayer.apk → 200 application/vnd.android.package-archive,
+  downloaded bytes SHA-256 == built == uploaded, apksigner verify OK.
+- LIVE endpoint verification (production): /api/music/genre 200;
+  /api/music/trending 200 (tracks); /api/music/radio 200; /api/group-chats
+  with x-demo-user-id → 3 demo groups; /api/auth/providers google=true +
+  clientId present; /play 200; assetlinks.json serves all 3 fingerprints
+  (debug 48:FC:60…, release-2.1 41:2E:86…, release-2.2/2.3 7D:0E:CA:5D…).
+- Web: ZERO web changes in this pass (Android-only) — web stays at v76.
+- Repo pushed (ce3c976b, main). Secret scan on added lines: clean.
+
+Stage Summary:
+- 138/138 tests; release 2.3.0 live at the permanent URL; all new endpoint
+  contracts live-verified.
+- HONEST LIMITS: no physical device/emulator in the sandbox (no adb devices,
+  no KVM, no emulator binary) → on-device QA NOT VERIFIED (logcat, real
+  Google account picker, background playback/process death, notification/
+  lockscreen behavior need a real device); transport differences kept:
+  chats polling (30s/5s) instead of SSE; listen-together sync and Home
+  «Друзья слушают»/«В тренде» sections deferred to the next pass.
