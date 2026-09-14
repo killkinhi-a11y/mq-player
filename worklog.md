@@ -3554,3 +3554,64 @@ Stage Summary:
   emulator binary, adb reports no devices) → DEVICE QA = BLOCKED. Real
   Google account picker, Play Services interop, AndroidKeyStore cookie
   sealing remain device-verified only. Tests do NOT replace device QA.
+
+---
+Task ID: emu-boot-chain
+Agent: Main Agent
+Task: MQ Player Android runtime debugging - emulator boot chain root causes
+
+Work Log:
+- GitHub tokens configured (classic + fine-grained, both API 200), remote updated
+- Diagnosed snapshot poison cycle: qemu fork savevm writes invalid slirp sbuf -> load fails -> cold boot -> progress lost. Fix: -feature -VirtioWifi (device removed) + HMP set_link virtio-net-pci.0 off -> clean saves/loads
+- Emulator ignores SIGTERM graceful save in this config; discovered console command "avd snapshot save default_boot" (works reliably, verified via ram.bin mtime)
+- Diagnosed guest BOOT LOOP via persistent console stream capture: keystore2 Rust panic (SQLITE_CANTOPEN /data/misc/keystore/persistent.sqlite) -> vold "No key found in /metadata/vold/metadata_encryption/key" -> init_user0_failed -> reboot loop. Root: -data sparse bypass skipped emulator's data+encryptionkey creation
+- AVD moved to PolarFS (29P free) -> emulator's own 6G data + encryptionkey.img creation passes disk check
+- vold key generation+persist confirmed via guest shell (/metadata/vold exists, dev vdd1)
+- HOST OOM killed QEMU at guest RAM 2560 (RSS 3.4G); reduced to 1536MB
+- Chunk v9 fresh@1536: resets=0, adb authenticated (device), clean snapshot save, uptime 474s and climbing
+
+Stage Summary:
+- Boot loop BROKEN, clean snapshot save/load chain WORKING, adb ONLINE
+- Next: continue chunks to sys.boot_completed, then install exact APK 2.3.1 + Demo crash capture
+
+---
+Task ID: v38-runtime-final
+Agent: main (Super Z)
+Task: Continue from v37 — FINAL runtime verification of Demo crash + Google login on the exact 2.3.1 APK (screenshot-driven, system_server-health-gated)
+
+Work Log:
+- Sandbox restarted (all processes dead; /home/z re-synced wiping untracked state). Recovered durable lab at /tmp/my-project: v1-v37 chunk scripts, android-runtime/state evidence, 246KB worklog, AVD mq35x (snapshot default_boot, userdata-qemu.img.qcow2 with APK 2.3.1 installed), SDK intact.
+- Verified /tmp/my-project/android-runtime/exact-release-2.3.1.apk SHA-256 = 6ff2d10b5c904f74cd7bdee52fccffb8eca8c0f3aeb5061c9d7eff6d56ca2386 (exact user APK, versionCode 7).
+- Reconstructed last-session evidence: app launches (START result 0, splash, LoginScreen render + permission dialog); 03:52:43 system_server FATAL "Lost network stack" cascade -> DeadSystemException everywhere + post-crash am start result -92 (5x). Per user instruction: DeadSystemRuntimeException NOT counted as MQ bug (system_server died first = ENVIRONMENT).
+- ROOT CAUSE of tap failures found: LoginScreen content (~660dp) exceeds the 320x640 viewport; footer "Демо-режим | Регистрация" is BELOW THE FOLD — previous sweeps (y 545-600 x=60) could never hit it. A vertical SCROLL is required before tapping Демо. Google button sits at the TOP of the card (no scroll needed).
+- VLM skill loaded; screenshot analysis pipeline built (z-ai vision CLI + grid_overlay.py for coordinates + find_text.py pixel band analysis; VLM raw coords unreliable -> pixel analysis is authoritative).
+- Built v38 toolchain: evdev_blobs.py (tap/swipe as multi-phase MT type-B blobs with real host-side timing), sendblob.sh (guest-side dd/cat to all MT evdev devices), grid_overlay.py, find_text.py.
+- Built emulator-chunk-v38a.sh: COLD BOOT (-no-snapshot-load, no serial reboot; default_boot snapshot hardware.ini says ramSize=2560 vs runtime 1536 -> load mismatch suspected all along) -> boot_completed -> getprops + package verify -> pm grant POST_NOTIFICATIONS -> CONSOLE "avd snapshot save booted" (set_link off to keep slirp quiescent; stability-verified ram.bin).
+- Built emulator-chunk-v38b.sh (DEMO TEST): load "booted" (fast resume) -> Phase 1 health check (system_server PID + services + meminfo; 12s poll loop throughout) -> launch -> dialog dismiss via blob ALLOW (160,351) -> SCROLL UP -> FRESH uiautomator dump post-scroll (rm-first, mtime-verified) -> Демо coords (dump > pixel > fallback) -> blob tap -> 60s pid+system_server watch + screencaps at +20/+48s -> PIL diff -> classification A started / B APP CRASH / C system_server ENV / D input fail / E ANR -> evidence (logcat full, FATAL blocks, last_crash.txt, tombstones, dropbox, app procs) -> nav sweep if demo works.
+- Built emulator-chunk-v38c.sh (GOOGLE TEST): same prep + pm clear (guarantee LoginScreen) + guest network verification (ping mq1.vercel.app) -> Google button coords (dump > white-band pixels > fallback 160,207) -> blob tap -> 120s watch -> MqAuth step capture (GOOGLE_02 nonce -> GOOGLE_04 provider -> pass1/fallback pass2) -> CASE A-I classification. AOSP has no GMS -> full picker flow expected BLOCKED, verified with runtime evidence to that point.
+- All state under /tmp/my-project/android-runtime/state/ (survives /home/z re-syncs).
+
+Stage Summary:
+- Next: run v38a (cold boot + save "booted"), then v38b (Demo), then v38c (Google).
+- No code changes, no web changes, no release — runtime evidence first.
+
+---
+Task ID: v40-41-env-forensics
+Agent: main (Super Z)
+Task: Why every emulator run dies + snapshot loading forensics
+
+Work Log:
+- v38a (cold boot): SUCCESS — boot_completed 391s, system_server 614 alive, grant, console "avd snapshot save booted" wrote 1.34GB ram.bin. BUT the save cannot load: qemu 'ram' device length mismatch 0x2000 vs 0x10000.
+- default_boot ALSO fails the same way with EXACT v3x args (tested 2x) => NO snapshot has EVER loaded in this environment; every v3x "load" was a silent cold boot.
+- Snapshot forensics: snapshot.pb records true launch args (both snapshots: -memory 1536, but hardware.ini says ramSize=2560 — the emulator prints "Increasing RAM size to 2560MB": the system image bumps -memory 1536 to 2560 at machine build).
+- Editing snapshot hardware.ini breaks a fingerprint check ("different AVD configuration") — cannot patch metadata.
+- Probable root of unloadability: AVD moved from ext4 PolarFS (29P) to this sandbox's non-ext4 rootfs; emulator prints "File System is not ext4, disable QuickbootFileBacked feature" — the QuickbootFileBacked ON(at save, old disk)/OFF(now) RAM-layout difference matches the 'ram' section mismatch. Not fixable here.
+- v38b run1: snapshot load failed -> cold boot with POISONED gfx pipeline -> screencaps empty (62B/0B). App pid was alive; tap executed with fallback coords; outer 600s truncation killed classification.
+- v39 (clean cold boot, link ON, app launched at +45s): networkstack TetheringService ANR ("waited 20001ms") -> ActivityManager killed pid 1006 "bg anr" -> system_server "Lost network stack" FATAL -> DeadSystem cascade. The app never ran app code (still ART init) => pure environment failure, NOT an MQ bug.
+- v40a (clean cold boot, link OFF, idle): system died at +90s idle during settle (networkstack died first). Link OFF is worse than ON (v38a link ON idle survived +113s).
+- Background process survival re-test across tool-call boundary: STILL KILLED (setsid+nohup+disown dies). Single-chunk constraint confirmed.
+- v41 design: link ON + device_config service_timeout 120000 (insurance) + settle 70s + app launch +130s + streaming logcat started BEFORE the tap (evidence survives outer truncation) + in-line pixel footer detection + evdev blob tap (adb root early — v39 missed root, sendblob writes /dev/input as root).
+
+Stage Summary:
+- Environment failure root causes fully mapped: TCG slowness -> networkstack 20s ANR -> system_server cascade; snapshot loading impossible on non-ext4 rootfs.
+- v41 = the definitive Demo test chunk (single-shot, evidence-durable).
