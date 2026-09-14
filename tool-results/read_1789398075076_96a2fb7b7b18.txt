@@ -1,0 +1,855 @@
+     1→package com.mq1.player.ui.screens
+     2→
+     3→import android.content.Intent
+     4→import android.util.Log
+     5→import androidx.compose.foundation.background
+     6→import androidx.compose.foundation.border
+     7→import androidx.compose.foundation.clickable
+     8→import androidx.compose.foundation.layout.Arrangement
+     9→import androidx.compose.foundation.layout.Box
+    10→import androidx.compose.foundation.layout.Column
+    11→import androidx.compose.foundation.layout.Row
+    12→import androidx.compose.foundation.layout.Spacer
+    13→import androidx.compose.foundation.layout.fillMaxSize
+    14→import androidx.compose.foundation.layout.fillMaxWidth
+    15→import androidx.compose.foundation.layout.height
+    16→import androidx.compose.foundation.layout.padding
+    17→import androidx.compose.foundation.layout.size
+    18→import androidx.compose.foundation.layout.width
+    19→import androidx.compose.foundation.rememberScrollState
+    20→import androidx.compose.foundation.shape.RoundedCornerShape
+    21→import androidx.compose.foundation.text.BasicTextField
+    22→import androidx.compose.foundation.text.KeyboardOptions
+    23→import androidx.compose.foundation.verticalScroll
+    24→import androidx.compose.material3.CircularProgressIndicator
+    25→import androidx.compose.material3.MaterialTheme
+    26→import androidx.compose.material3.Text
+    27→import androidx.compose.runtime.Composable
+    28→import androidx.compose.runtime.LaunchedEffect
+    29→import androidx.compose.runtime.getValue
+    30→import androidx.compose.runtime.mutableStateOf
+    31→import androidx.compose.runtime.remember
+    32→import androidx.compose.runtime.rememberCoroutineScope
+    33→import androidx.compose.runtime.setValue
+    34→import androidx.compose.ui.Alignment
+    35→import androidx.compose.ui.Modifier
+    36→import androidx.compose.ui.draw.clip
+    37→import androidx.compose.ui.focus.FocusRequester
+    38→import androidx.compose.ui.focus.focusRequester
+    39→import androidx.compose.ui.graphics.Brush
+    40→import androidx.compose.ui.graphics.drawscope.withTransform
+    41→import androidx.compose.ui.graphics.Color
+    42→import androidx.compose.ui.platform.LocalContext
+    43→import androidx.compose.ui.text.font.FontWeight
+    44→import androidx.compose.ui.text.input.KeyboardType
+    45→import androidx.compose.ui.text.input.PasswordVisualTransformation
+    46→import androidx.compose.ui.text.style.TextAlign
+    47→import androidx.compose.ui.text.style.TextDecoration
+    48→import androidx.compose.ui.unit.dp
+    49→import androidx.compose.ui.unit.sp
+    50→import com.mq1.player.data.LocalStore
+    51→import com.mq1.player.data.api.RegisterResponse
+    52→import com.mq1.player.data.api.Track
+    53→import com.mq1.player.di.ServiceLocator
+    54→import com.mq1.player.ui.components.MqIcon
+    55→import com.mq1.player.ui.components.MqIcons
+    56→import com.mq1.player.ui.theme.LocalMqPalette
+    57→import com.mq1.player.ui.theme.MqType
+    58→import androidx.credentials.CredentialManager
+    59→import androidx.credentials.GetCredentialRequest
+    60→import androidx.credentials.exceptions.GetCredentialCancellationException
+    61→import androidx.credentials.exceptions.GetCredentialException
+    62→import androidx.credentials.exceptions.GetCredentialProviderConfigurationException
+    63→import androidx.credentials.exceptions.NoCredentialException
+    64→import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+    65→import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+    66→import kotlinx.coroutines.launch
+    67→
+    68→/**
+    69→ * WEB PARITY — exact port of the web AuthView "telegram" landing
+    70→ * (src/components/mq/AuthView.tsx), 375×844 reference:
+    71→ *
+    72→ *  page: bg + theme radial gradient + 6 telegram glow blobs (3–8%)
+    73→ *  card: bg card, 1dp border, r16, p24, max 448dp, centered
+    74→ *   ├ 64×64 accent r16 logo, "mq" 24/800 white
+    75→ *   ├ "Вход в MQ Player" 20/600
+    76→ *   ├ subtitle 14/400 muted
+    77→ *   ├ Google button: white bg, #1F2937 text, #E5E7EB border, r12, 44dp
+    78→ *   ├ hairline ─ Telegram section
+    79→ *   │   header: Send 16 telegram + "Вход через Telegram" 14/500
+    80→ *   │   helper 12/400 muted
+    81→ *   │   "Открыть бота в Telegram": telegram@15% bg + @30% border, r12
+    82→ *   │   6 OTP boxes 44×56 r12 (border: telegram filled / red error)
+    83→ *   │   "Подтвердить": telegram bg, white, r12, 44dp
+    84→ *   ├ "Продолжить с Email": inputBg + border, r12, Mail 16
+    85→ *   ├ hairline ─ "Демо-режим" (muted) | "Регистрация" (text 14/500)
+    86→ *   └ hairline ─ legal 12/400 muted underline
+    87→ *
+    88→ * Telegram flow = the existing native bot-code login (unchanged logic).
+    89→ * Email / Регистрация / confirm = the same API endpoints the web uses.
+    90→ * Демо-режим = local demo session + public demo tracks (web semantics).
+    91→ */
+    92→private val Telegram = Color(0xFF2AABEE)          // --mq-telegram
+    93→
+    94→@Composable
+    95→fun LoginScreen(onLoggedIn: (LocalStore.SessionUser) -> Unit) {
+    96→    var step by remember { mutableStateOf("landing") } // landing | email | register | confirm
+    97→    var registerEmail by remember { mutableStateOf("") }
+    98→
+    99→    Box(
+   100→        modifier = Modifier
+   101→            .fillMaxSize()
+   102→            .background(MaterialTheme.colorScheme.background)
+   103→    ) {
+   104→        // theme radial gradient + telegram glow blobs (web background)
+   105→        Box(
+   106→            Modifier
+   107→                .fillMaxSize()
+   108→                .background(
+   109→                    Brush.radialGradient(
+   110→                        listOf(Color.Transparent, Color.Transparent),
+   111→                        radius = 900f
+   112→                    )
+   113→                )
+   114→        )
+   115→        AuthGlowBlobs()
+   116→
+   117→        Column(
+   118→            modifier = Modifier
+   119→                .fillMaxSize()
+   120→                .verticalScroll(rememberScrollState())
+   121→                .padding(16.dp),
+   122→            horizontalAlignment = Alignment.CenterHorizontally,
+   123→            verticalArrangement = Arrangement.Center
+   124→        ) {
+   125→            when (step) {
+   126→                "email" -> EmailLoginCard(
+   127→                    onBack = { step = "landing" },
+   128→                    onLoggedIn = onLoggedIn,
+   129→                    onNeedConfirm = { step = "confirm" }
+   130→                )
+   131→                "register" -> RegisterCard(
+   132→                    email = registerEmail,
+   133→                    onEmail = { registerEmail = it },
+   134→                    onBack = { step = "landing" },
+   135→                    onRegistered = { step = "confirm" }
+   136→                )
+   137→                "confirm" -> ConfirmCard(
+   138→                    email = registerEmail,
+   139→                    onConfirmed = onLoggedIn,
+   140→                    onBack = { step = "register" }
+   141→                )
+   142→                else -> AuthLandingCard(
+   143→                    onEmail = { step = "email" },
+   144→                    onRegister = { step = "register" },
+   145→                    onLoggedIn = onLoggedIn,
+   146→                    onDemo = { user ->
+   147→                        // web demo semantics (AuthView.handleDemoLogin +
+   148→                        // useAppStore.setAuth): local session + demo queue,
+   149→                        // isPlaying: false — queue loads PAUSED, first play tap
+   150→                        // starts it. No server round-trips, no session cookie.
+   151→                        ServiceLocator.playbackController.playQueue(DemoTracks, 0, autoplay = false)
+   152→                        onLoggedIn(user)
+   153→                    }
+   154→                )
+   155→            }
+   156→        }
+   157→    }
+   158→}
+   159→
+   160→/** Web DEMO_TRACKS — public CC0 samples served by the production host. */
+   161→val DemoTracks = listOf(
+   162→    demoTrack("demo-1", "Ambient Dreams", "ambient", 40, 1),
+   163→    demoTrack("demo-2", "Electronic Pulse", "electronic", 40, 2),
+   164→    demoTrack("demo-3", "Jazz Evening", "jazz", 40, 3),
+   165→    demoTrack("demo-4", "Rock Energy", "rock", 40, 4),
+   166→)
+   167→
+   168→private fun demoTrack(id: String, title: String, genre: String, duration: Int, n: Int) = Track(
+   169→    id = id, title = title, artist = "MQ Demo", album = "Demo Collection",
+   170→    duration = duration.toDouble(), cover = "https://mq1.vercel.app/icon-512.png",
+   171→    genre = genre, source = "demo",
+   172→    audioUrl = "https://mq1.vercel.app/demo/song$n.mp3"
+   173→)
+   174→
+   175→// ── background decorations ─────────────────────────────────────────────────
+   176→
+   177→@Composable
+   178→private fun AuthGlowBlobs() {
+   179→    val positions = listOf(10 to 20, 25 to 40, 40 to 60, 55 to 20, 70 to 40, 85 to 60)
+   180→    positions.forEachIndexed { i, (x, y) ->
+   181→        Box(
+   182→            Modifier
+   183→                .padding(start = (x * 3.75).dp, top = (y * 8.44).dp)
+   184→                .size((100 + i * 60).dp)
+   185→                .background(
+   186→                    Brush.radialGradient(
+   187→                        listOf(Telegram.copy(alpha = 0.05f + i * 0.01f), Color.Transparent)
+   188→                    )
+   189→                )
+   190→        )
+   191→    }
+   192→}
+   193→
+   194→// ── shared web-parity primitives ───────────────────────────────────────────
+   195→
+   196→@Composable
+   197→private fun AuthCard(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+   198→    Column(
+   199→        modifier = Modifier
+   200→            .fillMaxWidth()
+   201→            .clip(RoundedCornerShape(16.dp))
+   202→            .background(MaterialTheme.colorScheme.surface)
+   203→            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+   204→            .padding(24.dp)
+   205→    ) { content() }
+   206→}
+   207→
+   208→@Composable
+   209→private fun WebButton(
+   210→    text: String,
+   211→    modifier: Modifier = Modifier,
+   212→    bg: Color = LocalMqPalette.current.inputBg,
+   213→    border: Color = MaterialTheme.colorScheme.outline,
+   214→    textColor: Color = MaterialTheme.colorScheme.onBackground,
+   215→    icon: (@Composable () -> Unit)? = null,
+   216→    enabled: Boolean = true,
+   217→    loading: Boolean = false,
+   218→    onClick: () -> Unit
+   219→) {
+   220→    Row(
+   221→        modifier = modifier
+   222→            .fillMaxWidth()
+   223→            .height(44.dp)
+   224→            .clip(RoundedCornerShape(12.dp))
+   225→            .background(if (enabled) bg else bg.copy(alpha = 0.5f))
+   226→            .border(1.dp, border, RoundedCornerShape(12.dp))
+   227→            .clickable(enabled = enabled && !loading, onClick = onClick),
+   228→        horizontalArrangement = Arrangement.Center,
+   229→        verticalAlignment = Alignment.CenterVertically
+   230→    ) {
+   231→        if (loading) {
+   232→            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = textColor)
+   233→        } else {
+   234→            icon?.invoke()
+   235→            if (icon != null) Spacer(Modifier.width(10.dp))
+   236→            Text(text, style = MqType.body.copy(fontSize = 14.sp), color = textColor)
+   237→        }
+   238→    }
+   239→}
+   240→
+   241→/** Google "G" logo — EXACT official multicolor SVG paths from AuthView.tsx (48×48 viewBox). */
+   242→@Composable
+   243→private fun GoogleLogo() {
+   244→    androidx.compose.foundation.Canvas(Modifier.size(18.dp)) {
+   245→        val s = size.width / 48f
+   246→        fun p(d: String, color: Color) {
+   247→            val path = com.mq1.player.ui.components.SvgPathParser(d).parse()
+   248→            withTransform({ scale(s, s, pivot = androidx.compose.ui.geometry.Offset.Zero) }) {
+   249→                drawPath(path, color, style = androidx.compose.ui.graphics.drawscope.Fill)
+   250→            }
+   251→        }
+   252→        p("M43.611,20.083H42V20H24v8h11.307c-1.646,4.646-6.07,8-11.307,8c-6.627,0-12-5.373-12-12s5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.514,6.757,29.604,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.335,43.611,20.083z", Color(0xFFFFC107))
+   253→        p("M6.306,14.691l6.571,4.835C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.514,6.757,29.604,4,24,4C16.318,4,9.656,8.336,6.306,14.691z", Color(0xFFFF3D00))
+   254→        p("M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.236,0-9.657-3.347-11.307-7.99l-6.534,5.046C9.505,39.556,16.228,44,24,44z", Color(0xFF4CAF50))
+   255→        p("M43.611,20.083H42V20H24v8h11.307c-0.792,2.237-2.231,4.166-4.087,5.571l6.19,5.238C39.36,33.131,44,27.417,44,24C44,22.659,43.862,21.335,43.611,20.083z", Color(0xFF1976D2))
+   256→    }
+   257→}
+   258→
+   259→// ── landing card (web authStep "telegram") ─────────────────────────────────
+   260→
+   261→@Composable
+   262→private fun AuthLandingCard(
+   263→    onEmail: () -> Unit,
+   264→    onRegister: () -> Unit,
+   265→    onLoggedIn: (LocalStore.SessionUser) -> Unit,
+   266→    onDemo: (LocalStore.SessionUser) -> Unit
+   267→) {
+   268→    val context = LocalContext.current
+   269→    val scope = rememberCoroutineScope()
+   270→    val auth = ServiceLocator.authRepository
+   271→
+   272→    var botName by remember { mutableStateOf<String?>(null) }
+   273→    var botConfigured by remember { mutableStateOf<Boolean?>(null) }
+   274→    var code by remember { mutableStateOf("") }
+   275→    var username by remember { mutableStateOf("") }
+   276→    var needsUsername by remember { mutableStateOf(false) }
+   277→    var error by remember { mutableStateOf<String?>(null) }
+   278→    var busy by remember { mutableStateOf(false) }
+   279→    var demoBusy by remember { mutableStateOf(false) }
+   280→    var googleBusy by remember { mutableStateOf(false) }
+   281→
+   282→    /**
+   283→     * REAL Google native login — Credential Manager → backend bridge:
+   284→     *   1. providers → PUBLIC web client id (the same one the backend verifies
+   285→     *      the id_token audience against; the SECRET never enters the APK)
+   286→     *   2. GET /api/auth/google/native → one-time nonce (HttpOnly cookie
+   287→     *      captured by SecureCookieJar, replayed on the POST)
+   288→     *   3. GetGoogleIdOption(serverClientId, nonce) → account picker →
+   289→     *      Google-issued id_token (nonce claim bound)
+   290→     *   4. POST /api/auth/google/native { idToken } → the SAME JWKS
+   291→     *      verification + account resolution as the web callback →
+   292→     *      Set-Cookie session → SecureCookieJar → Home
+   293→     * Honest failures only: every error below is surfaced to the user —
+   294→     * no catch-all swallowing, no fake navigation, no mock Home.
+   295→     * Logs carry provider/step/status/class ONLY (never token material).
+   296→     */
+   297→    suspend fun googleNativeLogin() {
+   298→        val clientId = auth.googleClientId()
+   299→        if (clientId == null) {
+   300→            error = "Google вход не настроен на сервере"
+   301→            return
+   302→        }
+   303→        val nonce = auth.issueGoogleNativeNonce()
+   304→        if (nonce == null) {
+   305→            error = "Сеть недоступна. Проверьте подключение."
+   306→            return
+   307→        }
+   308→        var idToken: String? = null
+   309→        try {
+   310→            val option = GetGoogleIdOption.Builder()
+   311→                .setServerClientId(clientId)
+   312→                .setNonce(nonce)
+   313→                .build()
+   314→            val request = GetCredentialRequest.Builder()
+   315→                .addCredentialOption(option)
+   316→                .build()
+   317→            val credentialManager = CredentialManager.create(context)
+   318→            val response = credentialManager.getCredential(context, request)
+   319→            if (response.credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+   320→                Log.w("MqAuth", "provider=google step=credential_manager status=unexpected_type")
+   321→                error = "Не удалось получить Google-токен"
+   322→                return
+   323→            }
+   324→            idToken = runCatching {
+   325→                GoogleIdTokenCredential.createFrom(response.credential.data)
+   326→            }.getOrNull()?.idToken
+   327→        } catch (e: GetCredentialCancellationException) {
+   328→            Log.d("MqAuth", "provider=google step=credential_manager status=cancelled")
+   329→            return // user closed the account picker — not an error
+   330→        } catch (e: NoCredentialException) {
+   331→            Log.w("MqAuth", "provider=google step=credential_manager status=no_credentials class=${e.javaClass.simpleName}")
+   332→            error = "Google-аккаунт не найден на устройстве. Добавьте аккаунт в настройках и повторите."
+   333→            return
+   334→        } catch (e: GetCredentialProviderConfigurationException) {
+   335→            Log.w("MqAuth", "provider=google step=credential_manager status=provider_unavailable class=${e.javaClass.simpleName}")
+   336→            error = "Google Play Services недоступен на устройстве"
+   337→            return
+   338→        } catch (e: GetCredentialException) {
+   339→            Log.w("MqAuth", "provider=google step=credential_manager status=error class=${e.javaClass.simpleName}")
+   340→            error = "Google вход не выполнен"
+   341→            return
+   342→        } catch (e: Exception) {
+   343→            // device without Credential Manager support at all
+   344→            Log.w("MqAuth", "provider=google step=credential_manager status=unavailable class=${e.javaClass.simpleName}")
+   345→            error = "Google вход недоступен на этом устройстве"
+   346→            return
+   347→        }
+   348→        if (idToken == null) {
+   349→            error = "Не удалось получить Google-токен"
+   350→            return
+   351→        }
+   352→        val result = auth.googleNativeLogin(idToken)
+   353→        if (result == null) {
+   354→            error = "Сеть недоступна. Проверьте подключение."
+   355→            return
+   356→        }
+   357→        if (result.error != null || !result.authenticated || result.userId == null) {
+   358→            error = when (result.error) {
+   359→                "google_token_invalid" -> "Google-токен отклонён сервером"
+   360→                "invalid_nonce" -> "Код входа устарел. Попробуйте ещё раз"
+   361→                "blocked" -> "Аккаунт заблокирован"
+   362→                "maintenance" -> "Технические работы. Вход временно недоступен"
+   363→                "google_not_configured" -> "Google вход не настроен на сервере"
+   364→                else -> "Не удалось войти через Google"
+   365→            }
+   366→            return
+   367→        }
+   368→        // Session cookie landed in SecureCookieJar (httpOnly Set-Cookie).
+   369→        onLoggedIn(
+   370→            LocalStore.SessionUser(
+   371→                userId = result.userId ?: "",
+   372→                username = result.username ?: "Google user",
+   373→                role = result.role ?: "user",
+   374→                avatar = result.avatar
+   375→            )
+   376→        )
+   377→    }
+   378→
+   379→    LaunchedEffect(Unit) {
+   380→        val name = auth.botName()
+   381→        botConfigured = name != null
+   382→        botName = name
+   383→    }
+   384→
+   385→    AuthCard {
+   386→        // header
+   387→        Box(
+   388→            modifier = Modifier
+   389→                .size(64.dp)
+   390→                .clip(RoundedCornerShape(16.dp))
+   391→                .background(MaterialTheme.colorScheme.primary),
+   392→            contentAlignment = Alignment.Center
+   393→        ) {
+   394→            Text("mq", style = MqType.display.copy(fontSize = 24.sp), color = Color.White)
+   395→        }
+   396→        Spacer(Modifier.height(16.dp))
+   397→        Text(
+   398→            "Вход в MQ Player",
+   399→            style = MqType.page.copy(fontSize = 20.sp, fontWeight = FontWeight.W600),
+   400→            color = MaterialTheme.colorScheme.onBackground,
+   401→            modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center
+   402→        )
+   403→        Text(
+   404→            "Музыка, плейлисты и чаты синхронизированы между устройствами",
+   405→            style = MqType.body.copy(fontSize = 14.sp, fontWeight = FontWeight.W400),
+   406→            color = MaterialTheme.colorScheme.onSurfaceVariant,
+   407→            modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center
+   408→        )
+   409→        Spacer(Modifier.height(24.dp))
+   410→
+   411→        // Google — native Credential Manager login (the SAME backend flow the
+   412→        // web finishes at /api/auth/google/callback, native transport)
+   413→        WebButton(
+   414→            text = "Продолжить с Google",
+   415→            bg = Color.White,
+   416→            border = Color(0xFFE5E7EB),
+   417→            textColor = Color(0xFF1F2937),
+   418→            icon = { GoogleLogo() },
+   419→            enabled = !googleBusy && !busy,
+   420→            loading = googleBusy
+   421→        ) {
+   422→            scope.launch {
+   423→                googleBusy = true
+   424→                error = null
+   425→                try {
+   426→                    googleNativeLogin()
+   427→                } finally {
+   428→                    googleBusy = false
+   429→                }
+   430→            }
+   431→        }
+   432→
+   433→        // Telegram section
+   434→        Spacer(Modifier.height(16.dp))
+   435→        Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)))
+   436→        Spacer(Modifier.height(16.dp))
+   437→
+   438→        Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+   439→            MqIcon(icon = MqIcons.Send, size = 16.dp, tint = Telegram)
+   440→            Spacer(Modifier.width(8.dp))
+   441→            Text("Вход через Telegram", style = MqType.body.copy(fontSize = 14.sp, fontWeight = FontWeight.W500), color = MaterialTheme.colorScheme.onBackground)
+   442→        }
+   443→        Spacer(Modifier.height(12.dp))
+   444→        Text(
+   445→            "Откройте бота в Telegram и отправьте любое сообщение. Бот пришлёт 6-значный код подтверждения",
+   446→            style = MqType.meta.copy(fontSize = 12.sp),
+   447→            color = MaterialTheme.colorScheme.onSurfaceVariant,
+   448→            modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center
+   449→        )
+   450→        Spacer(Modifier.height(12.dp))
+   451→
+   452→        if (botConfigured == true && botName != null) {
+   453→            WebButton(
+   454→                text = "Открыть бота в Telegram",
+   455→                bg = Telegram.copy(alpha = 0.15f),
+   456→                border = Telegram.copy(alpha = 0.3f),
+   457→                textColor = Telegram,
+   458→                icon = { MqIcon(icon = MqIcons.Send, size = 16.dp, tint = Telegram) }
+   459→            ) {
+   460→                runCatching {
+   461→                    context.startActivity(
+   462→                        Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://t.me/$botName?start=code"))
+   463→                    )
+   464→                }
+   465→            }
+   466→            Spacer(Modifier.height(16.dp))
+   467→        }
+   468→
+   469→        OtpBoxes(
+   470→            code = code,
+   471→            error = error != null,
+   472→            onCode = { code = it }
+   473→        )
+   474→        if (needsUsername) {
+   475→            Spacer(Modifier.height(12.dp))
+   476→            WebInput(
+   477→                value = username,
+   478→                onValue = { if (it.length <= 20) username = it },
+   479→                placeholder = "Имя пользователя (латиница)"
+   480→            )
+   481→        }
+   482→        Spacer(Modifier.height(16.dp))
+   483→
+   484→        error?.let {
+   485→            Text(
+   486→                it,
+   487→                style = MqType.body.copy(fontSize = 14.sp),
+   488→                color = Color(0xFFFF6B6B),
+   489→                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+   490→                textAlign = TextAlign.Center
+   491→            )
+   492→        }
+   493→
+   494→        WebButton(
+   495→            text = "Подтвердить",
+   496→            bg = Telegram,
+   497→            border = Telegram,
+   498→            textColor = Color.White,
+   499→            enabled = code.length == 6 && !busy,
+   500→            loading = busy
+   501→        ) {
+   502→            if (code.length != 6 || (needsUsername && username.isBlank())) return@WebButton
+   503→            busy = true
+   504→            error = null
+   505→            scope.launch {
+   506→                val result = auth.verifyCode(code, username.takeIf { needsUsername })
+   507→                busy = false
+   508→                when {
+   509→                    result == null -> error = "Сеть недоступна. Проверьте подключение."
+   510→                    result.error != null -> error = result.error
+   511→                    result.isNewUser && !needsUsername -> {
+   512→                        needsUsername = true
+   513→                        error = "Новый пользователь — выберите имя"
+   514→                    }
+   515→                    result.userId != null -> onLoggedIn(
+   516→                        LocalStore.SessionUser(
+   517→                            userId = result.userId ?: "",
+   518→                            username = result.username ?: username,
+   519→                            role = result.role ?: "user",
+   520→                            avatar = result.avatar
+   521→                        )
+   522→                    )
+   523→                    else -> error = result.message ?: "Не удалось войти"
+   524→                }
+   525→            }
+   526→        }
+   527→
+   528→        Spacer(Modifier.height(16.dp))
+   529→        WebButton(
+   530→            text = "Продолжить с Email",
+   531→            icon = { MqIcon(icon = MqIcons.Mail, size = 16.dp) }
+   532→        ) { onEmail() }
+   533→
+   534→        // bottom links
+   535→        Spacer(Modifier.height(24.dp))
+   536→        Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)))
+   537→        Spacer(Modifier.height(16.dp))
+   538→        Row(
+   539→            Modifier.fillMaxWidth(),
+   540→            horizontalArrangement = Arrangement.SpaceBetween,
+   541→            verticalAlignment = Alignment.CenterVertically
+   542→        ) {
+   543→            Text(
+   544→                if (demoBusy) "Загрузка…" else "Демо-режим",
+   545→                style = MqType.body.copy(fontSize = 14.sp, fontWeight = FontWeight.W400),
+   546→                color = MaterialTheme.colorScheme.onSurfaceVariant,
+   547→                modifier = Modifier.clickable(enabled = !demoBusy) {
+   548→                    demoBusy = true
+   549→                    onDemo(
+   550→                        LocalStore.SessionUser(
+   551→                            userId = "demo-user-id", username = "Демо", role = "user",
+   552→                            avatar = null
+   553→                        )
+   554→                    )
+   555→                }
+   556→            )
+   557→            Text(
+   558→                "Регистрация",
+   559→                style = MqType.body.copy(fontSize = 14.sp, fontWeight = FontWeight.W500),
+   560→                color = MaterialTheme.colorScheme.onBackground,
+   561→                modifier = Modifier.clickable { onRegister() }
+   562→            )
+   563→        }
+   564→
+   565→        // legal
+   566→        Spacer(Modifier.height(16.dp))
+   567→        Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)))
+   568→        Spacer(Modifier.height(16.dp))
+   569→        Row(
+   570→            Modifier.fillMaxWidth(),
+   571→            horizontalArrangement = Arrangement.Center
+   572→        ) {
+   573→            LegalLink("Политика конфиденциальности", "https://mq1.vercel.app/privacy")
+   574→            Spacer(Modifier.width(8.dp))
+   575→            LegalLink("Условия использования", "https://mq1.vercel.app/terms")
+   576→        }
+   577→    }
+   578→}
+   579→
+   580→@Composable
+   581→private fun LegalLink(text: String, url: String) {
+   582→    val context = LocalContext.current
+   583→    Text(
+   584→        text,
+   585→        style = MqType.meta.copy(fontSize = 12.sp),
+   586→        color = MaterialTheme.colorScheme.onSurfaceVariant,
+   587→        textDecoration = TextDecoration.Underline,
+   588→        modifier = Modifier.clickable {
+   589→            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
+   590→        }
+   591→    )
+   592→}
+   593→
+   594→/** 6 single-digit boxes — web 44×56 r12, filled border telegram / error red. */
+   595→@Composable
+   596→private fun OtpBoxes(code: String, error: Boolean, onCode: (String) -> Unit) {
+   597→    val inputBg = LocalMqPalette.current.inputBg
+   598→    val outline = MaterialTheme.colorScheme.outline
+   599→    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+   600→        repeat(6) { i ->
+   601→            val ch = code.getOrNull(i)?.toString() ?: ""
+   602→            val borderColor = when {
+   603→                error -> Color(0xFFEF4444)
+   604→                ch.isNotEmpty() -> Telegram
+   605→                else -> outline
+   606→            }
+   607→            BasicTextField(
+   608→                value = ch,
+   609→                onValueChange = { v ->
+   610→                    if (v.length <= 1 && (v.isEmpty() || v[0].isDigit())) {
+   611→                        onCode(code.take(i) + v + code.drop(i + 1))
+   612→                    }
+   613→                },
+   614→                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+   615→                singleLine = true,
+   616→                textStyle = MqType.display.copy(
+   617→                    fontSize = 20.sp, fontWeight = FontWeight.W700,
+   618→                    textAlign = TextAlign.Center
+   619→                ).let { it.copy(color = MaterialTheme.colorScheme.onBackground) },
+   620→                modifier = Modifier
+   621→                    .width(44.dp)
+   622→                    .height(56.dp)
+   623→                    .clip(RoundedCornerShape(12.dp))
+   624→                    .background(inputBg)
+   625→                    .border(2.dp, borderColor, RoundedCornerShape(12.dp))
+   626→            )
+   627→        }
+   628→    }
+   629→}
+   630→
+   631→/** Web-style form input (inputBg, hairline border, r12, 44dp). */
+   632→@Composable
+   633→internal fun WebInput(
+   634→    value: String,
+   635→    onValue: (String) -> Unit,
+   636→    placeholder: String,
+   637→    password: Boolean = false,
+   638→    keyboardType: KeyboardType = KeyboardType.Text
+   639→) {
+   640→    BasicTextField(
+   641→        value = value,
+   642→        onValueChange = onValue,
+   643→        singleLine = true,
+   644→        visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+   645→        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+   646→        textStyle = MqType.body.copy(color = MaterialTheme.colorScheme.onBackground),
+   647→        decorationBox = { inner ->
+   648→            Box(
+   649→                Modifier
+   650→                    .fillMaxWidth()
+   651→                    .height(44.dp)
+   652→                    .clip(RoundedCornerShape(12.dp))
+   653→                    .background(LocalMqPalette.current.inputBg)
+   654→                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+   655→                    .padding(horizontal = 14.dp),
+   656→                contentAlignment = Alignment.CenterStart
+   657→            ) {
+   658→                if (value.isEmpty()) {
+   659→                    Text(placeholder, style = MqType.body.copy(fontSize = 14.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+   660→                }
+   661→                inner()
+   662→            }
+   663→        }
+   664→    )
+   665→}
+   666→
+   667→// ── email login card (web authStep "login") ───────────────────────────────
+   668→
+   669→@Composable
+   670→private fun EmailLoginCard(
+   671→    onBack: () -> Unit,
+   672→    onLoggedIn: (LocalStore.SessionUser) -> Unit,
+   673→    onNeedConfirm: () -> Unit
+   674→) {
+   675→    val scope = rememberCoroutineScope()
+   676→    val auth = ServiceLocator.authRepository
+   677→    var email by remember { mutableStateOf("") }
+   678→    var password by remember { mutableStateOf("") }
+   679→    var error by remember { mutableStateOf<String?>(null) }
+   680→    var busy by remember { mutableStateOf(false) }
+   681→
+   682→    AuthCard {
+   683→        BackHeader("Вход по email", onBack)
+   684→        Spacer(Modifier.height(16.dp))
+   685→        WebInput(email, { email = it }, "email@example.com", keyboardType = KeyboardType.Email)
+   686→        Spacer(Modifier.height(12.dp))
+   687→        WebInput(password, { password = it }, "Пароль", password = true)
+   688→        error?.let {
+   689→            Spacer(Modifier.height(12.dp))
+   690→            Text(it, style = MqType.body, color = Color(0xFFFF6B6B), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+   691→            if (it.contains("подтверд", ignoreCase = true)) {
+   692→                Spacer(Modifier.height(8.dp))
+   693→                Text(
+   694→                    "Подтвердить почту", style = MqType.body.copy(fontWeight = FontWeight.W500),
+   695→                    color = MaterialTheme.colorScheme.primary,
+   696→                    modifier = Modifier
+   697→                        .align(Alignment.CenterHorizontally)
+   698→                        .clickable { onNeedConfirm() }
+   699→                )
+   700→            }
+   701→        }
+   702→        Spacer(Modifier.height(16.dp))
+   703→        WebButton(
+   704→            text = "Войти", bg = MaterialTheme.colorScheme.primary,
+   705→            border = MaterialTheme.colorScheme.primary, textColor = MaterialTheme.colorScheme.onPrimary,
+   706→            enabled = email.isNotBlank() && password.isNotBlank() && !busy,
+   707→            loading = busy
+   708→        ) {
+   709→            busy = true; error = null
+   710→            scope.launch {
+   711→                val result = auth.loginWithEmail(email, password)
+   712→                busy = false
+   713→                when {
+   714→                    result == null -> error = "Ошибка соединения. Проверьте интернет."
+   715→                    result.userId != null -> onLoggedIn(
+   716→                        LocalStore.SessionUser(
+   717→                            userId = result.userId ?: "", username = result.username ?: "",
+   718→                            role = result.role ?: "user", avatar = result.avatar
+   719→                        )
+   720→                    )
+   721→                    else -> error = result.error ?: result.message ?: "Ошибка входа"
+   722→                }
+   723→            }
+   724→        }
+   725→    }
+   726→}
+   727→
+   728→// ── register card (web authStep "register") ───────────────────────────────
+   729→
+   730→@Composable
+   731→private fun RegisterCard(
+   732→    email: String,
+   733→    onEmail: (String) -> Unit,
+   734→    onBack: () -> Unit,
+   735→    onRegistered: () -> Unit
+   736→) {
+   737→    val scope = rememberCoroutineScope()
+   738→    val auth = ServiceLocator.authRepository
+   739→    var username by remember { mutableStateOf("") }
+   740→    var email by remember { mutableStateOf("") }
+   741→    var password by remember { mutableStateOf("") }
+   742→    var error by remember { mutableStateOf<String?>(null) }
+   743→    var busy by remember { mutableStateOf(false) }
+   744→
+   745→    AuthCard {
+   746→        BackHeader("Регистрация", onBack)
+   747→        Spacer(Modifier.height(16.dp))
+   748→        WebInput(username, { username = it }, "Имя пользователя")
+   749→        Spacer(Modifier.height(12.dp))
+   750→        WebInput(email, { onEmail(it) }, "email@example.com", keyboardType = KeyboardType.Email)
+   751→        Spacer(Modifier.height(12.dp))
+   752→        WebInput(password, { password = it }, "Пароль (мин. 6 символов)", password = true)
+   753→        error?.let {
+   754→            Spacer(Modifier.height(12.dp))
+   755→            Text(it, style = MqType.body, color = Color(0xFFFF6B6B), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+   756→        }
+   757→        Spacer(Modifier.height(16.dp))
+   758→        WebButton(
+   759→            text = "Создать аккаунт", bg = MaterialTheme.colorScheme.primary,
+   760→            border = MaterialTheme.colorScheme.primary, textColor = MaterialTheme.colorScheme.onPrimary,
+   761→            enabled = username.isNotBlank() && email.isNotBlank() && password.length >= 6 && !busy,
+   762→            loading = busy
+   763→        ) {
+   764→            busy = true; error = null
+   765→            scope.launch {
+   766→                val result = auth.registerEmail(username, email, password)
+   767→                busy = false
+   768→                if (result == null) {
+   769→                    error = "Ошибка соединения. Проверьте интернет."
+   770→                } else if (result.devCode != null || result.error == null) {
+   771→                    onRegistered()
+   772→                } else {
+   773→                    error = result.error ?: "Ошибка регистрации"
+   774→                }
+   775→            }
+   776→        }
+   777→    }
+   778→}
+   779→
+   780→// ── confirm card (web authStep "confirm") ─────────────────────────────────
+   781→
+   782→@Composable
+   783→private fun ConfirmCard(
+   784→    email: String,
+   785→    onConfirmed: (LocalStore.SessionUser) -> Unit,
+   786→    onBack: () -> Unit
+   787→) {
+   788→    val scope = rememberCoroutineScope()
+   789→    val auth = ServiceLocator.authRepository
+   790→    var code by remember { mutableStateOf("") }
+   791→    var error by remember { mutableStateOf<String?>(null) }
+   792→    var busy by remember { mutableStateOf(false) }
+   793→
+   794→    AuthCard {
+   795→        BackHeader("Подтвердите почту", onBack)
+   796→        Spacer(Modifier.height(16.dp))
+   797→        Text(
+   798→            "Введите 6-значный код из письма",
+   799→            style = MqType.body, color = MaterialTheme.colorScheme.onSurfaceVariant,
+   800→            modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center
+   801→        )
+   802→        Spacer(Modifier.height(16.dp))
+   803→        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+   804→            OtpBoxes(code, error != null) { code = it }
+   805→        }
+   806→        error?.let {
+   807→            Spacer(Modifier.height(12.dp))
+   808→            Text(it, style = MqType.body, color = Color(0xFFFF6B6B), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+   809→        }
+   810→        Spacer(Modifier.height(16.dp))
+   811→        WebButton(
+   812→            text = "Подтвердить", bg = Telegram, border = Telegram, textColor = Color.White,
+   813→            enabled = code.length == 6 && !busy, loading = busy,
+   814→            modifier = Modifier.fillMaxWidth()
+   815→        ) {
+   816→            busy = true; error = null
+   817→            scope.launch {
+   818→                val result = if (email.isBlank()) null else auth.confirmEmailCode(email, code)
+   819→                busy = false
+   820→                when {
+   821→                    result == null -> error = "Не указан email. Начните регистрацию заново."
+   822→                    result.userId != null -> onConfirmed(
+   823→                        LocalStore.SessionUser(
+   824→                            userId = result.userId ?: "", username = result.username ?: "",
+   825→                            role = result.role ?: "user", avatar = result.avatar
+   826→                        )
+   827→                    )
+   828→                    else -> error = result.error ?: result.message ?: "Неверный код"
+   829→                }
+   830→            }
+   831→        }
+   832→    }
+   833→}
+   834→
+   835→@Composable
+   836→private fun BackHeader(title: String, onBack: () -> Unit) {
+   837→    Row(verticalAlignment = Alignment.CenterVertically) {
+   838→        Box(
+   839→            Modifier
+   840→                .size(32.dp)
+   841→                .clip(RoundedCornerShape(8.dp))
+   842→                .clickable(onClick = onBack),
+   843→            contentAlignment = Alignment.Center
+   844→        ) {
+   845→            MqIcon(icon = MqIcons.ChevronLeft, size = 20.dp)
+   846→        }
+   847→        Spacer(Modifier.width(10.dp))
+   848→        Text(
+   849→            title,
+   850→            style = MqType.page.copy(fontSize = 20.sp, fontWeight = FontWeight.W600),
+   851→            color = MaterialTheme.colorScheme.onBackground
+   852→        )
+   853→    }
+   854→}
+   855→
