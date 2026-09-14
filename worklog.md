@@ -3210,3 +3210,88 @@ Stage Summary:
   actions (Похожие треки / Не нравится / Подписаться / Скачать) until the
   backend features exist natively; web-mixer reference includes discovery
   sections below the mixer; on-device QA still requires a physical device.
+
+---
+Task ID: auth-1
+Agent: main (Super Z)
+Task: REAL Android Auth + Crash QA — Demo login crash fix + Google native login + release 2.2.0
+
+Work Log:
+- DEVICE CHECK (honest): adb daemon up, 0 devices attached; no emulator
+  binary; /dev/kvm absent → NO physical device/emulator in sandbox. All
+  runtime diagnostics done JVM-side against real HTTP; nothing claimed as
+  device-proven.
+- DEMO CRASH ROOT CAUSE (proven, not guessed): LocalStore.SessionUser had
+  NO @Serializable → json.encodeToString(user) compiled to
+  SerializersKt.noCompiledSerializer (verified in bytecode:
+  LocalStore$setSessionUser$2 calls it) → runtime throws
+  SerializationException("Serializer for class 'SessionUser' is not found")
+  (reproduced in a test BEFORE the fix) → thrown inside
+  scope.launch(Dispatchers.IO) in MainActivity.RootContent with no
+  CoroutineExceptionHandler → unhandled coroutine exception → FATAL crash
+  on EVERY login (Demo/Email/Telegram) at session persist.
+  FIX: @Serializable on SessionUser (+ regression tests locking both
+  encode/decode directions).
+- DEMO playback secondary bug: demo tracks got synthetic mq-stream://0
+  URIs (scTrackId null) → "stream unresolved for track 0" ×4. FIX:
+  buildMediaItem/toMediaItem use track.audioUrl for non-SoundCloud tracks;
+  playQueue(autoplay=false) loads the queue PAUSED (web isPlaying:false);
+  demo skips onboarding (web setAuth semantics); demo session wiped on
+  logout (D4 test).
+- GOOGLE ROOT CAUSE: the Google button opened /api/auth/google in a
+  BROWSER — the session cookie landed in the browser jar; the app could
+  never receive a session (no native route existed).
+  FIX (same flow, native transport — NOT a new Google auth flow):
+  * backend: src/lib/google-auth.ts = account resolution extracted 1:1
+    from the callback (byte-identical redirects kept);
+    POST/GET /api/auth/google/native (nonce HttpOnly cookie + JWKS verify
+    + nonce single-use + resolveGoogleLogin + session cookie on JSON);
+    /api/auth/providers now exposes googleClientId (PUBLIC web client id);
+    GoogleIdentity gained nonce claim (additive).
+  * Android: Credential Manager (androidx.credentials 1.3.0 + googleid
+    1.1.1) → GetGoogleIdOption(serverClientId from providers, nonce) →
+    POST idToken → session → Home. No client secret in APK. Non-2xx
+    bodies parsed (errorBody) so 401 surfaces its real reason (test-caught
+    Retrofit Response.body()==null flaw). Safe logging: provider/step/
+    route/http/ms only. Honest error text for every failure branch; no
+    fake navigation.
+  * SecureCookieJar persists mq_native_nonce through the same sealed path
+    (PERSISTED_COOKIES set).
+- Test-caught-and-fixed: G4/G6 exposed that non-2xx google-native
+  responses returned null (looked like network errors) → errorBody parse.
+- Robolectric constraints handled honestly: media3 MediaController service
+  binding NPEs under Robolectric (shadow delivers null ComponentName) →
+  demo flow test drives the real code without Compose idling; per-method
+  app/tmpdir reset → all stateful demo steps in one method.
+- TESTS: Android 122/122 (fresh --rerun-tasks; was 108: +3 serialization
+  regression, +6 google-native runtime contract vs stub backend, +2 demo
+  flow incl. ×5 through the exact crash site, +3 endpoint contracts).
+  Web 373/373 (+11 google-native: nonce issue/single-use/randomness,
+  invalid token, nonce mismatch/absent, linked login + session cookie +
+  nonce cleared, auto-create 4c, blocked 403, 415, providers client id,
+  secret never exposed).
+- RELEASE 2.2.0 (versionCode 5): NEW signing key required — the 2.1.0
+  release keystore was sandbox-local and lost (gitignored by design).
+  Built+signed (v2, zipalign, debuggable=false, 4 086 072 B, SHA-256
+  21b2096a…22368), AAB 7 956 482 B. NEW fingerprint
+  7D:0E:CA:5D:…:73:30 added to assetlinks.json (old entries kept).
+  Consequence documented: upgraders from 2.1.x must uninstall/reinstall.
+  GitHub release android-v2.2.0 (id 388348485) with MQPlayer.apk + AAB +
+  SHA256SUMS.txt.
+- LIVE verification (production): providers exposes googleClientId
+  (577360231136-2mb4v7pkbvdceqjg926961c4dagn2d8e…)…wait — actual:
+  577360231136-2mb4v7pkbvdceqjg926961c4dagn2d8e.apps.googleusercontent.com;
+  GET native → 200 + nonce + Set-Cookie HttpOnly/Max-Age=600/Secure;
+  POST garbage token → 401 google_token_invalid (live); missing idToken →
+  400; text/plain → 415; /play 200; assetlinks serves 3 fingerprints;
+  permanent URL releases/latest/download/MQPlayer.apk → 200
+  application/vnd.android.package-archive, downloaded bytes SHA-256 ==
+  built == uploaded, apksigner verify v2 OK on the downloaded file.
+- Web pushed (7ce2bdcf) and live on Vercel.
+
+Stage Summary:
+- Both user-reported bugs fixed at ROOT CAUSE with runtime proof chains;
+  122/122 + 373/373; release 2.2.0 live at the permanent APK URL.
+- NOT done (impossible in sandbox, honestly): on-device logcat, real
+  Google account picker, background playback/process death, fingerprint
+  hardware. Signing key rotation disclosed.
