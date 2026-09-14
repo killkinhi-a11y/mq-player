@@ -3150,3 +3150,63 @@ Stage Summary:
 - Deterministic 375×844 screenshot pipeline proven (3 screens captured).
 - Next: parallel screen ports (Search, Library, Chats, Settings, Profile
   sweep, FullPlayer, Mixer, ContextMenu) then regressions + release 2.1.0.
+
+---
+Task ID: parity-3
+Agent: main (Super Z) (+ 2 timed-out subagents whose work landed anyway)
+Task: WEB → ANDROID visual parity pass — completion, regressions, release 2.1.0
+
+Work Log:
+- SCREEN COMPLETION (after parity-1/2): FullPlayerScreen web-parity rewrite
+  (header ChevronDown + «Сейчас играет · N» + more → MqTrackContextMenu;
+  320dp art r8; title 22/800 maxLines 2 + Heart 26 in-row; artist 14/500 + ›;
+  WebProgressSlider 4dp track/12dp thumb with cur / -remaining mq-t-time;
+  transport shuffle22/prev30/play64accent/next30/repeat(+Repeat1);
+  secondary row mic/list/speed/mixer/share; queue+lyrics sheets MqType).
+- MqTrackContextMenu.kt: web MenuCore mobile-sheet port (scrim 45%, sheet
+  r16 top, grabber 36×4, header 48 art r8 + artist·duration, 48dp items
+  r8 with 18dp Lucide icons, grouped separators 7/14/7/44, playlists
+  sub-page + Новый плейлист, destructive red; only REAL actions — play,
+  queue, playlist, like, artist, share intent, copy clipboard).
+- MixerScreen: restructured to the web Эквалайзер layout (EQ first with
+  12 web-identical preset pills — no M3 FilterChip; header «Эквалайзер» +
+  «10 полос · обработка вкл/выкл» context; then meters/master/limiter).
+  Fixed an accidental EQ block duplication from the refactor.
+- MyProfileScreen: web 2×2 stats grid (Треки/Часы/Топ жанр/Лайков) with
+  icon chips 44 r12 accent@12% + mq-t-num 20sp; Tab rename Оформление→Тема.
+- ChatsScreen typo fix (Помск→Поиск чатов).
+- HARNESS: ParityScaffoldHost (screens + REAL MqBottomDock + mini player
+  via reflection-seeded controller state — web shots include the dock);
+  seedNowPlaying helper; context-menu shot overlays HomeBody like the web.
+- VLM parity loop (scripts/parity_compare.sh + reports/): final scores —
+  library 92, search 90, chats 65, settings 65, fullplayer 60–75,
+  contextmenu 55, profile 45, mixer 35 (web shot includes content sections
+  beyond the mixer surface + data-state diffs; structural surface matches).
+  Boards: scripts/parity_boards.py → download/screens/parity/boards/
+  parity-{auth,home,search,library,chats,profile,settings,fullplayer,
+  mixer,contextmenu}.png (WEB|ANDROID side by side).
+- REGRESSIONS: full suite 108/108 (90 original + 16 parity + 2 contract);
+  updated contracts for restructured screens (I3 stats grid labels,
+  M5 «Лимитер» casing, M4 preset pills); NEW AuthEndpointsContractTest
+  locks login/register/verify-code/telegram-verify endpoint paths.
+  MediaSession/foreground audit: MediaSessionService + mediaPlayback type
+  + onTaskRemoved + session callbacks untouched (UI-layer-only changes).
+- RELEASE 2.1.0: versionCode 4. assembleRelease + bundleRelease →
+  APK 4,062,000 B (apksigner v2 ✓, zipalign ✓, debuggable=false,
+  badging com.mq1.player/2.1.0/4), SHA-256 210e0f77…297033; AAB
+  7,927,440 B SHA-256 c26fff41…aef8fde. GitHub release android-v2.1.0
+  (id 388080699) with MQPlayer.apk + convention names + SHA256SUMS.txt.
+  PERMANENT URL LIVE-VERIFIED: releases/latest/download/MQPlayer.apk →
+  302→android-v2.1.0→release-assets (content-type
+  application/vnd.android.package-archive, filename=MQPlayer.apk);
+  downloaded bytes SHA-256 == built == uploaded; apksigner verify OK on
+  the downloaded file. Web pushed (ee0495f8) and live (mq1.vercel.app
+  /play 200).
+
+Stage Summary:
+- All 11 user-listed screens rendered at 375×844 with the real design
+  system; WEB vs ANDROID boards delivered for every screen.
+- Honest remaining gaps (see final report): context menu omits web-only
+  actions (Похожие треки / Не нравится / Подписаться / Скачать) until the
+  backend features exist natively; web-mixer reference includes discovery
+  sections below the mixer; on-device QA still requires a physical device.
