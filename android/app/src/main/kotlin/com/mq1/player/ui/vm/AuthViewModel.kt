@@ -22,6 +22,11 @@ class AuthViewModel : ViewModel() {
     private val auth: AuthRepository = ServiceLocator.authRepository
     private val local: LocalStore = ServiceLocator.localStore
 
+    companion object {
+        /** Web-parity demo sentinel (useAppStore: userId === "demo-user-id"). */
+        const val DEMO_USER_ID = "demo-user-id"
+    }
+
     sealed interface Ui {
         data object Loading : Ui
         data object Login : Ui
@@ -52,6 +57,13 @@ class AuthViewModel : ViewModel() {
     fun onLoggedIn(user: LocalStore.SessionUser) {
         ServiceLocator.socialHub.start()
         viewModelScope.launch {
+            // Web parity (useAppStore.setAuth): demo sessions are local-only —
+            // no server round-trips, onboarding marked complete, straight to Main.
+            if (user.userId == DEMO_USER_ID) {
+                local.setOnboardingComplete(true)
+                _state.value = Ui.Main
+                return@launch
+            }
             val onboarded = local.onboardingComplete.firstOrNull() ?: false
             _state.value = if (onboarded) Ui.Main else Ui.Onboarding
         }

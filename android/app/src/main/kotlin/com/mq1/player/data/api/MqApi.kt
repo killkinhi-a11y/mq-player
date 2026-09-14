@@ -40,6 +40,18 @@ interface MqApi {
     @POST("api/auth/verify-code")
     suspend fun verifyEmailCode(@Body body: Map<String, String>): Response<TelegramVerifyResponse>
 
+    // Google native login (Credential Manager) — same backend flow as the
+    // web OAuth callback, native transport (id_token + nonce instead of code
+    // + state). Client id comes from authProviders().
+    @GET("api/auth/providers")
+    suspend fun authProviders(): Response<AuthProvidersResponse>
+
+    @GET("api/auth/google/native")
+    suspend fun googleNativeNonce(): Response<GoogleNativeNonceResponse>
+
+    @POST("api/auth/google/native")
+    suspend fun googleNativeLogin(@Body body: Map<String, String>): Response<GoogleNativeLoginResponse>
+
     // ── Music ───────────────────────────────────────────────────────────────
 
     @GET("api/music/search")

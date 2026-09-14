@@ -26,6 +26,10 @@ import okhttp3.HttpUrl
  *
  * Cookie semantics: the server sets `session` with maxAge ~30 days; we honor
  * expiry from the Set-Cookie header and drop it when it lapses.
+ *
+ * The Google-native login nonce (`mq_native_nonce`, 10-minute TTL) is stored
+ * through the same sealed path so OkHttp replays it on the POST — the
+ * backend compares it against the id_token's nonce claim.
  */
 class SecureCookieJar(context: Context) : CookieJar {
 
@@ -75,7 +79,7 @@ class SecureCookieJar(context: Context) : CookieJar {
     @Synchronized
     override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
         for (cookie in cookies) {
-            if (cookie.name != SESSION_COOKIE) continue
+            if (cookie.name !in PERSISTED_COOKIES) continue
             if (cookie.value.isBlank() || !cookie.persistent) {
                 prefs.edit().remove(keyFor(cookie)).apply()
                 hasSessionCookie = false
@@ -100,7 +104,7 @@ class SecureCookieJar(context: Context) : CookieJar {
             if (key !is String || sealedValue !is String) continue
             val domain = key.substringBefore('|')
             val name = key.substringAfter('|')
-            if (name != SESSION_COOKIE) continue
+            if (name !in PERSISTED_COOKIES) continue
             if (!url.host.endsWith(domain.removePrefix("."))) continue
             val plain = unseal(sealedValue) ?: continue
             val value = plain.substringBeforeLast('|')
@@ -133,6 +137,10 @@ class SecureCookieJar(context: Context) : CookieJar {
         private const val SELF = "mq_session_seal"
         private const val TRANSFORM = "AES/GCM/NoPadding"
         private const val SESSION_COOKIE = "session"
+
+        /** Cookies persisted (sealed) across restarts — nothing else is kept:
+         *  the auth session + the single-use Google-native nonce. */
+        private val PERSISTED_COOKIES = setOf(SESSION_COOKIE, "mq_native_nonce")
 
         @Volatile
         var hasSessionCookie: Boolean = false

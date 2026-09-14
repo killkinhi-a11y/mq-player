@@ -1,6 +1,7 @@
 package com.mq1.player.ui.screens
 
 import android.content.Intent
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -54,6 +55,14 @@ import com.mq1.player.ui.components.MqIcon
 import com.mq1.player.ui.components.MqIcons
 import com.mq1.player.ui.theme.LocalMqPalette
 import com.mq1.player.ui.theme.MqType
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.GetCredentialProviderConfigurationException
+import androidx.credentials.exceptions.NoCredentialException
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.launch
 
 /**
@@ -135,8 +144,11 @@ fun LoginScreen(onLoggedIn: (LocalStore.SessionUser) -> Unit) {
                     onRegister = { step = "register" },
                     onLoggedIn = onLoggedIn,
                     onDemo = { user ->
-                        // web demo semantics: local session + demo queue
-                        ServiceLocator.playbackController.playQueue(DemoTracks, 0)
+                        // web demo semantics (AuthView.handleDemoLogin +
+                        // useAppStore.setAuth): local session + demo queue,
+                        // isPlaying: false — queue loads PAUSED, first play tap
+                        // starts it. No server round-trips, no session cookie.
+                        ServiceLocator.playbackController.playQueue(DemoTracks, 0, autoplay = false)
                         onLoggedIn(user)
                     }
                 )
@@ -265,6 +277,104 @@ private fun AuthLandingCard(
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var demoBusy by remember { mutableStateOf(false) }
+    var googleBusy by remember { mutableStateOf(false) }
+
+    /**
+     * REAL Google native login — Credential Manager → backend bridge:
+     *   1. providers → PUBLIC web client id (the same one the backend verifies
+     *      the id_token audience against; the SECRET never enters the APK)
+     *   2. GET /api/auth/google/native → one-time nonce (HttpOnly cookie
+     *      captured by SecureCookieJar, replayed on the POST)
+     *   3. GetGoogleIdOption(serverClientId, nonce) → account picker →
+     *      Google-issued id_token (nonce claim bound)
+     *   4. POST /api/auth/google/native { idToken } → the SAME JWKS
+     *      verification + account resolution as the web callback →
+     *      Set-Cookie session → SecureCookieJar → Home
+     * Honest failures only: every error below is surfaced to the user —
+     * no catch-all swallowing, no fake navigation, no mock Home.
+     * Logs carry provider/step/status/class ONLY (never token material).
+     */
+    suspend fun googleNativeLogin() {
+        val clientId = auth.googleClientId()
+        if (clientId == null) {
+            error = "Google вход не настроен на сервере"
+            return
+        }
+        val nonce = auth.issueGoogleNativeNonce()
+        if (nonce == null) {
+            error = "Сеть недоступна. Проверьте подключение."
+            return
+        }
+        var idToken: String? = null
+        try {
+            val option = GetGoogleIdOption.Builder()
+                .setServerClientId(clientId)
+                .setNonce(nonce)
+                .build()
+            val request = GetCredentialRequest.Builder()
+                .addCredentialOption(option)
+                .build()
+            val credentialManager = CredentialManager.create(context)
+            val response = credentialManager.getCredential(context, request)
+            if (response.credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                Log.w("MqAuth", "provider=google step=credential_manager status=unexpected_type")
+                error = "Не удалось получить Google-токен"
+                return
+            }
+            idToken = runCatching {
+                GoogleIdTokenCredential.createFrom(response.credential.data)
+            }.getOrNull()?.idToken
+        } catch (e: GetCredentialCancellationException) {
+            Log.d("MqAuth", "provider=google step=credential_manager status=cancelled")
+            return // user closed the account picker — not an error
+        } catch (e: NoCredentialException) {
+            Log.w("MqAuth", "provider=google step=credential_manager status=no_credentials class=${e.javaClass.simpleName}")
+            error = "Google-аккаунт не найден на устройстве. Добавьте аккаунт в настройках и повторите."
+            return
+        } catch (e: GetCredentialProviderConfigurationException) {
+            Log.w("MqAuth", "provider=google step=credential_manager status=provider_unavailable class=${e.javaClass.simpleName}")
+            error = "Google Play Services недоступен на устройстве"
+            return
+        } catch (e: GetCredentialException) {
+            Log.w("MqAuth", "provider=google step=credential_manager status=error class=${e.javaClass.simpleName}")
+            error = "Google вход не выполнен"
+            return
+        } catch (e: Exception) {
+            // device without Credential Manager support at all
+            Log.w("MqAuth", "provider=google step=credential_manager status=unavailable class=${e.javaClass.simpleName}")
+            error = "Google вход недоступен на этом устройстве"
+            return
+        }
+        if (idToken == null) {
+            error = "Не удалось получить Google-токен"
+            return
+        }
+        val result = auth.googleNativeLogin(idToken)
+        if (result == null) {
+            error = "Сеть недоступна. Проверьте подключение."
+            return
+        }
+        if (result.error != null || !result.authenticated || result.userId == null) {
+            error = when (result.error) {
+                "google_token_invalid" -> "Google-токен отклонён сервером"
+                "invalid_nonce" -> "Код входа устарел. Попробуйте ещё раз"
+                "blocked" -> "Аккаунт заблокирован"
+                "maintenance" -> "Технические работы. Вход временно недоступен"
+                "google_not_configured" -> "Google вход не настроен на сервере"
+                else -> "Не удалось войти через Google"
+            }
+            return
+        }
+        // Session cookie landed in SecureCookieJar (httpOnly Set-Cookie).
+        onLoggedIn(
+            LocalStore.SessionUser(
+                userId = result.userId ?: "",
+                username = result.username ?: "Google user",
+                role = result.role ?: "user",
+                avatar = result.avatar
+            )
+        )
+    }
 
     LaunchedEffect(Unit) {
         val name = auth.botName()
@@ -298,18 +408,25 @@ private fun AuthLandingCard(
         )
         Spacer(Modifier.height(24.dp))
 
-        // Google (browser OAuth — same flow the web starts at /api/auth/google)
+        // Google — native Credential Manager login (the SAME backend flow the
+        // web finishes at /api/auth/google/callback, native transport)
         WebButton(
             text = "Продолжить с Google",
             bg = Color.White,
             border = Color(0xFFE5E7EB),
             textColor = Color(0xFF1F2937),
-            icon = { GoogleLogo() }
+            icon = { GoogleLogo() },
+            enabled = !googleBusy && !busy,
+            loading = googleBusy
         ) {
-            runCatching {
-                context.startActivity(
-                    Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://mq1.vercel.app/api/auth/google"))
-                )
+            scope.launch {
+                googleBusy = true
+                error = null
+                try {
+                    googleNativeLogin()
+                } finally {
+                    googleBusy = false
+                }
             }
         }
 

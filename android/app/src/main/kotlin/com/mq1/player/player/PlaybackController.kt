@@ -107,6 +107,7 @@ class PlaybackController(private val context: Context) {
     private var pendingMediaItems: List<MediaItem>? = null
     private var pendingStartIndex: Int = 0
     private var pendingStartPositionMs: Long = 0
+    private var pendingAutoplay: Boolean = true
 
     // ── Connection ──────────────────────────────────────────────────────────
 
@@ -121,7 +122,7 @@ class PlaybackController(private val context: Context) {
                 startPositionTicker()
                 if (pendingMediaItems != null) {
                     val items = pendingMediaItems!!
-                    applyMediaItems(items, pendingStartIndex, pendingStartPositionMs)
+                    applyMediaItems(items, pendingStartIndex, pendingStartPositionMs, pendingAutoplay)
                     pendingMediaItems = null
                 }
             }.onFailure { Log.e(tag, "controller connect failed: ${it.message}") }
@@ -142,10 +143,10 @@ class PlaybackController(private val context: Context) {
 
     val currentQueue: List<Track> get() = _queue.value
 
-    fun playQueue(tracks: List<Track>, startIndex: Int = 0) {
+    fun playQueue(tracks: List<Track>, startIndex: Int = 0, autoplay: Boolean = true) {
         if (tracks.isEmpty()) return
         _waveMode.value = false
-        scope.launch { startQueue(tracks, startIndex, wave = false) }
+        scope.launch { startQueue(tracks, startIndex, wave = false, autoplay = autoplay) }
     }
 
     fun startWave(tracks: List<Track>) {
@@ -153,7 +154,7 @@ class PlaybackController(private val context: Context) {
         scope.launch { startQueue(tracks, 0, wave = true) }
     }
 
-    private suspend fun startQueue(tracks: List<Track>, startIndex: Int, wave: Boolean) {
+    private suspend fun startQueue(tracks: List<Track>, startIndex: Int, wave: Boolean, autoplay: Boolean = true) {
         val safeIndex = startIndex.coerceIn(0, tracks.size - 1)
         _queue.value = tracks
         _currentIndex.value = safeIndex
@@ -176,29 +177,32 @@ class PlaybackController(private val context: Context) {
                 t.buildMediaItem(resolved = null)
             }
         }
-        applyOrDefer(items, safeIndex, 0L)
+        applyOrDefer(items, safeIndex, 0L, autoplay)
 
         // Pre-resolve the active stream so playback starts instantly.
         preResolve(tracks.getOrNull(safeIndex + 1))
     }
 
-    private fun applyOrDefer(items: List<MediaItem>, startIndex: Int, positionMs: Long) {
+    private fun applyOrDefer(items: List<MediaItem>, startIndex: Int, positionMs: Long, autoplay: Boolean = true) {
         val c = requireController()
         if (c == null) {
             pendingMediaItems = items
             pendingStartIndex = startIndex
             pendingStartPositionMs = positionMs
+            pendingAutoplay = autoplay
             connect()
             return
         }
-        applyMediaItems(items, startIndex, positionMs)
+        applyMediaItems(items, startIndex, positionMs, autoplay)
     }
 
-    private fun applyMediaItems(items: List<MediaItem>, startIndex: Int, positionMs: Long) {
+    private fun applyMediaItems(items: List<MediaItem>, startIndex: Int, positionMs: Long, autoplay: Boolean = true) {
         val c = controller ?: return
         c.setMediaItems(items, startIndex, positionMs)
         c.prepare()
-        c.play()
+        // autoplay=false (demo login — web parity: queue loaded, isPlaying=false):
+        // items are prepared/paused; the first play tap resumes from position 0.
+        if (autoplay) c.play()
     }
 
     fun addToQueue(tracks: List<Track>) {
@@ -521,14 +525,20 @@ class PlaybackController(private val context: Context) {
 // F8: `resolved` (when known) attaches the HLS mime type and, for encrypted
 // streams, the Widevine license-proxy configuration — without it ExoPlayer
 // cannot pick an HLS media source or run the DRM handshake.
+// Tracks WITHOUT a SoundCloud id (demo/public files) carry their own playable
+// http(s) URL — previously they all collapsed onto the synthetic
+// mq-stream://0 URI and failed with "stream unresolved for track 0".
 private fun Track.buildMediaItem(resolved: PlayableStream?): MediaItem {
     val key = scTrackId?.toString() ?: id
+    val uri = when {
+        resolved != null -> android.net.Uri.parse(resolved.url)
+        scTrackId != null -> MqStreamDataSource.lazyUri(scTrackId)
+        else -> audioUrl.takeIf { it.isNotBlank() }?.let { android.net.Uri.parse(it) }
+            ?: MqStreamDataSource.lazyUri(0L)
+    }
     return MediaItem.Builder()
         .setMediaId(key)
-        .setUri(
-            if (resolved != null) android.net.Uri.parse(resolved.url)
-            else MqStreamDataSource.lazyUri(scTrackId ?: 0L)
-        )
+        .setUri(uri)
         .setMimeType(
             if (resolved?.isHls == true) androidx.media3.common.MimeTypes.APPLICATION_M3U8 else null
         )

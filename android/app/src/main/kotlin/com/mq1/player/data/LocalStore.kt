@@ -30,6 +30,15 @@ class LocalStore(private val context: Context) {
 
     // ── Session user (cached; the cookie is the source of truth for auth) ───
 
+    /**
+     * @Serializable is LOAD-BEARING: without the compile-time plugin
+     * serializer, Json.encodeToString falls back to runtime reflection
+     * (noCompiledSerializer) which THROWS `SerializationException: Serializer
+     * for class 'SessionUser' is not found` — an unhandled coroutine
+     * exception that crashed the app on EVERY login (Demo/Email/Telegram)
+     * the moment the session was persisted.
+     */
+    @kotlinx.serialization.Serializable
     data class SessionUser(
         val userId: String = "",
         val username: String = "",

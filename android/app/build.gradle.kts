@@ -32,8 +32,12 @@ android {
         // 2.0.0 = native-app milestone (Kotlin/Compose/Media3 rewrite complete:
         // F2-F11). Old GitHub android-v1.0.x releases were the wrapper-era
         // builds; 2.0.0 cleanly separates the native line.
-        versionCode = 4
-        versionName = "2.1.0"
+        // 2.2.0 = auth fixes: login crash (SessionUser @Serializable — every
+        // login crashed on session persist), demo queue playback (real URLs,
+        // no autoplay), Google native login (Credential Manager →
+        // /api/auth/google/native).
+        versionCode = 5
+        versionName = "2.2.0"
 
         buildConfigField("String", "API_BASE", "\"$mqApiBase\"")
         vectorDrawables { useSupportLibrary = true }
@@ -111,6 +115,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.datastore.preferences)
+    // Google native login (Credential Manager → backend id_token bridge)
+    implementation(libs.androidx.credentials)
+    implementation(libs.google.id)
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation(libs.androidx.compose.ui.tooling.preview)
 

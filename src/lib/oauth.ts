@@ -143,6 +143,9 @@ export interface GoogleIdentity {
   emailVerified: boolean;
   name: string | null;
   picture: string | null;
+  /** nonce claim — present when the token was issued through Credential
+   *  Manager with our server-issued nonce (native Android flow). */
+  nonce: string | null;
 }
 
 /**
@@ -165,6 +168,7 @@ export async function verifyGoogleIdToken(idToken: string): Promise<GoogleIdenti
       emailVerified: payload.email_verified === true,
       name: typeof payload.name === "string" ? payload.name : null,
       picture: typeof payload.picture === "string" ? payload.picture : null,
+      nonce: typeof payload.nonce === "string" ? payload.nonce : null,
     };
   } catch {
     return null;

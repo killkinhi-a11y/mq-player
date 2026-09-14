@@ -136,6 +136,43 @@ data class RegisterResponse(
     val error: String? = null
 )
 
+// ── Google native login (Credential Manager → backend bridge) ───────────────
+
+/** GET api/auth/providers — availability probe (+ PUBLIC web client id). */
+@Serializable
+data class AuthProvidersResponse(
+    val google: Boolean = false,
+    // Public OAuth web client id — required by GetGoogleIdOption. The client
+    // SECRET never leaves the backend; this value is public by design.
+    val googleClientId: String? = null,
+    val telegramWidget: Boolean = false,
+    val telegramBot: Boolean = false,
+    val telegramBotName: String? = null,
+    val email: Boolean = true,
+    val emailDelivery: Boolean = false
+)
+
+/** GET api/auth/google/native — one-time nonce for GetGoogleIdOption. */
+@Serializable
+data class GoogleNativeNonceResponse(
+    val nonce: String? = null,
+    val error: String? = null
+)
+
+/** POST api/auth/google/native — session outcome (cookie rides the response). */
+@Serializable
+data class GoogleNativeLoginResponse(
+    val authenticated: Boolean = false,
+    val userId: String? = null,
+    val username: String? = null,
+    val email: String? = null,
+    val role: String? = null,
+    val avatar: String? = null,
+    val linked: Boolean? = null,
+    val created: Boolean? = null,
+    val error: String? = null
+)
+
 @Serializable
 data class MeResponse(
     val authenticated: Boolean = false,

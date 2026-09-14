@@ -8,7 +8,10 @@ import { isEmailConfigured } from "@/lib/email";
  *
  * Tells the frontend which login methods are actually configured WITHOUT
  * exposing any secrets: only booleans + the public bot username (which the
- * official Telegram Login Widget requires client-side anyway).
+ * official Telegram Login Widget requires client-side anyway) + the PUBLIC
+ * Google OAuth web client id (required by Android Credential Manager's
+ * GetGoogleIdOption; it is public by design — the client SECRET stays
+ * server-side and is only used in the code exchange).
  */
 export async function GET() {
   try {
@@ -17,6 +20,9 @@ export async function GET() {
 
     return NextResponse.json({
       google: isGoogleConfigured(),
+      // Android native login (Credential Manager) needs the server client id;
+      // web clients ignore this field.
+      googleClientId: process.env.GOOGLE_CLIENT_ID || null,
       // Widget needs BOTH the bot token (server-side hash verification)
       // and the bot username (rendered into the widget)
       telegramWidget: telegramBot && !!botName,
@@ -29,6 +35,7 @@ export async function GET() {
     return NextResponse.json(
       {
         google: false,
+        googleClientId: null,
         telegramWidget: false,
         telegramBot: false,
         telegramBotName: null,

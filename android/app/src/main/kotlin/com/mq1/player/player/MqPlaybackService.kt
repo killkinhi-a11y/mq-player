@@ -217,7 +217,14 @@ class MqPlaybackService : MediaLibraryService() {
     private fun Track.toMediaItem(): MediaItem =
         MediaItem.Builder()
             .setMediaId(mediaKey())
-            .setUri(MqStreamDataSource.lazyUri(scTrackId ?: 0L))
+            .setUri(
+                when {
+                    scTrackId != null -> MqStreamDataSource.lazyUri(scTrackId)
+                    // demo/public tracks carry their own playable URL
+                    audioUrl.isNotBlank() -> android.net.Uri.parse(audioUrl)
+                    else -> MqStreamDataSource.lazyUri(0L)
+                }
+            )
             .setMediaMetadata(
                 MediaMetadata.Builder()
                     .setTitle(title)

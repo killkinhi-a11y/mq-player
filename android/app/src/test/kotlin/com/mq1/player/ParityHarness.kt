@@ -25,6 +25,25 @@ import com.mq1.player.ui.theme.paletteById
  *  - capture: Robolectric-safe decorView rasterization at 375×844
  */
 object ParityStub {
+
+    /** Custom per-path stub response (auth runtime tests). */
+    class StubResponse(
+        val status: Int = 200,
+        val body: String = "{}",
+        val headers: List<String> = emptyList(), // raw "Set-Cookie: ..." lines
+    )
+
+    /** One captured request: method, path, Cookie header, body. */
+    class CapturedRequest(val method: String, val path: String, val cookieHeader: String?, val body: String)
+
+    /** Path-suffix → custom response (checked BEFORE the defaults). */
+    @JvmStatic
+    val customResponses = java.util.concurrent.ConcurrentHashMap<String, StubResponse>()
+
+    /** Every request the stub served (for request-shape assertions). */
+    @JvmStatic
+    val capturedRequests = java.util.concurrent.CopyOnWriteArrayList<CapturedRequest>()
+
     @JvmStatic
     fun startOnce() {
         try {
@@ -38,12 +57,15 @@ object ParityStub {
                                 val reader = java.io.BufferedReader(java.io.InputStreamReader(s.getInputStream()))
                                 val reqLine = reader.readLine() ?: return@Thread
                                 var contentLength = 0
+                                var cookieHeader: String? = null
                                 while (true) {
                                     val h = reader.readLine() ?: return@Thread
                                     if (h.isEmpty()) break
                                     val lc = h.lowercase()
                                     if (lc.startsWith("content-length:")) contentLength = lc.substringAfter(":").trim().toInt()
+                                    if (lc.startsWith("cookie:")) cookieHeader = h.substringAfter(":").trim()
                                 }
+                                var bodyText = ""
                                 if (contentLength > 0) {
                                     val buf = CharArray(contentLength)
                                     var read = 0
@@ -52,13 +74,24 @@ object ParityStub {
                                         if (n < 0) break
                                         read += n
                                     }
+                                    bodyText = String(buf).trim()
                                 }
+                                val method = reqLine.split(" ").getOrNull(0) ?: "GET"
                                 val path = reqLine.split(" ").getOrNull(1) ?: "/"
-                                val body = if (path.endsWith("telegram-bot-name"))
-                                    """{"configured":true,"botName":"MQPlayerBot"}""" else "{}"
-                                val head = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n" +
-                                    "Content-Length: ${body.length}\r\nConnection: close\r\n\r\n"
-                                s.getOutputStream().use { it.write((head + body).toByteArray()); it.flush() }
+                                capturedRequests.add(CapturedRequest(method, path, cookieHeader, bodyText))
+                                val custom = customResponses.entries.firstOrNull { (k, _) ->
+                                    // Key: "path-suffix" OR "METHOD path-suffix" (method-aware).
+                                    val parts = k.split(" ", limit = 2)
+                                    if (parts.size == 2) parts[0] == method && path.endsWith(parts[1])
+                                    else path.endsWith(k)
+                                }?.value
+                                val status = custom?.status ?: 200
+                                val body = custom?.body ?: responseFor(path)
+                                val extraHeaders = custom?.headers ?: emptyList()
+                                val head = "HTTP/1.1 ${status} ${if (status == 200) "OK" else "Status"}\r\nContent-Type: application/json\r\n" +
+                                    extraHeaders.joinToString("") { "$it\r\n" } +
+                                    "Content-Length: ${body.toByteArray(Charsets.UTF_8).size}\r\nConnection: close\r\n\r\n"
+                                s.getOutputStream().use { it.write((head + body).toByteArray(Charsets.UTF_8)); it.flush() }
                             }
                         } catch (e: Exception) { /* per-connection failure is fine */ }
                     }).start()
