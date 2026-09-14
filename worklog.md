@@ -3090,3 +3090,63 @@ Stage Summary:
   equality of the downloaded artifact.
 - Wrong URL locked out by a 5-test regression contract; web suite 362/362.
 - No visual/text/other-platform changes; no new release created.
+
+---
+Task ID: parity-1
+Agent: main (Super Z)
+Task: Android visual parity — design foundation + harness + Auth/Home first pass
+
+Work Log:
+- State on entry: 701b5e69 had committed fonts/MqIcons/web-shots/scripts but
+  NOTHING was wired (MqType 0 usages, MqIcons 0 usages, old 8-palette
+  MqThemes, MaterialTheme without typography, broken MqIcons.kt that never
+  compiled).
+- gen_mq_themes.py fixed (23 themes, rgba + 8-digit-hex navBg, import
+  hoisting) → MqThemes.kt = exact port: 23 palettes + Manrope 400–800 +
+  MqType scale + MqSpace/MqRadius + LocalMqPalette + currentMqPalette().
+- MainActivity: MaterialTheme(colorScheme, typography = MqTypography) +
+  CompositionLocalProvider(LocalMqPalette).
+- extract_lucide_icons.py: object members (not extension props), Roborazzi-
+  style withTransform drawing, robust SVG num() parser ("4.646-6.07",
+  "2.5.5" compact forms), +Waves/WifiOff → 74 icons, regenerates clean.
+- Bottom nav: MqBottomDock (web MobileDock port — 56dp row, 22×2.5 accent
+  indicator, 22dp icons stroke 2.3/1.7, 10sp labels, 14dp badge cap 99,
+  5/10ms haptics, Profile as 5th destination; Wave NOT a tab — web parity).
+- MiniPlayerBar rewritten: 3dp progress + 60dp row + 38dp art r6 + body/meta2/
+  num lines + Heart 18 + 44dp accent play + buffering spinner + like button.
+- LoginScreen rewritten = AuthView port: card r16 p24, 64dp logo, Google
+  (official G paths) → browser OAuth start, Telegram section (Send header,
+  open-bot button, 6 OTP boxes 44×56, Подтвердить), Email login +
+  Registration + Confirm cards (REAL /api/auth/login|register|verify-code
+  added to MqApi/AuthRepository), Демо-режим = local session + DemoTracks
+  (public /demo mp3s), legal links. Deterministic via stub botName.
+- Shared components → web parity: TrackRow (50dp art r8, MqType, Heart/
+  MoreHorizontal Lucide, 44dp targets), SectionHeader (28dp icon chip
+  accent@12% + ring, 16/600 title, optional Lucide icon + trailing),
+  States (SpinLoader/WifiOff/SearchX, WebPrimaryButton 44dp r12).
+- HomeScreen rewritten = MainView mobile port: header (date label 11/600
+  upper .14em, greeting 24/600, meta line, Wave pill/Settings), 80dp
+  MobileNowHero (68dp art r14, eyebrow accent/muted, track/artist, 44dp
+  accent play + next + more, 2.5dp progress edge; empty→Wave CTA),
+  MobileQuickRow (4× 44dp circles text@7%, 19dp icons, 16dp badges,
+  labels), sections: Для вас (Sparkles) → Плейлисты (ListMusic) →
+  Продолжить слушать (History), HomeBody stateless for fixtures.
+- PARITY HARNESS (reusable): ParityHarness.kt (ParityStub local
+  ServerSocket stub on 8717, ParityHost = real design system,
+  capture375x844 = decorView rasterization — captureToImage's redraw sync
+  does NOT work on Robolectric JVM) + ParityScreenshotsTest (auth, home,
+  profile @ 375×844) + debug-only ParityHostActivity in
+  app/src/debug (manifest + kotlin) with the production NoActionBar theme.
+  Run: JAVA_HOME=/tmp/my-project/.jdk ./gradlew :app:testDebugUnitTest
+  --tests "com.mq1.player.Parity*" -PmqApiBase=http://127.0.0.1:8717
+- VLM-compare vs web shots: AUTH ≈ parity (only diff = web shot's focused
+  OTP caret state), HOME structure matches (VLM diffs were data-state
+  artifacts: skeletons in web shot vs fixture rows; badges present because
+  fixture counts>0 — same web behavior).
+
+Stage Summary:
+- Design foundation DONE and wired app-wide; web-parity bottom dock, mini
+  player, auth, home, shared track/section/state components.
+- Deterministic 375×844 screenshot pipeline proven (3 screens captured).
+- Next: parallel screen ports (Search, Library, Chats, Settings, Profile
+  sweep, FullPlayer, Mixer, ContextMenu) then regressions + release 2.1.0.

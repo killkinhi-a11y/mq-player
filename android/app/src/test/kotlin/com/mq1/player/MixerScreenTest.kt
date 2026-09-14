@@ -148,7 +148,7 @@ class MixerScreenTest {
         compose.onRoot().performTouchInput { swipeUp() }
         compose.waitForIdle()
 
-        compose.onNodeWithText("ЛИМИТЕР").assertExists()
+        compose.onNodeWithText("Лимитер").assertExists()
         compose.onNodeWithContentDescription("Порог лимитера, децибелы").assertExists()
         compose.onNodeWithContentDescription("Время восстановления лимитера").assertExists()
         compose.onNodeWithText("Восстановление").assertExists()

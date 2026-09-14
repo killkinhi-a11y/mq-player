@@ -32,8 +32,8 @@ android {
         // 2.0.0 = native-app milestone (Kotlin/Compose/Media3 rewrite complete:
         // F2-F11). Old GitHub android-v1.0.x releases were the wrapper-era
         // builds; 2.0.0 cleanly separates the native line.
-        versionCode = 3
-        versionName = "2.0.0"
+        versionCode = 4
+        versionName = "2.1.0"
 
         buildConfigField("String", "API_BASE", "\"$mqApiBase\"")
         vectorDrawables { useSupportLibrary = true }

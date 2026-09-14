@@ -150,6 +150,14 @@ class LocalStore(private val context: Context) {
         }
     }
 
+    /** Web HistoryView «Очистить историю» — wipes both the list and ids. */
+    suspend fun clearHistory() {
+        context.dataStore.edit { p ->
+            p.remove(Keys.history)
+            p.remove(stringSetPreferencesKey("history_sc_ids"))
+        }
+    }
+
     val historyScIds: Flow<Set<String>> =
         context.dataStore.data.map { it[stringSetPreferencesKey("history_sc_ids")] ?: emptySet() }
 

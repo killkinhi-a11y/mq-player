@@ -2,6 +2,7 @@ package com.mq1.player.data.repo
 
 import com.mq1.player.data.LocalStore
 import com.mq1.player.data.api.MqApi
+import com.mq1.player.data.api.RegisterResponse
 import com.mq1.player.data.api.MeResponse
 import com.mq1.player.data.api.TelegramVerifyResponse
 import com.mq1.player.di.ServiceLocator
@@ -37,6 +38,31 @@ class AuthRepository(
             if (!username.isNullOrBlank()) put("username", username.trim())
         }
         val response = runCatching { api.telegramVerify(body) }.getOrNull() ?: return null
+        return response.body()
+    }
+
+    // ── WEB PARITY: email login / register / confirm (AuthView.tsx flows) ──
+
+    suspend fun loginWithEmail(email: String, password: String): TelegramVerifyResponse? {
+        val response = runCatching {
+            api.loginEmail(mapOf("email" to email.trim(), "password" to password))
+        }.getOrNull() ?: return null
+        return response.body()
+    }
+
+    suspend fun registerEmail(username: String, email: String, password: String): RegisterResponse? {
+        val response = runCatching {
+            api.registerEmail(
+                mapOf("username" to username.trim(), "email" to email.trim(), "password" to password)
+            )
+        }.getOrNull() ?: return null
+        return response.body()
+    }
+
+    suspend fun confirmEmailCode(email: String, code: String): TelegramVerifyResponse? {
+        val response = runCatching {
+            api.verifyEmailCode(mapOf("email" to email.trim(), "code" to code))
+        }.getOrNull() ?: return null
         return response.body()
     }
 

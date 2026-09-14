@@ -10,15 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -34,6 +25,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.mq1.player.data.api.Track
+import com.mq1.player.ui.theme.MqType
 
 /**
  * Artwork with deterministic gradient placeholder — no layout shift while
@@ -67,11 +59,10 @@ fun Artwork(
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop
             )
         } else {
-            Icon(
-                Icons.Filled.MusicNote,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.7f),
-                modifier = Modifier.size((sizeDp / 2.5).dp)
+            MqIcon(
+                icon = MqIcons.Music,
+                size = (sizeDp / 2.5).dp,
+                tint = Color.White.copy(alpha = 0.7f)
             )
         }
     }
@@ -110,72 +101,81 @@ fun TrackRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onPlay)
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Artwork(url = track.cover, sizeDp = 48)
+        // web list row: 50×50 art, r8
+        Artwork(url = track.cover, sizeDp = 50, corner = 8)
 
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
+            // mq-t-track 14/600
             Text(
                 text = track.title.ifBlank { "Без названия" },
-                style = MaterialTheme.typography.bodyLarge,
+                style = MqType.track,
                 color = if (isPlaying) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurface,
+                        else MaterialTheme.colorScheme.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.semantics {
                     contentDescription = "Трек: ${track.title}"
                 }
             )
+            // mq-t-artist 13/500
             Text(
                 text = track.artist.ifBlank { "Неизвестный исполнитель" },
-                style = MaterialTheme.typography.bodyMedium,
+                style = MqType.artist,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         }
 
-        Text(
-            text = formatDuration(track.durationInt),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 4.dp)
-        )
+        if (onMenu == null) {
+            // mq-t-num tabular — duration only when no menu button (web rows
+            // in the compact list keep duration; hero/menu rows drop it)
+            Text(
+                text = formatDuration(track.durationInt),
+                style = MqType.num,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 4.dp)
+            )
+        }
 
         if (onFavorite != null) {
-            IconButton(
-                onClick = onFavorite,
+            Box(
                 modifier = Modifier
                     .size(44.dp)
-                    .semantics { contentDescription = "Нравится: ${track.title}" }
+                    .clickable(onClick = onFavorite)
+                    .semantics { contentDescription = "Нравится: ${track.title}" },
+                contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = null,
+                MqIcon(
+                    icon = MqIcons.Heart,
+                    size = 18.dp,
                     tint = if (isFavorite) MaterialTheme.colorScheme.primary
                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
+                    fill = isFavorite,
                 )
             }
         }
 
         if (onMenu != null) {
-            IconButton(
-                onClick = onMenu,
-                modifier = Modifier.size(44.dp)
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clickable(onClick = onMenu)
+                    .semantics { contentDescription = "Меню трека" },
+                contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Filled.MoreVert,
-                    contentDescription = "Меню трека",
+                MqIcon(
+                    icon = MqIcons.MoreHorizontal,
+                    size = 20.dp,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
                 )
             }
         }

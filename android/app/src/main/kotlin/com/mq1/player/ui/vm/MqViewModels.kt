@@ -76,7 +76,10 @@ class SearchViewModel : ViewModel() {
         val results: List<Track> = emptyList(),
         val loading: Boolean = false,
         val searched: Boolean = false,
-        val error: String? = null
+        val error: String? = null,
+        // web SEARCH_HISTORY_KEY — recent queries for the «Недавние запросы»
+        // chips (in-memory parity of the web localStorage list, max 15)
+        val history: List<String> = emptyList()
     )
 
     private val music = ServiceLocator.musicRepository
@@ -98,10 +101,29 @@ class SearchViewModel : ViewModel() {
                 _ui.value = _ui.value.copy(error = "Поиск недоступен, проверьте сеть")
                 emptyList()
             }
+            val trimmed = query.trim()
+            val history = if (results.isNotEmpty() && trimmed.isNotBlank()) {
+                listOf(trimmed) + _ui.value.history.filter {
+                    it.lowercase() != trimmed.lowercase()
+                }.take(14)
+            } else _ui.value.history
             _ui.value = _ui.value.copy(
-                results = results, loading = false, searched = true, error = null
+                results = results, loading = false, searched = true,
+                error = null, history = history
             )
         }
+    }
+
+    /** Web handleClearHistory — clears the recent-query chips. */
+    fun clearHistory() {
+        _ui.value = _ui.value.copy(history = emptyList())
+    }
+
+    /** Web handleRemoveHistoryItem — drops one chip. */
+    fun removeHistoryItem(query: String) {
+        _ui.value = _ui.value.copy(
+            history = _ui.value.history.filter { it.lowercase() != query.lowercase() }
+        )
     }
 }
 
@@ -238,11 +260,36 @@ class WaveViewModel : ViewModel() {
     }
 }
 
+/**
+ * One row of the chats hub — the web MessengerView `sortedChats` item.
+ * The wired VM fills id/name/avatar/online/unread (real hub data); the
+ * last-message fields stay null until per-chat history is loaded, so the
+ * row falls back to the web texts («в сети» / «был(а) недавно»).
+ */
+data class ChatRowUi(
+    val id: String = "",
+    val name: String = "",
+    val avatar: String? = null,
+    val isGroup: Boolean = false,
+    val online: Boolean = false,
+    val unread: Int = 0,
+    val lastText: String? = null,
+    val lastTime: String? = null,
+    val lastTimeMillis: Long = 0L,
+    val pinned: Boolean = false,
+    val memberCount: Int = 0,
+)
+
 class ChatsViewModel : ViewModel() {
     data class ChatsUi(
         val friends: List<com.mq1.player.data.api.Friend> = emptyList(),
         val unreadCounts: Map<String, Int> = emptyMap(),
+        val rows: List<ChatRowUi> = emptyList(),
         val requestCount: Int = 0,
+        /** true until the first successful hub sync (web isLoadingFriends). */
+        val loading: Boolean = true,
+        /** sync failed and we have nothing to show → full-card error+retry. */
+        val error: Boolean = false,
         val aiMessages: List<com.mq1.player.data.api.AiChatMessage> = emptyList(),
         val aiTyping: Boolean = false,
         val aiSuggested: List<Track> = emptyList()
@@ -261,7 +308,18 @@ class ChatsViewModel : ViewModel() {
                 _ui.value = _ui.value.copy(
                     friends = s.friends,
                     unreadCounts = s.unreadCounts,
-                    requestCount = s.requestCount
+                    rows = s.friends.map { f ->
+                        ChatRowUi(
+                            id = f.id,
+                            name = f.username,
+                            avatar = f.avatar.ifBlank { null },
+                            online = s.online[f.id] == true,
+                            unread = s.unreadCounts[f.id] ?: 0,
+                        )
+                    },
+                    requestCount = s.requestCount,
+                    loading = !s.synced,
+                    error = s.syncError && s.friends.isEmpty()
                 )
             }
         }

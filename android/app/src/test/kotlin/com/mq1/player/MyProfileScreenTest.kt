@@ -137,10 +137,10 @@ class MyProfileScreenTest {
 
         compose.onNodeWithText("listener").assertExists()
         compose.onNodeWithText("Участник с 15 января 2026").assertExists()
-        // stats
-        compose.onNodeWithText("Плейлисты").assertExists()
-        compose.onNodeWithText("Лайки").assertExists()
-        compose.onNodeWithText("Друзья").assertExists()
+        // stats — web 2×2 grid (Треки / Часы / Топ жанр / Лайки)
+        compose.onNodeWithText("Треки прослушано").assertExists()
+        compose.onNodeWithText("Часов музыки").assertExists()
+        compose.onNodeWithText("Лайков").assertExists()
         // account card
         compose.onNodeWithText("listener@example.com").assertExists()
         // sections

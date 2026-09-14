@@ -25,6 +25,9 @@ import com.mq1.player.ui.nav.MqAppNavHost
 import com.mq1.player.ui.nav.Routes
 import com.mq1.player.ui.screens.LoginScreen
 import com.mq1.player.ui.screens.OnboardingScreen
+import com.mq1.player.ui.theme.LocalMqPalette
+import com.mq1.player.ui.theme.MqTypography
+import com.mq1.player.ui.theme.currentMqPalette
 import com.mq1.player.ui.theme.mqColorScheme
 import com.mq1.player.ui.vm.AuthViewModel
 import kotlinx.coroutines.Dispatchers
@@ -104,8 +107,13 @@ private fun RootContent() {
     val appearance by ServiceLocator.localStore.appearance
         .collectAsState(initial = com.mq1.player.data.LocalStore.Appearance())
 
+    val palette = currentMqPalette(appearance.themeId, appearance.darkMode)
+    androidx.compose.runtime.CompositionLocalProvider(LocalMqPalette provides palette) {
     MaterialTheme(
-        colorScheme = mqColorScheme(appearance.themeId, appearance.darkMode)
+        colorScheme = mqColorScheme(appearance.themeId, appearance.darkMode),
+        // MQ visual parity: the WHOLE app renders with the web type scale
+        // (Manrope 400–800, mq-t-* → MqType). No Material default fonts.
+        typography = MqTypography,
     ) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             when (val state = auth.state.collectAsState().value) {
@@ -127,6 +135,7 @@ private fun RootContent() {
                 }
             }
         }
+    }
     }
 }
 

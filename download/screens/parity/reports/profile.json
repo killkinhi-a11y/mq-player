@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "Based on a visual comparison of the web reference (Image 1) and the Android implementation (Image 2), here are the remaining differences ranked by visual impact:\n\n1.  **Overall Layout Structure & Navigation:** The Android version uses a standard top app bar with a back arrow and title (\"Профиль\"), whereas the web version integrates the profile header directly into the scrollable content without a top bar. Additionally, the web version includes a persistent bottom navigation bar and a \"Now Playing\" mini-player, which are completely absent in the Android screenshot.\n2.  **Profile Header & Actions:** The web version displays the username with an \"@\" prefix and an edit icon inline (`@Demo ✎`), along with a secondary \"Participant\" button. The Android version places the name on its own line, puts the handle below it, and uses a large full-width \"Edit Profile\" button. The camera icon placement on the avatar also differs slightly.\n3.  **Statistics Grid Layout:** In the web version, the stats (Tracks, Hours, Likes, Favorites) are arranged in a clean 2x2 grid inside a card-like container. In the Android version, these items appear more spaced out, lack the distinct container background, and use different icons (e.g., a flame for \"Likes\" instead of a chart).\n4.  **Settings & Menu Items:** The web version features large, distinct list items for \"Messages\" and \"Settings\" with descriptive subtitles. These are missing from the Android view, which instead jumps straight into account details.\n5.  **Account Details Formatting:** The \"Account\" section differs significantly. The web version shows email/telegram as simple text lines, followed by a toggle for \"Invisible\" status and action buttons for \"App Settings\" and \"Logout\". The Android version formats this as a dense key-value list (Email, Telegram, Status, Role) and moves \"Favorite Artists\" to the bottom.\n\nPARITY: 45",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1789344973,
+  "id": "2026091408160560beeabc58484294",
+  "model": "glm-5v-turbo",
+  "object": "chat.completion",
+  "request_id": "2026091408160560beeabc58484294",
+  "usage": {
+    "completion_tokens": 400,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 1098,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "total_tokens": 1498
+  }
+}

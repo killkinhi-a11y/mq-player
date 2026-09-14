@@ -24,23 +24,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -57,11 +44,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mq1.player.data.api.UsernameCheckResponse
 import com.mq1.player.data.repo.ProfileRepository
@@ -69,8 +59,11 @@ import com.mq1.player.ui.components.Artwork
 import com.mq1.player.ui.components.EmptyState
 import com.mq1.player.ui.components.ErrorState
 import com.mq1.player.ui.components.LoadingState
+import com.mq1.player.ui.components.MqIcon
+import com.mq1.player.ui.components.MqIcons
 import com.mq1.player.ui.components.SectionHeader
 import com.mq1.player.ui.components.TrackRow
+import com.mq1.player.ui.theme.MqType
 import com.mq1.player.ui.vm.MyProfileViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -171,7 +164,10 @@ fun MyProfileScreen(
 /**
  * Stateless profile body — pure function of [ui] + callbacks (unit-testable
  * in Robolectric without the ViewModel or network). Loading / error+retry /
- * empty states are explicit — no fake content.
+ * empty states are explicit — no fake content. Web-parity sweep: Manrope
+ * MqType scale, Lucide icons, web ProfileView geometry (112dp avatar +
+ * camera badge, member-since pill, 12/700 uppercase card headers, num 20
+ * stat values, #4ade80 online dots).
  */
 @Composable
 internal fun ProfileBody(
@@ -202,23 +198,31 @@ internal fun ProfileBody(
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack, modifier = Modifier.size(44.dp)) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clickable(onClick = onBack)
+                    .semantics { contentDescription = "Назад" },
+                contentAlignment = Alignment.Center
+            ) {
+                MqIcon(icon = MqIcons.ArrowLeft, size = 20.dp, tint = MaterialTheme.colorScheme.onBackground)
             }
             Text(
                 "Профиль",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MqType.page,
+                color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier
                     .weight(1f)
                     .padding(start = 4.dp)
             )
-            IconButton(
-                onClick = onRefresh,
+            Box(
                 modifier = Modifier
                     .size(44.dp)
-                    .semantics { contentDescription = "Обновить профиль" }
+                    .clickable(onClick = onRefresh)
+                    .semantics { contentDescription = "Обновить профиль" },
+                contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Filled.Refresh, contentDescription = "Обновить")
+                MqIcon(icon = MqIcons.RefreshCw, size = 18.dp, tint = MaterialTheme.colorScheme.onBackground)
             }
         }
 
@@ -231,7 +235,7 @@ internal fun ProfileBody(
             )
 
             else -> {
-                // ── Identity ─────────────────────────────────────────────
+                // ── Identity (web: 112dp avatar + camera badge + name + sub) ─
                 Column(
                     Modifier
                         .fillMaxWidth()
@@ -240,22 +244,44 @@ internal fun ProfileBody(
                 ) {
                     Spacer(Modifier.height(16.dp))
                     Box {
-                        Artwork(
-                            url = ui.avatar,
-                            sizeDp = 104,
-                            corner = 52,
-                            contentDescription = "Аватар: ${ui.username}"
-                        )
+                        // web: w-28 round; no avatar → surface-2 + User glyph
+                        if (ui.avatar.isNullOrBlank()) {
+                            Box(
+                                Modifier
+                                    .size(112.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .border(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
+                                        CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                MqIcon(
+                                    icon = MqIcons.User,
+                                    size = 56.dp,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else {
+                            Artwork(
+                                url = ui.avatar,
+                                sizeDp = 112,
+                                corner = 56,
+                                contentDescription = "Аватар: ${ui.username}"
+                            )
+                        }
                         if (ui.savingAvatar) {
                             CircularProgressIndicator(
                                 strokeWidth = 3.dp,
                                 modifier = Modifier
-                                    .size(104.dp)
+                                    .size(112.dp)
                                     .clip(CircleShape)
                                     .background(MaterialTheme.colorScheme.background.copy(alpha = 0.5f))
                             )
                         } else {
-                            // Camera badge: visual 32dp, FULL 44dp hitbox
+                            // web mq-avatar-edit-badge: 34dp visual, FULL 44dp hitbox
                             Box(
                                 modifier = Modifier
                                     .size(44.dp)
@@ -268,132 +294,168 @@ internal fun ProfileBody(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(32.dp)
+                                        .size(34.dp)
                                         .clip(CircleShape)
                                         .background(MaterialTheme.colorScheme.primary)
+                                        .border(
+                                            3.dp,
+                                            MaterialTheme.colorScheme.background,
+                                            CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(
-                                        Icons.Filled.CameraAlt,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimary,
-                                        modifier = Modifier.size(18.dp)
+                                    MqIcon(
+                                        icon = MqIcons.Camera,
+                                        size = 16.dp,
+                                        tint = MaterialTheme.colorScheme.onPrimary
                                     )
                                 }
                             }
                         }
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(16.dp))
+                    // web: mq-t-display text-[23px]
                     Text(
                         ui.username.ifBlank { "…" },
-                        style = MaterialTheme.typography.headlineSmall
+                        style = MqType.display.copy(fontSize = 23.sp),
+                        color = MaterialTheme.colorScheme.onBackground
                     )
-                    Spacer(Modifier.height(4.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary)
-                        )
+                    // web: telegram/email under the name (12px muted)
+                    (ui.telegramUsername?.takeIf { it.isNotBlank() }?.let { "@$it" }
+                        ?: ui.email)?.let {
                         Text(
-                            "  В сети",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary
+                            it,
+                            style = MqType.meta,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 8.dp)
                         )
                     }
                     memberSince(ui.createdAt)?.let {
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            "Участник с $it",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        // web: pill (text@4% bg, thin border, Calendar 12 + meta2)
+                        Spacer(Modifier.height(12.dp))
+                        Row(
+                            Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(
+                                    MaterialTheme.colorScheme.onBackground.copy(alpha = 0.04f)
+                                )
+                                .border(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.22f),
+                                    RoundedCornerShape(50)
+                                )
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            MqIcon(
+                                icon = MqIcons.Clock,
+                                size = 12.dp,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                "Участник с $it",
+                                style = MqType.meta2,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f)
+                            )
+                        }
                     }
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedButton(onClick = onEdit, modifier = Modifier.height(44.dp)) {
-                        Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Редактировать профиль")
+                    Spacer(Modifier.height(16.dp))
+                    // web-styled outline button (r12, 44dp, hairline border)
+                    Box(
+                        Modifier
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(
+                                1.dp,
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.36f),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .clickable(onClick = onEdit)
+                            .padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Редактировать профиль",
+                            style = MqType.btn,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
                     }
                 }
 
-                // ── Stats ────────────────────────────────────────────────
+                // ── Stats — web 2×2 grid (Треки / Часы / Топ жанр / Лайки) ──
                 Spacer(Modifier.height(20.dp))
-                Row(
+                val hours = (ui.history.sumOf { it.duration } / 3600.0).let {
+                    if (it >= 1.0) it.toInt().toString() + " ч" else "<1 ч"
+                }
+                val topGenre = ui.likes.mapNotNull { it.genre.takeIf(String::isNotBlank) }
+                    .groupingBy { it }.eachCount().maxByOrNull { it.value }?.key ?: "—"
+                Column(
                     Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    StatCard("Плейлисты", ui.playlists.size, Modifier.weight(1f))
-                    StatCard("Лайки", ui.likes.size, Modifier.weight(1f))
-                    StatCard("Друзья", ui.friends.size, Modifier.weight(1f))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        StatCard("Треки прослушано", ui.history.size.toString(), MqIcons.Music, Modifier.weight(1f))
+                        StatCard("Часов музыки", hours, MqIcons.Headphones, Modifier.weight(1f))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        StatCard("Топ жанр", topGenre, MqIcons.Flame, Modifier.weight(1f))
+                        StatCard("Лайков", ui.likes.size.toString(), MqIcons.Heart, Modifier.weight(1f))
+                    }
                 }
 
-                // ── Account state ────────────────────────────────────────
+                // ── Account state (web «Аккаунт» card rows) ────────────────
                 if (ui.email != null || ui.telegramUsername != null || ui.confirmed != null) {
                     Spacer(Modifier.height(16.dp))
-                    SectionCard("Аккаунт") {
+                    SectionCard("АККАУНТ") {
                         ui.email?.let {
-                            Row {
-                                Text(
-                                    "Email", style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(Modifier.weight(1f))
-                                Text(
-                                    it, style = MaterialTheme.typography.bodyMedium,
-                                    maxLines = 1, overflow = TextOverflow.Ellipsis
-                                )
-                            }
+                            AccountRow(label = "Email", value = it)
                         }
                         ui.telegramUsername?.takeIf { it.isNotBlank() }?.let {
-                            Spacer(Modifier.height(6.dp))
-                            Row {
-                                Text(
-                                    "Telegram", style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(Modifier.weight(1f))
-                                Text("@$it", style = MaterialTheme.typography.bodyMedium)
-                            }
+                            Spacer(Modifier.height(8.dp))
+                            AccountRow(label = "Telegram", value = "@$it")
                         }
                         ui.confirmed?.let { confirmed ->
-                            Spacer(Modifier.height(6.dp))
+                            Spacer(Modifier.height(8.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    "Статус", style = MaterialTheme.typography.bodyMedium,
+                                    "Статус", style = MqType.meta,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Spacer(Modifier.weight(1f))
                                 if (confirmed) {
-                                    Icon(
-                                        Icons.Filled.Check,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(16.dp)
+                                    MqIcon(
+                                        icon = MqIcons.Check,
+                                        size = 14.dp,
+                                        tint = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
                                         " подтверждён",
-                                        style = MaterialTheme.typography.bodyMedium
+                                        style = MqType.trackSm,
+                                        color = MaterialTheme.colorScheme.onBackground
                                     )
                                 } else {
                                     Text(
                                         " не подтверждён",
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        style = MqType.trackSm,
                                         color = MaterialTheme.colorScheme.error
                                     )
                                 }
                             }
                         }
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(8.dp))
                         Row {
                             Text(
-                                "Роль", style = MaterialTheme.typography.bodyMedium,
+                                "Роль", style = MqType.meta,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(Modifier.weight(1f))
-                            Text(roleName(ui.role), style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                roleName(ui.role), style = MqType.trackSm,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
                         }
                     }
                 }
@@ -401,17 +463,34 @@ internal fun ProfileBody(
                 // ── Top artists (derived from likes) → Artist screen ──────
                 if (ui.topArtists.isNotEmpty()) {
                     Spacer(Modifier.height(16.dp))
-                    SectionHeader("Любимые исполнители")
+                    SectionHeader("ЛЮБИМЫЕ ИСПОЛНИТЕЛИ", icon = MqIcons.Users)
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = 20.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(ui.topArtists) { artist ->
-                            FilledTonalButton(
-                                onClick = { onOpenArtist(artist) },
-                                modifier = Modifier.height(44.dp)
+                            // web artist chip: r-full, accent@8-15% bg, accent border
+                            Box(
+                                Modifier
+                                    .height(44.dp)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                    .border(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
+                                        RoundedCornerShape(50)
+                                    )
+                                    .clickable { onOpenArtist(artist) }
+                                    .padding(horizontal = 14.dp),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Text(artist, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    artist,
+                                    style = MqType.trackSm,
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
                         }
                     }
@@ -420,11 +499,18 @@ internal fun ProfileBody(
                 // ── Friends → Chat ───────────────────────────────────────
                 Spacer(Modifier.height(16.dp))
                 SectionHeader(
-                    title = "Друзья",
+                    title = "ДРУЗЬЯ",
+                    icon = MqIcons.Users,
                     trailing = {
-                        TextButton(onClick = onOpenFriends, modifier = Modifier.height(44.dp)) {
-                            Icon(Icons.Filled.Group, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Text(" Все")
+                        Box(
+                            Modifier
+                                .height(44.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable(onClick = onOpenFriends)
+                                .padding(horizontal = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Все", style = MqType.btn, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 )
@@ -453,20 +539,26 @@ internal fun ProfileBody(
                                 Box {
                                     Artwork(url = friend.avatar, sizeDp = 56, corner = 28)
                                     if (isOnline) {
+                                        // web online dot: #4ade80 + 2dp card ring
                                         Box(
                                             Modifier
                                                 .size(14.dp)
                                                 .align(Alignment.BottomEnd)
                                                 .clip(CircleShape)
-                                                .background(MaterialTheme.colorScheme.primary)
-                                                .border(2.dp, MaterialTheme.colorScheme.background, CircleShape)
+                                                .background(Color(0xFF4ADE80))
+                                                .border(
+                                                    2.dp,
+                                                    MaterialTheme.colorScheme.background,
+                                                    CircleShape
+                                                )
                                         )
                                     }
                                 }
                                 Spacer(Modifier.height(4.dp))
                                 Text(
                                     friend.username,
-                                    style = MaterialTheme.typography.labelMedium,
+                                    style = MqType.meta2,
+                                    color = MaterialTheme.colorScheme.onBackground,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -477,7 +569,7 @@ internal fun ProfileBody(
 
                 // ── Likes → Full Player ──────────────────────────────────
                 Spacer(Modifier.height(16.dp))
-                SectionHeader("Лайки · ${ui.likes.size}")
+                SectionHeader("ЛАЙКИ · ${ui.likes.size}", icon = MqIcons.Heart)
                 if (ui.likes.isEmpty()) {
                     EmptyState("Лайканных треков пока нет")
                 } else {
@@ -497,7 +589,7 @@ internal fun ProfileBody(
                     if (ui.likes.size > shown.size) {
                         Text(
                             "… и ещё ${ui.likes.size - shown.size}",
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MqType.meta,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
                         )
@@ -506,7 +598,7 @@ internal fun ProfileBody(
 
                 // ── My playlists → Playlist screen ────────────────────────
                 Spacer(Modifier.height(16.dp))
-                SectionHeader("Мои плейлисты · ${ui.playlists.size}")
+                SectionHeader("МОИ ПЛЕЙЛИСТЫ · ${ui.playlists.size}", icon = MqIcons.ListMusic)
                 if (ui.playlists.isEmpty()) {
                     EmptyState("Плейлистов пока нет — создайте в Библиотеке")
                 } else {
@@ -523,7 +615,7 @@ internal fun ProfileBody(
                 // ── Recent activity (history) ─────────────────────────────
                 if (ui.history.isNotEmpty()) {
                     Spacer(Modifier.height(16.dp))
-                    SectionHeader("Недавняя активность")
+                    SectionHeader("НЕДАВНЯЯ АКТИВНОСТЬ", icon = MqIcons.History)
                     ui.history.take(5).forEach { track ->
                         TrackRow(
                             track = track,
@@ -537,7 +629,7 @@ internal fun ProfileBody(
                     }
                 }
 
-                // ── Actions ───────────────────────────────────────────────
+                // ── Actions (web «Действия» card rows) ─────────────────────
                 Spacer(Modifier.height(24.dp))
                 Row(
                     Modifier
@@ -545,22 +637,53 @@ internal fun ProfileBody(
                         .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    OutlinedButton(
-                        onClick = onOpenSettings,
-                        modifier = Modifier
+                    Box(
+                        Modifier
                             .weight(1f)
                             .height(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(
+                                1.dp,
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.36f),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .clickable(onClick = onOpenSettings)
+                            .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Filled.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Text(" Настройки")
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            MqIcon(
+                                icon = MqIcons.Settings,
+                                size = 16.dp,
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                "Настройки",
+                                style = MqType.btn,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
                     }
-                    OutlinedButton(
-                        onClick = onLogout,
-                        modifier = Modifier
+                    Box(
+                        Modifier
                             .weight(1f)
                             .height(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(
+                                1.dp,
+                                MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .clickable(onClick = onLogout)
+                            .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text("Выйти", color = MaterialTheme.colorScheme.error)
+                        Text(
+                            "Выйти",
+                            style = MqType.btn,
+                            color = MaterialTheme.colorScheme.error
+                        )
                     }
                 }
                 Spacer(Modifier.height(32.dp))
@@ -584,43 +707,100 @@ private fun roleName(role: String): String = when (role) {
     else -> "Слушатель"
 }
 
+/** Web stat card: r12 card + mq-t-num 20 value + meta2 label. */
 @Composable
-private fun StatCard(label: String, value: Int, modifier: Modifier = Modifier) {
-    Card(modifier = modifier) {
-        Column(
+private fun StatCard(
+    label: String,
+    value: String,
+    icon: com.mq1.player.ui.components.LucideIcon,
+    modifier: Modifier = Modifier,
+) {
+    // web stats card: r16, p16, icon chip 44 r12 accent@12%, num 20sp, meta-2 label
+    Row(
+        modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        val accent = MaterialTheme.colorScheme.primary
+        Box(
             Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .size(44.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(accent.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
         ) {
+            MqIcon(icon = icon, size = 20.dp, tint = accent)
+        }
+        Column {
             Text(
-                value.toString(),
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.primary
+                value,
+                style = MqType.num.copy(fontSize = 20.sp, lineHeight = 20.sp),
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
             )
             Text(
                 label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style = MqType.meta2,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                modifier = Modifier.padding(top = 2.dp)
             )
         }
     }
 }
 
+/** Account card row: meta label (muted) left, trackSm value right. */
+@Composable
+private fun AccountRow(label: String, value: String) {
+    Row {
+        Text(
+            label, style = MqType.meta,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+            value, style = MqType.trackSm,
+            color = MaterialTheme.colorScheme.onBackground,
+            maxLines = 1, overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+/** Web card: r12, surface bg + edge border, 12/700 uppercase header row. */
 @Composable
 private fun SectionCard(title: String, content: @Composable () -> Unit) {
-    Card(
+    Column(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.36f),
+                RoundedCornerShape(12.dp)
+            )
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Row(
+            Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            MqIcon(
+                icon = MqIcons.User,
+                size = 14.dp,
+                tint = MaterialTheme.colorScheme.primary
+            )
             Text(
-                title.uppercase(),
-                style = MaterialTheme.typography.labelLarge,
+                title,
+                style = MqType.label,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(10.dp))
+        }
+        Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
             content()
         }
     }
@@ -644,12 +824,13 @@ private fun PlaylistRow(
         Artwork(url = cover, sizeDp = 48, corner = 8)
         Column(Modifier.weight(1f)) {
             Text(
-                name, style = MaterialTheme.typography.bodyLarge,
+                name, style = MqType.track,
+                color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 1, overflow = TextOverflow.Ellipsis
             )
             Text(
                 "$trackCount треков",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MqType.meta,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }

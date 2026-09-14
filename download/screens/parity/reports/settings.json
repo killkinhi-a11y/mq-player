@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "Based on a visual comparison of the web reference (Image 1) and the Android implementation (Image 2), here are the remaining differences ranked by visual impact:\n\n1.  **Missing Settings Sections:** The Android version is missing the \"ДАННЫЕ\" (Data) section entirely, which includes \"Синхронизация\" (Sync), \"Экспорт данных\" (Export data), and \"Импорт данных\" (Import data). It also lacks the \"ОПАСНАЯ ЗОНА\" (Danger Zone) section with the \"Удалить аккаунт\" option.\n2.  **Navigation Bar State & Styling:**\n    *   The active tab (\"Профиль\") in Image 2 is highlighted in red text and has a red underline indicator, whereas Image 1 uses a simple icon fill change without text color shift or underlines.\n    *   The bottom player bar in Image 1 shows a \"Play\" button (triangle), while Image 2 shows a \"Pause\" button (two bars).\n3.  **Top Navigation Bar Content:** The top scrollable tab bar differs. Image 1 contains \"Тема\", \"Звук\", and \"Уведом.\". Image 2 replaces these with \"Уведом.\", an overflow menu \"...\", and \"Ещё\".\n4.  **Profile Card Layout Spacing:** In the profile card, the vertical spacing between the username (\"Demo\"/\"listener\") and the subtitle (\"demo@...\"/\"нет\") appears tighter in Image 2 compared to Image 1.\n5.  **Player Bar Album Art:** The album art thumbnail in the bottom player bar of Image 2 is a generic music note icon on a brown background, whereas Image 1 displays a specific red \"M\" logo.\n\nPARITY: 65",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1789344935,
+  "id": "20260914081519f87592cd5a2e49b8",
+  "model": "glm-5v-turbo",
+  "object": "chat.completion",
+  "request_id": "20260914081519f87592cd5a2e49b8",
+  "usage": {
+    "completion_tokens": 371,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 906,
+    "prompt_tokens_details": {
+      "cached_tokens": 2
+    },
+    "total_tokens": 1277
+  }
+}

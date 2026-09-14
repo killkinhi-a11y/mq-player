@@ -130,6 +130,13 @@ data class TelegramVerifyResponse(
 )
 
 @Serializable
+data class RegisterResponse(
+    val message: String? = null,
+    val devCode: String? = null,
+    val error: String? = null
+)
+
+@Serializable
 data class MeResponse(
     val authenticated: Boolean = false,
     val userId: String? = null,

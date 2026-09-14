@@ -30,6 +30,16 @@ interface MqApi {
     @POST("api/auth/logout")
     suspend fun logout(): SimpleResult
 
+    // WEB PARITY auth methods (same endpoints as AuthView.tsx)
+    @POST("api/auth/login")
+    suspend fun loginEmail(@Body body: Map<String, String>): Response<TelegramVerifyResponse>
+
+    @POST("api/auth/register")
+    suspend fun registerEmail(@Body body: Map<String, String>): Response<RegisterResponse>
+
+    @POST("api/auth/verify-code")
+    suspend fun verifyEmailCode(@Body body: Map<String, String>): Response<TelegramVerifyResponse>
+
     // ── Music ───────────────────────────────────────────────────────────────
 
     @GET("api/music/search")

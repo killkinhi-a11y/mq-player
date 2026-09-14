@@ -21,13 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -53,6 +47,9 @@ import com.mq1.player.ui.components.SectionHeader
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import com.mq1.player.ui.theme.MqType
+import com.mq1.player.ui.components.MqIcons
+import com.mq1.player.ui.components.MqIcon
 
 /**
  * F10 — native Android mixer control surface (NOT a web imitation):
@@ -86,16 +83,28 @@ fun MixerScreen(onBack: () -> Unit) {
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack, modifier = Modifier.size(44.dp)) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+            Box(
+                modifier = Modifier.size(44.dp).clickable(onClick = onBack),
+                contentAlignment = Alignment.Center
+            ) {
+                MqIcon(
+                    icon = MqIcons.ArrowLeft, size = 22.dp,
+                    tint = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.semantics { contentDescription = "Назад" }
+                )
             }
-            Text(
-                "Микшер",
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 4.dp)
-            )
+            Column(Modifier.weight(1f).padding(start = 4.dp)) {
+                Text(
+                    "Эквалайзер",
+                    style = MqType.page,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Text(
+                    "10 полос · обработка " + if (params.bypass) "выкл" else "вкл",
+                    style = MqType.meta2,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             // Bypass — 44dp row switch
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -108,7 +117,7 @@ fun MixerScreen(onBack: () -> Unit) {
             ) {
                 Text(
                     if (params.bypass) "Обход" else "Активно",
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MqType.btn,
                     color = if (params.bypass) MaterialTheme.colorScheme.onSurfaceVariant
                     else MaterialTheme.colorScheme.primary
                 )
@@ -124,54 +133,10 @@ fun MixerScreen(onBack: () -> Unit) {
                     .size(44.dp)
                     .semantics { contentDescription = "Сбросить микшер" }
             ) {
-                Icon(Icons.Filled.Refresh, contentDescription = "Сброс")
-            }
-        }
-
-        // ── Meters (real DSP data) ──────────────────────────────────────
-        Spacer(Modifier.height(12.dp))
-        MeterPanel(meters)
-
-        // ── Master ──────────────────────────────────────────────────────
-        Spacer(Modifier.height(16.dp))
-        SectionHeader("Общий уровень")
-        Column(Modifier.padding(horizontal = 20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "Мастер",
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.weight(1f)
+                MqIcon(
+                    icon = MqIcons.RefreshCw, size = 20.dp,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(
-                    formatDb(params.masterGainDb),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (params.masterGainDb != 0f) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "${mixer.masterGainPercent()} %",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            // Fader with 44dp tall interaction area
-            Slider(
-                value = params.masterGainDb,
-                onValueChange = { mixer.setMasterGainDb(it) },
-                valueRange = -30f..6f,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp)
-                    .semantics { contentDescription = "Общая громкость, децибелы" }
-            )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("-30 dB", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("0 dB", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("+6 dB", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -184,7 +149,7 @@ fun MixerScreen(onBack: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.height(44.dp)
                 ) {
-                    Text("Вкл", style = MaterialTheme.typography.labelMedium,
+                    Text("Вкл", style = MqType.meta,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Switch(
                         checked = params.eqEnabled,
@@ -230,13 +195,78 @@ fun MixerScreen(onBack: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 EqSpec.PRESETS.forEach { (name, gains) ->
-                    FilterChip(
-                        selected = params.eqGains == gains,
-                        onClick = { mixer.applyPreset(gains) },
-                        label = { Text(name) },
-                        modifier = Modifier.height(44.dp)
-                    )
+                    val active = params.eqGains == gains
+                    val accent = MaterialTheme.colorScheme.primary
+                    val card = MaterialTheme.colorScheme.surface
+                    val border = MaterialTheme.colorScheme.outline
+                    Box(
+                        Modifier
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(if (active) accent.copy(alpha = 0.16f) else card)
+                            .border(
+                                1.dp,
+                                if (active) accent.copy(alpha = 0.4f) else border.copy(alpha = 0.4f),
+                                RoundedCornerShape(22.dp)
+                            )
+                            .clickable { mixer.applyPreset(gains) }
+                            .padding(horizontal = 14.dp),
+                        contentAlignment = androidx.compose.ui.Alignment.Center
+                    ) {
+                        Text(
+                            name,
+                            style = MqType.meta,
+                            color = if (active) accent else MaterialTheme.colorScheme.onBackground
+                        )
+                    }
                 }
+            }
+        }
+
+        // ── Meters (real DSP data) ──────────────────────────────────────
+        Spacer(Modifier.height(12.dp))
+        MeterPanel(meters)
+
+        // ── Master ──────────────────────────────────────────────────────
+        Spacer(Modifier.height(16.dp))
+        SectionHeader("Общий уровень")
+        Column(Modifier.padding(horizontal = 20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Мастер",
+                    style = MqType.body,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    formatDb(params.masterGainDb),
+                    style = MqType.track,
+                    color = if (params.masterGainDb != 0f) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "${mixer.masterGainPercent()} %",
+                    style = MqType.meta,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            // Fader with 44dp tall interaction area
+            Slider(
+                value = params.masterGainDb,
+                onValueChange = { mixer.setMasterGainDb(it) },
+                valueRange = -30f..6f,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .semantics { contentDescription = "Общая громкость, децибелы" }
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("-30 dB", style = MqType.meta2,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("0 dB", style = MqType.meta2,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("+6 dB", style = MqType.meta2,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -249,7 +279,7 @@ fun MixerScreen(onBack: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.height(44.dp)
                 ) {
-                    Text("Вкл", style = MaterialTheme.typography.labelMedium,
+                    Text("Вкл", style = MqType.meta,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Switch(
                         checked = params.limiterEnabled,
@@ -261,10 +291,10 @@ fun MixerScreen(onBack: () -> Unit) {
         if (params.limiterEnabled) {
             Column(Modifier.padding(horizontal = 20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Порог", style = MaterialTheme.typography.bodyLarge,
+                    Text("Порог", style = MqType.body,
                         modifier = Modifier.weight(1f))
                     Text(formatDb(params.limiterThresholdDb),
-                        style = MaterialTheme.typography.titleMedium)
+                        style = MqType.track)
                 }
                 Slider(
                     value = params.limiterThresholdDb,
@@ -276,11 +306,11 @@ fun MixerScreen(onBack: () -> Unit) {
                         .semantics { contentDescription = "Порог лимитера, децибелы" }
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Восстановление", style = MaterialTheme.typography.bodyLarge,
+                    Text("Восстановление", style = MqType.body,
                         modifier = Modifier.weight(1f))
                     Text(
                         "${params.limiterReleaseMs.roundToInt()} мс",
-                        style = MaterialTheme.typography.titleMedium
+                        style = MqType.track
                     )
                 }
                 Slider(
@@ -310,28 +340,28 @@ private fun MeterPanel(meters: MeterSnapshot) {
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Filled.GraphicEq, contentDescription = null,
+                MqIcon(
+                    icon = MqIcons.AudioLines, size = 20.dp,
                     tint = if (meters.active) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     "Измерения",
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MqType.btn,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.weight(1f))
                 if (!meters.active) {
                     Text(
                         "тишина",
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MqType.meta,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
                     Text(
                         "${meters.sampleRate} Гц · ${meters.channels} кан.",
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MqType.meta2,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -348,7 +378,7 @@ private fun MeterPanel(meters: MeterSnapshot) {
                     .height(44.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Снижение усиления", style = MaterialTheme.typography.bodyMedium,
+                Text("Снижение усиления", style = MqType.body,
                     modifier = Modifier.weight(1f))
                 Text(
                     if (meters.gainReductionDb > 0.05f) "-${"%.1f".format(meters.gainReductionDb)} dB"
@@ -374,12 +404,12 @@ private fun DbMeterRow(label: String, db: Float, range: ClosedFloatingPointRange
     ) {
         Text(
             label,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MqType.body,
             modifier = Modifier.width(118.dp)
         )
         Text(
             if (db <= -89.9f) "—" else "${"%.1f".format(db)}",
-            style = MaterialTheme.typography.labelLarge,
+            style = MqType.btn,
             textAlign = TextAlign.End,
             modifier = Modifier.width(56.dp),
             color = when {
@@ -436,7 +466,7 @@ private fun EqFader(
     ) {
         Text(
             formatSignedDb(gain),
-            style = MaterialTheme.typography.labelSmall,
+            style = MqType.meta2,
             color = if (gain > 0.05f || gain < -0.05f) MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -516,7 +546,7 @@ private fun EqFader(
         Spacer(Modifier.height(2.dp))
         Text(
             label,
-            style = MaterialTheme.typography.labelSmall,
+            style = MqType.meta2,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             maxLines = 1
