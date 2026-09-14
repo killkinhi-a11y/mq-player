@@ -36,8 +36,8 @@ android {
         // login crashed on session persist), demo queue playback (real URLs,
         // no autoplay), Google native login (Credential Manager →
         // /api/auth/google/native).
-        versionCode = 5
-        versionName = "2.2.0"
+        versionCode = 6
+        versionName = "2.3.0"
 
         buildConfigField("String", "API_BASE", "\"$mqApiBase\"")
         vectorDrawables { useSupportLibrary = true }

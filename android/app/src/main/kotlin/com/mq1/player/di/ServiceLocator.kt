@@ -44,6 +44,19 @@ object ServiceLocator {
 
     val cookieJar: SecureCookieJar by lazy { SecureCookieJar(appContext) }
 
+    /** Demo-session marker — the backend serves demo group chats via the
+     *  x-demo-user-id header (same mechanism the web demo uses). */
+    @Volatile var demoUserId: String? = null
+    @Volatile var demoUserName: String? = null
+
+    /** Web-parity session-expiry bus: any authenticated API call returning
+     *  401 (with a session cookie present, not in demo mode) emits here;
+     *  MainActivity logs the user out with an honest message — exactly the
+     *  web "сессия истекла" flow. */
+    val sessionExpired = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(
+        replay = 0, extraBufferCapacity = 1
+    )
+
     val okHttp: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .cookieJar(cookieJar)
@@ -53,11 +66,23 @@ object ServiceLocator {
             .retryOnConnectionFailure(true)
             .addInterceptor(Interceptor { chain ->
                 // Baseline headers accepted by the backend (parity with web).
-                val req = chain.request().newBuilder()
+                val builder = chain.request().newBuilder()
                     .header("Accept", "application/json")
                     .header("User-Agent", "MQ-Android/${BuildConfig.VERSION_NAME}")
-                    .build()
-                chain.proceed(req)
+                demoUserId?.let { builder.header("x-demo-user-id", it) }
+                demoUserName?.let { builder.header("x-demo-user-name", it) }
+                val response = chain.proceed(builder.build())
+                // 401 on authenticated endpoints + a held session cookie + a
+                // real (non-demo) session ⇒ session expired → honest logout.
+                // Demo sessions hold no cookie and EXPECT 401s (web parity:
+                // canPollProtected) — they never emit.
+                if (response.code == 401 && demoUserId == null &&
+                    cookieJar.hasSessionCookie &&
+                    !chain.request().url.encodedPath.substringAfter("api/").startsWith("auth/")
+                ) {
+                    sessionExpired.tryEmit(Unit)
+                }
+                response
             })
             .apply {
                 if (BuildConfig.DEBUG) {

@@ -45,6 +45,41 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mq1.player.ui.vm.ChatDetailViewModel
 
+/** Web MessageBubble (group mode): sender name above the bubble, own
+ *  messages right-aligned + primary color. */
+@Composable
+private fun GroupMessageBubble(senderName: String, content: String, fromMe: Boolean) {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = if (fromMe) Alignment.CenterEnd else Alignment.CenterStart
+    ) {
+        Column(horizontalAlignment = if (fromMe) Alignment.End else Alignment.Start) {
+            if (!fromMe && senderName.isNotBlank()) {
+                Text(
+                    senderName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 12.dp, bottom = 2.dp)
+                )
+            }
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = if (fromMe) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.widthIn(max = 280.dp)
+            ) {
+                Text(
+                    content,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (fromMe) MaterialTheme.colorScheme.onPrimary
+                            else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+            }
+        }
+    }
+}
+
 /** Direct message chat with a friend — polling every 5s while open. */
 @Composable
 fun ChatDetailScreen(
@@ -60,8 +95,9 @@ fun ChatDetailScreen(
     val listState = rememberLazyListState()
 
     LaunchedEffect(peerId) { vm.load(peerId, peerName) }
-    LaunchedEffect(ui.messages.size) {
-        if (ui.messages.isNotEmpty()) listState.animateScrollToItem(ui.messages.size - 1)
+    val messageCount = if (ui.isGroup) ui.groupMessages.size else ui.messages.size
+    LaunchedEffect(messageCount) {
+        if (messageCount > 0) listState.animateScrollToItem(messageCount - 1)
     }
 
     Column(
@@ -81,13 +117,13 @@ fun ChatDetailScreen(
             ) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
             }
-            // F7: header tap → peer profile
+            // F7: header tap → peer profile (groups have no profile → no tap)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(10.dp))
-                    .clickable(onClick = onOpenProfile)
+                    .clickable(enabled = !ui.isGroup, onClick = onOpenProfile)
                     .padding(horizontal = 8.dp, vertical = 6.dp)
             ) {
                 com.mq1.player.ui.components.Artwork(
@@ -96,21 +132,30 @@ fun ChatDetailScreen(
                     corner = 18,
                     contentDescription = null
                 )
-                Text(
-                    peerName,
-                    style = MaterialTheme.typography.titleLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 10.dp)
-                )
-                Icon(
-                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = "Профиль",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(24.dp)
-                )
+                Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                    Text(
+                        peerName,
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (ui.isGroup) {
+                        Text(
+                            "${ui.memberCount} участников",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
+                }
+                if (!ui.isGroup) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = "Профиль",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
 
@@ -122,25 +167,38 @@ fun ChatDetailScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            items(ui.messages, key = { it.id }) { message ->
-                val fromMe = message.senderId != peerId // 1:1 chat: sender is either me or the peer
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = if (fromMe) Alignment.CenterEnd else Alignment.CenterStart
-                ) {
-                    Surface(
-                        shape = MaterialTheme.shapes.medium,
-                        color = if (fromMe) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.widthIn(max = 280.dp)
+            if (ui.isGroup) {
+                // group chat: sender name rides each bubble (web MessageBubble);
+                // own messages align right by comparing sender.id with selfId
+                items(ui.groupMessages, key = { it.id }) { message ->
+                    GroupMessageBubble(
+                        senderName = message.sender.username,
+                        content = message.content,
+                        fromMe = message.sender.id.isNotBlank() &&
+                            message.sender.id == ui.selfId
+                    )
+                }
+            } else {
+                items(ui.messages, key = { it.id }) { message ->
+                    val fromMe = message.senderId != peerId // 1:1 chat: sender is either me or the peer
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = if (fromMe) Alignment.CenterEnd else Alignment.CenterStart
                     ) {
-                        Text(
-                            message.content,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (fromMe) MaterialTheme.colorScheme.onPrimary
-                                    else MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                        )
+                        Surface(
+                            shape = MaterialTheme.shapes.medium,
+                            color = if (fromMe) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.widthIn(max = 280.dp)
+                        ) {
+                            Text(
+                                message.content,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (fromMe) MaterialTheme.colorScheme.onPrimary
+                                        else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            )
+                        }
                     }
                 }
             }

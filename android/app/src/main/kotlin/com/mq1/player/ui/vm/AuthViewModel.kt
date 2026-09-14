@@ -42,10 +42,22 @@ class AuthViewModel : ViewModel() {
 
     init { restore() }
 
+    /** Demo header gate (group chats API serves demo data via x-demo-user-id). */
+    private fun applyDemoHeaders(user: LocalStore.SessionUser?) {
+        if (user != null && user.userId == DEMO_USER_ID) {
+            ServiceLocator.demoUserId = user.userId
+            ServiceLocator.demoUserName = user.username.ifBlank { "Демо" }
+        } else {
+            ServiceLocator.demoUserId = null
+            ServiceLocator.demoUserName = null
+        }
+    }
+
     fun restore() {
         viewModelScope.launch {
             _state.value = when (auth.restoreSession()) {
                 is AuthRepository.AuthState.LoggedIn -> {
+                    applyDemoHeaders(local.sessionUser.firstOrNull())
                     val onboarded = local.onboardingComplete.firstOrNull() ?: false
                     if (onboarded) Ui.Main else Ui.Onboarding
                 }
@@ -55,6 +67,7 @@ class AuthViewModel : ViewModel() {
     }
 
     fun onLoggedIn(user: LocalStore.SessionUser) {
+        applyDemoHeaders(user)
         ServiceLocator.socialHub.start()
         viewModelScope.launch {
             // Web parity (useAppStore.setAuth): demo sessions are local-only —
@@ -75,6 +88,7 @@ class AuthViewModel : ViewModel() {
 
     fun logout(onDone: () -> Unit) {
         viewModelScope.launch {
+            applyDemoHeaders(null)
             ServiceLocator.playbackController.stop()
             ServiceLocator.socialHub.clear()
             auth.logout()

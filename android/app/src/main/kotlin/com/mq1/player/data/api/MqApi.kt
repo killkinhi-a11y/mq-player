@@ -86,6 +86,24 @@ interface MqApi {
         @Query("count") count: Int = 15
     ): RecommendationsResponse
 
+    // Web «Похожие треки» — same radio endpoint the web wave engine uses
+    @GET("api/music/radio")
+    suspend fun radio(
+        @Query("scTrackId") scTrackId: Long? = null,
+        @Query("seedArtist") seedArtist: String? = null,
+        @Query("seedGenre") seedGenre: String? = null,
+        @Query("historyScIds") historyScIds: String? = null,
+        @Query("count") count: Int = 15
+    ): SearchResponse
+
+    // Web SearchView genre chips → GET /api/music/genre?genre=...
+    @GET("api/music/genre")
+    suspend fun genre(@Query("genre") genre: String): SearchResponse
+
+    // Web MainView «Новое и в тренде» → GET /api/music/trending
+    @GET("api/music/trending")
+    suspend fun trending(@Query("limit") limit: Int = 50): SearchResponse
+
     @POST("api/music/recommendations/feedback")
     suspend fun recommendationFeedback(@Body body: Map<String, String>): SimpleResult
 
@@ -111,6 +129,11 @@ interface MqApi {
 
     @POST("api/playlists/like")
     suspend fun likePlaylist(@Body body: PlaylistLikeBody): Response<SimpleResult>
+
+    // POST /api/music/import-playlist (web import dialog, URL mode) — the
+    // server PARSES the URL; the client creates the playlist itself
+    @POST("api/music/import-playlist")
+    suspend fun importPlaylist(@Body body: Map<String, String>): Response<ImportPlaylistResponse>
 
     // GET /api/playlists/{id} — single playlist (public or own); used by
     // deep links: arbitrary ids are not in the list responses
@@ -163,6 +186,27 @@ interface MqApi {
 
     @POST("api/ai/chat")
     suspend fun aiChat(@Body body: AiChatBody): Response<AiChatResponse>
+
+    // ── Group chats (web MessengerView parity) ──────────────────────────────
+
+    @GET("api/group-chats")
+    suspend fun groupChats(): Response<GroupChatsResponse>
+
+    @POST("api/group-chats")
+    suspend fun createGroupChat(@Body body: CreateGroupBody): Response<GroupChatDto>
+
+    @GET("api/group-chats/{id}/messages")
+    suspend fun groupMessages(
+        @Path("id") id: String,
+        @Query("cursor") cursor: String? = null,
+        @Query("limit") limit: Int = 50
+    ): Response<GroupMessagesResponse>
+
+    @POST("api/group-chats/{id}/messages")
+    suspend fun sendGroupMessage(
+        @Path("id") id: String,
+        @Body body: SendGroupMessageBody
+    ): Response<GroupMessageDto>
 
     // ── Own profile (F9) — existing web endpoints, same contract ──────────
 

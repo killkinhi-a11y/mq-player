@@ -21,17 +21,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -68,6 +68,7 @@ import com.mq1.player.ui.theme.MqType
 import com.mq1.player.ui.vm.LyricsViewModel
 import com.mq1.player.ui.vm.PlayerViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -112,22 +113,41 @@ fun FullPlayerScreen(
     val lyricsVm: LyricsViewModel = viewModel()
     val lyricsUi by lyricsVm.ui.collectAsState()
 
+    // P1 web parity: More sheet (volume / speed / sleep timer / EQ) +
+    // playlist picker + history panel + shared track context menu
     var queueOpen by remember { mutableStateOf(false) }
     var lyricsOpen by remember { mutableStateOf(false) }
-    var speedMenuOpen by remember { mutableStateOf(false) }
-    var menuOpen by remember { mutableStateOf(false) }
+    var moreOpen by remember { mutableStateOf(false) }
+    var playlistPickerOpen by remember { mutableStateOf(false) }
+    var historyOpen by remember { mutableStateOf(false) }
+    val menu = remember { com.mq1.player.ui.components.TrackMenuState() }
     var seekValue by remember(track?.id, duration) { mutableFloatStateOf(position.toFloat()) }
     var userSeeking by remember { mutableStateOf(false) }
 
-    // playlists for the context menu (real repository data)
+    val volumePercent by controller.volumePercent.collectAsState()
+    val sleepKind by controller.sleepKind.collectAsState()
+    val sleepRemainingMs by controller.sleepRemainingMs.collectAsState()
+    val dislikedIds by controller.dislikedIds.collectAsState()
+
+    // playlists for the picker sheet (real repository data)
     val playlists by produceState<List<com.mq1.player.data.api.PlaylistDto>>(
-        initialValue = emptyList(), menuOpen
+        initialValue = emptyList(), playlistPickerOpen
     ) {
-        if (menuOpen) {
+        if (playlistPickerOpen) {
             value = withContext(Dispatchers.IO) {
-                runCatching {
-                    com.mq1.player.di.ServiceLocator.playlistRepository.myPlaylists()
-                }.getOrDefault(emptyList())
+                com.mq1.player.di.ServiceLocator.playlistRepository.myPlaylists()
+                    .getOrDefault(emptyList())
+            }
+        }
+    }
+
+    // web «Недавно играло» panel — last 5 unique history tracks
+    val recentHistory by produceState<List<com.mq1.player.data.api.Track>>(
+        initialValue = emptyList(), historyOpen
+    ) {
+        if (historyOpen) {
+            value = withContext(Dispatchers.IO) {
+                com.mq1.player.di.ServiceLocator.localStore.history.first().take(5)
             }
         }
     }
@@ -189,12 +209,12 @@ fun FullPlayerScreen(
                 Box(
                     Modifier
                         .size(44.dp)
-                        .clickable(onClick = { if (track != null) menuOpen = true }),
+                        .clickable(onClick = { moreOpen = true }),
                     contentAlignment = Alignment.Center
                 ) {
                     MqIcon(
                         icon = MqIcons.MoreHorizontal, size = 20.dp, tint = muted,
-                        modifier = Modifier.semantics { contentDescription = "Действия с треком" }
+                        modifier = Modifier.semantics { contentDescription = "Ещё" }
                     )
                 }
             }
@@ -210,11 +230,39 @@ fun FullPlayerScreen(
                 )
             } else {
                 Spacer(Modifier.height(8.dp))
-                // ── artwork 320 r8 ──────────────────────────────────────
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                // ── artwork 320 r8 — web gestures: drag down = close,
+                //    horizontal drag = next/prev (FullTrackViewMobile) ───
+                var dragX by remember { mutableFloatStateOf(0f) }
+                var dragY by remember { mutableFloatStateOf(0f) }
+                Box(
+                    Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
                     Artwork(
                         url = track.cover, sizeDp = 320, corner = 8,
-                        contentDescription = "Обложка: ${track.title}"
+                        contentDescription = "Обложка: ${track.title}",
+                        modifier = Modifier
+                            .offset(x = (dragX * 0.25f).dp, y = (dragY * 0.35f).dp)
+                            .pointerInput(Unit) {
+                                detectDragGestures(
+                                    onDragEnd = {
+                                        // web thresholds: down >80dp dominant; |x| >60dp dominant
+                                        val dx = dragX
+                                        val dy = dragY
+                                        when {
+                                            dy > 80.dp.toPx() && dy > kotlin.math.abs(dx) * 1.5f -> onClose()
+                                            dx < -60.dp.toPx() && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2f -> controller.next()
+                                            dx > 60.dp.toPx() && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2f -> controller.previous()
+                                        }
+                                        dragX = 0f; dragY = 0f
+                                    },
+                                    onDragCancel = { dragX = 0f; dragY = 0f }
+                                ) { change, dragAmount ->
+                                    change.consume()
+                                    dragX += dragAmount.x
+                                    dragY += dragAmount.y
+                                }
+                            }
                     )
                 }
 
@@ -401,55 +449,26 @@ fun FullPlayerScreen(
 
                 Spacer(Modifier.height(28.dp))
 
-                // ── secondary: lyrics · queue · speed · mixer · share ────
+                // ── secondary row — web FullTrackViewMobile parity:
+                //    Не нравится · В плейлист · Текст · Очередь · История · Поделиться
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val isDislikedNow = dislikedIds.contains(track.scTrackId?.toString() ?: track.id)
+                    SecondaryAction(MqIcons.ThumbsDown, "Не нравится", tint = if (isDislikedNow) accent else muted) {
+                        // web: dislike → auto-next when it was the current track
+                        controller.dislike(track)
+                        if (index in queue.indices && queue[index].id == track.id) controller.next()
+                    }
+                    SecondaryAction(MqIcons.ListMusic, "В плейлист") { playlistPickerOpen = true }
                     SecondaryAction(MqIcons.Mic2, "Текст песни") {
                         lyricsOpen = true
                         track.let { lyricsVm.loadIfNeeded(it) }
                     }
                     SecondaryAction(MqIcons.ListMusic, "Очередь (${queue.size})") { queueOpen = true }
-                    Box {
-                        // F8: playback speed (0.5–2×, natural pitch)
-                        Box(
-                            Modifier
-                                .size(44.dp)
-                                .clickable { speedMenuOpen = true }
-                                .semantics { contentDescription = "Скорость воспроизведения" },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                if (speed == 1.0f) "1×" else "${speed}×",
-                                style = MqType.num,
-                                color = if (speed != 1.0f) accent else muted
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = speedMenuOpen,
-                            onDismissRequest = { speedMenuOpen = false }
-                        ) {
-                            listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { s ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            if (s == 1.0f) "1× (обычная)" else "${s}×",
-                                            style = MqType.menu,
-                                            color = if (s == speed) accent else text
-                                        )
-                                    },
-                                    onClick = {
-                                        controller.setPlaybackSpeed(s)
-                                        speedMenuOpen = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                    // F10: mixer — real DSP control surface
-                    SecondaryAction(MqIcons.SlidersHorizontal, "Микшер") { onOpenMixer() }
+                    SecondaryAction(MqIcons.Clock, "История") { historyOpen = true }
                     SecondaryAction(MqIcons.Share2, "Поделиться") {
                         // F11: real HTTPS share URL — the public track page
                         val trackUrl = "https://mq1.vercel.app/track/" +
@@ -467,45 +486,14 @@ fun FullPlayerScreen(
         }
     }
 
-    // ── track context menu (web parity sheet) ───────────────────────────
-    if (menuOpen && track != null) {
-        MqTrackContextMenu(
-            track = track,
-            isLiked = favorites.any { it.id == track.id },
-            playlists = playlists,
-            onDismiss = { menuOpen = false },
-            onPlay = { controller.seekToIndex(index) },
-            onAddToQueue = { controller.addToQueue(listOf(track)) },
-            onToggleLike = { controller.toggleFavorite(track) },
-            onOpenArtist = onOpenArtist,
-            onAddToPlaylist = { pid ->
-                scope.launch(Dispatchers.IO) {
-                    runCatching {
-                        val repo = com.mq1.player.di.ServiceLocator.playlistRepository
-                        val pl = repo.playlist(pid) ?: return@launch
-                        if (pl.tracks.none { it.id == track.id }) {
-                            repo.updateTracks(pid, pl, pl.tracks + track)
-                        }
-                    }
-                }
-            },
-            onCreatePlaylistAndAdd = {
-                scope.launch(Dispatchers.IO) {
-                    runCatching {
-                        val repo = com.mq1.player.di.ServiceLocator.playlistRepository
-                        val pl = repo.create("Новый плейлист") ?: return@launch
-                        repo.updateTracks(pl.id, pl, listOf(track))
-                    }
-                }
-            },
-            onRemoveFromQueue = {
-                // controller: removing current item = skip (queue mutation
-                // lives in the queue sheet — honest, no fake removal)
-                controller.next()
-            },
-        )
-    }
+    // ── shared track context menu (web parity MenuCore sheet) ──────────
+    com.mq1.player.ui.components.TrackMenuHost(
+        state = menu,
+        controller = controller,
+        onOpenArtist = onOpenArtist,
+    )
 
+    // ── queue sheet — REAL removal + per-row menu (web mobile panel) ───
     if (queueOpen) {
         ModalBottomSheet(
             onDismissRequest = { queueOpen = false },
@@ -518,16 +506,325 @@ fun FullPlayerScreen(
                 color = text,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
-            LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
-                itemsIndexed(queue, key = { _, t -> t.id }) { i, t ->
-                    TrackRow(
-                        track = t,
-                        isPlaying = i == index,
-                        isFavorite = favorites.any { it.id == t.id },
-                        onPlay = { controller.seekToIndex(i) },
-                        onFavorite = { controller.toggleFavorite(t) }
-                    )
+            if (queue.isEmpty()) {
+                com.mq1.player.ui.components.EmptyState("Очередь пуста")
+            } else {
+                LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
+                    itemsIndexed(queue, key = { _, t -> t.id }) { i, t ->
+                        TrackRow(
+                            track = t,
+                            isPlaying = i == index,
+                            isFavorite = favorites.any { it.id == t.id },
+                            onPlay = { controller.seekToIndex(i) },
+                            onFavorite = { controller.toggleFavorite(t) },
+                            onMenu = { menu.open(t, queueIndex = i, isCurrent = i == index) }
+                        )
+                    }
                 }
+            }
+        }
+    }
+
+    // ── «Недавно играло» panel (web mobile history panel) ────────────
+    if (historyOpen) {
+        ModalBottomSheet(
+            onDismissRequest = { historyOpen = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface,
+        ) {
+            Text(
+                "Недавно играло",
+                style = MqType.section.copy(fontSize = 16.sp),
+                color = text,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+            if (recentHistory.isEmpty()) {
+                com.mq1.player.ui.components.EmptyState("История пуста")
+            } else {
+                LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
+                    itemsIndexed(recentHistory, key = { _, t -> t.id }) { i, t ->
+                        TrackRow(
+                            track = t,
+                            isPlaying = track?.id == t.id,
+                            isFavorite = favorites.any { it.id == t.id },
+                            onPlay = {
+                                val q = controller.currentQueue
+                                controller.playQueue(q + listOf(t), startIndex = q.size)
+                            },
+                            onFavorite = { controller.toggleFavorite(t) },
+                            onMenu = { menu.open(t, isCurrent = track?.id == t.id) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // ── «В плейлист» picker sheet (web inline playlist picker) ──────
+    if (playlistPickerOpen && track != null) {
+        ModalBottomSheet(
+            onDismissRequest = { playlistPickerOpen = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface,
+        ) {
+            Text(
+                "Добавить в плейлист",
+                style = MqType.section.copy(fontSize = 16.sp),
+                color = text,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+            if (playlists.isEmpty()) {
+                Text(
+                    "Нет плейлистов",
+                    style = MqType.body,
+                    color = muted,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                )
+            }
+            LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
+                items(playlists, key = { it.id }) { pl ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                scope.launch(Dispatchers.IO) {
+                                    val ok = runCatching {
+                                        val repo = com.mq1.player.di.ServiceLocator.playlistRepository
+                                        val full = repo.playlist(pl.id) ?: error("Плейлист недоступен")
+                                        if (full.tracks.none { it.id == track.id }) {
+                                            repo.updateTracks(pl.id, full, full.tracks + track).getOrThrow()
+                                        }
+                                    }.isSuccess
+                                    withContext(Dispatchers.Main) {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            if (ok) "Добавлено в плейлист" else "Не удалось добавить в плейлист",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                                playlistPickerOpen = false
+                            }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        MqIcon(icon = MqIcons.ListMusic, size = 18.dp, tint = muted)
+                        Text(
+                            pl.name,
+                            style = MqType.track,
+                            color = text,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            "${pl.trackCount} трек(ов)",
+                            style = MqType.meta,
+                            color = muted
+                        )
+                    }
+                }
+                item {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val t = track
+                                scope.launch(Dispatchers.IO) {
+                                    val ok = runCatching {
+                                        val repo = com.mq1.player.di.ServiceLocator.playlistRepository
+                                        val name = t.artist.takeIf { it.isNotBlank() } ?: "Новый плейлист"
+                                        val pl = repo.create(name).getOrThrow()
+                                        repo.updateTracks(pl.id, pl, listOf(t)).getOrThrow()
+                                    }.isSuccess
+                                    withContext(Dispatchers.Main) {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            if (ok) "Плейлист создан" else "Не удалось создать плейлист",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                                playlistPickerOpen = false
+                            }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        MqIcon(icon = MqIcons.Plus, size = 18.dp, tint = accent)
+                        Text("Новый плейлист", style = MqType.track, color = text)
+                    }
+                }
+            }
+        }
+    }
+
+    // ── More sheet (web FullTrackViewMobile ⋯): громкость · скорость ·
+    //    таймер сна · эквалайзер ───────────────────────────────────
+    if (moreOpen) {
+        ModalBottomSheet(
+            onDismissRequest = { moreOpen = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface,
+        ) {
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                if (track != null) {
+                    Text(
+                        track.title.ifBlank { "Без названия" },
+                        style = MqType.track.copy(fontSize = 15.sp),
+                        color = text,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
+                    Text(track.artist, style = MqType.meta, color = muted, maxLines = 1)
+                    Spacer(Modifier.height(10.dp))
+                }
+
+                // Громкость (web more-sheet slider 0–100 %)
+                Text("Громкость", style = MqType.label, color = muted)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    MqIcon(icon = MqIcons.Volume2, size = 18.dp, tint = muted)
+                    Slider(
+                        value = volumePercent,
+                        onValueChange = { controller.setVolume(it) },
+                        valueRange = 0f..100f,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp)
+                            .semantics { contentDescription = "Громкость" }
+                    )
+                    Text("${volumePercent.toInt()}%", style = MqType.num, color = muted)
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                // Скорость (web pills 0.5×–2×)
+                Text("Скорость", style = MqType.label, color = muted)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { s ->
+                        val selected = kotlin.math.abs(speed - s) < 0.01f
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(
+                                    if (selected) accent.copy(alpha = 0.18f)
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                                )
+                                .clickable { controller.setPlaybackSpeed(s) }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                if (s == 1.0f) "1×" else "${s}×",
+                                style = MqType.menu,
+                                color = if (selected) accent else muted
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                // Таймер сна — web 5/10/15/30/45/60 + «До конца трека» (P1)
+                Text("Таймер сна", style = MqType.label, color = muted)
+                if (sleepKind != com.mq1.player.player.PlaybackController.SleepKind.NONE) {
+                    val remaining = (sleepRemainingMs / 1000).coerceAtLeast(0)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        MqIcon(icon = MqIcons.Timer, size = 16.dp, tint = accent)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            when (sleepKind) {
+                                com.mq1.player.player.PlaybackController.SleepKind.END_OF_TRACK ->
+                                    "До конца трека"
+                                else -> {
+                                    val m = remaining / 60
+                                    val s = remaining % 60
+                                    "Осталось %d:%02d".format(m, s)
+                                }
+                            },
+                            style = MqType.body,
+                            color = accent
+                        )
+                    }
+                }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(5, 10, 15, 30, 45, 60).forEach { min ->
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                                .clickable { controller.startSleepTimer(min) }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("${min}м", style = MqType.menu, color = muted)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(
+                                if (sleepKind == com.mq1.player.player.PlaybackController.SleepKind.END_OF_TRACK)
+                                    accent.copy(alpha = 0.18f)
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                            )
+                            .clickable { controller.startSleepEndOfTrack() }
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "До конца трека",
+                            style = MqType.menu,
+                            color = if (sleepKind == com.mq1.player.player.PlaybackController.SleepKind.END_OF_TRACK) accent else muted
+                        )
+                    }
+                    if (sleepKind != com.mq1.player.player.PlaybackController.SleepKind.NONE) {
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFEF4444).copy(alpha = 0.14f))
+                                .clickable { controller.cancelSleepTimer() }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Отменить", style = MqType.menu, color = Color(0xFFEF4444))
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                // Эквалайзер → Микшер (real DSP)
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { moreOpen = false; onOpenMixer() }
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    MqIcon(icon = MqIcons.SlidersHorizontal, size = 18.dp, tint = muted)
+                    Spacer(Modifier.width(12.dp))
+                    Text("Эквалайзер", style = MqType.track, color = text, modifier = Modifier.weight(1f))
+                    Text("10 полос · лимитер", style = MqType.meta, color = muted)
+                }
+                Spacer(Modifier.height(18.dp))
             }
         }
     }
@@ -576,7 +873,12 @@ fun FullPlayerScreen(
 
 /** Web secondary action: 44dp target, 20dp Lucide icon, muted. */
 @Composable
-private fun SecondaryAction(icon: com.mq1.player.ui.components.LucideIcon, label: String, onClick: () -> Unit) {
+private fun SecondaryAction(
+    icon: com.mq1.player.ui.components.LucideIcon,
+    label: String,
+    tint: Color? = null,
+    onClick: () -> Unit
+) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Box(
         Modifier
@@ -585,7 +887,7 @@ private fun SecondaryAction(icon: com.mq1.player.ui.components.LucideIcon, label
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center
     ) {
-        MqIcon(icon = icon, size = 20.dp, tint = muted)
+        MqIcon(icon = icon, size = 20.dp, tint = tint ?: muted)
     }
 }
 

@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -71,10 +72,18 @@ import androidx.compose.ui.semantics.semantics
  * wording + AppRelease.openDownload wiring on the default «Профиль» tab.
  */
 @Composable
-fun SettingsScreen(onLogout: () -> Unit, onBack: () -> Unit, onOpenProfile: () -> Unit = {}) {
+fun SettingsScreen(
+    onLogout: () -> Unit,
+    onBack: () -> Unit,
+    onOpenProfile: () -> Unit = {},
+    onOpenMixer: () -> Unit = {}
+) {
     val vm: SettingsViewModel = viewModel()
     val appearance by vm.appearance.collectAsState(initial = LocalStore.Appearance())
     val sessionUser by vm.sessionUser.collectAsState(initial = null)
+    val email by vm.email.collectAsState()
+    val volumePercent by ServiceLocator.playbackController.volumePercent.collectAsState()
+    val speed by ServiceLocator.playbackController.speed.collectAsState()
     val tasteGenres by ServiceLocator.localStore.tasteGenres.collectAsState(initial = emptySet())
     val context = LocalContext.current
     var notifGranted by remember { mutableStateOf(hasNotificationPermission(context)) }
@@ -85,9 +94,15 @@ fun SettingsScreen(onLogout: () -> Unit, onBack: () -> Unit, onOpenProfile: () -
     SettingsBody(
         appearance = appearance,
         username = sessionUser?.username,
+        email = email,
         avatarUrl = sessionUser?.avatar,
         tasteGenres = tasteGenres,
         notificationsEnabled = notifGranted,
+        volumePercent = volumePercent,
+        speed = speed,
+        onSetVolume = { ServiceLocator.playbackController.setVolume(it) },
+        onSetSpeed = { ServiceLocator.playbackController.setPlaybackSpeed(it) },
+        onOpenMixer = onOpenMixer,
         onSetTheme = vm::setTheme,
         onSetDarkMode = vm::setDarkMode,
         onSaveTaste = vm::saveTaste,
@@ -146,9 +161,15 @@ private const val WINDOWS_SETUP_URL =
 internal fun SettingsBody(
     appearance: LocalStore.Appearance,
     username: String?,
+    email: String? = null,
     avatarUrl: String?,
     tasteGenres: Set<String>,
     notificationsEnabled: Boolean,
+    volumePercent: Float = 100f,
+    speed: Float = 1f,
+    onSetVolume: (Float) -> Unit = {},
+    onSetSpeed: (Float) -> Unit = {},
+    onOpenMixer: () -> Unit = {},
     onSetTheme: (String) -> Unit,
     onSetDarkMode: (String) -> Unit,
     onSaveTaste: (Set<String>) -> Unit,
@@ -230,6 +251,7 @@ internal fun SettingsBody(
                 when (tab) {
                     "account" -> AccountTab(
                         username = username,
+                        email = email,
                         avatarUrl = avatarUrl,
                         onOpenProfile = onOpenProfile,
                         onLogout = onLogout,
@@ -241,6 +263,13 @@ internal fun SettingsBody(
                         onToggleThemeExpanded = { themeExpanded = !themeExpanded },
                         onSetTheme = onSetTheme,
                         onSetDarkMode = onSetDarkMode
+                    )
+                    "sound" -> SoundTab(
+                        volumePercent = volumePercent,
+                        speed = speed,
+                        onSetVolume = onSetVolume,
+                        onSetSpeed = onSetSpeed,
+                        onOpenMixer = onOpenMixer
                     )
                     "notifications" -> NotificationsTab(
                         enabled = notificationsEnabled,
@@ -267,10 +296,11 @@ internal fun SettingsBody(
 
 private data class SettingsTab(val id: String, val label: String, val icon: LucideIcon)
 
-/** Web TABS (labelShort form; «Звук» omitted — no separate Android sound pane). */
+/** Web TABS (labelShort form) — «Звук» is REAL now (громкость/скорость/эквалайзер). */
 private val SettingsTabs = listOf(
     SettingsTab("account", "Профиль", MqIcons.User),
     SettingsTab("appearance", "Тема", MqIcons.Palette),
+    SettingsTab("sound", "Звук", MqIcons.Volume2),
     SettingsTab("notifications", "Уведом.", MqIcons.Bell),
     SettingsTab("more", "Ещё", MqIcons.MoreHorizontal),
 )
@@ -510,6 +540,7 @@ private fun MqSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
 @Composable
 private fun AccountTab(
     username: String?,
+    email: String?,
     avatarUrl: String?,
     onOpenProfile: () -> Unit,
     onLogout: () -> Unit,
@@ -535,7 +566,7 @@ private fun AccountTab(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        "нет",
+                        email?.takeIf { it.isNotBlank() } ?: "нет",
                         style = MqType.meta,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 2.dp)
@@ -918,6 +949,104 @@ private fun ThemeSwatch(
                 contentAlignment = Alignment.Center
             ) {
                 MqIcon(icon = MqIcons.Check, size = 10.dp, tint = MaterialTheme.colorScheme.onPrimary)
+            }
+        }
+    }
+}
+
+// ── SOUND tab (web «Звук»: громкость · скорость · эквалайзер) ───────────────
+
+@Composable
+private fun SoundTab(
+    volumePercent: Float,
+    speed: Float,
+    onSetVolume: (Float) -> Unit,
+    onSetSpeed: (Float) -> Unit,
+    onOpenMixer: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        MqCard {
+            CardTitle(icon = MqIcons.Volume2, title = "ГРОМКОСТЬ")
+            Hairline()
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                MqIcon(icon = MqIcons.Volume2, size = 18.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Slider(
+                    value = volumePercent,
+                    onValueChange = onSetVolume,
+                    valueRange = 0f..100f,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 10.dp)
+                        .semantics { contentDescription = "Громкость" }
+                )
+                Text(
+                    "${volumePercent.toInt()}%",
+                    style = MqType.num,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        MqCard {
+            CardTitle(icon = MqIcons.Gauge, title = "СКОРОСТЬ ВОСПРОИЗВЕДЕНИЯ")
+            Hairline()
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                Text(
+                    "Воспроизведение треков (тон не меняется)",
+                    style = MqType.meta2,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(0.75f, 1f, 1.25f, 1.5f, 2f).forEach { s ->
+                        val selected = kotlin.math.abs(speed - s) < 0.01f
+                        Text(
+                            if (s == 1f) "1×" else "${s}×",
+                            style = MqType.meta.copy(fontWeight = FontWeight.W600),
+                            color = if (selected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(
+                                    if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                                    else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f)
+                                )
+                                .clickable { onSetSpeed(s) }
+                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        MqCard {
+            CardTitle(icon = MqIcons.SlidersHorizontal, title = "КАЧЕСТВО")
+            Hairline()
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenMixer)
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Эквалайзер",
+                        style = MqType.section.copy(fontSize = 15.sp, fontWeight = FontWeight.W600),
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Text(
+                        "10-полосный с пресетами · лимитер · измерители",
+                        style = MqType.meta2,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                MqIcon(icon = MqIcons.ChevronRight, size = 16.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

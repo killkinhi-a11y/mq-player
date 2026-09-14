@@ -54,36 +54,52 @@ object ParityStub {
                     Thread({
                         try {
                             sock.use { s ->
-                                val reader = java.io.BufferedReader(java.io.InputStreamReader(s.getInputStream()))
-                                val reqLine = reader.readLine() ?: return@Thread
-                                var contentLength = 0
-                                var cookieHeader: String? = null
+                            val raw = java.io.BufferedInputStream(s.getInputStream())
+                            // read the request line + headers BYTE-wise (UTF-8
+                            // bodies with multi-byte chars would deadlock a
+                            // char-based reader — byte-exact is the only sound parse)
+                            fun readLineBytes(): String? {
+                                val out = java.io.ByteArrayOutputStream()
                                 while (true) {
-                                    val h = reader.readLine() ?: return@Thread
-                                    if (h.isEmpty()) break
-                                    val lc = h.lowercase()
-                                    if (lc.startsWith("content-length:")) contentLength = lc.substringAfter(":").trim().toInt()
-                                    if (lc.startsWith("cookie:")) cookieHeader = h.substringAfter(":").trim()
+                                    val b = raw.read()
+                                    if (b < 0) return if (out.size() == 0) null else out.toString(Charsets.UTF_8)
+                                    if (b == '\n'.code) break
+                                    if (b != '\r'.code) out.write(b)
                                 }
-                                var bodyText = ""
-                                if (contentLength > 0) {
-                                    val buf = CharArray(contentLength)
-                                    var read = 0
-                                    while (read < contentLength) {
-                                        val n = reader.read(buf, read, contentLength - read)
-                                        if (n < 0) break
-                                        read += n
-                                    }
-                                    bodyText = String(buf).trim()
+                                return out.toString(Charsets.UTF_8)
+                            }
+                            val reqLine = readLineBytes() ?: return@Thread
+                            var contentLength = 0
+                            var cookieHeader: String? = null
+                            while (true) {
+                                val h = readLineBytes() ?: return@Thread
+                                if (h.isEmpty()) break
+                                val lc = h.lowercase()
+                                if (lc.startsWith("content-length:")) contentLength = lc.substringAfter(":").trim().toInt()
+                                if (lc.startsWith("cookie:")) cookieHeader = h.substringAfter(":").trim()
+                            }
+                            var bodyText = ""
+                            if (contentLength > 0) {
+                                val buf = ByteArray(contentLength)
+                                var read = 0
+                                while (read < contentLength) {
+                                    val n = raw.read(buf, read, contentLength - read)
+                                    if (n < 0) break
+                                    read += n
                                 }
+                                bodyText = String(buf, 0, read, Charsets.UTF_8)
+                            }
                                 val method = reqLine.split(" ").getOrNull(0) ?: "GET"
                                 val path = reqLine.split(" ").getOrNull(1) ?: "/"
                                 capturedRequests.add(CapturedRequest(method, path, cookieHeader, bodyText))
+                                // match custom keys on the PATH ONLY (query
+                                // strings differ per call) — full path stays captured
+                                val pathNoQuery = path.substringBefore('?')
                                 val custom = customResponses.entries.firstOrNull { (k, _) ->
                                     // Key: "path-suffix" OR "METHOD path-suffix" (method-aware).
                                     val parts = k.split(" ", limit = 2)
-                                    if (parts.size == 2) parts[0] == method && path.endsWith(parts[1])
-                                    else path.endsWith(k)
+                                    if (parts.size == 2) parts[0] == method && pathNoQuery.endsWith(parts[1])
+                                    else pathNoQuery.endsWith(k)
                                 }?.value
                                 val status = custom?.status ?: 200
                                 val body = custom?.body ?: responseFor(path)

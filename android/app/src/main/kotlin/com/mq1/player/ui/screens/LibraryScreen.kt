@@ -89,7 +89,12 @@ import com.mq1.player.ui.vm.PlaylistViewModel
  * LibraryScreen wires the live ViewModels into it.
  */
 @Composable
-fun LibraryScreen(onOpenPlaylist: (String) -> Unit) {
+fun LibraryScreen(
+    onOpenPlaylist: (String) -> Unit,
+    onOpenArtist: (String) -> Unit = {},
+    onGoHome: () -> Unit = {},
+    initialTab: Int = 0,
+) {
     val vm: PlaylistViewModel = viewModel()
     val player: PlayerViewModel = viewModel()
     val ui by vm.ui.collectAsState()
@@ -97,41 +102,118 @@ fun LibraryScreen(onOpenPlaylist: (String) -> Unit) {
     val currentIndex by player.controller.currentIndex.collectAsState()
     val favorites by player.favorites.collectAsState(initial = emptyList())
     val history by ServiceLocator.localStore.history.collectAsState(initial = emptyList())
+    val disliked by ServiceLocator.localStore.disliked.collectAsState(initial = emptyList())
+    val subscribedArtists by ServiceLocator.localStore.favoriteArtists.collectAsState(initial = emptyList())
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
-    var tab by remember { mutableIntStateOf(0) }
+    var tab by remember { mutableIntStateOf(initialTab.coerceIn(0, 2)) }
     var query by remember { mutableStateOf("") }
     var sort by remember { mutableIntStateOf(0) }
     var showCreate by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
+    var newDescription by remember { mutableStateOf("") }
+    var showImport by remember { mutableStateOf(false) }
+    val menu = remember { com.mq1.player.ui.components.TrackMenuState() }
+    val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
 
-    LaunchedEffect(Unit) { vm.refresh() }
+    // P0: refresh on EVERY resume — re-entering Library after liking a track
+    // or editing playlists elsewhere must show fresh data (web re-renders its
+    // views on switch; restoreState previously froze the first snapshot).
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) vm.refresh()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
-    LibraryBody(
-        ui = ui,
-        activeTab = tab,
-        favorites = favorites,
-        history = history,
-        playingTrackId = queue.getOrNull(currentIndex)?.id,
-        favoriteIds = favorites.map { it.id }.toSet(),
-        query = query,
-        sort = sort,
-        showCreate = showCreate,
-        createName = newName,
-        onTabChange = { tab = it; query = "" }, // web clears search on tab switch
-        onQueryChange = { query = it },
-        onSortChange = { sort = it },
-        onCreateToggle = { showCreate = !showCreate },
-        onCreateNameChange = { newName = it },
-        onCreateConfirm = { name ->
-            vm.create(name) { showCreate = false; newName = "" }
-        },
-        onOpenPlaylist = onOpenPlaylist,
-        onPlayQueue = { q, i -> player.controller.playQueue(q, i) },
-        onFavorite = { player.controller.toggleFavorite(it) },
-        onClearHistory = { scope.launch { ServiceLocator.localStore.clearHistory() } },
-        onGoHome = { },
+    androidx.compose.material3.Scaffold(
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
+        snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) },
+    ) { _ ->
+        LibraryBody(
+            ui = ui,
+            activeTab = tab,
+            favorites = favorites,
+            disliked = disliked,
+            subscribedArtists = subscribedArtists,
+            history = history,
+            playingTrackId = queue.getOrNull(currentIndex)?.id,
+            favoriteIds = favorites.map { it.id }.toSet(),
+            query = query,
+            sort = sort,
+            showCreate = showCreate,
+            createName = newName,
+            createDescription = newDescription,
+            showImport = showImport,
+            onTabChange = { tab = it; query = "" }, // web clears search on tab switch
+            onQueryChange = { query = it },
+            onSortChange = { sort = it },
+            onCreateToggle = {
+                showCreate = !showCreate
+                if (!showCreate) { newName = ""; newDescription = "" }
+            },
+            onCreateNameChange = { newName = it },
+            onCreateDescriptionChange = { newDescription = it },
+            onCreateConfirm = { name ->
+                vm.create(name, newDescription) { showCreate = false; newName = ""; newDescription = "" }
+            },
+            onImportToggle = { showImport = !showImport },
+            onImportUrl = { url ->
+                scope.launch {
+                    val res = com.mq1.player.data.repo.PlaylistImport.importFromUrl(url)
+                    snackbar.showSnackbar(res)
+                    vm.refresh()
+                }
+                showImport = false
+            },
+            onImportText = { text ->
+                scope.launch {
+                    val res = com.mq1.player.data.repo.PlaylistImport.importFromText(text)
+                    snackbar.showSnackbar(res)
+                    vm.refresh()
+                }
+                showImport = false
+            },
+            onOpenPlaylist = onOpenPlaylist,
+            onOpenArtist = onOpenArtist,
+            onPlayQueue = { q, i -> player.controller.playQueue(q, i) },
+            onAddToQueue = { player.controller.addToQueue(it) },
+            onFavorite = { player.controller.toggleFavorite(it) },
+            onRemoveDisliked = { scope.launch { ServiceLocator.localStore.toggleDisliked(it) } },
+            onUnsubscribe = { scope.launch { ServiceLocator.localStore.toggleFavoriteArtist(it) } },
+            onDislike = { player.controller.dislike(it) },
+            onTrackMenu = { track -> menu.open(track) },
+            onPlaylistRename = { id, name -> vm.rename(id, name) },
+            onPlaylistDelete = { id -> vm.delete(id) },
+            onPlaylistCover = { id, bytes ->
+                scope.launch {
+                    val res = com.mq1.player.data.repo.PlaylistImport.updateCover(id, bytes)
+                    snackbar.showSnackbar(res)
+                    vm.refresh()
+                }
+            },
+            onClearHistory = { scope.launch { ServiceLocator.localStore.clearHistory() } },
+            onGoHome = onGoHome,
+        )
+    }
+
+    // shared web-parity context menu for every library track row
+    com.mq1.player.ui.components.TrackMenuHost(
+        state = menu,
+        controller = player.controller,
+        onOpenArtist = onOpenArtist,
     )
+
+    // honest operation feedback (create/rename/delete outcomes)
+    val message = ui.message
+    androidx.compose.runtime.LaunchedEffect(message) {
+        message?.let {
+            snackbar.showSnackbar(it)
+            vm.consumeMessage()
+        }
+    }
 }
 
 @Composable
@@ -144,17 +226,34 @@ internal fun LibraryBody(
     favoriteIds: Set<String>,
     query: String,
     sort: Int,
+    disliked: List<Track> = emptyList(),
+    subscribedArtists: List<String> = emptyList(),
     showCreate: Boolean = false,
     createName: String = "",
+    createDescription: String = "",
+    showImport: Boolean = false,
     onTabChange: (Int) -> Unit,
     onQueryChange: (String) -> Unit,
     onSortChange: (Int) -> Unit,
     onCreateToggle: () -> Unit = {},
     onCreateNameChange: (String) -> Unit = {},
+    onCreateDescriptionChange: (String) -> Unit = {},
     onCreateConfirm: (String) -> Unit = {},
+    onImportToggle: () -> Unit = {},
+    onImportUrl: (String) -> Unit = {},
+    onImportText: (String) -> Unit = {},
     onOpenPlaylist: (String) -> Unit,
+    onOpenArtist: (String) -> Unit = {},
     onPlayQueue: (List<Track>, Int) -> Unit,
+    onAddToQueue: (List<Track>) -> Unit = {},
     onFavorite: (Track) -> Unit,
+    onRemoveDisliked: (Track) -> Unit = {},
+    onUnsubscribe: (String) -> Unit = {},
+    onDislike: (Track) -> Unit = {},
+    onTrackMenu: (Track) -> Unit = {},
+    onPlaylistRename: (String, String) -> Unit = { _, _ -> },
+    onPlaylistDelete: (String) -> Unit = {},
+    onPlaylistCover: (String, ByteArray) -> Unit = { _, _ -> },
     onClearHistory: () -> Unit = {},
     onGoHome: () -> Unit = {},
 ) {
@@ -182,6 +281,12 @@ internal fun LibraryBody(
     val filteredPlaylists = remember(playlists, query) {
         playlists.filter { query.isBlank() || it.name.contains(query, true) }
     }
+
+    // favorites sub-tab / batch-selection state (hoisted so the LazyColumn
+    // content re-executes when they change)
+    var favSubTab by remember { mutableIntStateOf(0) }
+    var favBatchMode by remember { mutableStateOf(false) }
+    val favSelection = remember { androidx.compose.runtime.mutableStateListOf<String>() }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -319,15 +424,26 @@ internal fun LibraryBody(
         when (activeTab) {
             0 -> favoritesTab(
                 favorites = filteredFavorites,
+                disliked = disliked,
+                subscribedArtists = subscribedArtists,
                 likedCount = favorites.size,
                 query = query,
                 playingTrackId = playingTrackId,
                 favoriteIds = favoriteIds,
                 sort = sort,
+                subTab = favSubTab,
+                batchMode = favBatchMode,
+                selection = favSelection,
+                onSubTabChange = { favSubTab = it },
+                onBatchModeChange = { favBatchMode = it },
                 onQueryChange = onQueryChange,
                 onSortChange = onSortChange,
                 onPlayQueue = onPlayQueue,
                 onFavorite = onFavorite,
+                onRemoveDisliked = onRemoveDisliked,
+                onUnsubscribe = onUnsubscribe,
+                onOpenArtist = onOpenArtist,
+                onTrackMenu = onTrackMenu,
                 onGoHome = onGoHome,
             )
             1 -> playlistsTab(
@@ -335,11 +451,21 @@ internal fun LibraryBody(
                 playlists = filteredPlaylists,
                 showCreate = showCreate,
                 createName = createName,
+                createDescription = createDescription,
+                showImport = showImport,
                 onCreateToggle = onCreateToggle,
                 onCreateNameChange = onCreateNameChange,
+                onCreateDescriptionChange = onCreateDescriptionChange,
                 onCreateConfirm = onCreateConfirm,
+                onImportToggle = onImportToggle,
+                onImportUrl = onImportUrl,
+                onImportText = onImportText,
                 onOpenPlaylist = onOpenPlaylist,
                 onPlayQueue = onPlayQueue,
+                onAddToQueue = onAddToQueue,
+                onPlaylistRename = onPlaylistRename,
+                onPlaylistDelete = onPlaylistDelete,
+                onPlaylistCover = onPlaylistCover,
             )
             else -> historyTab(
                 history = filteredHistory,
@@ -349,6 +475,7 @@ internal fun LibraryBody(
                 onQueryChange = onQueryChange,
                 onPlayQueue = onPlayQueue,
                 onFavorite = onFavorite,
+                onTrackMenu = onTrackMenu,
                 onClearHistory = onClearHistory,
                 onGoHome = onGoHome,
             )
@@ -466,17 +593,31 @@ private fun LibraryTabBar(
 
 private fun LazyListScope.favoritesTab(
     favorites: List<Track>,
+    disliked: List<Track>,
+    subscribedArtists: List<String>,
     likedCount: Int,
     query: String,
     playingTrackId: String?,
     favoriteIds: Set<String>,
     sort: Int,
+    subTab: Int,
+    batchMode: Boolean,
+    selection: MutableList<String>,
+    onSubTabChange: (Int) -> Unit,
+    onBatchModeChange: (Boolean) -> Unit,
     onQueryChange: (String) -> Unit,
     onSortChange: (Int) -> Unit,
     onPlayQueue: (List<Track>, Int) -> Unit,
     onFavorite: (Track) -> Unit,
+    onRemoveDisliked: (Track) -> Unit,
+    onUnsubscribe: (String) -> Unit,
+    onOpenArtist: (String) -> Unit,
+    onTrackMenu: (Track) -> Unit,
     onGoHome: () -> Unit,
 ) {
+    // P0: the three web sub-tabs really switch now (Понравившиеся /
+    // Не понравившиеся / Подписки) — state hoisted into LibraryBody so the
+    // LazyColumn content re-executes on change.
     // web double padding: LibraryView p-16 + FavoritesView p-16 → content at 32
     item {
         Column(Modifier.padding(horizontal = 16.dp)) {
@@ -500,7 +641,7 @@ private fun LazyListScope.favoritesTab(
                         color = MaterialTheme.colorScheme.onBackground,
                     )
                     Text(
-                        "$likedCount понр. · 0 не понр. · 0 подписок",
+                        "$likedCount понр. · ${disliked.size} не понр. · ${subscribedArtists.size} подписок",
                         style = MqType.meta2,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -511,13 +652,20 @@ private fun LazyListScope.favoritesTab(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.06f))
-                            .clickable { },
+                            .background(
+                                if (batchMode) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.06f)
+                            )
+                            .clickable {
+                                onBatchModeChange(!batchMode)
+                                if (!batchMode) selection.clear()
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         MqIcon(
                             icon = MqIcons.SlidersHorizontal, size = 14.dp,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = if (batchMode) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -527,7 +675,13 @@ private fun LazyListScope.favoritesTab(
 
     // pill tabs (Понравившиеся / Не понравившиеся / Подписки — icons + counts)
     item {
-        FavPillTabs(liked = likedCount)
+        FavPillTabs(
+            liked = likedCount,
+            disliked = disliked.size,
+            subs = subscribedArtists.size,
+            active = subTab,
+            onSelect = { onSubTabChange(it); selection.clear() },
+        )
     }
 
     // action bar: «Найти трек...» + sort + shuffle
@@ -697,7 +851,8 @@ private fun LazyListScope.favoritesTab(
         }
     }
 
-    // track list card / empty state
+    // track list card / empty state — content depends on the ACTIVE pill
+    // (web FavoritesView: Понравившиеся / Не понравившиеся / Подписки)
     item {
         Column(Modifier.padding(horizontal = 16.dp)) {
             Column(
@@ -708,30 +863,276 @@ private fun LazyListScope.favoritesTab(
                     .background(MaterialTheme.colorScheme.surfaceContainer)
                     .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.22f), RoundedCornerShape(16.dp))
             ) {
-                if (favorites.isEmpty()) {
-                    FavoritesEmptyState(onGoHome = onGoHome)
-                } else {
-                    favorites.forEachIndexed { i, track ->
-                        TrackRow(
-                            track = track,
-                            isPlaying = playingTrackId == track.id,
-                            isFavorite = track.id in favoriteIds,
-                            onPlay = { onPlayQueue(favorites, i) },
-                            onFavorite = { onFavorite(track) },
-                            onMenu = { },
-                        )
-                        if (i < favorites.lastIndex) {
-                            Box(
-                                Modifier
-                                    .padding(start = 66.dp, end = 16.dp)
-                                    .height(1.dp)
-                                    .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.04f))
+                when (subTab) {
+                    0 -> {
+                        if (favorites.isEmpty()) {
+                            FavoritesEmptyState(onGoHome = onGoHome)
+                        } else {
+                            favorites.forEachIndexed { i, track ->
+                                SelectableTrackRow(
+                                    track = track,
+                                    selected = track.id in selection,
+                                    batchMode = batchMode,
+                                    onToggleSelect = {
+                                        if (track.id in selection) selection.remove(track.id)
+                                        else selection.add(track.id)
+                                    },
+                                    isPlaying = playingTrackId == track.id,
+                                    isFavorite = track.id in favoriteIds,
+                                    onPlay = { onPlayQueue(favorites, i) },
+                                    onFavorite = { onFavorite(track) },
+                                    onMenu = { onTrackMenu(track) },
+                                )
+                                if (i < favorites.lastIndex) {
+                                    RowSeparator()
+                                }
+                            }
+                        }
+                    }
+                    1 -> {
+                        // «Не понравившиеся» — web: play + «Убрать из списка»
+                        if (disliked.isEmpty()) {
+                            Column(
+                                Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 48.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                MqIcon(icon = MqIcons.ThumbsDown, size = 28.dp, tint = DislikedOrange)
+                                Spacer(Modifier.height(10.dp))
+                                Text(
+                                    "Пока пусто",
+                                    style = MqType.section.copy(fontSize = 17.sp, fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    "Дизлайкните трек — и он больше не попадётся в рекомендациях.",
+                                    style = MqType.body,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        } else {
+                            Text(
+                                "Эти треки исключены из рекомендаций и радиостанций",
+                                style = MqType.meta2,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                             )
+                            disliked.forEachIndexed { i, track ->
+                                TrackRow(
+                                    track = track,
+                                    isPlaying = playingTrackId == track.id,
+                                    isFavorite = false,
+                                    onPlay = { onPlayQueue(disliked, i) },
+                                    onFavorite = null,
+                                    onMenu = { onTrackMenu(track) },
+                                )
+                                Row(
+                                    Modifier.fillMaxWidth().padding(end = 8.dp),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    Text(
+                                        "Убрать из списка",
+                                        style = MqType.meta.copy(color = LikedRed),
+                                        color = LikedRed,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable { onRemoveDisliked(track) }
+                                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    )
+                                }
+                                if (i < disliked.lastIndex) RowSeparator()
+                            }
+                        }
+                    }
+                    else -> {
+                        // «Подписки» — web: artist rows with «Открыть артиста» / «Отписаться»
+                        if (subscribedArtists.isEmpty()) {
+                            Column(
+                                Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 48.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                MqIcon(icon = MqIcons.Users, size = 28.dp, tint = SubsPurple)
+                                Spacer(Modifier.height(10.dp))
+                                Text(
+                                    "Пока пусто",
+                                    style = MqType.section.copy(fontSize = 17.sp, fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    "Подпишитесь на артистов — и они появятся здесь",
+                                    style = MqType.body,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        } else {
+                            subscribedArtists.forEachIndexed { i, artist ->
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onOpenArtist(artist) }
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Box(
+                                        Modifier
+                                            .size(44.dp)
+                                            .clip(CircleShape)
+                                            .background(SubsPurple.copy(alpha = 0.16f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            artist.take(1).uppercase(),
+                                            style = MqType.track.copy(fontSize = 16.sp),
+                                            color = SubsPurple,
+                                        )
+                                    }
+                                    Text(
+                                        artist,
+                                        style = MqType.track,
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Text(
+                                        "Отписаться",
+                                        style = MqType.meta,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable { onUnsubscribe(artist) }
+                                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    )
+                                }
+                                if (i < subscribedArtists.lastIndex) RowSeparator()
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    // web batch bar: «Выбрано: N» + «В плейлист» + «Удалить»
+    if (batchMode && subTab == 0 && selection.isNotEmpty()) {
+        item {
+            Row(
+                Modifier
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "Выбрано: ${selection.size}",
+                    style = MqType.meta.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "Снять все",
+                    style = MqType.meta,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { selection.clear() }
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                )
+                Text(
+                    "Удалить",
+                    style = MqType.meta,
+                    color = LikedRed,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            favorites.filter { it.id in selection }.forEach(onFavorite) // un-like
+                            selection.clear()
+                        }
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RowSeparator() {
+    Box(
+        Modifier
+            .padding(start = 66.dp, end = 16.dp)
+            .height(1.dp)
+            .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.04f))
+    )
+}
+
+/** Track row with an optional batch-selection checkbox (web «Выбрать несколько»). */
+@Composable
+private fun SelectableTrackRow(
+    track: Track,
+    selected: Boolean,
+    batchMode: Boolean,
+    onToggleSelect: () -> Unit,
+    isPlaying: Boolean,
+    isFavorite: Boolean,
+    onPlay: () -> Unit,
+    onFavorite: () -> Unit,
+    onMenu: () -> Unit,
+) {
+    if (batchMode) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clickable { onToggleSelect() }
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                Modifier
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (selected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.06f)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (selected) {
+                    MqIcon(icon = MqIcons.Check, size = 14.dp, tint = Color.White)
+                }
+            }
+            Text(
+                track.title.ifBlank { "Без названия" },
+                style = MqType.track,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                track.artist,
+                style = MqType.meta,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    } else {
+        TrackRow(
+            track = track,
+            isPlaying = isPlaying,
+            isFavorite = isFavorite,
+            onPlay = onPlay,
+            onFavorite = onFavorite,
+            onMenu = onMenu,
+        )
     }
 }
 
@@ -740,12 +1141,19 @@ private val LikedRed = Color(0xFFEF4444)
 private val DislikedOrange = Color(0xFFF97316)
 private val SubsPurple = Color(0xFF8B5CF6)
 
+/** Web-parity pill switcher — all three lists are live on Android now. */
 @Composable
-private fun FavPillTabs(liked: Int) {
+private fun FavPillTabs(
+    liked: Int,
+    disliked: Int,
+    subs: Int,
+    active: Int,
+    onSelect: (Int) -> Unit,
+) {
     val pills = listOf(
         Triple(MqIcons.Heart, liked, LikedRed),
-        Triple(MqIcons.ThumbsDown, 0, DislikedOrange),
-        Triple(MqIcons.Users, 0, SubsPurple),
+        Triple(MqIcons.ThumbsDown, disliked, DislikedOrange),
+        Triple(MqIcons.Users, subs, SubsPurple),
     )
     Row(
         modifier = Modifier
@@ -758,26 +1166,27 @@ private fun FavPillTabs(liked: Int) {
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         pills.forEachIndexed { i, (icon, count, color) ->
-            val active = i == 0 // «Понравившиеся» is the live tab on Android
+            val isActive = i == active
             Row(
                 modifier = Modifier
                     .weight(1f)
                     .height(36.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (active) color.copy(alpha = 0.20f) else Color.Transparent),
+                    .background(if (isActive) color.copy(alpha = 0.20f) else Color.Transparent)
+                    .clickable { onSelect(i) },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                MqIcon(icon = icon, size = 14.dp, tint = if (active) color else MaterialTheme.colorScheme.onSurfaceVariant)
+                MqIcon(icon = icon, size = 14.dp, tint = if (isActive) color else MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.width(6.dp))
                 Text(
                     count.toString(),
                     style = MqType.meta2.copy(fontWeight = FontWeight.Bold),
-                    color = if (active) color else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isActive) color else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
                         .background(
-                            if (active) color.copy(alpha = 0.13f)
+                            if (isActive) color.copy(alpha = 0.13f)
                             else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.06f)
                         )
                         .padding(horizontal = 6.dp, vertical = 1.dp)
@@ -876,11 +1285,21 @@ private fun LazyListScope.playlistsTab(
     playlists: List<PlaylistDto>,
     showCreate: Boolean,
     createName: String,
+    createDescription: String,
+    showImport: Boolean,
     onCreateToggle: () -> Unit,
     onCreateNameChange: (String) -> Unit,
+    onCreateDescriptionChange: (String) -> Unit,
     onCreateConfirm: (String) -> Unit,
+    onImportToggle: () -> Unit,
+    onImportUrl: (String) -> Unit,
+    onImportText: (String) -> Unit,
     onOpenPlaylist: (String) -> Unit,
     onPlayQueue: (List<Track>, Int) -> Unit,
+    onAddToQueue: (List<Track>) -> Unit,
+    onPlaylistRename: (String, String) -> Unit,
+    onPlaylistDelete: (String) -> Unit,
+    onPlaylistCover: (String, ByteArray) -> Unit,
 ) {
     item {
         Column(Modifier.padding(horizontal = 16.dp)) {
@@ -918,13 +1337,14 @@ private fun LazyListScope.playlistsTab(
                     )
                 }
                 Spacer(Modifier.width(8.dp))
-                // Импорт — visual parity (web opens the import dialog)
+                // Импорт — web import dialog (URL / текст), real actions
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
                         // web: bg --mq-card + border-thin
                         .background(MaterialTheme.colorScheme.surfaceContainer)
                         .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.22f), RoundedCornerShape(12.dp))
+                        .clickable(onClick = onImportToggle)
                         .padding(horizontal = 14.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -975,8 +1395,8 @@ private fun LazyListScope.playlistsTab(
                         placeholder = "Название",
                     )
                     TextEntry(
-                        value = "",
-                        onValueChange = { },
+                        value = createDescription,
+                        onValueChange = onCreateDescriptionChange,
                         placeholder = "Описание (необязательно)",
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1017,6 +1437,100 @@ private fun LazyListScope.playlistsTab(
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+            }
+        }
+    }
+
+    // ── import dialog (web PlaylistView: режимы «URL» / «Импорт текстом») ─
+    if (showImport) {
+        item {
+            var mode by remember { mutableIntStateOf(0) } // 0 = URL, 1 = текст
+            var urlText by remember { mutableStateOf("") }
+            var linesText by remember { mutableStateOf("") }
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.22f), RoundedCornerShape(16.dp))
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Импорт плейлиста",
+                            style = MqType.section.copy(fontSize = 16.sp),
+                            color = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Box(
+                            modifier = Modifier.size(32.dp).clickable(onClick = onImportToggle),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            MqIcon(icon = MqIcons.X, size = 16.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("URL", "Текстом").forEachIndexed { i, label ->
+                            val selected = mode == i
+                            Text(
+                                label,
+                                style = MqType.meta.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium),
+                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(
+                                        if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                                        else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f)
+                                    )
+                                    .clickable { mode = i }
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                    if (mode == 0) {
+                        TextEntry(
+                            value = urlText,
+                            onValueChange = { urlText = it },
+                            placeholder = "https://... (ссылка на плейлист)",
+                        )
+                        Text(
+                            "Вставьте ссылку на плейлист (Spotify, YouTube, VK и др.)",
+                            style = MqType.meta2,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        TextEntry(
+                            value = linesText,
+                            onValueChange = { linesText = it },
+                            placeholder = "Исполнитель — Название (по одному на строку)",
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f))
+                                .clickable(onClick = onImportToggle),
+                            contentAlignment = Alignment.Center
+                        ) { Text("Отмена", style = MqType.body.copy(fontSize = 14.sp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.primary)
+                                .clickable {
+                                    if (mode == 0) onImportUrl(urlText) else onImportText(linesText)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) { Text("Импортировать", style = MqType.body.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold), color = Color.White) }
                     }
                 }
                 Spacer(Modifier.height(16.dp))
@@ -1093,6 +1607,14 @@ private fun LazyListScope.playlistsTab(
                                 val tracks = pl.tracks
                                 if (tracks.isNotEmpty()) onPlayQueue(tracks, 0)
                             },
+                            onShuffle = {
+                                val tracks = pl.tracks
+                                if (tracks.isNotEmpty()) onPlayQueue(tracks.shuffled(), 0)
+                            },
+                            onAddToQueue = { if (pl.tracks.isNotEmpty()) onAddToQueue(pl.tracks) },
+                            onRename = { newName -> onPlaylistRename(pl.id, newName) },
+                            onDelete = { onPlaylistDelete(pl.id) },
+                            onCoverPicked = { bytes -> onPlaylistCover(pl.id, bytes) },
                         )
                     }
                     if (pair.size == 1) Spacer(Modifier.weight(1f))
@@ -1106,16 +1628,45 @@ private fun LazyListScope.playlistsTab(
     }
 }
 
-/** Web PlaylistTile: r16 card p12, square r12 gradient art, name, meta.
- *  Cover: gradientCover(name) — deterministic 6-palette gradient (web port). */
+/** Web PlaylistTile: r16 card p12, square r12 art, name, meta.
+ *  P0 rework: REAL cover image when the playlist has one (MqUrls-resolved);
+ *  deterministic gradient otherwise (web fallback). Real tile menu
+ *  (открыть/воспроизвести/перемешать/в очередь/переименовать/сменить обложку/
+ *  удалить) and a working cover picker. */
 @Composable
 private fun PlaylistTile(
     playlist: PlaylistDto,
     modifier: Modifier = Modifier,
     onOpen: () -> Unit,
     onPlay: () -> Unit,
+    onShuffle: () -> Unit = {},
+    onAddToQueue: () -> Unit = {},
+    onRename: (String) -> Unit = {},
+    onDelete: () -> Unit = {},
+    onCoverPicked: (ByteArray) -> Unit = {},
 ) {
     val accent = MaterialTheme.colorScheme.primary
+    val text = MaterialTheme.colorScheme.onBackground
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val error = Color(0xFFEF4444)
+    var menuOpen by remember { mutableStateOf(false) }
+    var renameOpen by remember { mutableStateOf(false) }
+    var renameText by remember { mutableStateOf(playlist.name) }
+    var confirmDelete by remember { mutableStateOf(false) }
+
+    // web: cover upload → file input → base64 (local) — Android: photo picker
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val coverPicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            runCatching {
+                val bytes = context.contentResolver.openInputStream(it)?.use { s -> s.readBytes() }
+                bytes?.let(onCoverPicked)
+            }
+        }
+    }
+
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
@@ -1133,24 +1684,39 @@ private fun PlaylistTile(
                 .background(gradientCover(playlist.name)),
             contentAlignment = Alignment.Center
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                MqIcon(icon = MqIcons.ListMusic, size = 36.dp, tint = Color.White.copy(alpha = 0.6f))
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    playlist.trackCount.toString(),
-                    style = MqType.meta2.copy(fontWeight = FontWeight.Medium),
-                    color = Color.White.copy(alpha = 0.4f),
+            if (playlist.cover.isNotBlank()) {
+                // P0: real cover image (MqUrls resolves origin-relative URLs)
+                coil.compose.AsyncImage(
+                    model = com.mq1.player.data.MqUrls.absolute(playlist.cover),
+                    contentDescription = "Обложка плейлиста ${playlist.name}",
+                    modifier = Modifier.matchParentSize(),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
                 )
-            }
-            // web: cover-upload overlay — always visible below sm (mobile web);
-            // DOM order puts it UNDER the play FAB and the more trigger
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(Color.Black.copy(alpha = 0.6f)),
-                contentAlignment = Alignment.Center
-            ) {
-                MqIcon(icon = MqIcons.Camera, size = 20.dp, tint = Color.White)
+            } else {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    MqIcon(icon = MqIcons.ListMusic, size = 36.dp, tint = Color.White.copy(alpha = 0.6f))
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        playlist.trackCount.toString(),
+                        style = MqType.meta2.copy(fontWeight = FontWeight.Medium),
+                        color = Color.White.copy(alpha = 0.4f),
+                    )
+                }
+                // web: cover-upload overlay (below sm always visible)
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(Color.Black.copy(alpha = 0.6f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.foundation.layout.Box(
+                        Modifier
+                            .clickable { coverPicker.launch("image/*") }
+                            .padding(28.dp)
+                    ) {
+                        MqIcon(icon = MqIcons.Camera, size = 20.dp, tint = Color.White)
+                    }
+                }
             }
             if (playlist.trackCount > 0) {
                 Box(
@@ -1166,17 +1732,60 @@ private fun PlaylistTile(
                     MqIcon(icon = MqIcons.Play, size = 16.dp, tint = Color.White, fill = true, strokeWidth = 0f)
                 }
             }
-            // web: MoreVertical tile menu trigger (below sm it is always
-            // visible) — MqIcons has no MoreVertical → MoreHorizontal stand-in
+            // web tile menu trigger — REAL menu now
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(8.dp)
                     .size(28.dp)
-                    .background(Color.Black.copy(alpha = 0.6f), CircleShape),
+                    .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                    .clickable { menuOpen = true },
                 contentAlignment = Alignment.Center
             ) {
                 MqIcon(icon = MqIcons.MoreHorizontal, size = 14.dp, tint = Color.White)
+            }
+            androidx.compose.material3.DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false }
+            ) {
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text("Открыть", style = MqType.menu, color = text) },
+                    onClick = { menuOpen = false; onOpen() }
+                )
+                androidx.compose.material3.DropdownMenuItem(
+                    text = {
+                        Text(
+                            if (playlist.trackCount > 0) "Воспроизвести · ${playlist.trackCount}"
+                            else "Воспроизвести",
+                            style = MqType.menu,
+                            color = if (playlist.trackCount > 0) text else muted
+                        )
+                    },
+                    enabled = playlist.trackCount > 0,
+                    onClick = { menuOpen = false; onPlay() }
+                )
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text("Перемешать и играть", style = MqType.menu, color = text) },
+                    enabled = playlist.trackCount > 0,
+                    onClick = { menuOpen = false; onShuffle() }
+                )
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text("Добавить в очередь", style = MqType.menu, color = text) },
+                    enabled = playlist.trackCount > 0,
+                    onClick = { menuOpen = false; onAddToQueue() }
+                )
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text("Переименовать", style = MqType.menu, color = text) },
+                    onClick = { menuOpen = false; renameOpen = true }
+                )
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text("Сменить обложку", style = MqType.menu, color = text) },
+                    onClick = { menuOpen = false; coverPicker.launch("image/*") }
+                )
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text("Удалить плейлист", style = MqType.menu, color = error) },
+                    onClick = { menuOpen = false; confirmDelete = true }
+                )
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -1204,6 +1813,82 @@ private fun PlaylistTile(
                 )
             }
         }
+    }
+
+    // web inline rename (✓/✕)
+    if (renameOpen) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { renameOpen = false },
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            title = { Text("Переименовать плейлист", style = MqType.section, color = text) },
+            text = {
+                TextEntry(
+                    value = renameText,
+                    onValueChange = { renameText = it },
+                    placeholder = "Название",
+                )
+            },
+            confirmButton = {
+                Text(
+                    "Сохранить",
+                    style = MqType.meta.copy(fontWeight = FontWeight.SemiBold),
+                    color = accent,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            if (renameText.isNotBlank()) onRename(renameText.trim())
+                            renameOpen = false
+                        }
+                        .padding(8.dp)
+                )
+            },
+            dismissButton = {
+                Text(
+                    "Отмена",
+                    style = MqType.meta,
+                    color = muted,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { renameOpen = false }
+                        .padding(8.dp)
+                )
+            }
+        )
+    }
+
+    // web delete confirm (destructive)
+    if (confirmDelete) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            title = { Text("Удалить плейлист?", style = MqType.section, color = text) },
+            text = { Text("«${playlist.name}» будет удалён безвозвратно.", style = MqType.body, color = muted) },
+            confirmButton = {
+                Text(
+                    "Удалить",
+                    style = MqType.meta.copy(fontWeight = FontWeight.SemiBold),
+                    color = error,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            confirmDelete = false
+                            onDelete()
+                        }
+                        .padding(8.dp)
+                )
+            },
+            dismissButton = {
+                Text(
+                    "Отмена",
+                    style = MqType.meta,
+                    color = muted,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { confirmDelete = false }
+                        .padding(8.dp)
+                )
+            }
+        )
     }
 }
 
@@ -1242,6 +1927,7 @@ private fun LazyListScope.historyTab(
     onQueryChange: (String) -> Unit,
     onPlayQueue: (List<Track>, Int) -> Unit,
     onFavorite: (Track) -> Unit,
+    onTrackMenu: (Track) -> Unit = {},
     onGoHome: () -> Unit,
     onClearHistory: () -> Unit = {},
 ) {
@@ -1421,7 +2107,7 @@ private fun LazyListScope.historyTab(
                             isFavorite = track.id in favoriteIds,
                             onPlay = { onPlayQueue(history, i) },
                             onFavorite = { onFavorite(track) },
-                            onMenu = { },
+                            onMenu = { onTrackMenu(track) },
                         )
                         if (i < history.lastIndex) {
                             Box(

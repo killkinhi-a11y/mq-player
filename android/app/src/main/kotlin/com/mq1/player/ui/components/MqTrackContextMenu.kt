@@ -7,14 +7,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,23 +40,30 @@ import com.mq1.player.data.api.Track
 import com.mq1.player.ui.theme.MqType
 
 /**
- * WEB PARITY context menu — exact port of ContextMenu.tsx + MenuCore's
- * mobile bottom-sheet mode:
+ * WEB PARITY context menu — port of ContextMenu.tsx + MenuCore's mobile
+ * bottom-sheet mode.
  *
- *  scrim rgba(0,0,0,0.45) · sheet full-width bottom-anchored, r16 top
- *  corners, bg card, edge-strong border, p6, max 72% height
- *  grabber 36×4 r2 edge-strong (m4/6)
- *  header: 48 art r8 + title 14/600 + "artist · m:ss" 12/400 muted +
- *  hairline separator
- *  items: 48dp min, r8, p10/12, gap12, icon 18 muted, label mq-t-menu
- *  13/500; destructive → error red; separators 7/14/7/44
+ * P0 REWORK (parity-1): the old hand-rolled overlay composed a fixed-height
+ * 844.dp scrim and a TOP-anchored sheet inline in the layout — it clipped,
+ * mis-positioned and layered under real sheets. This version rides the
+ * window-layered [ModalBottomSheet]: correct bottom anchoring, full-screen
+ * scrim, outside-tap / back / swipe-to-dismiss, safe areas and z-ordering
+ * above every other sheet — the exact contract the web MenuCore guarantees.
+ *
+ * Visual spec (unchanged from web): sheet full-width bottom-anchored, r16 top
+ * corners, bg card, p6, max 72% height; grabber 36×4 r2; header 48 art r8 +
+ * title 14/600 + "artist · m:ss" muted; items 48dp min, r8, p10/12, gap12,
+ * icon 18 muted, label 13/500; destructive → error red; separators 7/14/7/44.
  *
  * Only REAL actions render (no fake entries):
- *  Воспроизвести · Добавить в очередь · Добавить в плейлист (→ playlist
- *  sub-page + Новый плейлист) · Лайк/Убрать лайк · Перейти к артисту ·
- *  Поделиться (Android share intent) · Копировать название (clipboard) ·
- *  contextual: Убрать из очереди / Убрать из плейлиста (destructive).
+ *  Воспроизвести · Добавить в очередь · Добавить в плейлист (→ sub-page +
+ *  Новый плейлист) · Похожие треки · Лайк/Убрать лайк · Не нравится/Убрать
+ *  дизлайк · Перейти к артисту · Подписаться/Отписаться (artist) ·
+ *  Поделиться (Android share intent) · Копировать название («title — artist»)
+ *  · Скачать (current track only) · contextual: Убрать из очереди (REAL
+ *  removal by index) / Убрать из плейлиста (destructive).
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MqTrackContextMenu(
     track: Track,
@@ -65,8 +76,16 @@ fun MqTrackContextMenu(
     onOpenArtist: (String) -> Unit,
     onAddToPlaylist: (playlistId: String) -> Unit,
     onCreatePlaylistAndAdd: () -> Unit,
-    onRemoveFromQueue: (() -> Unit)? = null,
+    isDisliked: Boolean = false,
+    isSubscribed: Boolean = false,
+    queueIndex: Int? = null,
+    canDownload: Boolean = false,
+    onDislike: (() -> Unit)? = null,
+    onSimilar: (() -> Unit)? = null,
+    onToggleSubscription: (() -> Unit)? = null,
+    onRemoveFromQueue: ((Int) -> Unit)? = null,
     onRemoveFromPlaylist: (() -> Unit)? = null,
+    onDownload: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -76,137 +95,167 @@ fun MqTrackContextMenu(
     val textMuted = MaterialTheme.colorScheme.onSurfaceVariant
     val hairline = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
     val error = Color(0xFFEF4444)
-    val surface = MaterialTheme.colorScheme.surface
-    val border = MaterialTheme.colorScheme.outline
 
-    // scrim
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(844.dp)
-            .background(Color.Black.copy(alpha = 0.45f))
-            .clickable(onClick = onDismiss)
-    )
-
-    // sheet
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-            .background(surface)
-            .padding(6.dp),
-    ) {
-        // grabber 36×4 r2
-        Box(
-            Modifier
-                .width(36.dp)
-                .height(4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(border)
-                .align(Alignment.CenterHorizontally)
-                .padding(top = 4.dp, bottom = 6.dp)
-        )
-
-        if (page == "root") {
-            // ── header: art 48 r8 + title + artist · duration ────────────
-            Row(
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surface,
+        scrimColor = Color.Black.copy(alpha = 0.45f),
+        dragHandle = {
+            // web grabber: 36×4 r2 edge-strong
+            Box(
                 Modifier
-                    .fillMaxWidth()
-                    .padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Artwork(url = track.cover, sizeDp = 48, corner = 8, contentDescription = null)
-                Column {
-                    Text(
-                        track.title.ifBlank { "Без названия" },
-                        style = MqType.track.copy(fontSize = 14.sp),
-                        color = text,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        if (track.durationInt > 0) "${track.artist} · ${formatDuration(track.durationInt)}"
-                        else track.artist,
-                        style = MqType.meta,
-                        color = textMuted,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            SheetSeparator(hairline)
-
-            // ── Playback group ──────────────────────────────────────────
-            SheetItem(MqIcons.Play, "Воспроизвести", text, textMuted) { onPlay(); onDismiss() }
-            SheetItem(MqIcons.ListPlus, "Добавить в очередь", text, textMuted) { onAddToQueue(); onDismiss() }
-
-            // ── Library group ───────────────────────────────────────────
-            SheetSeparator(hairline)
-            SheetItem(MqIcons.ListMusic, "Добавить в плейлист", text, textMuted) { page = "playlists" }
-            SheetItem(
-                MqIcons.Heart, if (isLiked) "Убрать лайк" else "Лайк",
-                if (isLiked) accent else text, textMuted
-            ) { onToggleLike(); onDismiss() }
-
-            // ── Navigate group ──────────────────────────────────────────
-            SheetSeparator(hairline)
-            SheetItem(MqIcons.User, "Перейти к артисту", text, textMuted) {
-                onOpenArtist(track.artist); onDismiss()
-            }
-
-            // ── Share group ─────────────────────────────────────────────
-            SheetSeparator(hairline)
-            SheetItem(MqIcons.Share2, "Поделиться", text, textMuted) {
-                runCatching {
-                    context.startActivity(
-                        Intent.createChooser(
-                            Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(
-                                    Intent.EXTRA_TEXT,
-                                    "Слушайте «${track.title}» — ${track.artist} на MQ Player"
-                                )
-                            },
-                            "Поделиться"
+                    .width(36.dp)
+                    .height(4.dp)
+                    .padding(top = 4.dp, bottom = 6.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.outline)
+            )
+        },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 560.dp) // web sheet cap 72vh
+                .verticalScroll(rememberScrollState())
+                .padding(6.dp)
+        ) {
+            if (page == "root") {
+                // ── header: art 48 r8 + title + artist · duration ────────────
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Artwork(url = track.cover, sizeDp = 48, corner = 8, contentDescription = null)
+                    Column {
+                        Text(
+                            track.title.ifBlank { "Без названия" },
+                            style = MqType.track.copy(fontSize = 14.sp),
+                            color = text,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
-                    )
+                        Text(
+                            if (track.durationInt > 0) "${track.artist} · ${formatDuration(track.durationInt)}"
+                            else track.artist,
+                            style = MqType.meta,
+                            color = textMuted,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
-                onDismiss()
-            }
-            SheetItem(MqIcons.FileText, "Копировать название", text, textMuted) {
-                clipboard.setText(AnnotatedString(track.title))
-                onDismiss()
-            }
-
-            // ── contextual destructive ──────────────────────────────────
-            if (onRemoveFromQueue != null || onRemoveFromPlaylist != null) {
                 SheetSeparator(hairline)
-                if (onRemoveFromQueue != null) {
+
+                // ── Playback group ──────────────────────────────────────────
+                SheetItem(MqIcons.Play, "Воспроизвести", text, textMuted) { onPlay(); onDismiss() }
+                SheetItem(MqIcons.ListPlus, "Добавить в очередь", text, textMuted) { onAddToQueue(); onDismiss() }
+                onSimilar?.let { similar ->
+                    SheetItem(MqIcons.Radio, "Похожие треки", text, textMuted) { similar(); onDismiss() }
+                }
+
+                // ── Library group ───────────────────────────────────────────
+                SheetSeparator(hairline)
+                SheetItem(MqIcons.ListMusic, "Добавить в плейлист", text, textMuted) { page = "playlists" }
+                SheetItem(
+                    MqIcons.Heart, if (isLiked) "Убрать лайк" else "Лайк",
+                    if (isLiked) accent else text, textMuted
+                ) { onToggleLike(); onDismiss() }
+                onDislike?.let { dislike ->
+                    SheetItem(
+                        MqIcons.ThumbsDown, if (isDisliked) "Убрать дизлайк" else "Не нравится",
+                        if (isDisliked) accent else text, textMuted
+                    ) { dislike(); onDismiss() }
+                }
+
+                // ── Navigate group ──────────────────────────────────────────
+                SheetSeparator(hairline)
+                SheetItem(MqIcons.User, "Перейти к артисту", text, textMuted) {
+                    onOpenArtist(track.artist); onDismiss()
+                }
+                onToggleSubscription?.let { toggle ->
+                    SheetItem(
+                        MqIcons.UserCheck, if (isSubscribed) "Отписаться от артиста" else "Подписаться на артиста",
+                        text, textMuted
+                    ) { toggle(); onDismiss() }
+                }
+
+                // ── Share group ─────────────────────────────────────────────
+                SheetSeparator(hairline)
+                SheetItem(MqIcons.Share2, "Поделиться", text, textMuted) {
+                    runCatching {
+                        val trackUrl = "https://mq1.vercel.app/track/" +
+                            (track.scTrackId?.toString() ?: track.id)
+                        context.startActivity(
+                            Intent.createChooser(
+                                Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(
+                                        Intent.EXTRA_TEXT,
+                                        "Слушайте «${track.title}» — ${track.artist} на MQ Player\n$trackUrl"
+                                    )
+                                },
+                                "Поделиться"
+                            )
+                        )
+                    }
+                    onDismiss()
+                }
+                SheetItem(MqIcons.FileText, "Копировать название", text, textMuted) {
+                    // web: copies "title — artist"
+                    clipboard.setText(AnnotatedString("${track.title} — ${track.artist}"))
+                    onDismiss()
+                }
+                // web downloads the ACTIVE stream — only offer it where a
+                // stream is actually available (current track)
+                if (canDownload && onDownload != null) {
+                    SheetItem(MqIcons.Download, "Скачать", text, textMuted) {
+                        onDownload(); onDismiss()
+                    }
+                }
+
+                // ── contextual destructive ──────────────────────────────────
+                if (queueIndex != null && onRemoveFromQueue != null) {
+                    SheetSeparator(hairline)
                     SheetItem(MqIcons.Trash2, "Убрать из очереди", error, error) {
-                        onRemoveFromQueue(); onDismiss()
+                        onRemoveFromQueue(queueIndex); onDismiss()
                     }
                 }
                 if (onRemoveFromPlaylist != null) {
+                    SheetSeparator(hairline)
                     SheetItem(MqIcons.Trash2, "Убрать из плейлиста", error, error) {
                         onRemoveFromPlaylist(); onDismiss()
                     }
                 }
-            }
-        } else {
-            // ── playlists sub-page ──────────────────────────────────────
-            Text(
-                "Добавить в плейлист",
-                style = MqType.label,
-                color = textMuted,
-                modifier = Modifier.padding(start = 10.dp, top = 8.dp, bottom = 4.dp)
-            )
-            playlists.forEach { pl ->
-                SheetItem(MqIcons.ListMusic, pl.name, text, textMuted) {
-                    onAddToPlaylist(pl.id); onDismiss()
+                // bottom inset so the last item clears the gesture bar
+                Box(Modifier.height(12.dp))
+            } else {
+                // ── playlists sub-page ──────────────────────────────────────
+                Text(
+                    "Добавить в плейлист",
+                    style = MqType.label,
+                    color = textMuted,
+                    modifier = Modifier.padding(start = 10.dp, top = 8.dp, bottom = 4.dp)
+                )
+                if (playlists.isEmpty()) {
+                    Text(
+                        "Нет плейлистов",
+                        style = MqType.body.copy(fontSize = 14.sp),
+                        color = textMuted,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                    )
                 }
-            }
-            SheetSeparator(hairline)
-            SheetItem(MqIcons.Plus, "Новый плейлист", text, textMuted) {
-                onCreatePlaylistAndAdd(); onDismiss()
+                playlists.forEach { pl ->
+                    SheetItem(MqIcons.ListMusic, pl.name, text, textMuted) {
+                        onAddToPlaylist(pl.id); onDismiss()
+                    }
+                }
+                SheetSeparator(hairline)
+                SheetItem(MqIcons.Plus, "Новый плейлист", text, textMuted) {
+                    onCreatePlaylistAndAdd(); onDismiss()
+                }
+                Box(Modifier.height(12.dp))
             }
         }
     }

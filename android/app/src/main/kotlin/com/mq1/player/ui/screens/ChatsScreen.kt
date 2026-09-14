@@ -3,6 +3,7 @@ package com.mq1.player.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,12 +11,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +44,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 import coil.compose.AsyncImage
 import com.mq1.player.ui.components.LucideIcon
 import com.mq1.player.ui.components.MqIcon
@@ -66,14 +71,138 @@ fun ChatsScreen(
 
     LaunchedEffect(Unit) { vm.refresh() }
 
+    // web «Новая группа» — name + member checkboxes → POST /api/group-chats
+    var groupDialogOpen by remember { mutableStateOf(false) }
+    var groupName by remember { mutableStateOf("") }
+    val groupMembers = remember { androidx.compose.runtime.mutableStateListOf<String>() }
+    var groupError by remember { mutableStateOf<String?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
     ChatsBody(
         ui = ui,
         onOpenChat = onOpenChat,
         onOpenFriends = onOpenFriends,
         // web «Новый чат» opens the contact picker → Android friends screen
         onNewChat = onOpenFriends,
+        onNewGroup = { groupDialogOpen = true; groupError = null },
         onRetry = { vm.refresh() }
     )
+
+    if (groupDialogOpen) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { groupDialogOpen = false },
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            title = { Text("Новая группа", style = MqType.section, color = MaterialTheme.colorScheme.onBackground) },
+            text = {
+                Column {
+                    Text("Название группы", style = MqType.label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(6.dp))
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                    ) {
+                        androidx.compose.foundation.text.BasicTextField(
+                            value = groupName,
+                            onValueChange = { groupName = it },
+                            singleLine = true,
+                            textStyle = MqType.body.copy(color = MaterialTheme.colorScheme.onBackground),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        if (groupName.isEmpty()) {
+                            Text("Например: Музыкальный чилл", style = MqType.body, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        if (ui.friends.isEmpty()) "Нет друзей для добавления" else "Участники",
+                        style = MqType.label,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
+                        ui.friends.forEach { f ->
+                            val checked = f.id in groupMembers
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable {
+                                        if (checked) groupMembers.remove(f.id)
+                                        else groupMembers.add(f.id)
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Box(
+                                    Modifier
+                                        .size(20.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (checked) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f)
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (checked) MqIcon(icon = MqIcons.Check, size = 12.dp, tint = Color.White)
+                                }
+                                Text(
+                                    f.username,
+                                    style = MqType.track,
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                    groupError?.let {
+                        Spacer(Modifier.height(8.dp))
+                        Text(it, style = MqType.meta2, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {
+                Text(
+                    "Создать",
+                    style = MqType.meta.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+                    color = if (groupName.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(enabled = groupName.isNotBlank()) {
+                            val name = groupName.trim()
+                            if (name.isEmpty()) return@clickable
+                            scope.launch {
+                                vm.createGroup(name, groupMembers.toList()) { ok ->
+                                    if (ok) {
+                                        groupDialogOpen = false
+                                        groupName = ""
+                                        groupMembers.clear()
+                                    } else {
+                                        groupError = "Не удалось создать группу"
+                                    }
+                                }
+                            }
+                        }
+                        .padding(8.dp)
+                )
+            },
+            dismissButton = {
+                Text(
+                    "Отмена",
+                    style = MqType.meta,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { groupDialogOpen = false }
+                        .padding(8.dp)
+                )
+            }
+        )
+    }
 }
 
 /**

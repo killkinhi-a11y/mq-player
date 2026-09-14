@@ -14,6 +14,7 @@ import kotlinx.serialization.json.Json
 import com.mq1.player.data.api.Friend
 import com.mq1.player.data.api.OutgoingRequest
 import com.mq1.player.data.api.PendingRequest
+import com.mq1.player.data.api.PlaylistDto
 import com.mq1.player.data.api.Track
 
 private val Context.dataStore by preferencesDataStore(name = "mq_local_v1")
@@ -55,6 +56,12 @@ class LocalStore(private val context: Context) {
         val favorites = stringPreferencesKey("favorite_tracks")
         val history = stringPreferencesKey("history_tracks")
         val likedScIds = stringSetPreferencesKey("liked_sc_ids")
+        // Web-parity library lists (FavoritesView «Не понравившиеся» / «Подписки»)
+        val disliked = stringPreferencesKey("disliked_tracks")
+        val dislikedScIds = stringSetPreferencesKey("disliked_sc_ids")
+        val favoriteArtists = stringSetPreferencesKey("favorite_artists")
+        // Web parity: recent searches persist in localStorage (max 15)
+        val recentSearches = stringPreferencesKey("recent_searches")
         // F7: social snapshot — instant render after process restart, then re-sync
         val socialSnapshot = stringPreferencesKey("social_snapshot_v1")
     }
@@ -139,6 +146,110 @@ class LocalStore(private val context: Context) {
 
     suspend fun isFavorite(trackId: String): Boolean =
         favorites.first().any { it.id == trackId }
+
+    // ── Disliked tracks (web FavoritesView «Не понравившиеся») ────────────
+
+    val disliked: Flow<List<Track>> = context.dataStore.data.map { p ->
+        p[Keys.disliked]?.let { runCatching { json.decodeFromString<List<Track>>(it) }.getOrNull() } ?: emptyList()
+    }
+
+    /** @return true when the track became disliked (web addDislike semantics). */
+    suspend fun toggleDisliked(track: Track): Boolean {
+        var added = false
+        context.dataStore.edit { p ->
+            val current = p[Keys.disliked]?.let {
+                runCatching { json.decodeFromString<List<Track>>(it) }.getOrNull()
+            } ?: emptyList()
+            val key = track.scTrackId?.toString() ?: track.id
+            val next = if (current.any { it.id == track.id }) {
+                current.filterNot { it.id == track.id }
+            } else {
+                added = true
+                (listOf(track) + current).take(100) // web cap
+            }
+            p[Keys.disliked] = json.encodeToString(next)
+            val ids = p[Keys.dislikedScIds] ?: emptySet()
+            p[Keys.dislikedScIds] = if (added) ids + key else ids - key
+            // A track cannot be liked AND disliked at once (web parity).
+            if (added) {
+                val favs = p[Keys.favorites]?.let {
+                    runCatching { json.decodeFromString<List<Track>>(it) }.getOrNull()
+                } ?: emptyList()
+                if (favs.any { it.id == track.id }) {
+                    p[Keys.favorites] = json.encodeToString(favs.filterNot { it.id == track.id })
+                    p[Keys.likedScIds] = (p[Keys.likedScIds] ?: emptySet()) - key
+                }
+            }
+        }
+        return added
+    }
+
+    val dislikedScIds: Flow<Set<String>> =
+        context.dataStore.data.map { it[Keys.dislikedScIds] ?: emptySet() }
+
+    // ── Favorite artists / subscriptions (web «Подписки» + store sync) ────
+
+    val favoriteArtists: Flow<List<String>> = context.dataStore.data.map { p ->
+        (p[Keys.favoriteArtists] ?: emptySet()).toList()
+    }
+
+    /** @return true when subscribed (web addFavoriteArtist semantics). */
+    suspend fun toggleFavoriteArtist(artist: String): Boolean {
+        var added = false
+        context.dataStore.edit { p ->
+            val current = p[Keys.favoriteArtists] ?: emptySet()
+            added = artist !in current
+            p[Keys.favoriteArtists] = if (added) current + artist else current - artist
+        }
+        return added
+    }
+
+    // ── Recent searches (web localStorage "mq-search-history", max 15) ────
+
+    val recentSearches: Flow<List<String>> = context.dataStore.data.map { p ->
+        p[Keys.recentSearches]?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() } ?: emptyList()
+    }
+
+    suspend fun pushRecentSearch(query: String) {
+        val q = query.trim()
+        if (q.isEmpty()) return
+        context.dataStore.edit { p ->
+            val current = p[Keys.recentSearches]?.let {
+                runCatching { json.decodeFromString<List<String>>(it) }.getOrNull()
+            } ?: emptyList()
+            p[Keys.recentSearches] = json.encodeToString((listOf(q) + current.filterNot { it.equals(q, ignoreCase = true) }).take(15))
+        }
+    }
+
+    suspend fun removeRecentSearch(query: String) {
+        context.dataStore.edit { p ->
+            val current = p[Keys.recentSearches]?.let {
+                runCatching { json.decodeFromString<List<String>>(it) }.getOrNull()
+            } ?: emptyList()
+            p[Keys.recentSearches] = json.encodeToString(current.filterNot { it.equals(query, ignoreCase = true) })
+        }
+    }
+
+    suspend fun clearRecentSearches() {
+        context.dataStore.edit { it.remove(Keys.recentSearches) }
+    }
+
+    // ── Demo-local playlists (web demo parity: zustand-local playlists) ────
+
+    private val demoPlaylistKey = stringPreferencesKey("demo_playlists")
+
+    val demoPlaylists: Flow<List<PlaylistDto>> = context.dataStore.data.map { p ->
+        p[demoPlaylistKey]?.let {
+            runCatching { json.decodeFromString<List<PlaylistDto>>(it) }.getOrNull()
+        } ?: emptyList()
+    }
+
+    suspend fun setDemoPlaylists(list: List<PlaylistDto>) {
+        context.dataStore.edit { p ->
+            if (list.isEmpty()) p.remove(demoPlaylistKey)
+            else p[demoPlaylistKey] = json.encodeToString(list)
+        }
+    }
 
     // ── History (local, parity with web) ────────────────────────────────────
 

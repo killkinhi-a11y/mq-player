@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,6 +25,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.mq1.player.data.MqUrls
 import com.mq1.player.data.api.Track
 import com.mq1.player.ui.theme.MqType
 
@@ -40,6 +42,10 @@ fun Artwork(
     contentDescription: String? = null
 ) {
     val shape = RoundedCornerShape(corner.dp)
+    // P0 fix: backend covers are origin-relative ("/api/music/soundcloud/
+    // image-proxy?...") — resolve against API_BASE exactly like the web
+    // browser does, otherwise Coil can never load them.
+    val resolvedUrl = remember(url) { MqUrls.absolute(url) }
     Box(
         modifier = modifier
             .size(sizeDp.dp)
@@ -47,10 +53,10 @@ fun Artwork(
             .background(placeholderGradient(url.hashCode())),
         contentAlignment = Alignment.Center
     ) {
-        if (!url.isNullOrBlank()) {
+        if (resolvedUrl != null) {
             AsyncImage(
                 model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                    .data(url)
+                    .data(resolvedUrl)
                     .crossfade(true)
                     .size(sizeDp.coerceAtMost(512))
                     .build(),
@@ -96,6 +102,7 @@ fun TrackRow(
     onPlay: () -> Unit,
     onFavorite: (() -> Unit)? = null,
     onMenu: (() -> Unit)? = null,
+    onOpenArtist: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -125,13 +132,19 @@ fun TrackRow(
                     contentDescription = "Трек: ${track.title}"
                 }
             )
-            // mq-t-artist 13/500
+            // mq-t-artist 13/500 — web rows link the artist name
             Text(
                 text = track.artist.ifBlank { "Неизвестный исполнитель" },
                 style = MqType.artist,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = if (onOpenArtist != null && track.artist.isNotBlank()) {
+                    Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .clickable { onOpenArtist(track.artist) }
+                        .semantics { contentDescription = "Артист: ${track.artist}" }
+                } else Modifier
             )
         }
 
@@ -190,3 +203,7 @@ fun formatDuration(totalSeconds: Int): String {
     val sec = s % 60
     return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
 }
+
+/** Deterministic gradient cover for playlists (web fallback when a
+ *  playlist has no uploaded cover — parity with PlaylistArtwork.tsx). */
+fun gradientCover(seed: Int): Brush = placeholderGradient(seed)

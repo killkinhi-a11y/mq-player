@@ -33,6 +33,12 @@ import okhttp3.HttpUrl
  */
 class SecureCookieJar(context: Context) : CookieJar {
 
+    /** True while a persisted session cookie exists — read by the 401
+     *  interceptor to distinguish "expired session" from "no session". */
+    @Volatile
+    var hasSessionCookie: Boolean = false
+        private set
+
     private val prefs = context.getSharedPreferences("mq_session_v1", Context.MODE_PRIVATE)
     private val tag = "SecureCookieJar"
 
@@ -141,9 +147,5 @@ class SecureCookieJar(context: Context) : CookieJar {
         /** Cookies persisted (sealed) across restarts — nothing else is kept:
          *  the auth session + the single-use Google-native nonce. */
         private val PERSISTED_COOKIES = setOf(SESSION_COOKIE, "mq_native_nonce")
-
-        @Volatile
-        var hasSessionCookie: Boolean = false
-            private set
     }
 }

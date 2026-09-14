@@ -27,6 +27,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -91,6 +92,116 @@ class PlaybackController(private val context: Context) {
     private val _speed = MutableStateFlow(1.0f)
     val speed: StateFlow<Float> = _speed.asStateFlow()
 
+    // P1 (web parity): player volume in percent 0..100 — the web applies the
+    // quadratic curve audio.volume = (pct/100)^2; we replicate exactly.
+    private val _volumePercent = MutableStateFlow(100f)
+    val volumePercent: StateFlow<Float> = _volumePercent.asStateFlow()
+
+    // P1 (web parity): REAL sleep timer. TIME mode = absolute epoch deadline
+    // (drift-free, survives navigation — the controller is app-process-wide);
+    // END_OF_TRACK = Media3 pauseAtEndOfMediaItem (exact, player-level).
+    // Web expiry semantics: linear fade over the last 30 s, then pause and
+    // restore the original volume.
+    enum class SleepKind { NONE, TIME, END_OF_TRACK }
+
+    private val _sleepKind = MutableStateFlow(SleepKind.NONE)
+    val sleepKind: StateFlow<SleepKind> = _sleepKind.asStateFlow()
+
+    private val _sleepRemainingMs = MutableStateFlow(0L)
+    val sleepRemainingMs: StateFlow<Long> = _sleepRemainingMs.asStateFlow()
+
+    @Volatile private var sleepEndMs: Long = 0L
+    @Volatile private var sleepOriginalVolumePercent: Float = 100f
+    @Volatile private var sleepTargetTrackId: String? = null
+
+    fun startSleepTimer(minutes: Int) {
+        sleepOriginalVolumePercent = _volumePercent.value
+        sleepEndMs = System.currentTimeMillis() + minutes * 60_000L
+        sleepTargetTrackId = nowPlaying?.id
+        _sleepKind.value = SleepKind.TIME
+        _sleepRemainingMs.value = minutes * 60_000L
+    }
+
+    fun startSleepEndOfTrack() {
+        if (nowPlaying == null) return
+        sleepEndMs = 0L
+        sleepTargetTrackId = nowPlaying?.id
+        _sleepKind.value = SleepKind.END_OF_TRACK
+        _sleepRemainingMs.value = 0L
+        // media3 1.4.1 has no pauseAtEndOfMediaItem (added in 1.5) — the
+        // ticker pauses ~300 ms before the natural end (imperceptible for a
+        // sleep-stop) and the transition listener guards against any race.
+    }
+
+    fun cancelSleepTimer() {
+        sleepEndMs = 0L
+        sleepTargetTrackId = null
+        _sleepKind.value = SleepKind.NONE
+        _sleepRemainingMs.value = 0L
+        // Volume may have been mid-fade — restore honestly.
+        applyVolume(sleepOriginalVolumePercent)
+    }
+
+    private fun finishSleepTimer() {
+        controller?.pause()
+        applyVolume(sleepOriginalVolumePercent)
+        sleepEndMs = 0L
+        sleepTargetTrackId = null
+        _sleepKind.value = SleepKind.NONE
+        _sleepRemainingMs.value = 0L
+    }
+
+    private fun tickSleepTimer() {
+        when (_sleepKind.value) {
+            SleepKind.NONE -> { if (_sleepRemainingMs.value != 0L) _sleepRemainingMs.value = 0L }
+            SleepKind.END_OF_TRACK -> {
+                val c = controller
+                // Pause ~300 ms before the natural end (no pauseAtEndOfMediaItem
+                // in media3 1.4.1 — honest near-exact stop for sleep purposes).
+                if (c != null && c.isPlaying && _durationMs.value > 0) {
+                    val remain = _durationMs.value - c.currentPosition
+                    if (remain <= 300L) {
+                        finishSleepTimer()
+                        return
+                    }
+                }
+                // The user moved to another track manually — timer consumed.
+                if (sleepTargetTrackId != null && sleepTargetTrackId != nowPlaying?.id) {
+                    sleepTargetTrackId = null
+                    _sleepKind.value = SleepKind.NONE
+                    _sleepRemainingMs.value = 0L
+                }
+            }
+            SleepKind.TIME -> {
+                val remaining = sleepEndMs - System.currentTimeMillis()
+                _sleepRemainingMs.value = remaining.coerceAtLeast(0L)
+                if (remaining <= 30_000L && remaining > 0L) {
+                    // web parity: linear fade over the final 30 s
+                    val faded = sleepOriginalVolumePercent * (remaining / 30_000f)
+                    applyVolume(faded)
+                }
+                if (remaining <= 0L) finishSleepTimer()
+            }
+        }
+    }
+
+    /** Web parity volume curve: player.volume = (pct/100)^2. */
+    fun setVolume(percent: Float) {
+        val p = percent.coerceIn(0f, 100f)
+        _volumePercent.value = p
+        // A manual volume change during a TIME fade re-baselines the origin
+        // (like the web: user stays in control).
+        if (_sleepKind.value == SleepKind.TIME && sleepRemainingMs.value > 30_000L) {
+            sleepOriginalVolumePercent = p
+        }
+        applyVolume(p)
+    }
+
+    private fun applyVolume(percent: Float) {
+        val p = percent.coerceIn(0f, 100f) / 100f
+        controller?.volume = p * p
+    }
+
     // Deep links (mq://player): monotonically increasing request counter;
     // the NavHost observes it and opens the Full Player once per request.
     private val _openPlayerRequest = MutableStateFlow(0)
@@ -119,6 +230,9 @@ class PlaybackController(private val context: Context) {
             runCatching { future.get() }.onSuccess { mediaController ->
                 controller = mediaController
                 mediaController.addListener(playerListener)
+                // re-apply persisted volume after (re)connect — the player
+                // instance resets to 1.0 on service recreation
+                applyVolume(_volumePercent.value)
                 startPositionTicker()
                 if (pendingMediaItems != null) {
                     val items = pendingMediaItems!!
@@ -225,6 +339,54 @@ class PlaybackController(private val context: Context) {
         scope.launch { preResolve(track) }
     }
 
+    // ── REAL queue editing (web QueueView parity) ──────────────
+
+    /**
+     * REAL removal — replaces the old fake `next()` "removal".
+     * Removing the current item lets ExoPlayer auto-transition to the next
+     * (the transition listener mirrors the new index); removing the last
+     * item empties the queue.
+     */
+    fun removeQueueItem(index: Int) {
+        val c = controller ?: return
+        val queue = _queue.value
+        if (index !in queue.indices) return
+        val wasCurrent = index == _currentIndex.value
+        c.removeMediaItem(index)
+        _queue.value = queue.filterIndexed { i, _ -> i != index }
+        when {
+            _queue.value.isEmpty() -> {
+                _currentIndex.value = -1
+                _isPlaying.value = false
+            }
+            wasCurrent -> {
+                // player auto-advanced; the transition listener refreshes,
+                // but mirror immediately for responsive UI
+                _currentIndex.value = c.currentMediaItemIndex.coerceIn(0, _queue.value.size - 1)
+                if (index >= _queue.value.size && _waveMode.value) {
+                    scope.launch { extendWave() }
+                }
+            }
+            index < _currentIndex.value -> _currentIndex.value -= 1
+        }
+    }
+
+    fun moveQueueItem(from: Int, to: Int) {
+        val c = controller ?: return
+        val queue = _queue.value.toMutableList()
+        if (from !in queue.indices || to !in queue.indices || from == to) return
+        c.moveMediaItem(from, to)
+        queue.add(to, queue.removeAt(from))
+        _queue.value = queue
+        val cur = _currentIndex.value
+        _currentIndex.value = when (cur) {
+            from -> to
+            else -> if (from < cur && to >= cur) cur - 1
+                    else if (from > cur && to <= cur) cur + 1
+                    else cur
+        }
+    }
+
     fun togglePlayPause() {
         val c = controller ?: return
         if (c.isPlaying) c.pause() else c.play()
@@ -243,6 +405,68 @@ class PlaybackController(private val context: Context) {
                     )
                 }
             }
+        }
+    }
+
+    // ── Dislikes / artist subscriptions / similar tracks (web parity) ───
+
+    private val _subscribedArtists = MutableStateFlow<Set<String>>(emptySet())
+    val subscribedArtists: StateFlow<Set<String>> = _subscribedArtists.asStateFlow()
+
+    private val _dislikedIds = MutableStateFlow<Set<String>>(emptySet())
+    val dislikedIds: StateFlow<Set<String>> = _dislikedIds.asStateFlow()
+
+    init {
+        // Mirror the persisted library lists for instant UI labels.
+        scope.launch {
+            ServiceLocator.localStore.favoriteArtists.collect { _subscribedArtists.value = it.toSet() }
+        }
+        scope.launch {
+            ServiceLocator.localStore.dislikedScIds.collect { _dislikedIds.value = it }
+        }
+    }
+
+    /** Web «Не нравится» — persists locally + taste feedback. */
+    fun dislike(track: Track) {
+        ioScope.launch {
+            val added = ServiceLocator.localStore.toggleDisliked(track)
+            if (added) {
+                track.scTrackId?.let { id ->
+                    runCatching {
+                        ServiceLocator.api.recommendationFeedback(
+                            mapOf("scTrackId" to id.toString(), "action" to "dislike")
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /** Web «Подписаться на артиста» — local + server sync. */
+    fun toggleArtistSubscription(artist: String) {
+        ioScope.launch {
+            ServiceLocator.localStore.toggleFavoriteArtist(artist)
+            runCatching {
+                val artists = ServiceLocator.localStore.favoriteArtists.first()
+                ServiceLocator.api.saveFavoriteArtists(
+                    com.mq1.player.data.api.SaveFavoriteArtistsBody(artists = artists)
+                )
+            }
+        }
+    }
+
+    /** Web «Похожие треки» — seed track + /api/music/radio batch, radio
+     *  continuation on (auto-extends like Wave when the batch runs out). */
+    fun startSimilar(seed: Track) {
+        scope.launch {
+            val similar = ServiceLocator.musicRepository.similarTracks(seed)
+            if (similar.isEmpty()) {
+                _error.value = "Похожие треки не найдены"
+                return@launch
+            }
+            _error.value = null
+            startQueue(listOf(seed) + similar, 0, wave = true)
+            requestOpenPlayer()
         }
     }
 
@@ -282,6 +506,7 @@ class PlaybackController(private val context: Context) {
             stop()
             clearMediaItems()
         }
+        cancelSleepTimer()
         _queue.value = emptyList()
         _currentIndex.value = -1
         _waveMode.value = false
@@ -515,6 +740,7 @@ class PlaybackController(private val context: Context) {
                     resumePositionMs = _positionMs.value
                     if (c.duration > 0) _durationMs.value = c.duration
                 }
+                tickSleepTimer()
                 delay(500)
             }
         }
@@ -558,7 +784,12 @@ private fun Track.buildMediaItem(resolved: PlayableStream?): MediaItem {
                 .setAlbumTitle(album.takeIf { it.isNotBlank() })
                 .setGenre(genre.takeIf { it.isNotBlank() })
                 .setDurationMs((duration * 1000).toLong())
-                .setArtworkUri(cover.takeIf { it.isNotBlank() }?.let { android.net.Uri.parse(it) })
+                // P0: covers are origin-relative — resolve so notification /
+                // lock-screen artwork actually loads (web browser does this
+                // implicitly; Coil / MediaMetadata do not).
+                .setArtworkUri(
+                    com.mq1.player.data.MqUrls.absolute(cover)?.let { android.net.Uri.parse(it) }
+                )
                 .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
                 .build()
         )

@@ -3295,3 +3295,146 @@ Stage Summary:
 - NOT done (impossible in sandbox, honestly): on-device logcat, real
   Google account picker, background playback/process death, fingerprint
   hardware. Signing key rotation disclosed.
+
+---
+Task ID: parity-1 (audit)
+Agent: main (Super Z)
+Task: FULL PRODUCT PARITY AUDIT (web mq1.vercel.app = source of truth vs Android 2.2.0)
+
+Work Log:
+- Device check (honest): adb daemon up, 0 devices; no emulator binary; /dev/kvm absent
+  → REAL DEVICE QA IMPOSSIBLE in sandbox. All verification = JVM tests + live HTTP
+  contract checks. Nothing will be claimed as device-proven.
+- Deep audit via 2 parallel Explore agents (web 12 sections, android 16 sections)
+  + runtime HTTP checks against production API.
+
+PARITY TABLE (key rows; WEB=status on mobile web, AND=android 2.2.0):
+| Feature | Web | Android 2.2.0 | Status | Root cause |
+|---|---|---|---|---|
+| AUTH Google native | OK | Credential Manager flow, /api/auth/google/native | GREEN (auth-1) | — |
+| AUTH Demo | OK | local session + 4 demo tracks | GREEN (auth-1) | — |
+| AUTH Email/Telegram | OK | OK | GREEN | — |
+| ARTWORK covers | origin-relative URLs | Coil gets RELATIVE "/api/music/soundcloud/image-proxy?..." → never loads | RED | no base-URL resolution (runtime-proven: proxy 200 direct; relative 000) |
+| PROFILE in demo | local-only, no server calls | GET /api/user/profile → 401 → whole screen = ErrorState | RED | no canPollProtected equivalent |
+| SETTINGS email | real email | hardcoded «нет» | YELLOW | placeholder |
+| LIBRARY fav tabs | Понравившиеся/Не понравившиеся/Подписки switchable | pills display-only; counts hardcoded «0 не понр. · 0 подписок» | RED | no disliked/subs store |
+| LIBRARY row menus | context menu per row | onMenu = {} dead buttons (Library/Home/Search) | RED | menu only wired in FullPlayer |
+| LIBRARY create | name+description | description input is dead stub | YELLOW | not wired |
+| LIBRARY refresh | on view switch | only first composition (restoreState) | YELLOW | no lifecycle refresh |
+| LIBRARY errors | surfaced | PlaylistRepository swallows ALL errors → silent empty | YELLOW | getOrElse { emptyList() } |
+| PLAYLIST covers | real cover image | local gradient always | YELLOW | cover never used |
+| PLAYLIST pin/rename/delete | yes | none (tile menu no onClick) | YELLOW | not wired |
+| CONTEXT MENU positioning | MenuCore bottom sheet (mobile) | scrim 844dp fixed + sheet TOP-anchored inline overlay | RED | hand-rolled overlay, not window-layered sheet |
+| CONTEXT MENU actions | 12+ incl. Похожие/Не нравится/Подписаться/Скачать | 9; «Убрать из очереди» = next() fake; remove-from-playlist never passed | RED | controller lacks removeQueueItem |
+| CONTEXT MENU usage | every track row/artist/playlist | ONLY FullPlayerScreen | RED | onMenu={} everywhere else |
+| FULL PLAYER gestures | swipe-down close, L/R next/prev | none | YELLOW | not implemented |
+| FULL PLAYER sleep | 5/10/15/30/45/60 + fade 30s + cancel | ABSENT | RED | feature missing |
+| FULL PLAYER volume | more-sheet slider | none (no player volume API) | YELLOW | controller lacks volume |
+| FULL PLAYER queue | read-only panel + row menus | read-only, no remove | YELLOW | no removeQueueItem |
+| SLEEP TIMER global | AppShell interval, survives nav | ABSENT | RED | feature missing |
+| SEARCH genre chips | /api/music/genre | text-search fallback | YELLOW | endpoint not used |
+| SEARCH artist tap | artist link per row | rows have no artist tap | YELLOW | not wired |
+| SEARCH files | local file upload → playable tracks | «ФАЙЛЫ» visual-only button | YELLOW | no SAF picker |
+| SEARCH recents | localStorage persist | in-memory only | YELLOW | not persisted |
+| HOME quick actions | → favorites/history/playlists views | «Избранное»/«История» → pseudo playlist ids → «Плейлист недоступен»; «Чаты» no-op | RED | wrong navigation targets |
+| HOME sections | Для вас/Недавно/В тренде/Друзья слушают/Плейлисты/Любимые артисты | Для вас/Продолжить/Плейлисты only | YELLOW | missing sections |
+| HOME row menus | context menu | dead buttons | RED | onMenu={} |
+| ARTIST hero | full-bleed art + gradient + badge + stats + Слушать/Перемешать/♥/Поделиться | 140dp artwork | YELLOW | not web-parity hero |
+| WAVE | home CTA → engine | same (WaveScreen route dead code) | GREEN-ish | — |
+| MIXER/EQ/limiter/meters | EQ view | REAL DSP (MixerDsp) full parity | GREEN | — |
+| CHATS group chats | group list+create+messages | NOT supported («Новая группа» dead) | RED | no /api/group-chats client |
+| CHATS transport | SSE realtime | 30s/5s polling | YELLOW | honest difference |
+| FRIENDS | full | full | GREEN | — |
+| NOTIF badge | dock badge | dock badge | GREEN | — |
+| BACKGROUND/MediaSession/lockscreen | n/a (web) | Media3 fg service + custom notif actions | GREEN (code) | device QA NOT VERIFIED |
+| SPEED | 0.5–2× | 0.5–2× | GREEN | — |
+| VOLUME | yes | absent | YELLOW | — |
+| 401 handling | session expired flow | only Profile screen surfaces | YELLOW | no global handling |
+| DEEP LINKS | /track /play?pl= | mqplayer:// + https app links | GREEN | — |
+| LYRICS | synced+plain | synced+plain | GREEN | — |
+| Unique dead-on-web (stories/spatial view/SmartPlaylist/TasteProfile/AI assistant/PublicPlaylists view) | NOT reachable in web UI | absent | N/A (web dead code = not product IA) | — |
+| LISTEN-TOGETHER sync | friends listen invite+sync | absent | YELLOW | hook not ported |
+
+Stage Summary:
+- 7 RED (P0): artwork URLs, demo profile, dead context-menu buttons, menu positioning/fake
+  removal, sleep timer absent, home quick-action navigation, group chats.
+- ~15 YELLOW (P1): gestures, volume, queue edit, search parity items, artist hero,
+  settings email, library refresh/errors, playlist covers/menus, 401 global.
+- GREEN kept: auth (auth-1), mixer DSP, wave engine, friends, deep links, lyrics,
+  background playback (code-level; device unverified).
+
+---
+Task ID: parity-1 (implementation)
+Agent: main (Super Z)
+Task: P0/P1 implementation pass per the parity audit
+
+Work Log:
+- ARTWORK (P0 root-cause fix): new data/MqUrls.kt resolves origin-relative
+  "/api/music/soundcloud/image-proxy?..." URLs against BuildConfig.API_BASE
+  (browser-equivalent); wired into Artwork() + playlist tile covers +
+  artist hero + MediaMetadata artworkUri (notification/lockscreen covers now
+  load too). Runtime-proven against production API.
+- CONTEXT MENU (P0): MqTrackContextMenu rebuilt on window-layered
+  ModalBottomSheet (real scrim/back/swipe-dismiss/safe-area/z-order — was a
+  fixed-844dp top-anchored inline overlay). New real actions: Похожие треки
+  (radio endpoint), Не нравится/Убрать дизлайк, Подписаться на артиста,
+  Скачать (current track, DownloadManager), Копировать название
+  ("title — artist"), REAL Убрать из очереди (controller.removeQueueItem —
+  replaced the fake next()). New TrackMenuHost = single reusable MenuCore,
+  wired into Home/Search/Library/Artist/FullPlayer/queue/history rows.
+- PLAYBACK CONTROLLER: removeQueueItem/moveQueueItem (real queue editing),
+  volume (percent, web quadratic curve, re-applied on reconnect), REAL sleep
+  timer (TIME mode: drift-free epoch deadline + linear 30s fade + pause;
+  END_OF_TRACK mode: ~300ms-before-end pause — pauseAtEndOfMediaItem is
+  media3 1.5+, offline cache has 1.4.1), dislike(), startSimilar(),
+  toggleArtistSubscription(), subscribedArtists/dislikedIds mirrors.
+- FULL PLAYER: web-parity secondary row (Не нравится/В плейлист/Текст/
+  Очередь/История/Поделиться), More sheet (Громкость/Скорость/Таймер сна
+  5-60м + До конца трека + Отменить/Эквалайзер), artwork gestures
+  (drag-down close >80dp, horizontal swipe next/prev >60dp), queue sheet
+  rows with real removal, «Недавно играло» panel, «В плейлист» picker.
+- PROFILE (P0): demo session renders FULLY local (canPollProtected parity —
+  zero protected API calls; username «Демо», demo@mq-player.internal, demo
+  playlists included) — the 401 ErrorState dead-end is gone.
+- LIBRARY (P0): pill tabs Понравившиеся/Не понравившиеся/Подписки REALLY
+  switch (LocalStore disliked + favoriteArtists), real counts line, batch
+  selection mode, description field wired, real import dialog (URL +
+  текст modes), playlist tile menu (открыть/воспроизвести/перемешать/
+  в очередь/переименовать/сменить обложку/удалить), REAL playlist covers,
+  ON_RESUME refresh, empty-state CTAs navigate Home, snackbar feedback,
+  PlaylistRepository failures surface as ErrorState (Result-based repo).
+- Demo playlists are device-local (web demo parity, zero HTTP — test-proven).
+- HOME (P0): quick actions Избранное/История/Плейлисты → library?tab= route
+  (web view-switch semantics; was pseudo playlist ids → «Плейлист
+  недоступен»), Чаты → real Chats tab + real unread badge, hero ⋯ and row
+  ⋯ open the shared context menu.
+- SEARCH (P1): genre chips hit /api/music/genre (real endpoint, was
+  text-search fallback), «ФАЙЛЫ» = SAF audio picker → playable local
+  tracks, recent searches PERSIST (DataStore, web mq-search-history
+  parity), artist names on rows link to artist, rows have context menus.
+- GROUP CHATS (P1 RED→GREEN): full /api/group-chats client (list/create/
+  messages/send), mixed DM+group rows in Chats, «Новая группа» dialog with
+  friend checkboxes, ChatDetail renders group messages (sender names,
+  member count, own-message alignment), demo sessions served via
+  x-demo-user-id header (interceptor, gated by AuthViewModel).
+- ARTIST (P1): web-parity hero — full-bleed artwork + scrim, «АРТИСТ»
+  badge, followers/genre stats (ArtistInfo now parsed), Слушать/
+  Перемешать/♥-подписка/Поделиться actions, «Популярное», row menus.
+- SETTINGS (P1): real email (me()/demo address), «Звук» tab — Громкость
+  slider, Скорость pills, Эквалайзер → Mixer.
+- 401 GLOBAL (P1): OkHttp interceptor emits sessionExpired when an
+  authenticated endpoint 401s with a held session cookie (never in demo —
+  demo expects 401s) → MainActivity toast «Сессия истекла — войдите снова»
+  + logout (web parity).
+- Navigation: library single-route "library?tab={tab}" pattern; dock tab
+  matching strips query params.
+
+Stage Summary:
+- TESTS: 138/138 (was 122; +16 Parity1FeaturesTest: MqUrls 4, LocalStore 4,
+  demo playlists repo 1, sleep timer/volume 3, group-chats contract 2,
+  genre contract 1, demo profile 1). Stub server fixed to byte-accurate
+  request parsing + query-aware path matching.
+- Remaining known gaps (honest): SSE→polling (30s/5s), listen-together
+  sync, Home «Друзья слушают»/«В тренде» sections, trending endpoint wired
+  but not yet surfaced, batch→playlist action. No device QA possible
+  (no adb/KVM) — NOT VERIFIED on real hardware.

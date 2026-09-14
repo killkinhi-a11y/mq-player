@@ -26,7 +26,7 @@ class MusicRepository(
     private class CacheEntry<T>(val value: T, val at: Long)
 
     private val searchCache = HashMap<String, CacheEntry<List<Track>>>()
-    private val artistCache = HashMap<String, CacheEntry<Pair<Track?, List<Track>>>>()
+    private val artistCache = HashMap<String, CacheEntry<Triple<com.mq1.player.data.api.ArtistInfo?, Track?, List<Track>>>>()
     private val streamCache = HashMap<Long, CacheEntry<StreamResponse>>()
     private val searchMutex = Mutex()
     private val artistMutex = Mutex()
@@ -76,19 +76,49 @@ class MusicRepository(
         return result
     }
 
-    /** @return (artistHeaderTrack, tracks) — header track provides artwork for the artist screen */
-    suspend fun artistTracks(artist: String, limit: Int = 20): Pair<Track?, List<Track>> {
+    /** Web «Похожие треки»: /api/music/radio seeded by the track (NO cache —
+     *  the backend deliberately returns different tracks per call). */
+    suspend fun similarTracks(seed: Track, count: Int = 15): List<Track> {
+        val scId = seed.scTrackId
+        val response = runCatching {
+            api.radio(
+                scTrackId = scId,
+                seedArtist = seed.artist.takeIf { it.isNotBlank() },
+                seedGenre = seed.genre.takeIf { it.isNotBlank() },
+                count = count
+            )
+        }.getOrNull() ?: return emptyList()
+        return response.tracks.filterNot { it.scTrackId == scId && scId != null }
+    }
+
+    /** Web SearchView genre chips → /api/music/genre (10 min server cache). */
+    suspend fun genreTracks(genre: String): List<Track> {
+        val g = genre.trim()
+        if (g.isEmpty()) return emptyList()
+        return runCatching { api.genre(g).tracks }.getOrElse { emptyList() }
+    }
+
+    /** Web Home «Новое и в тренде» → /api/music/trending. */
+    suspend fun trendingTracks(limit: Int = 50): List<Track> =
+        runCatching { api.trending(limit).tracks }.getOrElse { emptyList() }
+
+    /** @return (artistInfo, headerTrack, tracks) — info feeds the web-parity
+     *  hero (avatar/followers/genre), header track is the cover fallback. */
+    suspend fun artistTracks(artist: String, limit: Int = 20): Triple<com.mq1.player.data.api.ArtistInfo?, Track?, List<Track>> {
         val q = artist.trim()
-        if (q.isEmpty()) return null to emptyList()
+        if (q.isEmpty()) return Triple(null, null, emptyList())
         artistMutex.withLock {
             artistCache[q.lowercase()]?.let {
                 if (System.currentTimeMillis() - it.at < SEARCH_TTL) return it.value
             }
         }
         val response = runCatching { api.artistTracks(q, limit) }.getOrNull()
-        val result = (response?.tracks ?: emptyList()).let { tracks ->
-            (tracks.firstOrNull { it.cover.isNotBlank() } ?: tracks.firstOrNull()) to tracks
-        }
+        val tracks = (response?.tracks ?: emptyList())
+        val result = Triple(
+            response?.artist,
+            tracks.firstOrNull { it.cover.isNotBlank() } ?: tracks.firstOrNull(),
+            tracks
+        )
         artistMutex.withLock { artistCache[q.lowercase()] = CacheEntry(result, System.currentTimeMillis()) }
         return result
     }

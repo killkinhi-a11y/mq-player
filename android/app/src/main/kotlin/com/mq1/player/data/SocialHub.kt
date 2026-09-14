@@ -1,6 +1,7 @@
 package com.mq1.player.data
 
 import com.mq1.player.data.api.Friend
+import com.mq1.player.data.api.GroupChatDto
 import com.mq1.player.data.api.LatestMessage
 import com.mq1.player.data.api.OutgoingRequest
 import com.mq1.player.data.api.PendingRequest
@@ -43,6 +44,8 @@ class SocialHub(
         val outgoing: List<OutgoingRequest> = emptyList(),
         val unreadCounts: Map<String, Int> = emptyMap(),
         val online: Map<String, Boolean> = emptyMap(),
+        /** web MessengerView group chats (GET /api/group-chats, 30s poll) */
+        val groups: List<GroupChatDto> = emptyList(),
         /** true after at least one successful server sync in this process. */
         val synced: Boolean = false,
         /** true when the latest sync attempt failed (drives error+retry UI). */
@@ -142,6 +145,10 @@ class SocialHub(
         val incoming = friendsResponse?.pendingRequests ?: _state.value.incoming
         val outgoing = friendsResponse?.outgoingRequests ?: _state.value.outgoing
 
+        // Group chats (web parity; demo header serves demo groups when the
+        // session is demo — real sessions use the session cookie).
+        val groups = social.groupChats() ?: _state.value.groups
+
         // Online presence for friends (best-effort; never blocks the sync)
         val online = if (friends.isNotEmpty()) {
             social.userStatuses(friends.map { it.id }).mapValues { it.value.online }
@@ -153,6 +160,7 @@ class SocialHub(
             outgoing = outgoing,
             unreadCounts = newCounts,
             online = online,
+            groups = groups,
             synced = true,
             syncError = false
         )

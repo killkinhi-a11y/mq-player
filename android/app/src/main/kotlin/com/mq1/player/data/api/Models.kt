@@ -233,6 +233,77 @@ data class PlaylistMutationBody(
 @Serializable
 data class PlaylistLikeBody(val playlistId: String)
 
+// POST /api/music/import-playlist → {source, name, tracks} | {error, hint}
+@Serializable
+data class ImportPlaylistResponse(
+    val source: String = "",
+    val name: String = "",
+    val tracks: List<Track> = emptyList(),
+    val error: String? = null,
+    val hint: String? = null,
+    val imported: Int = 0
+)
+
+// ── Group chats (web MessengerView parity) ─────────────────────────────
+
+@Serializable
+data class GroupChatDto(
+    val id: String = "",
+    val name: String = "",
+    val description: String = "",
+    val avatar: String = "",
+    val createdBy: String = "",
+    val createdAt: String = "",
+    val updatedAt: String = "",
+    val memberCount: Int = 0,
+    val lastMessage: GroupLastMessage? = null
+)
+
+@Serializable
+data class GroupLastMessage(
+    val id: String = "",
+    val content: String = "",
+    val messageType: String = "text",
+    val createdAt: String = "",
+    val sender: GroupSender = GroupSender()
+)
+
+@Serializable
+data class GroupSender(
+    val id: String = "",
+    val username: String = "",
+    val avatar: String = ""
+)
+
+@Serializable
+data class GroupChatsResponse(val groupChats: List<GroupChatDto> = emptyList())
+
+@Serializable
+data class CreateGroupBody(
+    val name: String,
+    val description: String = "",
+    val memberIds: List<String> = emptyList()
+)
+
+@Serializable
+data class GroupMessageDto(
+    val id: String = "",
+    val content: String = "",
+    val messageType: String = "text",
+    val replyToId: String? = null,
+    val createdAt: String = "",
+    val sender: GroupSender = GroupSender()
+)
+
+@Serializable
+data class GroupMessagesResponse(
+    val messages: List<GroupMessageDto> = emptyList(),
+    val nextCursor: String? = null
+)
+
+@Serializable
+data class SendGroupMessageBody(val content: String, val messageType: String = "text")
+
 @Serializable
 data class SimpleResult(val ok: Boolean = true, val error: String? = null)
 

@@ -3,11 +3,16 @@ package com.mq1.player.data.repo
 import com.mq1.player.data.api.AddFriendBody
 import com.mq1.player.data.api.AiChatBody
 import com.mq1.player.data.api.AiChatMessage
+import com.mq1.player.data.api.CreateGroupBody
 import com.mq1.player.data.api.FriendActionBody
 import com.mq1.player.data.api.FriendsResponse
+import com.mq1.player.data.api.GroupChatDto
+import com.mq1.player.data.api.GroupMessageDto
+import com.mq1.player.data.api.GroupMessagesResponse
 import com.mq1.player.data.api.MqApi
 import com.mq1.player.data.api.MessageDto
 import com.mq1.player.data.api.SendMessageBody
+import com.mq1.player.data.api.SendGroupMessageBody
 import com.mq1.player.data.api.Track
 import com.mq1.player.data.api.UnreadCountResponse
 import com.mq1.player.data.api.UserDto
@@ -67,6 +72,26 @@ class SocialRepository(private val api: MqApi) {
     suspend fun send(peerId: String, content: String): MessageDto? =
         runCatching { api.sendMessage(SendMessageBody(receiverId = peerId, content = content)).body()?.message }
             .getOrNull()
+
+    // ── Group chats (web MessengerView parity) ──────────────────────────
+
+    suspend fun groupChats(): List<GroupChatDto>? =
+        runCatching { api.groupChats().body()?.groupChats }.getOrNull()
+
+    suspend fun createGroup(name: String, description: String, memberIds: List<String>): Result<GroupChatDto> =
+        runCatching {
+            val response = api.createGroupChat(CreateGroupBody(name = name, description = description, memberIds = memberIds))
+            response.body() ?: error("Не удалось создать группу")
+        }
+
+    suspend fun groupMessages(groupId: String): List<GroupMessageDto> =
+        runCatching { api.groupMessages(groupId).body()?.messages }.getOrNull() ?: emptyList()
+
+    suspend fun sendGroupMessage(groupId: String, content: String): Result<GroupMessageDto> =
+        runCatching {
+            api.sendGroupMessage(groupId, SendGroupMessageBody(content = content)).body()
+                ?: error("Сообщение не отправлено")
+        }
 }
 
 /** AI chat (MQ assistant) with taste-profile context, same as web. */

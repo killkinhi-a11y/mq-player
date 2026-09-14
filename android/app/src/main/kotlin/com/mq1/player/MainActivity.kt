@@ -106,6 +106,21 @@ private fun RootContent() {
     val auth: AuthViewModel = viewModel()
     val appearance by ServiceLocator.localStore.appearance
         .collectAsState(initial = com.mq1.player.data.LocalStore.Appearance())
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    // Web-parity session-expiry handling: a 401 on an authenticated endpoint
+    // (session cookie held, not a demo session) logs the user out with the
+    // same honest message the web shows ("сессия истекла — войдите снова").
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        ServiceLocator.sessionExpired.collect {
+            android.widget.Toast.makeText(
+                context,
+                "Сессия истекла — войдите снова",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+            auth.logout { }
+        }
+    }
 
     val palette = currentMqPalette(appearance.themeId, appearance.darkMode)
     androidx.compose.runtime.CompositionLocalProvider(LocalMqPalette provides palette) {

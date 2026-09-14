@@ -88,18 +88,58 @@ fun SearchScreen(onOpenArtist: (String) -> Unit) {
     val queue by player.controller.queue.collectAsState()
     val currentIndex by player.controller.currentIndex.collectAsState()
     val favorites by player.favorites.collectAsState(initial = emptyList())
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    // P0: shared web-parity context menu on every result row
+    val menu = remember { com.mq1.player.ui.components.TrackMenuState() }
+
+    // web «Загрузить файлы»: local audio via SAF → playable tracks
+    val filePicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetMultipleContents()
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            val local = uris.mapNotNull { uri ->
+                runCatching {
+                    val name = runCatching {
+                        context.contentResolver.query(uri, null, null, null, null)?.use { c ->
+                            val idx = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                            if (idx >= 0 && c.moveToFirst()) c.getString(idx) else null
+                        }
+                    }.getOrNull() ?: "Трек"
+                    val title = name.substringBeforeLast('.')
+                    Track(
+                        id = "local-$uri",
+                        title = title,
+                        artist = "Локальный файл",
+                        audioUrl = uri.toString(),
+                        source = "local"
+                    )
+                }.getOrNull()
+            }
+            if (local.isNotEmpty()) player.controller.playQueue(local, 0)
+        }
+    }
 
     SearchBody(
         ui = ui,
         playingTrackId = queue.getOrNull(currentIndex)?.id,
         favorites = favorites,
         onQueryChange = vm::onQueryChange,
+        onGenreChange = vm::onGenreChange,
         onClearHistory = vm::clearHistory,
         onRemoveHistoryItem = vm::removeHistoryItem,
         onPlayQueue = { q, i -> player.controller.playQueue(q, i) },
         onFavorite = { player.controller.toggleFavorite(it) },
         onOpenArtist = onOpenArtist,
+        onTrackMenu = { track -> menu.open(track, isCurrent = track.id == queue.getOrNull(currentIndex)?.id) },
+        onPickFiles = { filePicker.launch("audio/*") },
         onRetry = { vm.onQueryChange(ui.query) },
+    )
+
+    com.mq1.player.ui.components.TrackMenuHost(
+        state = menu,
+        controller = player.controller,
+        onOpenArtist = onOpenArtist,
     )
 }
 
@@ -109,11 +149,14 @@ internal fun SearchBody(
     playingTrackId: String?,
     favorites: List<Track>,
     onQueryChange: (String) -> Unit,
+    onGenreChange: (String?) -> Unit = {},
     onClearHistory: () -> Unit = {},
     onRemoveHistoryItem: (String) -> Unit = {},
     onPlayQueue: (List<Track>, Int) -> Unit,
     onFavorite: (Track) -> Unit,
     onOpenArtist: (String) -> Unit,
+    onTrackMenu: (Track) -> Unit = {},
+    onPickFiles: () -> Unit = {},
     onRetry: () -> Unit = {},
 ) {
     val favoriteIds = remember(favorites) { favorites.map { it.id }.toSet() }
@@ -187,13 +230,14 @@ internal fun SearchBody(
                         )
                     }
                     Spacer(Modifier.width(8.dp))
-                    // Файлы — local upload entry (web Upload icon → ArrowUpRight)
+                    // Файлы — REAL local upload (web «Загрузить файлы» → SAF picker)
                     Row(
                         modifier = Modifier
                             .height(44.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.surface)
                             .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.36f), RoundedCornerShape(12.dp))
+                            .clickable(onClick = onPickFiles)
                             .padding(horizontal = 16.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -228,8 +272,8 @@ internal fun SearchBody(
                         GenreChip(
                             label = "Все",
                             icon = MqIcons.ListMusic,
-                            selected = false,
-                            onClick = { onQueryChange("") },
+                            selected = ui.genre == null,
+                            onClick = { onGenreChange(null) },
                         )
                     }
                     items(GENRES) { g ->
@@ -237,10 +281,10 @@ internal fun SearchBody(
                         GenreChip(
                             label = label,
                             icon = icon,
-                            selected = ui.query == label,
-                            // web: genre filter hits /api/music/genre; Android
-                            // routes it through the text-search pipeline
-                            onClick = { onQueryChange(if (ui.query == label) "" else label) },
+                            selected = ui.genre == label,
+                            // web: genre chips hit /api/music/genre — real
+                            // genre endpoint, not text-search fallback
+                            onClick = { onGenreChange(if (ui.genre == label) null else label) },
                         )
                     }
                 }
@@ -547,7 +591,8 @@ internal fun SearchBody(
                     isFavorite = track.id in favoriteIds,
                     onPlay = { onPlayQueue(ui.results, ui.results.indexOf(track)) },
                     onFavorite = { onFavorite(track) },
-                    onMenu = { },
+                    onMenu = { onTrackMenu(track) },
+                    onOpenArtist = onOpenArtist,
                     modifier = Modifier.padding(horizontal = 8.dp)
                 )
             }

@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -64,7 +65,8 @@ import com.mq1.player.ui.vm.PlayerViewModel
 object Routes {
     const val HOME = "home"
     const val SEARCH = "search"
-    const val LIBRARY = "library"
+    // single pattern "library?tab={tab}" — plain "library" matches default
+    const val LIBRARY = "library?tab={tab}"
     const val WAVE = "wave"
     const val CHATS = "chats"
     const val FRIENDS = "friends"
@@ -84,16 +86,30 @@ object Routes {
     fun chat(peerId: String, peerName: String) =
         "chat/$peerId/" + android.net.Uri.encode(peerName)
     fun userProfile(userId: String) = "user/$userId"
+
+    // Library: single route pattern with an optional tab arg — navigating
+    // plain "library" matches it with the default (web view-switch parity
+    // for Home quick actions «Избранное»/«История»/«Плейлисты»/«Чаты»).
+    fun libraryTab(tab: String) = "library?tab=$tab"
 }
 
 private data class Tab(val route: String, val label: String, val icon: LucideIcon)
+
+/** Tab switch with web view-switch semantics: single top + state restore. */
+private fun NavHostController.navigateToTab(route: String) {
+    navigate(route) {
+        popUpTo(Routes.HOME) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
 
 // WEB PARITY (MobileDock.tsx NAV): Profile is the 5th primary destination.
 // Wave is NOT a tab on the web — it lives on Home (WaveStartCard).
 private val tabs = listOf(
     Tab(Routes.HOME, "Главная", MqIcons.Home),
     Tab(Routes.SEARCH, "Поиск", MqIcons.Search),
-    Tab(Routes.LIBRARY, "Библиотека", MqIcons.Library),
+    Tab("library", "Библиотека", MqIcons.Library),
     Tab(Routes.CHATS, "Чаты", MqIcons.MessageCircle),
     Tab(Routes.MY_PROFILE, "Профиль", MqIcons.User)
 )
@@ -106,7 +122,9 @@ fun MqAppNavHost(
 ) {
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
-    val showChrome = currentRoute in tabs.map { it.route }
+    // "library?tab={tab}" pattern must highlight the Library tab too
+    val currentTabRoute = currentRoute?.substringBefore('?')
+    val showChrome = currentTabRoute in tabs.map { it.route }
     val player: PlayerViewModel = viewModel()
 
     // F7: shared social state — Chats tab unread badge
@@ -171,7 +189,7 @@ fun MqAppNavHost(
             if (showChrome) {
                 MqBottomDock(
                     tabs = tabs,
-                    currentRoute = currentRoute,
+                    currentRoute = currentTabRoute,
                     socialState = socialState,
                     activeTrack = activeTrack,
                     isPlaying = isPlaying,
@@ -209,7 +227,17 @@ fun MqAppNavHost(
                         onOpenFullPlayer = { navController.navigate(Routes.FULL_PLAYER) },
                         onOpenArtist = { name -> navController.navigate(Routes.artist(name)) },
                         onOpenPlaylist = { id -> navController.navigate(Routes.playlist(id)) },
-                        onOpenSettings = { navController.navigate(Routes.SETTINGS) }
+                        onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                        // web MobileQuickRow targets: favorites/history/playlists
+                        // switch the Library tab, chats opens the Chats tab
+                        onOpenLibraryTab = { tab ->
+                            navController.navigate(Routes.libraryTab(tab)) {
+                                popUpTo(Routes.HOME) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = false // fresh tab each action
+                            }
+                        },
+                        onOpenChats = { navController.navigateToTab(Routes.CHATS) }
                     )
                 }
                 composable(Routes.SEARCH) {
@@ -218,8 +246,25 @@ fun MqAppNavHost(
                 composable(Routes.WAVE) {
                     WaveScreen(onOpenFullPlayer = { navController.navigate(Routes.FULL_PLAYER) })
                 }
-                composable(Routes.LIBRARY) {
-                    LibraryScreen(onOpenPlaylist = { id -> navController.navigate(Routes.playlist(id)) })
+                composable(
+                    Routes.LIBRARY,
+                    arguments = listOf(navArgument("tab") {
+                        type = androidx.navigation.NavType.StringType
+                        defaultValue = "favorites"
+                    })
+                ) { entry ->
+                    val tabArg = entry.arguments?.getString("tab") ?: "favorites"
+                    val tabIndex = when (tabArg) {
+                        "playlists" -> 1
+                        "history" -> 2
+                        else -> 0
+                    }
+                    LibraryScreen(
+                        initialTab = tabIndex,
+                        onOpenPlaylist = { id -> navController.navigate(Routes.playlist(id)) },
+                        onOpenArtist = { name -> navController.navigate(Routes.artist(name)) },
+                        onGoHome = { navController.navigateToTab(Routes.HOME) }
+                    )
                 }
                 composable(Routes.CHATS) {
                     ChatsScreen(
@@ -256,7 +301,8 @@ fun MqAppNavHost(
                     SettingsScreen(
                         onLogout = onLogout,
                         onBack = { navController.popBackStack() },
-                        onOpenProfile = { navController.navigate(Routes.MY_PROFILE) }
+                        onOpenProfile = { navController.navigate(Routes.MY_PROFILE) },
+                        onOpenMixer = { navController.navigate(Routes.MIXER) }
                     )
                 }
                 // F9: own profile — account, content, editing, logout shortcut

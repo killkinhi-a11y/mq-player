@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,7 +72,9 @@ fun HomeScreen(
     onOpenFullPlayer: () -> Unit,
     onOpenArtist: (String) -> Unit,
     onOpenPlaylist: (String) -> Unit,
-    onOpenSettings: () -> Unit = {}
+    onOpenSettings: () -> Unit = {},
+    onOpenLibraryTab: (String) -> Unit = {},
+    onOpenChats: () -> Unit = {},
 ) {
     val vm: HomeViewModel = viewModel()
     val player: PlayerViewModel = viewModel()
@@ -82,7 +85,11 @@ fun HomeScreen(
     val position by player.controller.positionMs.collectAsState()
     val duration by player.controller.durationMs.collectAsState()
     val favorites by player.favorites.collectAsState(initial = emptyList())
+    val socialState by com.mq1.player.di.ServiceLocator.socialHub.state.collectAsState()
     val activeTrack = queue.getOrNull(currentIndex)
+
+    // P0: shared web-parity context menu (hero ⋯ + every row ⋯)
+    val menu = remember { com.mq1.player.ui.components.TrackMenuState() }
 
     HomeBody(
         ui = ui,
@@ -91,15 +98,20 @@ fun HomeScreen(
         progress = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f,
         playingTrackId = if (currentIndex >= 0 && isPlaying) activeTrack?.id else null,
         favoriteIds = favorites.map { it.id }.toSet(),
+        chatUnread = socialState.totalUnread,
         onOpenFullPlayer = onOpenFullPlayer,
         onOpenArtist = onOpenArtist,
         onOpenPlaylist = onOpenPlaylist,
         onOpenSettings = onOpenSettings,
-        onOpenFavorites = { onOpenPlaylist("likes") },
-        onOpenHistory = { onOpenPlaylist("history") },
-        onOpenChats = { },
+        // web MobileQuickRow → view switches: favorites/history/playlists are
+        // LIBRARY sub-views on mobile — NOT pseudo playlist ids
+        onOpenFavorites = { onOpenLibraryTab("favorites") },
+        onOpenHistory = { onOpenLibraryTab("history") },
+        onOpenPlaylists = { onOpenLibraryTab("playlists") },
+        onOpenChats = onOpenChats,
         onPlayQueue = { q, i -> player.controller.playQueue(q, i) },
         onFavorite = { player.controller.toggleFavorite(it) },
+        onTrackMenu = { track -> menu.open(track, isCurrent = track.id == activeTrack?.id) },
         onStartWave = {
             vm.startWave { batch ->
                 player.controller.startWave(batch)
@@ -109,6 +121,12 @@ fun HomeScreen(
         onRetry = { vm.refresh() },
         onNext = player.controller::next,
         onTogglePlay = player.controller::togglePlayPause,
+    )
+
+    com.mq1.player.ui.components.TrackMenuHost(
+        state = menu,
+        controller = player.controller,
+        onOpenArtist = onOpenArtist,
     )
 }
 
@@ -120,15 +138,18 @@ internal fun HomeBody(
     progress: Float,
     playingTrackId: String?,
     favoriteIds: Set<String>,
+    chatUnread: Int = 0,
     onOpenFullPlayer: () -> Unit,
     onOpenArtist: (String) -> Unit,
     onOpenPlaylist: (String) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenFavorites: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenPlaylists: () -> Unit = {},
     onOpenChats: () -> Unit,
     onPlayQueue: (List<Track>, Int) -> Unit,
     onFavorite: (Track) -> Unit,
+    onTrackMenu: (Track) -> Unit = {},
     onStartWave: () -> Unit,
     onNext: () -> Unit,
     onTogglePlay: () -> Unit,
@@ -195,7 +216,10 @@ internal fun HomeBody(
                     onNext = onNext,
                     onOpen = onOpenFullPlayer,
                     onOpenArtist = onOpenArtist,
-                    onMore = { },
+                    onMore = {
+                        // hero ⋯ opens the real track context menu
+                        (activeTrack ?: ui.wavePreview.firstOrNull())?.let(onTrackMenu)
+                    },
                 )
                 Spacer(Modifier.height(16.dp))
             }
@@ -207,10 +231,10 @@ internal fun HomeBody(
                 likedCount = favoriteIds.size,
                 historyCount = ui.history.size,
                 playlistCount = ui.publicPlaylists.size,
-                chatCount = 0,
+                chatCount = chatUnread,
                 onFavorites = onOpenFavorites,
                 onHistory = onOpenHistory,
-                onPlaylists = { ui.publicPlaylists.firstOrNull()?.let { onOpenPlaylist(it.id) } },
+                onPlaylists = onOpenPlaylists,
                 onChats = onOpenChats,
             )
             Spacer(Modifier.height(8.dp))
@@ -226,7 +250,7 @@ internal fun HomeBody(
                     isFavorite = track.id in favoriteIds,
                     onPlay = { onPlayQueue(ui.wavePreview, ui.wavePreview.indexOf(track)) },
                     onFavorite = { onFavorite(track) },
-                    onMenu = { },
+                    onMenu = { onTrackMenu(track) },
                 )
             }
         }
@@ -241,7 +265,7 @@ internal fun HomeBody(
                     isFavorite = track.id in favoriteIds,
                     onPlay = { onPlayQueue(ui.history, ui.history.indexOf(track)) },
                     onFavorite = { onFavorite(track) },
-                    onMenu = { },
+                    onMenu = { onTrackMenu(track) },
                 )
             }
         }

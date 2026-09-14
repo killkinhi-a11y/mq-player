@@ -77,15 +77,31 @@ class SearchViewModel : ViewModel() {
         val loading: Boolean = false,
         val searched: Boolean = false,
         val error: String? = null,
-        // web SEARCH_HISTORY_KEY — recent queries for the «Недавние запросы»
-        // chips (in-memory parity of the web localStorage list, max 15)
-        val history: List<String> = emptyList()
+        // web "mq-search-history" — recent queries for «Недавние запросы»
+        // chips; P1: now PERSISTED in DataStore (survives process death,
+        // exactly like the web localStorage list, max 15)
+        val history: List<String> = emptyList(),
+        /** active genre filter (web SearchView genre chips → /api/music/genre) */
+        val genre: String? = null
     )
 
     private val music = ServiceLocator.musicRepository
+    private val local = ServiceLocator.localStore
     private val _ui = MutableStateFlow(SearchUi())
     val ui: StateFlow<SearchUi> = _ui
     private var searchJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            local.recentSearches.collect { saved ->
+                // only adopt the persisted list when it is NEWER than ours
+                // (avoid clobbering an in-session list with a stale snapshot)
+                if (saved.isNotEmpty() && _ui.value.history.isEmpty()) {
+                    _ui.value = _ui.value.copy(history = saved)
+                }
+            }
+        }
+    }
 
     fun onQueryChange(query: String) {
         _ui.value = _ui.value.copy(query = query)
@@ -103,9 +119,11 @@ class SearchViewModel : ViewModel() {
             }
             val trimmed = query.trim()
             val history = if (results.isNotEmpty() && trimmed.isNotBlank()) {
-                listOf(trimmed) + _ui.value.history.filter {
+                val next = listOf(trimmed) + _ui.value.history.filter {
                     it.lowercase() != trimmed.lowercase()
                 }.take(14)
+                viewModelScope.launch { local.pushRecentSearch(trimmed) } // persist (web parity)
+                next
             } else _ui.value.history
             _ui.value = _ui.value.copy(
                 results = results, loading = false, searched = true,
@@ -114,22 +132,48 @@ class SearchViewModel : ViewModel() {
         }
     }
 
-    /** Web handleClearHistory — clears the recent-query chips. */
+    /** Web genre chips — GET /api/music/genre (was: text-search fallback). */
+    fun onGenreChange(genre: String?) {
+        _ui.value = _ui.value.copy(genre = genre)
+        searchJob?.cancel()
+        if (genre == null) {
+            _ui.value = _ui.value.copy(results = emptyList(), searched = false, loading = false)
+            return
+        }
+        searchJob = viewModelScope.launch {
+            _ui.value = _ui.value.copy(loading = true)
+            val results = runCatching { music.genreTracks(genre) }.getOrElse { emptyList() }
+            _ui.value = _ui.value.copy(
+                results = results, loading = false, searched = true,
+                error = if (results.isEmpty()) "По жанру ничего не найдено" else null
+            )
+        }
+    }
+
+    /** Web handleClearHistory — clears the recent-query chips (persisted). */
     fun clearHistory() {
+        viewModelScope.launch { local.clearRecentSearches() }
         _ui.value = _ui.value.copy(history = emptyList())
     }
 
-    /** Web handleRemoveHistoryItem — drops one chip. */
+    /** Web handleRemoveHistoryItem — drops one chip (persisted). */
     fun removeHistoryItem(query: String) {
+        viewModelScope.launch { local.removeRecentSearch(query) }
         _ui.value = _ui.value.copy(
             history = _ui.value.history.filter { it.lowercase() != query.lowercase() }
         )
+    }
+
+    /** Re-run a recent/trending chip (web chip tap). */
+    fun searchExact(query: String) {
+        onQueryChange(query)
     }
 }
 
 class ArtistViewModel : ViewModel() {
     data class ArtistUi(
         val name: String = "",
+        val info: com.mq1.player.data.api.ArtistInfo? = null,
         val avatarTrack: Track? = null,
         val tracks: List<Track> = emptyList(),
         val loading: Boolean = true,
@@ -143,12 +187,12 @@ class ArtistViewModel : ViewModel() {
     fun load(name: String) {
         viewModelScope.launch {
             _ui.value = ArtistUi(name = name, loading = true)
-            val (header, tracks) = runCatching { music.artistTracks(name) }
-                .getOrElse { null to emptyList() }
+            val (info, header, tracks) = runCatching { music.artistTracks(name) }
+                .getOrElse { Triple(null, null, emptyList<Track>()) }
             if (tracks.isEmpty()) {
                 _ui.value = _ui.value.copy(loading = false, error = "Треки исполнителя не найдены")
             } else {
-                _ui.value = ArtistUi(name = name, avatarTrack = header, tracks = tracks, loading = false)
+                _ui.value = ArtistUi(name = name, info = info, avatarTrack = header, tracks = tracks, loading = false)
             }
         }
     }
@@ -160,7 +204,9 @@ class PlaylistViewModel : ViewModel() {
         val public: List<com.mq1.player.data.api.PlaylistDto> = emptyList(),
         val current: com.mq1.player.data.api.PlaylistDto? = null,
         val loading: Boolean = true,
-        val error: String? = null
+        val error: String? = null,
+        /** Honest operation feedback (create/rename/delete/add outcomes). */
+        val message: String? = null
     )
 
     private val repo = ServiceLocator.playlistRepository
@@ -170,9 +216,17 @@ class PlaylistViewModel : ViewModel() {
     fun refresh() {
         viewModelScope.launch {
             _ui.value = _ui.value.copy(loading = true)
-            val mine = runCatching { repo.myPlaylists() }.getOrElse { emptyList() }
+            // P0: playlist failures now SURFACE — the repo returns Result
+            // and an error becomes a visible ErrorState (with Retry), not a
+            // silent "Нет плейлистов".
+            val mine = repo.myPlaylists()
             val pub = runCatching { repo.publicPlaylists() }.getOrElse { emptyList() }
-            _ui.value = _ui.value.copy(mine = mine, public = pub, loading = false)
+            _ui.value = _ui.value.copy(
+                mine = mine.getOrElse { emptyList() },
+                public = pub,
+                loading = false,
+                error = mine.exceptionOrNull()?.message?.takeIf { mine.isFailure }
+            )
         }
     }
 
@@ -190,20 +244,50 @@ class PlaylistViewModel : ViewModel() {
         }
     }
 
-    fun create(name: String, onDone: () -> Unit) {
+    fun create(name: String, description: String = "", onDone: () -> Unit) {
         viewModelScope.launch {
-            repo.create(name)
+            repo.create(name, description)
+                .onSuccess { _ui.value = _ui.value.copy(message = "Плейлист создан") }
+                .onFailure { _ui.value = _ui.value.copy(message = it.message ?: "Не удалось создать плейлист") }
             refresh()
             onDone()
         }
+    }
+
+    fun rename(id: String, newName: String) {
+        viewModelScope.launch {
+            repo.rename(id, newName)
+                .onSuccess { _ui.value = _ui.value.copy(message = "Плейлист переименован") }
+                .onFailure { _ui.value = _ui.value.copy(message = it.message ?: "Не удалось переименовать") }
+            refresh()
+        }
+    }
+
+    fun delete(id: String) {
+        viewModelScope.launch {
+            repo.delete(id)
+                .onSuccess { _ui.value = _ui.value.copy(message = "Плейлист удалён") }
+                .onFailure { _ui.value = _ui.value.copy(message = it.message ?: "Не удалось удалить плейлист") }
+            refresh()
+        }
+    }
+
+    fun consumeMessage() {
+        _ui.value = _ui.value.copy(message = null)
     }
 
     fun addTrack(track: Track, onDone: (Boolean) -> Unit) {
         val current = _ui.value.current ?: return
         viewModelScope.launch {
             val updated = repo.addTrack(current, track)
-            _ui.value = _ui.value.copy(current = updated)
-            onDone(updated != null)
+            _ui.value = _ui.value.copy(
+                current = updated.getOrNull(),
+                message = updated.fold(
+                    onSuccess = { "Добавлено в плейлист" },
+                    onFailure = { it.message ?: "Не удалось добавить трек" }
+                )
+            )
+            onDone(updated.isSuccess)
         }
     }
 
@@ -211,7 +295,7 @@ class PlaylistViewModel : ViewModel() {
         val current = _ui.value.current ?: return
         viewModelScope.launch {
             val updated = repo.removeTrack(current, trackId)
-            _ui.value = _ui.value.copy(current = updated)
+            _ui.value = _ui.value.copy(current = updated.getOrNull())
         }
     }
 }
@@ -302,24 +386,42 @@ class ChatsViewModel : ViewModel() {
     val ui: StateFlow<ChatsUi> = _ui
 
     init {
-        // F7: friends list + per-peer unread badges + request badge from the hub
+        // F7: friends list + per-peer unread badges + request badge from the hub.
+        // parity-1: GROUP chats now join the same rows (web sortedChats mixes
+        // DMs and groups; group rows carry memberCount + group last message).
         viewModelScope.launch {
             hub.state.collect { s ->
+                val dmRows = s.friends.map { f ->
+                    ChatRowUi(
+                        id = f.id,
+                        name = f.username,
+                        avatar = f.avatar.ifBlank { null },
+                        online = s.online[f.id] == true,
+                        unread = s.unreadCounts[f.id] ?: 0,
+                    )
+                }
+                val groupRows = s.groups.map { g ->
+                    ChatRowUi(
+                        id = "group:${g.id}",
+                        name = g.name,
+                        avatar = g.avatar.ifBlank { null },
+                        isGroup = true,
+                        unread = 0,
+                        memberCount = g.memberCount,
+                        lastText = g.lastMessage?.content,
+                        lastTime = g.lastMessage?.createdAt,
+                        lastTimeMillis = runCatching {
+                            java.time.Instant.parse(g.lastMessage?.createdAt ?: "").toEpochMilli()
+                        }.getOrDefault(0L)
+                    )
+                }
                 _ui.value = _ui.value.copy(
                     friends = s.friends,
                     unreadCounts = s.unreadCounts,
-                    rows = s.friends.map { f ->
-                        ChatRowUi(
-                            id = f.id,
-                            name = f.username,
-                            avatar = f.avatar.ifBlank { null },
-                            online = s.online[f.id] == true,
-                            unread = s.unreadCounts[f.id] ?: 0,
-                        )
-                    },
+                    rows = (groupRows + dmRows).sortedByDescending { it.lastTimeMillis },
                     requestCount = s.requestCount,
                     loading = !s.synced,
-                    error = s.syncError && s.friends.isEmpty()
+                    error = s.syncError && s.friends.isEmpty() && s.groups.isEmpty()
                 )
             }
         }
@@ -327,6 +429,15 @@ class ChatsViewModel : ViewModel() {
 
     fun refresh() {
         hub.refreshNow()
+    }
+
+    /** Web «Новая группа»: name + selected friends → POST /api/group-chats. */
+    fun createGroup(name: String, memberIds: List<String>, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val result = social.createGroup(name, "", memberIds)
+            if (result.isSuccess) hub.refreshNow()
+            onDone(result.isSuccess)
+        }
     }
 
     fun askAi(message: String) {
@@ -347,7 +458,14 @@ class ChatDetailViewModel : ViewModel() {
         val peerId: String = "",
         val peerName: String = "",
         val peerAvatar: String? = null,
+        /** true when peerId is "group:{id}" — group chat mode (web parity). */
+        val isGroup: Boolean = false,
+        val memberCount: Int = 0,
+        /** cached own user id — group bubbles align right when sender == me */
+        val selfId: String = "",
         val messages: List<com.mq1.player.data.api.MessageDto> = emptyList(),
+        /** group messages (own shape: sender names ride each message) */
+        val groupMessages: List<com.mq1.player.data.api.GroupMessageDto> = emptyList(),
         val loading: Boolean = true,
         val error: String? = null
     )
@@ -359,16 +477,25 @@ class ChatDetailViewModel : ViewModel() {
     private var pollJob: Job? = null
 
     fun load(peerId: String, peerName: String) {
-        _ui.value = ChatDetailUi(
-            peerId = peerId,
-            peerName = peerName,
-            peerAvatar = hub.state.value.friends.firstOrNull { it.id == peerId }?.avatar
-        )
-        // F7: opening the chat clears that peer's unread badge
-        hub.markPeerRead(peerId)
-        fetch()
+        val isGroup = peerId.startsWith("group:")
+        val groupId = peerId.removePrefix("group:")
+        val group = if (isGroup) hub.state.value.groups.firstOrNull { it.id == groupId } else null
+        viewModelScope.launch {
+            val selfId = ServiceLocator.localStore.sessionUser.firstOrNull()?.userId ?: ""
+            _ui.value = ChatDetailUi(
+                peerId = peerId,
+                peerName = peerName,
+                peerAvatar = group?.avatar?.ifBlank { null }
+                    ?: hub.state.value.friends.firstOrNull { it.id == peerId }?.avatar,
+                isGroup = isGroup,
+                memberCount = group?.memberCount ?: 0,
+                selfId = selfId
+            )
+            fetch()
+        }
         pollJob?.cancel()
         pollJob = viewModelScope.launch {
+            delay(2000) // let the initial fetch land first
             while (true) {
                 delay(5000)
                 fetch()
@@ -378,14 +505,20 @@ class ChatDetailViewModel : ViewModel() {
 
     private fun fetch() {
         viewModelScope.launch {
-            val messages = social.messages(_ui.value.peerId)
-            if (messages.isEmpty() && _ui.value.messages.isEmpty() && _ui.value.loading) {
-                // Distinguish "no messages yet" from a failed fetch: poll keeps
-                // retrying silently either way (5s cadence, real data only).
-                _ui.value = _ui.value.copy(loading = false)
+            val st = _ui.value
+            if (st.isGroup) {
+                val msgs = social.groupMessages(st.peerId.removePrefix("group:"))
+                _ui.value = st.copy(groupMessages = msgs, loading = false)
             } else {
-                _ui.value = _ui.value.copy(messages = messages, loading = false)
-                hub.markPeerRead(_ui.value.peerId)
+                val messages = social.messages(st.peerId)
+                if (messages.isEmpty() && st.messages.isEmpty() && st.loading) {
+                    // Distinguish "no messages yet" from a failed fetch: poll keeps
+                    // retrying silently either way (5s cadence, real data only).
+                    _ui.value = st.copy(loading = false)
+                } else {
+                    _ui.value = st.copy(messages = messages, loading = false)
+                    hub.markPeerRead(st.peerId)
+                }
             }
         }
     }
@@ -394,9 +527,15 @@ class ChatDetailViewModel : ViewModel() {
         val peerId = _ui.value.peerId
         if (text.isBlank() || peerId.isBlank()) return
         viewModelScope.launch {
-            val sent = social.send(peerId, text.trim())
-            if (sent != null) fetch()
-            else _ui.value = _ui.value.copy(error = "Сообщение не отправлено")
+            if (_ui.value.isGroup) {
+                val sent = social.sendGroupMessage(peerId.removePrefix("group:"), text.trim())
+                if (sent.isSuccess) fetch()
+                else _ui.value = _ui.value.copy(error = "Сообщение не отправлено")
+            } else {
+                val sent = social.send(peerId, text.trim())
+                if (sent != null) fetch()
+                else _ui.value = _ui.value.copy(error = "Сообщение не отправлено")
+            }
         }
     }
 
@@ -595,6 +734,19 @@ class SettingsViewModel : ViewModel() {
     val favorites = ServiceLocator.localStore.favorites
     val sessionUser = ServiceLocator.localStore.sessionUser
 
+    /** Email for the Профиль card (web shows the account email) — best-effort
+     *  /api/auth/me; demo sessions use the web demo address. */
+    private val _email = MutableStateFlow<String?>(null)
+    val email: StateFlow<String?> = _email
+
+    init {
+        viewModelScope.launch {
+            val session = sessionUser.firstOrNull()
+            _email.value = if (session?.userId == "demo-user-id") "demo@mq-player.internal"
+            else runCatching { ServiceLocator.api.me().body()?.email }.getOrNull()
+        }
+    }
+
     fun setTheme(id: String) {
         viewModelScope.launch { ServiceLocator.localStore.setThemeId(id) }
     }
@@ -751,6 +903,29 @@ class MyProfileViewModel : ViewModel() {
         viewModelScope.launch {
             _ui.value = _ui.value.copy(loading = true, error = null)
 
+            // WEB PARITY (canPollProtected): a demo session NEVER touches the
+            // protected profile endpoint — the whole profile renders from
+            // local state, exactly like the web demo (username «Демо»,
+            // demo@mq-player.internal, no server round-trips, no 401s).
+            val session = local.sessionUser.firstOrNull()
+            if (session != null && session.userId == "demo-user-id") {
+                // demo playlists live device-local (web demo parity)
+                val demoPls = local.demoPlaylists.firstOrNull() ?: emptyList()
+                _ui.value = _ui.value.copy(
+                    userId = session.userId,
+                    username = session.username.ifBlank { "Демо" },
+                    email = "demo@mq-player.internal",
+                    avatar = session.avatar,
+                    role = "user",
+                    createdAt = null,
+                    telegramUsername = null,
+                    confirmed = true,
+                    playlists = demoPls,
+                    loading = false
+                )
+                return@launch
+            }
+
             val account = profileRepo.myProfile()
             if (account.isFailure) {
                 _ui.value = _ui.value.copy(
@@ -763,7 +938,8 @@ class MyProfileViewModel : ViewModel() {
                 ServiceLocator.api.me().body()
             }.getOrNull()
 
-            val myPlaylists = runCatching { playlistsRepo.myPlaylists() }.getOrElse { emptyList() }
+            val myPlaylists = runCatching { playlistsRepo.myPlaylists().getOrDefault(emptyList()) }
+                .getOrElse { emptyList() }
 
             _ui.value = _ui.value.copy(
                 userId = account.getOrThrow().id,
