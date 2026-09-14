@@ -42,6 +42,18 @@ class SecureCookieJar(context: Context) : CookieJar {
     private val prefs = context.getSharedPreferences("mq_session_v1", Context.MODE_PRIVATE)
     private val tag = "SecureCookieJar"
 
+    init {
+        // HOTFIX 2.3.1: `hasSessionCookie` used to start false on every process
+        // restart — the 401 session-expiry interceptor then never fired until
+        // a NEW Set-Cookie arrived, so an expired restored session silently
+        // kept 401-ing without the honest "сессия истекла" logout. Restore the
+        // flag from the persisted jar at construction (the same keys the
+        // 401 interceptor consults).
+        hasSessionCookie = prefs.all.keys.any {
+            it.substringAfter('|') == SESSION_COOKIE
+        }
+    }
+
     private fun obtainKey(): SecretKey? = runCatching {
         val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (ks.getKey(SELF, null) as? SecretKey) ?: run {

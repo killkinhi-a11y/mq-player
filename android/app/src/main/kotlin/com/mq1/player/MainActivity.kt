@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -39,9 +40,11 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* playback works regardless; notification hidden until granted */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        Log.i("MqBoot", "MainActivity.onCreate begin")
         installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        Log.i("MqBoot", "MainActivity.onCreate — connecting playback service")
         ServiceLocator.playbackController.connect()
         maybeRequestNotificationPermission()
         handleDeepLink(intent)
@@ -49,6 +52,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             RootContent()
         }
+        Log.i("MqBoot", "MainActivity.onCreate end — content set")
     }
 
     override fun onStart() {

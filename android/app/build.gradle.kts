@@ -36,8 +36,13 @@ android {
         // login crashed on session persist), demo queue playback (real URLs,
         // no autoplay), Google native login (Credential Manager →
         // /api/auth/google/native).
-        versionCode = 6
-        versionName = "2.3.0"
+        // 2.3.1 = P0 HOTFIX: Google login two-pass Credential Manager flow
+        // (filter=true → NoCredentialException → fallback filter=false →
+        // account picker), full Google error taxonomy, official googleid R8
+        // keep rules, crash diagnostics (MqCrash — logged + persisted, never
+        // masked), SecureCookieJar.hasSessionCookie restored on restart.
+        versionCode = 7
+        versionName = "2.3.1"
 
         buildConfigField("String", "API_BASE", "\"$mqApiBase\"")
         vectorDrawables { useSupportLibrary = true }

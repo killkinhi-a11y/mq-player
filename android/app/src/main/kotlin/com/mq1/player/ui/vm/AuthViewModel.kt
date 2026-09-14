@@ -2,6 +2,7 @@ package com.mq1.player.ui.vm
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.util.Log
 import com.mq1.player.data.LocalStore
 import com.mq1.player.data.api.Track
 import com.mq1.player.data.repo.AuthRepository
@@ -55,7 +56,12 @@ class AuthViewModel : ViewModel() {
 
     fun restore() {
         viewModelScope.launch {
-            _state.value = when (auth.restoreSession()) {
+            val restored = auth.restoreSession()
+            Log.i(
+                "MqBoot",
+                "auth.restore state=${restored.javaClass.simpleName}"
+            )
+            _state.value = when (restored) {
                 is AuthRepository.AuthState.LoggedIn -> {
                     applyDemoHeaders(local.sessionUser.firstOrNull())
                     val onboarded = local.onboardingComplete.firstOrNull() ?: false
@@ -68,6 +74,7 @@ class AuthViewModel : ViewModel() {
 
     fun onLoggedIn(user: LocalStore.SessionUser) {
         applyDemoHeaders(user)
+        Log.i("MqBoot", "auth.onLoggedIn demo=${user.userId == DEMO_USER_ID} id=${user.userId.take(4)}…")
         ServiceLocator.socialHub.start()
         viewModelScope.launch {
             // Web parity (useAppStore.setAuth): demo sessions are local-only —

@@ -3470,3 +3470,87 @@ Stage Summary:
   lockscreen behavior need a real device); transport differences kept:
   chats polling (30s/5s) instead of SSE; listen-together sync and Home
   «Друзья слушают»/«В тренде» sections deferred to the next pass.
+
+---
+Task ID: hotfix-231 (P0: crash audit + Google login fix)
+Agent: main (Super Z)
+Task: CRITICAL HOTFIX — APK crash root-cause hunt + Google login broken; fix both, prove honestly.
+
+Work Log:
+- FORENSICS on the SHIPPED 2.3.0 APK (downloaded from the permanent GitHub
+  URL, SHA-256 da2c6362… matches the release notes): dexdump class census
+  (7183 classes), R8 mapping/usage/seeds cross-check, jadx decompile of
+  MainActivity/LoginScreen/ServiceLocator, resource-shrinker log, merged
+  manifest, font/notif-icon reachability. All app code, serializers
+  ($$serializer classes), fonts, icons present; no deterministic Kotlin-level
+  startup crash found by static analysis. 138/138 tests green (with the
+  documented stub-server property).
+- GOOGLE ROOT CAUSE #1 (provable): LoginScreen.googleNativeLogin built
+  GetGoogleIdOption WITHOUT setFilterByAuthorizedAccounts — googleid 1.1.1
+  bytecode (Builder.<init>: iconst_1; putfield zzd) proves the DEFAULT is
+  filter=true = "only accounts previously authorized with THIS app".
+  First-time users → NoCredentialException → the catch block showed the
+  FALSE message «Google-аккаунт не найден на устройстве» and RETURNED.
+  No fallback pass with filter=false → first-time Google login impossible.
+  R8 usage.txt of 2.3.0 confirms: setFilterByAuthorizedAccounts and
+  setAutoSelectEnabled were REMOVED as unused (0 references in the dex).
+- GOOGLE ROOT CAUSE #2 (release-only risk): proguard-rules.pro had NO keep
+  rule for com.google.android.libraries.identity.googleid.** — required by
+  the official Credential Manager docs for R8 builds (googleid 1.1.1 ships
+  no consumer rules beyond -dontwarn module-info, verified in the AAR).
+  In the shipped 2.3.0 dex the googleid classes were fully renamed/merged
+  (K2/a giant merged class) — the documented release-only breakage vector.
+- FIX 1 — new data/repo/GoogleAuthFlow.kt: two-pass Credential Manager flow
+  (pass 1: filter=true + autoSelectEnabled=true; NoCredentialException →
+  pass 2: filter=false → full account picker, nonce reused); full error
+  taxonomy (CancelledByUser / NoAccountPicked / TokenParseFailed /
+  ProviderUnavailable / CredentialManagerError / BackendRejected /
+  BackendUnreachable / NotConfigured / NetworkError / Success), each with
+  its own user message + MqAuth diagnostic log (no token material logged);
+  GoogleIdTokenParsingException handled distinctly; Activity context used;
+  login() is pure orchestration behind GoogleCredentialSource for tests.
+  LoginScreen now delegates to it — button always restarts the flow.
+- FIX 2 — proguard-rules.pro: official googleid keep rule + narrow
+  androidx.credentials.exceptions keep (cited doc in the comment).
+- FIX 3 — CrashDiagnostics (new): process-wide uncaught-exception handler —
+  full stack to logcat (tag MqCrash) + persisted files/crash/last_crash.txt
+  (rotation, max 3), then DELEGATES to the platform handler: the app still
+  crashes, nothing masked. Next boot re-logs the previous trace (MqBoot).
+  Boot milestone logging added (MqApp/MqMainActivity/AuthViewModel).
+- FIX 4 — SecureCookieJar.hasSessionCookie now restored from the persisted
+  jar at construction (was false on every restart → the global 401
+  session-expiry logout could never fire for restored sessions).
+- Tests: +14 GoogleAuthFlowTest (G1 authorized direct; G2 first-time user →
+  fallback picker succeeds — THE regression pin; G3 no account after both
+  passes; G4/G4b cancellation on either pass; G5 Play Services missing;
+  G6 generic error (no fallback retry); G7 parse failure; G8 backend 401
+  invalid_nonce; G9 google not configured; G10 nonce endpoint down; G11
+  authenticated=false rejection; G12/G12b crash-diagnostics idempotent +
+  never masks). 152/152 green (stub server).
+- RELEASE 2.3.1 (versionCode 7): assembled + signed with the SAME key
+  (cert SHA-256 7d0eca5d…657330 — in-place upgrade from 2.2.0/2.3.0).
+  APK 4 167 996 B, SHA-256 6ff2d10b5c904f74cd7bdee52fccffb8eca8c0f3aeb5061c9d7eff6d56ca2386.
+  apksigner verify OK. lintVitalRelease OK.
+- DEX-LEVEL PROOF of the fix: 2.3.1 dex contains 11 UNOBFUSCATED
+  com.google.android.libraries.identity.googleid.* classes + all
+  androidx.credentials.exceptions.* (2.3.0: ZERO); setFilterByAuthorizedAccounts
+  and setAutoSelectEnabled now referenced in the dex (2.3.0: stripped).
+- Live backend verification: /api/auth/providers google=true, clientId
+  *.apps.googleusercontent.com (project 577360231136 — the WEB OAuth client
+  the backend also uses with its client secret and as the verifyGoogleIdToken
+  audience); GET /api/auth/google/native → 200 nonce + HttpOnly
+  mq_native_nonce cookie (the exact name SecureCookieJar persists).
+
+Stage Summary:
+- CRASH: no deterministic in-source startup crash found by exhaustive static
+  analysis (all suspects audited: startup path, NavHost, AuthViewModel, demo,
+  Google, Coil, PlaybackController, FullPlayer, ModalBottomSheet, Library,
+  DataStore, Media3, serialization, deep links; all guarded). The proven
+  release-only breakage vector was the un-kept googleid classes on the
+  Google-button path (fixed) — plus the false-negative login flow (fixed).
+  CrashDiagnostics now guarantees the NEXT real crash on a device produces
+  a full retrievable stack trace (MqCrash + files/crash/last_crash.txt).
+- HONEST LIMITS: no physical device/emulator in the sandbox (no KVM, no
+  emulator binary, adb reports no devices) → DEVICE QA = BLOCKED. Real
+  Google account picker, Play Services interop, AndroidKeyStore cookie
+  sealing remain device-verified only. Tests do NOT replace device QA.
