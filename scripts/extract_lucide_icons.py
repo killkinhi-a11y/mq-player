@@ -47,6 +47,8 @@ WANTED = {
     "info": "Info",
     "cloud": "Cloud",
     "sparkles": "Sparkles",
+    "waves": "Waves",
+    "wifi-off": "WifiOff",
     "trash-2": "Trash2",
     "download": "Download",
     "monitor": "Monitor",
@@ -121,6 +123,7 @@ out = []
 out.append("""package com.mq1.player.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -133,6 +136,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -164,7 +168,21 @@ class SvgPathParser(private val d: String) {
         fun num(): Float {
             while (i < d.length && (d[i] == ' ' || d[i] == ',')) i++
             val start = i
-            while (i < d.length && (d[i].isDigit() || d[i] in ".-+eE")) i++
+            var seenDot = false
+            var seenExp = false
+            if (i < d.length && (d[i] == '+' || d[i] == '-')) i++ // leading sign
+            while (i < d.length) {
+                val c = d[i]
+                when {
+                    c.isDigit() -> i++
+                    // second '.' starts a NEW number (SVG "2.5.5" == "2.5 .5")
+                    c == '.' && !seenDot && !seenExp -> { seenDot = true; i++ }
+                    (c == 'e' || c == 'E') && !seenExp && i > start -> { seenExp = true; i++ }
+                    (c == '+' || c == '-') && seenExp && i > start &&
+                        (d[i - 1] == 'e' || d[i - 1] == 'E') -> i++   // exponent sign
+                    else -> break   // sign mid-token ("4.646-6.07") also breaks here
+                }
+            }
             return d.substring(start, i).toFloat()
         }
         fun isNum(): Boolean {
@@ -324,8 +342,10 @@ private object PathCache {
 
 /**
  * MQ icon — renders Lucide geometry exactly like the web: 24×24 viewBox
- * scaled to [size], [strokeWidth] dp stroke, round caps/joins.
- * [fill] renders the filled variant (web: fill="currentColor").
+ * scaled to [size]; [strokeWidth] is in 24-unit SVG space (2.0 == web
+ * default) and scales with the icon, exactly like an SVG transform.
+ * Round caps/joins. [fill] renders the filled variant (fill="currentColor").
+ * Default tint = LocalContentColor (web: currentColor).
  */
 @Composable
 fun MqIcon(
@@ -333,33 +353,37 @@ fun MqIcon(
     modifier: Modifier = Modifier,
     size: Dp = 24.dp,
     tint: Color = Color.Unspecified,
-    strokeWidth: Dp = 2.dp,
+    strokeWidth: Float = 2f,
     fill: Boolean = false,
 ) {
-    val tintResolved = if (tint == Color.Unspecified) Color(0xFFB8B8B8) else tint
-    Canvas(modifier.then(Modifier.size(size))) {
+    val content = androidx.compose.material3.LocalContentColor.current
+    val tintResolved = if (tint == Color.Unspecified) content else tint
+    Canvas(modifier = modifier.then(Modifier.size(size))) {
         val scale = this.size.width / 24f
-        fun drawPath(p: Path) {
-            val scaled = Path().apply { addPath(p, androidx.compose.ui.graphics.Matrix().apply { scale(scale, scale, 1f) }) }
-            if (fill) drawPath(scaled, tintResolved, style = Fill)
-            else drawPath(scaled, tintResolved, style = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        fun geometry(p: Path) = withTransform({ scale(scale, scale, pivot = Offset.Zero) }) {
+            drawPath(
+                p, tintResolved,
+                style = if (fill) Fill
+                else Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round),
+            )
         }
         icon.nodes.forEach { node ->
             when (node) {
-                is PathData -> drawPath(PathCache.get(node.d))
-                is Circle -> {
-                    val p = Path().apply { addOval(Rect(node.cx - node.r, node.cy - node.r, node.cx + node.r, node.cy + node.r)) }
-                    drawPath(p)
-                }
-                is LineSeg -> {
-                    val p = Path().apply { moveTo(node.x1, node.y1); lineTo(node.x2, node.y2) }
-                    drawPath(p)
-                }
-                is RectSeg -> {
-                    val p = if (node.rx > 0f) Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(node.x, node.y, node.x + node.w, node.y + node.h, androidx.compose.ui.geometry.CornerRadius(node.rx, node.rx)) } }
-                    else Path().apply { addRect(Rect(node.x, node.y, node.x + node.w, node.y + node.h)) }
-                    drawPath(p)
-                }
+                is PathData -> geometry(PathCache.get(node.d))
+                is Circle -> geometry(Path().apply {
+                    addOval(Rect(node.cx - node.r, node.cy - node.r, node.cx + node.r, node.cy + node.r))
+                })
+                is LineSeg -> geometry(Path().apply {
+                    moveTo(node.x1, node.y1); lineTo(node.x2, node.y2)
+                })
+                is RectSeg -> geometry(Path().apply {
+                    if (node.rx > 0f) addRoundRect(
+                        androidx.compose.ui.geometry.RoundRect(
+                            node.x, node.y, node.x + node.w, node.y + node.h,
+                            androidx.compose.ui.geometry.CornerRadius(node.rx, node.rx),
+                        )
+                    ) else addRect(Rect(node.x, node.y, node.x + node.w, node.y + node.h))
+                })
             }
         }
     }
@@ -367,6 +391,7 @@ fun MqIcon(
 """)
 
 missing = []
+out.append("\nobject MqIcons {  // member icons: one import unlocks all 72\n")
 for fname, kotlin_name in WANTED.items():
     path = os.path.join(ICONS, fname + ".js")
     if not os.path.exists(path):
@@ -376,9 +401,11 @@ for fname, kotlin_name in WANTED.items():
     if not nodes:
         missing.append(fname + " (no geometry)")
         continue
-    out.append(f"val MqIcons.{kotlin_name} = LucideIcon(listOf(")
+    out.append(f"    val {kotlin_name} = LucideIcon(listOf(")
     out.append(",\n    ".join(nodes))
     out.append("))")
+
+out.append("}")  # end object MqIcons
 
 with open("/home/z/my-project/android/app/src/main/kotlin/com/mq1/player/ui/components/MqIcons.kt", "w") as f:
     f.write("\n".join(out) + "\n")

@@ -1,0 +1,1523 @@
+     1→"use client";
+     2→
+     3→import { useState, useCallback, useRef, useMemo, useEffect } from "react";
+     4→import { useAppStore, type UserPlaylist } from "@/store/useAppStore";
+     5→import { motion, AnimatePresence } from "framer-motion";
+     6→import { type Track, formatDuration } from "@/lib/musicApi";
+     7→import {
+     8→  Plus, Trash2, Play, ListMusic, ChevronLeft,
+     9→  Edit3, X, Check, Clock, Heart, Download, Loader2, AlertCircle,
+    10→  Camera, Shuffle, Pin, MoreVertical, Music, Share2, MoreHorizontal, Pause,
+    11→} from "lucide-react";
+    12→import { useToast } from "@/hooks/use-toast";
+    13→import { EmptyState } from "./EmptyState";
+    14→import ContextMenu from "./ContextMenu";
+    15→import PlaylistActionsMenu from "./PlaylistActionsMenu";
+    16→import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
+    17→
+    18→// ─── helpers ──────────────────────────────────────────────────────────────
+    19→
+    20→function hashString(s: string): number {
+    21→  let h = 0;
+    22→  for (let i = 0; i < s.length; i++) h = s.charCodeAt(i) + ((h << 5) - h);
+    23→  return Math.abs(h);
+    24→}
+    25→
+    26→// Premium gradient covers — 6 distinct palettes, deterministic by name
+    27→const COVER_PALETTES: { from: string; to: string; angle: number }[] = [
+    28→  { from: "#2d1b3d", to: "#0e0e0e", angle: 135 },
+    29→  { from: "#1b2d3a", to: "#0e0e0e", angle: 135 },
+    30→  { from: "#3d2b1b", to: "#0e0e0e", angle: 135 },
+    31→  { from: "#1b3a2d", to: "#0e0e0e", angle: 135 },
+    32→  { from: "#3a1b2d", to: "#0e0e0e", angle: 135 },
+    33→  { from: "#2d2d1b", to: "#0e0e0e", angle: 135 },
+    34→];
+    35→
+    36→function gradientCover(name: string): string {
+    37→  const h = hashString(name);
+    38→  const p = COVER_PALETTES[h % COVER_PALETTES.length];
+    39→  return `linear-gradient(${p.angle}deg, ${p.from}, ${p.to})`;
+    40→}
+    41→
+    42→function patternStyle(name: string): React.CSSProperties {
+    43→  const h = hashString(name);
+    44→  const kind = h % 3;
+    45→  if (kind === 0) {
+    46→    return { backgroundImage: `radial-gradient(circle at 30% 30%, rgba(255,255,255,0.06) 0%, transparent 50%)` };
+    47→  }
+    48→  if (kind === 1) {
+    49→    return { backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 12px, rgba(255,255,255,0.025) 12px, rgba(255,255,255,0.025) 24px)` };
+    50→  }
+    51→  return { backgroundImage: `radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.05) 0%, transparent 70%)` };
+    52→}
+    53→
+    54→function formatTotalDuration(tracks: Track[]): string {
+    55→  const totalSec = tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+    56→  if (totalSec <= 0) return "";
+    57→  const h = Math.floor(totalSec / 3600);
+    58→  const m = Math.floor((totalSec % 3600) / 60);
+    59→  if (h > 0) return `~${h} ч ${m} мин`;
+    60→  return `~${m} мин`;
+    61→}
+    62→
+    63→// ─── main component ───────────────────────────────────────────────────────
+    64→
+    65→export default function PlaylistView() {
+    66→  const playlists = useAppStore((s) => s.playlists);
+    67→  const selectedPlaylistId = useAppStore((s) => s.selectedPlaylistId);
+    68→  const setSelectedPlaylistId = useAppStore((s) => s.setSelectedPlaylistId);
+    69→  const createPlaylist = useAppStore((s) => s.createPlaylist);
+    70→  const deletePlaylist = useAppStore((s) => s.deletePlaylist);
+    71→  const renamePlaylist = useAppStore((s) => s.renamePlaylist);
+    72→  const removeFromPlaylist = useAppStore((s) => s.removeFromPlaylist);
+    73→  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+    74→  const playTrack = useAppStore((s) => s.playTrack);
+    75→  const likedTrackIds = useAppStore((s) => s.likedTrackIds);
+    76→  const setView = useAppStore((s) => s.setView);
+    77→  const compactMode = useAppStore((s) => s.compactMode);
+    78→  const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
+    79→  const currentTrack = useAppStore((s) => s.currentTrack);
+    80→  const storeIsPlaying = useAppStore((s) => s.isPlaying);
+    81→  const togglePlay = useAppStore((s) => s.togglePlay);
+    82→  const toggleLike = useAppStore((s) => s.toggleLike);
+    83→  const addToPlaylist = useAppStore((s) => s.addToPlaylist);
+    84→  const { toast } = useToast();
+    85→
+    86→  // ── local state ──
+    87→  const [showCreate, setShowCreate] = useState(false);
+    88→  const [newName, setNewName] = useState("");
+    89→  const [newDesc, setNewDesc] = useState("");
+    90→  const [showImport, setShowImport] = useState(false);
+    91→  const [importUrl, setImportUrl] = useState("");
+    92→  const [importing, setImporting] = useState(false);
+    93→  const [importError, setImportError] = useState("");
+    94→  const [importHint, setImportHint] = useState("");
+    95→  const [importProgress, setImportProgress] = useState("");
+    96→  const [importMode, setImportMode] = useState<"url" | "text">("url");
+    97→  const [importText, setImportText] = useState("");
+    98→  const [editingId, setEditingId] = useState<string | null>(null);
+    99→  const [editName, setEditName] = useState("");
+   100→  const [coverUploadingId, setCoverUploadingId] = useState<string | null>(null);
+   101→  const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => {
+   102→    try {
+   103→      const stored = localStorage.getItem("mq-pinned-playlists");
+   104→      return new Set(stored ? JSON.parse(stored) : []);
+   105→    } catch {
+   106→      return new Set();
+   107→    }
+   108→  });
+   109→  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+   110→  /* §CONTEXT-AUDIT: menu anchors to the trigger click position (was
+   111→     top-right viewport corner — "wrong position" bug). */
+   112→  const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(null);
+   113→  const coverInputRef = useRef<HTMLInputElement>(null);
+   114→
+   115→  // Persist pinned set
+   116→  useEffect(() => {
+   117→    try {
+   118→      localStorage.setItem("mq-pinned-playlists", JSON.stringify([...pinnedIds]));
+   119→    } catch {}
+   120→  }, [pinnedIds]);
+   121→
+   122→  // Close context menu on outside click
+   123→  useEffect(() => {
+   124→    if (!menuOpenId) return;
+   125→    const handler = () => setMenuOpenId(null);
+   126→    const t = setTimeout(() => window.addEventListener("click", handler), 0);
+   127→    return () => {
+   128→      clearTimeout(t);
+   129→      window.removeEventListener("click", handler);
+   130→    };
+   131→  }, [menuOpenId]);
+   132→
+   133→  // Reset selected playlist on unmount (so re-entry shows grid)
+   134→  useEffect(() => {
+   135→    return () => {
+   136→      // Defer to avoid React #300 — don't update store during commit phase
+   137→      setTimeout(() => useAppStore.getState().setSelectedPlaylistId(null), 0);
+   138→    };
+   139→  }, []);
+   140→
+   141→  const selectedPlaylist = useMemo(
+   142→    () => playlists.find((p) => p.id === selectedPlaylistId) || null,
+   143→    [playlists, selectedPlaylistId]
+   144→  );
+   145→
+   146→  const sortedPlaylists = useMemo(() => {
+   147→    return [...playlists].sort((a, b) => {
+   148→      const ap = pinnedIds.has(a.id) ? 1 : 0;
+   149→      const bp = pinnedIds.has(b.id) ? 1 : 0;
+   150→      if (ap !== bp) return bp - ap;
+   151→      return b.createdAt - a.createdAt;
+   152→    });
+   153→  }, [playlists, pinnedIds]);
+   154→
+   155→  // ── handlers ──
+   156→
+   157→  const handleCreate = useCallback(() => {
+   158→    if (!newName.trim()) return;
+   159→    // P2-#300: defer store update to next macrotask
+   160→    setTimeout(() => {
+   161→      createPlaylist(newName.trim(), newDesc.trim());
+   162→      setShowCreate(false);
+   163→      setNewName("");
+   164→      setNewDesc("");
+   165→    }, 0);
+   166→  }, [newName, newDesc, createPlaylist]);
+   167→
+   168→  const handleStartRename = useCallback((pl: UserPlaylist) => {
+   169→    setEditingId(pl.id);
+   170→    setEditName(pl.name);
+   171→    setMenuOpenId(null);
+   172→  }, []);
+   173→
+   174→  const handleConfirmRename = useCallback(() => {
+   175→    if (!editingId) return;
+   176→    const trimmed = editName.trim();
+   177→    if (!trimmed) {
+   178→      setEditingId(null);
+   179→      return;
+   180→    }
+   181→    setTimeout(() => renamePlaylist(editingId, trimmed), 0);
+   182→    setEditingId(null);
+   183→  }, [editingId, editName, renamePlaylist]);
+   184→
+   185→  const handleDelete = useCallback((pl: UserPlaylist) => {
+   186→    setMenuOpenId(null);
+   187→    // Replace native confirm() with undo toast — premium UX, no blocking dialog
+   188→    setTimeout(() => deletePlaylist(pl.id), 0);
+   189→    toast({
+   190→      title: "Плейлист удалён",
+   191→      description: `${pl.name} · ${pl.tracks.length} треков`,
+   192→      action: {
+   193→        label: "Отменить",
+   194→        onClick: () => {
+   195→          // Re-add the playlist
+   196→          useAppStore.setState(s => ({ playlists: [...s.playlists, pl] }));
+   197→          toast({ title: "Плейлист восстановлен" });
+   198→        },
+   199→      },
+   200→    });
+   201→  }, [deletePlaylist, toast]);
+   202→
+   203→  const handleTogglePin = useCallback((id: string) => {
+   204→    setPinnedIds(prev => {
+   205→      const next = new Set(prev);
+   206→      if (next.has(id)) next.delete(id);
+   207→      else next.add(id);
+   208→      return next;
+   209→    });
+   210→    setMenuOpenId(null);
+   211→  }, []);
+   212→
+   213→  const handlePlayAll = useCallback((pl: UserPlaylist) => {
+   214→    if (pl.tracks.length === 0) {
+   215→      toast({ title: "Плейлист пуст", description: "Добавьте треки в плейлист" });
+   216→      return;
+   217→    }
+   218→    setTimeout(() => playTrack(pl.tracks[0], [...pl.tracks], pl.id), 0);
+   219→  }, [playTrack, toast]);
+   220→
+   221→  const handleShufflePlay = useCallback((pl: UserPlaylist) => {
+   222→    if (pl.tracks.length === 0) return;
+   223→    const shuffled = [...pl.tracks];
+   224→    for (let i = shuffled.length - 1; i > 0; i--) {
+   225→      const j = Math.floor(Math.random() * (i + 1));
+   226→      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+   227→    }
+   228→    setTimeout(() => {
+   229→      const s = useAppStore.getState();
+   230→      if (!s.shuffle) s.toggleShuffle();
+   231→      playTrack(shuffled[0], shuffled, pl.id);
+   232→    }, 0);
+   233→  }, [playTrack]);
+   234→
+   235→  const handleCoverUpload = useCallback(async (playlistId: string, file: File) => {
+   236→    setCoverUploadingId(playlistId);
+   237→    try {
+   238→      if (file.size > 8 * 1024 * 1024) {
+   239→        toast({ title: "Файл слишком большой", description: "Макс. 8 МБ" });
+   240→        return;
+   241→      }
+   242→      // Convert to base64 data URL — store locally (no server upload needed)
+   243→      // P0 fix: use functional setState to avoid race condition when multiple
+   244→      // uploads happen in quick succession. Was: snapshot getState() then
+   245→      // setState with stale data — second upload would overwrite first.
+   246→      const reader = new FileReader();
+   247→      reader.onload = () => {
+   248→        const dataUrl = reader.result as string;
+   249→        useAppStore.setState(s => ({
+   250→          playlists: s.playlists.map(p => p.id === playlistId ? { ...p, cover: dataUrl } : p),
+   251→        }));
+   252→        toast({ title: "Обложка установлена" });
+   253→      };
+   254→      reader.onerror = () => {
+   255→        toast({ title: "Не удалось загрузить", description: "Попробуйте другое изображение" });
+   256→      };
+   257→      reader.readAsDataURL(file);
+   258→    } catch {
+   259→      toast({ title: "Не удалось загрузить" });
+   260→    } finally {
+   261→      setCoverUploadingId(null);
+   262→    }
+   263→  }, [toast]);
+   264→
+   265→  const handleRemoveCover = useCallback((playlistId: string) => {
+   266→    // P0 fix: functional setState to avoid race condition
+   267→    useAppStore.setState(s => ({
+   268→      playlists: s.playlists.map(p => p.id === playlistId ? { ...p, cover: "" } : p),
+   269→    }));
+   270→  }, []);
+   271→
+   272→  // Parse text like "Artist - Title" (one per line) and search them on SoundCloud.
+   273→  // This is the fallback when direct playlist URL import fails (e.g. Yandex.Music
+   274→  // blocks server-side requests from outside Russia).
+   275→  const triggerTextImport = useCallback(async () => {
+   276→    const text = importText.trim();
+   277→    if (!text || importing) return;
+   278→
+   279→    // Each non-empty line should look like "Artist - Title" or "Title - Artist"
+   280→    const lines = text.split("\n").map(l => l.trim()).filter(l => l && l.length > 2);
+   281→    if (lines.length === 0) {
+   282→      setImportError("Вставьте хотя бы один трек в формате «Исполнитель — Название».");
+   283→      return;
+   284→    }
+   285→
+   286→    setImporting(true);
+   287→    setImportError("");
+   288→    setImportHint("");
+   289→    setImportProgress(`Поиск треков: 0/${lines.length}…`);
+   290→
+   291→    try {
+   292→      const results: any[] = [];
+   293→      for (let i = 0; i < lines.length; i++) {
+   294→        const line = lines[i];
+   295→        // Split on " — " (em-dash), " - ", " – "
+   296→        const m = line.match(/^(.+?)\s*[—–-]\s*(.+)$/);
+   297→        const artist = m ? m[1].trim() : "";
+   298→        const title = m ? m[2].trim() : line;
+   299→        const query = artist ? `${artist} ${title}` : title;
+   300→        setImportProgress(`Поиск: ${i + 1}/${lines.length} — ${query.slice(0, 40)}…`);
+   301→        try {
+   302→          const res = await fetch(`/api/music/search?q=${encodeURIComponent(query)}`);
+   303→          if (res.ok) {
+   304→            const data = await res.json();
+   305→            const t = data.tracks?.[0];
+   306→            if (t) {
+   307→              results.push({
+   308→                title: t.title || title,
+   309→                artist: t.artist || artist,
+   310→                cover: t.cover || "",
+   311→                duration: t.duration || 0,
+   312→                scTrackId: t.scTrackId || null,
+   313→                scStreamPolicy: t.scStreamPolicy || "",
+   314→                scIsFull: t.scIsFull || false,
+   315→                audioUrl: t.audioUrl || "",
+   316→                album: t.album || "",
+   317→                genre: t.genre || "",
+   318→              });
+   319→            }
+   320→          }
+   321→        } catch {}
+   322→        // Tiny delay to not hammer the API
+   323→        await new Promise(r => setTimeout(r, 60));
+   324→      }
+   325→
+   326→      if (results.length === 0) {
+   327→        setImportError("Ничего не найдено. Проверьте формат: «Исполнитель — Название» по строке.");
+   328→        return;
+   329→      }
+   330→
+   331→      const tracks: Track[] = results.map((t, i) => ({
+   332→        id: t.scTrackId ? `sc_${t.scTrackId}` : `imp_${i}_${Date.now()}`,
+   333→        title: t.title,
+   334→        artist: t.artist,
+   335→        album: t.album,
+   336→        cover: t.cover,
+   337→        duration: t.duration,
+   338→        genre: t.genre,
+   339→        audioUrl: t.audioUrl,
+   340→        previewUrl: "",
+   341→        source: "soundcloud" as const,
+   342→        scTrackId: t.scTrackId,
+   343→        scStreamPolicy: t.scStreamPolicy,
+   344→        scIsFull: t.scIsFull,
+   345→      }));
+   346→
+   347→      const playableCount = tracks.filter(t => !!t.scTrackId).length;
+   348→
+   349→      const newPl: UserPlaylist = {
+   350→        id: `pl_url_${Date.now()}`,
+   351→        name: `Импорт ${new Date().toLocaleDateString("ru-RU")}`,
+   352→        description: `${tracks.length} треков · из текста${playableCount > 0 && playableCount < tracks.length ? ` · ${playableCount} воспроизводимы` : ""}`,
+   353→        cover: "",
+   354→        tracks,
+   355→        createdAt: Date.now(),
+   356→      };
+   357→
+   358→      setTimeout(() => useAppStore.setState(s => ({ playlists: [...s.playlists, newPl] })), 0);
+   359→      setShowImport(false);
+   360→      setImportText("");
+   361→      setImportProgress("");
+   362→      toast({
+   363→        title: "Плейлист импортирован",
+   364→        description: `${tracks.length} треков${playableCount > 0 ? ` · ${playableCount} воспроизводимы` : ""}`,
+   365→      });
+   366→    } catch (e) {
+   367→      setImportError("Не удалось импортировать. Попробуйте ещё раз.");
+   368→    } finally {
+   369→      setImporting(false);
+   370→      setImportProgress("");
+   371→    }
+   372→  }, [importText, importing, toast]);
+   373→
+   374→  const triggerUrlImport = useCallback(async () => {
+   375→    if (!importUrl.trim() || importing) return;
+   376→    setImporting(true);
+   377→    setImportError("");
+   378→    setImportHint("");
+   379→    setImportProgress("Импорт…");
+   380→    try {
+   381→      const res = await fetch("/api/music/import-playlist", {
+   382→        method: "POST",
+   383→        headers: { "Content-Type": "application/json" },
+   384→        body: JSON.stringify({ url: importUrl.trim() }),
+   385→      });
+   386→      if (!res.ok) {
+   387→        const txt = await res.text();
+   388→        throw new Error(txt || `HTTP ${res.status}`);
+   389→      }
+   390→      const data = await res.json();
+   391→
+   392→      // Handle VK token requirement
+   393→      if (data.needVkToken) {
+   394→        setImportError("VK требует API-токен. Используйте «Импорт текстом» — вставьте список треков вручную.");
+   395→        setImportHint("Откройте плейлист в VK, скопируйте названия треков и вставьте их в режиме «Импорт текстом».");
+   396→        return;
+   397→      }
+   398→
+   399→      if (data.error && (!data.tracks || data.tracks.length === 0)) {
+   400→        setImportError(data.error);
+   401→        // Backend returns a hint with a workaround — show it
+   402→        if (data.hint) setImportHint(data.hint);
+   403→        return;
+   404→      }
+   405→
+   406→      const tracks: Track[] = (data.tracks || []).map((t: any, i: number) => ({
+   407→        id: t.id || (t.scTrackId ? `sc_${t.scTrackId}` : `imp_${i}_${Date.now()}`),
+   408→        title: t.title || t.name || "Unknown",
+   409→        artist: t.artist || t.artists?.[0]?.name || "Unknown Artist",
+   410→        album: t.album || "",
+   411→        cover: t.cover || t.image || "",
+   412→        duration: t.duration || 0,
+   413→        genre: t.genre || "",
+   414→        audioUrl: t.audioUrl || "",
+   415→        previewUrl: t.previewUrl || "",
+   416→        source: "soundcloud" as const,
+   417→        scTrackId: t.scTrackId || null,
+   418→        scStreamPolicy: t.scStreamPolicy || "",
+   419→        scIsFull: t.scIsFull || false,
+   420→      }));
+   421→
+   422→      const playableCount = tracks.filter(t => !!t.scTrackId).length;
+   423→      const totalCount = tracks.length;
+   424→
+   425→      if (totalCount === 0) {
+   426→        setImportError("Треки не найдены. Попробуйте другую ссылку или «Импорт текстом».");
+   427→        return;
+   428→      }
+   429→
+   430→      const newPl: UserPlaylist = {
+   431→        id: `pl_url_${Date.now()}`,
+   432→        name: data.name || `Импорт ${new Date().toLocaleDateString("ru-RU")}`,
+   433→        description: `${totalCount} треков · ${data.source || "внешний сервис"}` +
+   434→          (playableCount > 0 && playableCount < totalCount ? ` · ${playableCount} воспроизводимы` : ""),
+   435→        cover: data.cover || "",
+   436→        tracks,
+   437→        createdAt: Date.now(),
+   438→      };
+   439→
+   440→      setTimeout(() => useAppStore.setState(s => ({ playlists: [...s.playlists, newPl] })), 0);
+   441→      setShowImport(false);
+   442→      setImportUrl("");
+   443→      setImportProgress("");
+   444→      toast({
+   445→        title: "Плейлист импортирован",
+   446→        description: `${totalCount} треков${playableCount > 0 ? ` · ${playableCount} воспроизводимы` : ""}`,
+   447→      });
+   448→    } catch (e) {
+   449→      setImportError("Не удалось импортировать. Проверьте ссылку или используйте «Импорт текстом».");
+   450→    } finally {
+   451→      setImporting(false);
+   452→      setImportProgress("");
+   453→    }
+   454→  }, [importUrl, importing, toast]);
+   455→
+   456→  // ── detail view ──
+   457→  if (selectedPlaylist) {
+   458→    const pl = selectedPlaylist;
+   459→    const totalDur = formatTotalDuration(pl.tracks);
+   460→    const isPlPlaying = currentTrack && pl.tracks.some(t => t.id === currentTrack.id) && storeIsPlaying;
+   461→    const isPinned = pinnedIds.has(pl.id);
+   462→    const createdLabel = pl.createdAt
+   463→      ? new Date(pl.createdAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
+   464→      : null;
+   465→
+   466→    return (
+   467→      <div className={`${compactMode ? "p-3 lg:p-4" : "p-4 lg:p-6"} max-w-[var(--mq-container-base)] lg:max-w-[var(--mq-container-wide)] mx-auto pb-32 lg:pb-28`}>
+   468→        {/* Back */}
+   469→        <motion.button
+   470→          initial={{ opacity: 0, x: -8 }}
+   471→          animate={{ opacity: 1, x: 0 }}
+   472→
+   473→          onClick={() => setSelectedPlaylistId(null)}
+   474→          className="flex items-center gap-1.5 text-sm mb-5 -ml-1.5 rounded-lg px-2.5 py-1.5 transition-colors hover:bg-[var(--mq-overlay-hover)]"
+   475→          style={{ color: "var(--mq-text-muted)" }}
+   476→        >
+   477→          <ChevronLeft className="w-4 h-4" />
+   478→          Все плейлисты
+   479→        </motion.button>
+   480→
+   481→        {/* ═══ §J HERO — playlist as an independent entity (album-page
+   482→            composition). Flat MQ language: hairline surface + accent tint
+   483→            band (no photo background, no blur, no gradient glow).
+   484→            ARTWORK → IDENTITY → PRIMARY ACTIONS. ═══ */}
+   485→        <motion.div
+   486→          initial={animationsEnabled ? { opacity: 0, y: 16 } : undefined}
+   487→          animate={{ opacity: 1, y: 0 }}
+   488→          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+   489→          className="relative rounded-[var(--mq-r-card-lg)] overflow-hidden mb-5"
+   490→          style={{
+   491→            backgroundColor: "var(--mq-surface-1)",
+   492→            border: "1px solid var(--mq-edge)",
+   493→            boxShadow: "var(--mq-shadow-xs)",
+   494→          }}
+   495→        >
+   496→          {/* Ambient: flat accent tint band behind the artwork zone */}
+   497→          <div
+   498→            aria-hidden
+   499→            className="absolute inset-x-0 top-0 h-48 sm:h-56"
+   500→            style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 8%, transparent)" }}
+   501→          />
+   502→
+   503→          <div className="relative p-4 sm:p-6 lg:p-8 flex flex-col sm:flex-row gap-5 sm:gap-7">
+   504→            {/* ── ARTWORK ── */}
+   505→            <div className="group/cover relative flex-shrink-0 self-center sm:self-start">
+   506→              <div
+   507→                className="w-40 h-40 sm:w-44 sm:h-44 lg:w-52 lg:h-52 rounded-[var(--mq-r-card)] overflow-hidden flex items-center justify-center"
+   508→                style={{
+   509→                  backgroundColor: pl.cover ? "var(--mq-surface-2)" : "transparent",
+   510→                  background: pl.cover ? undefined : gradientCover(pl.name),
+   511→                  border: "1px solid var(--mq-edge)",
+   512→                  boxShadow: "var(--mq-shadow-premium-md)",
+   513→                }}
+   514→              >
+   515→                {pl.cover ? (
+   516→                  <img src={pl.cover} alt="" className="w-full h-full object-cover" />
+   517→                ) : (
+   518→                  <div className="flex flex-col items-center justify-center w-full h-full" style={patternStyle(pl.name)}>
+   519→                    <ListMusic className="w-12 h-12" style={{ color: "rgba(255,255,255,0.7)" }} />
+   520→                  </div>
+   521→                )}
+   522→              </div>
+   523→              {/* Cover upload — hover reveal */}
+   524→              <button
+   525→                className="absolute inset-0 rounded-[var(--mq-r-card)] bg-black/60 sm:opacity-0 sm:group-hover/cover:opacity-100 transition-opacity flex items-center justify-center"
+   526→                onClick={() => coverInputRef.current?.click()}
+   527→                aria-label="Сменить обложку"
+   528→              >
+   529→                {coverUploadingId === pl.id ? (
+   530→                  <Loader2 className="w-5 h-5 animate-spin text-white" />
+   531→                ) : (
+   532→                  <Camera className="w-5 h-5 text-white" />
+   533→                )}
+   534→              </button>
+   535→              {pl.cover && (
+   536→                <button
+   537→                  className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-red-500 flex items-center justify-center"
+   538→                  onClick={(e) => { e.stopPropagation(); handleRemoveCover(pl.id); }}
+   539→                  aria-label="Убрать обложку"
+   540→                >
+   541→                  <X className="w-3 h-3 text-white" />
+   542→                </button>
+   543→              )}
+   544→              <input
+   545→                ref={coverInputRef}
+   546→                type="file"
+   547→                accept="image/jpeg,image/png,image/webp"
+   548→                className="hidden"
+   549→                onChange={(e) => {
+   550→                  const f = e.target.files?.[0];
+   551→                  if (f) handleCoverUpload(pl.id, f);
+   552→                  e.target.value = "";
+   553→                }}
+   554→              />
+   555→            </div>
+   556→
+   557→            {/* ── IDENTITY + PRIMARY ACTIONS ── */}
+   558→            <div className="flex-1 min-w-0 flex flex-col sm:justify-end">
+   559→              {/* Eyebrow */}
+   560→              <div className="flex items-center gap-2 mb-2">
+   561→                <span className="mq-t-meta-2 uppercase tracking-[0.14em] font-bold" style={{ color: "var(--mq-accent)" }}>
+   562→                  Плейлист
+   563→                </span>
+   564→                {isPinned && (
+   565→                  <span
+   566→                    className="inline-flex items-center gap-1 mq-t-meta-2 font-semibold px-2 py-0.5 rounded-full"
+   567→                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}
+   568→                  >
+   569→                    <Pin className="w-3 h-3" />
+   570→                    Закреплён
+   571→                  </span>
+   572→                )}
+   573→              </div>
+   574→
+   575→              {/* Title (inline rename preserved) */}
+   576→              {editingId === pl.id ? (
+   577→                <div className="flex items-center gap-2 mb-2" onClick={(e) => e.stopPropagation()}>
+   578→                  <input
+   579→                    value={editName}
+   580→                    onChange={(e) => setEditName(e.target.value)}
+   581→                    className="flex-1 min-w-0 text-2xl sm:text-4xl font-extrabold tracking-tight rounded-xl px-3 py-2 outline-none"
+   582→                    style={{ backgroundColor: "var(--mq-surface-2)", border: "1px solid var(--mq-accent)", color: "var(--mq-text)" }}
+   583→                    onKeyDown={(e) => {
+   584→                      if (e.key === "Enter") handleConfirmRename();
+   585→                      if (e.key === "Escape") setEditingId(null);
+   586→                    }}
+   587→                    autoFocus
+   588→                    maxLength={300}
+   589→                    aria-label="Новое название плейлиста"
+   590→                  />
+   591→                  <button onClick={handleConfirmRename} className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }} aria-label="Сохранить название">
+   592→                    <Check className="w-4 h-4 text-white" />
+   593→                  </button>
+   594→                  <button onClick={() => setEditingId(null)} className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: "var(--mq-surface-2)", border: "1px solid var(--mq-edge)" }} aria-label="Отменить переименование">
+   595→                    <X className="w-4 h-4" style={{ color: "var(--mq-text)" }} />
+   596→                  </button>
+   597→                </div>
+   598→              ) : (
+   599→                <h1
+   600→                  className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight mb-2 break-words"
+   601→                  style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}
+   602→                  title={pl.name}
+   603→                >
+   604→                  <span className="line-clamp-4">{pl.name}</span>
+   605→                </h1>
+   606→              )}
+   607→
+   608→              {/* Description */}
+   609→              {pl.description && (
+   610→                <p
+   611→                  className="text-sm mb-3 break-words line-clamp-2 max-w-[60ch]"
+   612→                  style={{ color: "var(--mq-text-muted)" }}
+   613→                  title={pl.description}
+   614→                >
+   615→                  {pl.description}
+   616→                </p>
+   617→              )}
+   618→
+   619→              {/* Meta line */}
+   620→              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs mb-5" style={{ color: "var(--mq-text-muted)" }}>
+   621→                <span className="flex items-center gap-1.5 font-medium">
+   622→                  <Music className="w-3.5 h-3.5" />
+   623→                  {pl.tracks.length} {pluralRu(pl.tracks.length, "трек", "трека", "треков")}
+   624→                </span>
+   625→                {totalDur && (
+   626→                  <>
+   627→                    <span aria-hidden style={{ opacity: 0.4 }}>·</span>
+   628→                    <span className="flex items-center gap-1.5">
+   629→                      <Clock className="w-3.5 h-3.5" />
+   630→                      {totalDur}
+   631→                    </span>
+   632→                  </>
+   633→                )}
+   634→                {createdLabel && (
+   635→                  <>
+   636→                    <span aria-hidden style={{ opacity: 0.4 }}>·</span>
+   637→                    <span>создан {createdLabel}</span>
+   638→                  </>
+   639→                )}
+   640→              </div>
+   641→
+   642→              {/* PRIMARY ACTIONS — one row, predictable order: play → shuffle → pin → menu */}
+   643→              <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
+   644→                <motion.button
+   645→
+   646→                  whileHover={{ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } }}
+   647→                  onClick={() => isPlPlaying ? togglePlay() : handlePlayAll(pl)}
+   648→                  disabled={pl.tracks.length === 0}
+   649→                  className="flex items-center justify-center gap-2 flex-1 sm:flex-none sm:min-w-[150px] px-5 sm:px-6 py-3 rounded-full font-bold text-sm"
+   650→                  style={{
+   651→                    backgroundColor: "var(--mq-accent)",
+   652→                    color: "var(--mq-text-on-accent, #fff)",
+   653→                    opacity: pl.tracks.length === 0 ? 0.45 : 1,
+   654→                    cursor: pl.tracks.length === 0 ? "default" : "pointer",
+   655→                  }}
+   656→                  aria-label={isPlPlaying ? "Поставить на паузу" : "Слушать плейлист"}
+   657→                >
+   658→                  {isPlPlaying ? <Pause className="w-4.5 h-4.5" fill="currentColor" /> : <Play className="w-4.5 h-4.5" fill="currentColor" />}
+   659→                  {isPlPlaying ? "Пауза" : "Слушать"}
+   660→                </motion.button>
+   661→                <motion.button
+   662→
+   663→                  whileHover={{ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } }}
+   664→                  onClick={() => handleShufflePlay(pl)}
+   665→                  disabled={pl.tracks.length === 0}
+   666→                  className="flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-5 py-3 rounded-full font-semibold text-sm"
+   667→                  style={{
+   668→                    backgroundColor: "var(--mq-surface-2)",
+   669→                    color: "var(--mq-text)",
+   670→                    border: "1px solid var(--mq-edge)",
+   671→                    opacity: pl.tracks.length === 0 ? 0.45 : 1,
+   672→                    cursor: pl.tracks.length === 0 ? "default" : "pointer",
+   673→                  }}
+   674→                  aria-label="Перемешать и слушать"
+   675→                >
+   676→                  <Shuffle className="w-4 h-4" />
+   677→                  Перемешать
+   678→                </motion.button>
+   679→                <div className="flex items-center gap-1.5">
+   680→                  <button
+   681→                    onClick={() => handleTogglePin(pl.id)}
+   682→                    className="w-11 h-11 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]"
+   683→                    style={{
+   684→                      color: isPinned ? "var(--mq-accent)" : "var(--mq-text-muted)",
+   685→                      border: "1px solid var(--mq-edge)",
+   686→                      backgroundColor: "var(--mq-surface-1)",
+   687→                    }}
+   688→                    aria-label={isPinned ? "Открепить плейлист" : "Закрепить плейлист"}
+   689→                    aria-pressed={isPinned}
+   690→                    title={isPinned ? "Открепить" : "Закрепить"}
+   691→                  >
+   692→                    <Pin className="w-4.5 h-4.5" fill={isPinned ? "currentColor" : "none"} />
+   693→                  </button>
+   694→                  <button
+   695→                    onClick={(e) => {
+   696→                      setMenuAnchor({ x: e.clientX, y: e.clientY });
+   697→                      setMenuOpenId(menuOpenId === pl.id ? null : pl.id);
+   698→                    }}
+   699→                    className="w-11 h-11 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]"
+   700→                    style={{ color: "var(--mq-text-muted)", border: "1px solid var(--mq-edge)", backgroundColor: "var(--mq-surface-1)" }}
+   701→                    aria-label="Меню плейлиста"
+   702→                    aria-haspopup="menu"
+   703→                    aria-expanded={menuOpenId === pl.id}
+   704→                  >
+   705→                    <MoreVertical className="w-4.5 h-4.5" />
+   706→                  </button>
+   707→                </div>
+   708→              </div>
+   709→            </div>
+   710→          </div>
+   711→
+   712→          {/* Portal context menu (fixed position, unaffected by trigger) */}
+   713→          <AnimatePresence>
+   714→            {menuOpenId === pl.id && (
+   715→              <PlaylistContextMenu
+   716→                playlist={pl}
+   717→                pinned={pinnedIds.has(pl.id)}
+   718→                anchor={menuAnchor}
+   719→                onClose={() => setMenuOpenId(null)}
+   720→                onTogglePin={() => handleTogglePin(pl.id)}
+   721→                onRenameStart={() => handleStartRename(pl)}
+   722→                onCoverUpload={() => coverInputRef.current?.click()}
+   723→                onShare={() => {
+   724→                  navigator.clipboard?.writeText(`${window.location.origin}/play?pl=${pl.id}`).catch(() => {});
+   725→                  toast({ title: "Ссылка скопирована", description: "Ссылка на плейлист в буфере обмена" });
+   726→                }}
+   727→                onDelete={() => handleDelete(pl)}
+   728→              />
+   729→            )}
+   730→          </AnimatePresence>
+   731→        </motion.div>
+   732→
+   733→        {/* ═══ TRACKLIST — unified .mq-row system (same rows as Queue /
+   734→            Search / History: 56px, hover surface, accent bar + eq when
+   735→            playing, actions revealed on row hover). ═══ */}
+   736→        {pl.tracks.length > 0 ? (
+   737→          <div
+   738→            className="rounded-[var(--mq-r-card-lg)] overflow-hidden"
+   739→            style={{ border: "1px solid var(--mq-edge)", backgroundColor: "var(--mq-surface-1)" }}
+   740→          >
+   741→            {/* Column header */}
+   742→            <div
+   743→              className="flex items-center gap-3 px-4 py-2.5 mq-t-meta-2 uppercase tracking-[0.12em] font-semibold select-none"
+   744→              style={{ color: "var(--mq-text-muted)", borderBottom: "1px solid var(--mq-edge)" }}
+   745→            >
+   746→              <span className="w-7 flex-shrink-0 text-center mq-t-num">#</span>
+   747→              <span className="flex-1">Название</span>
+   748→              <span className="hidden sm:block w-[86px] text-right pr-3 mq-t-num">Длит.</span>
+   749→              <span className="w-[92px] sm:w-[108px] flex-shrink-0" aria-hidden />
+   750→            </div>
+   751→            <div>
+   752→              <AnimatePresence>
+   753→                {pl.tracks.map((track, idx) => {
+   754→                  const isCurrent = currentTrack?.id === track.id;
+   755→                  const isLiked = likedTrackIds.includes(track.id);
+   756→                  return (
+   757→                    <motion.div
+   758→                      key={track.id + "_" + idx}
+   759→                      initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
+   760→                      animate={{ opacity: 1, y: 0 }}
+   761→                      transition={{ delay: Math.min(idx * 0.02, 0.4), duration: 0.25 }}
+   762→                    >
+   763→                      <TrackRow
+   764→                        track={track}
+   765→                        index={idx + 1}
+   766→                        isCurrent={isCurrent}
+   767→                        isPlaying={isCurrent && storeIsPlaying}
+   768→                        isLiked={isLiked}
+   769→                        playlistId={pl.id}
+   770→                        onPlay={() => playTrack(track, pl.tracks, pl.id)}
+   771→                        onLike={() => toggleLike(track.id, track)}
+   772→                        onRemove={() => setTimeout(() => removeFromPlaylist(pl.id, track.id), 0)}
+   773→                        onArtistClick={() => {
+   774→                          if (track.artist) {
+   775→                            setSelectedArtist({ name: track.artist });
+   776→                            setView("main");
+   777→                          }
+   778→                        }}
+   779→                      />
+   780→                    </motion.div>
+   781→                  );
+   782→                })}
+   783→              </AnimatePresence>
+   784→            </div>
+   785→          </div>
+   786→        ) : (
+   787→          <EmptyState
+   788→            type="tracks"
+   789→            title="В плейлисте пусто"
+   790→            description="Найдите треки через поиск и добавьте их сюда"
+   791→            action={{ label: "Перейти к поиску", onClick: () => setView("search") }}
+   792→          />
+   793→        )}
+   794→      </div>
+   795→    );
+   796→  }
+   797→
+   798→  // ── grid view ──
+   799→  return (
+   800→    <div className={`${compactMode ? "p-3 lg:p-4" : "p-4 lg:p-6"} max-w-[var(--mq-container-narrow)] mx-auto pb-32 lg:pb-24`}>
+   801→      {/* Header */}
+   802→      <motion.div
+   803→        initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
+   804→        animate={{ opacity: 1, y: 0 }}
+   805→        transition={{ duration: 0.4 }}
+   806→        className="mb-5 flex items-end justify-between gap-3 flex-wrap"
+   807→      >
+   808→        <div>
+   809→          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
+   810→            Плейлисты
+   811→          </h1>
+   812→          <p className="text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>
+   813→            {playlists.length > 0 ? `${playlists.length} ${pluralRu(playlists.length, "плейлист", "плейлиста", "плейлистов")}` : "Создайте свою коллекцию"}
+   814→          </p>
+   815→        </div>
+   816→        <div className="flex items-center gap-2">
+   817→          <motion.button
+   818→
+   819→            whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} }
+   820→            onClick={() => setShowCreate(true)}
+   821→            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm"
+   822→            style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
+   823→          >
+   824→            <Plus className="w-3.5 h-3.5" />
+   825→            Создать
+   826→          </motion.button>
+   827→          <motion.button
+   828→
+   829→            whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} }
+   830→            onClick={() => setShowImport(true)}
+   831→            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium"
+   832→            style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border-thin)" }}
+   833→          >
+   834→            <Download className="w-3.5 h-3.5" />
+   835→            Импорт
+   836→          </motion.button>
+   837→        </div>
+   838→      </motion.div>
+   839→
+   840→      {/* Create dialog */}
+   841→      <AnimatePresence>
+   842→        {showCreate && (
+   843→          <motion.div
+   844→            initial={{ opacity: 0, y: -8 }}
+   845→            animate={{ opacity: 1, y: 0 }}
+   846→            exit={{ opacity: 0, y: -8 }}
+   847→            className="overflow-hidden mb-4"
+   848→          >
+   849→            <motion.div
+   850→              initial={{ y: -8 }}
+   851→              animate={{ y: 0 }}
+   852→              className="rounded-2xl p-5 space-y-3"
+   853→              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-thin)", boxShadow: "var(--mq-shadow-card)" }}
+   854→            >
+   855→              <div className="flex items-center justify-between">
+   856→                <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>Новый плейлист</h3>
+   857→                <button onClick={() => setShowCreate(false)} style={{ color: "var(--mq-text-muted)" }}>
+   858→                  <X className="w-4 h-4" />
+   859→                </button>
+   860→              </div>
+   861→              <input
+   862→                type="text"
+   863→                value={newName}
+   864→                onChange={(e) => setNewName(e.target.value)}
+   865→                placeholder="Название"
+   866→                className="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none"
+   867→                style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
+   868→                onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+   869→                autoFocus
+   870→              />
+   871→              <input
+   872→                type="text"
+   873→                value={newDesc}
+   874→                onChange={(e) => setNewDesc(e.target.value)}
+   875→                placeholder="Описание (необязательно)"
+   876→                className="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none"
+   877→                style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
+   878→                onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+   879→              />
+   880→              <div className="flex gap-2">
+   881→                <button
+   882→                  onClick={() => setShowCreate(false)}
+   883→                  className="flex-1 py-2.5 rounded-xl text-sm font-medium"
+   884→                  style={{ backgroundColor: "rgba(255,255,255,0.05)", color: "var(--mq-text-muted)" }}
+   885→                >
+   886→                  Отмена
+   887→                </button>
+   888→                <button
+   889→                  onClick={handleCreate}
+   890→                  disabled={!newName.trim()}
+   891→                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+   892→                  style={{
+   893→                    backgroundColor: newName.trim() ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
+   894→                    color: newName.trim() ? "#fff" : "var(--mq-text-muted)",
+   895→                  }}
+   896→                >
+   897→                  Создать
+   898→                </button>
+   899→              </div>
+   900→            </motion.div>
+   901→          </motion.div>
+   902→        )}
+   903→      </AnimatePresence>
+   904→
+   905→      {/* Import dialog */}
+   906→      <AnimatePresence>
+   907→        {showImport && (
+   908→          <motion.div
+   909→            initial={{ opacity: 0, y: -8 }}
+   910→            animate={{ opacity: 1, y: 0 }}
+   911→            exit={{ opacity: 0, y: -8 }}
+   912→            className="overflow-hidden mb-4"
+   913→          >
+   914→            <motion.div
+   915→              initial={{ y: -8 }}
+   916→              animate={{ y: 0 }}
+   917→              className="rounded-2xl p-5 space-y-3"
+   918→              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-thin)", boxShadow: "var(--mq-shadow-card)" }}
+   919→            >
+   920→              <div className="flex items-center justify-between">
+   921→                <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>Импорт плейлиста</h3>
+   922→                <button onClick={() => setShowImport(false)} style={{ color: "var(--mq-text-muted)" }}>
+   923→                  <X className="w-4 h-4" />
+   924→                </button>
+   925→              </div>
+   926→
+   927→              {/* Mode switcher — URL vs Text */}
+   928→              <div
+   929→                className="flex gap-1 p-1 rounded-xl"
+   930→                style={{ backgroundColor: "var(--mq-input-bg)" }}
+   931→              >
+   932→                <button
+   933→                  onClick={() => { setImportMode("url"); setImportError(""); setImportHint(""); }}
+   934→                  className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
+   935→                  style={{
+   936→                    backgroundColor: importMode === "url" ? "var(--mq-accent)" : "transparent",
+   937→                    color: importMode === "url" ? "#fff" : "var(--mq-text-muted)",
+   938→                  }}
+   939→                >
+   940→                  По ссылке
+   941→                </button>
+   942→                <button
+   943→                  onClick={() => { setImportMode("text"); setImportError(""); setImportHint(""); }}
+   944→                  className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
+   945→                  style={{
+   946→                    backgroundColor: importMode === "text" ? "var(--mq-accent)" : "transparent",
+   947→                    color: importMode === "text" ? "#fff" : "var(--mq-text-muted)",
+   948→                  }}
+   949→                >
+   950→                  Из текста
+   951→                </button>
+   952→              </div>
+   953→
+   954→              {importMode === "url" ? (
+   955→                <>
+   956→                  <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+   957→                    VK · Яндекс.Музыка · YouTube Music · Apple Music · SoundCloud
+   958→                  </p>
+   959→                  <div className="flex gap-2">
+   960→                    <input
+   961→                      type="url"
+   962→                      value={importUrl}
+   963→                      onChange={(e) => { setImportUrl(e.target.value); setImportError(""); setImportHint(""); }}
+   964→                      placeholder="https://music.yandex.ru/playlist/..."
+   965→                      className="flex-1 rounded-xl px-3.5 py-2.5 text-sm outline-none"
+   966→                      style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
+   967→                      onKeyDown={(e) => e.key === "Enter" && triggerUrlImport()}
+   968→                      autoFocus
+   969→                    />
+   970→                    <button
+   971→                      onClick={triggerUrlImport}
+   972→                      disabled={importing || !importUrl.trim()}
+   973→                      className="px-4 py-2.5 rounded-xl text-sm font-medium"
+   974→                      style={{
+   975→                        backgroundColor: importUrl.trim() && !importing ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
+   976→                        color: importUrl.trim() && !importing ? "#fff" : "var(--mq-text-muted)",
+   977→                      }}
+   978→                    >
+   979→                      {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+   980→                    </button>
+   981→                  </div>
+   982→                </>
+   983→              ) : (
+   984→                <>
+   985→                  <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+   986→                    Вставьте список треков — по одному в строке, в формате «Исполнитель — Название».
+   987→                    Каждый трек будет найден на SoundCloud.
+   988→                  </p>
+   989→                  <textarea
+   990→                    value={importText}
+   991→                    onChange={(e) => { setImportText(e.target.value); setImportError(""); setImportHint(""); }}
+   992→                    placeholder={"Queen — Bohemian Rhapsody\nMetallica — Nothing Else Matters\nNirvana — Smells Like Teen Spirit"}
+   993→                    rows={6}
+   994→                    className="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none resize-none font-mono"
+   995→                    style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
+   996→                    autoFocus
+   997→                  />
+   998→                  <button
+   999→                    onClick={triggerTextImport}
+  1000→                    disabled={importing || !importText.trim()}
+  1001→                    className="w-full py-2.5 rounded-xl text-sm font-semibold"
+  1002→                    style={{
+  1003→                      backgroundColor: importText.trim() && !importing ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
+  1004→                      color: importText.trim() && !importing ? "#fff" : "var(--mq-text-muted)",
+  1005→                    }}
+  1006→                  >
+  1007→                    {importing
+  1008→                      ? (importProgress || "Поиск…")
+  1009→                      : `Импортировать${importText.trim() ? ` (${importText.trim().split("\n").filter(l => l.trim()).length} треков)` : ""}`}
+  1010→                  </button>
+  1011→                </>
+  1012→              )}
+  1013→
+  1014→              {importing && importProgress && importMode === "url" && (
+  1015→                <div className="flex items-center gap-2">
+  1016→                  <Loader2 className="w-3 h-3 animate-spin" style={{ color: "var(--mq-accent)" }} />
+  1017→                  <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>{importProgress}</p>
+  1018→                </div>
+  1019→              )}
+  1020→              {importError && (
+  1021→                <div
+  1022→                  className="rounded-xl p-3"
+  1023→                  style={{ backgroundColor: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
+  1024→                >
+  1025→                  <div className="flex items-start gap-2">
+  1026→                    <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "#ef4444" }} />
+  1027→                    <p className="text-xs" style={{ color: "#ef4444" }}>{importError}</p>
+  1028→                  </div>
+  1029→                </div>
+  1030→              )}
+  1031→              {importHint && !importing && (
+  1032→                <div
+  1033→                  className="rounded-xl p-3"
+  1034→                  style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}
+  1035→                >
+  1036→                  <p className="mq-t-meta-2 leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
+  1037→                    {importHint}
+  1038→                  </p>
+  1039→                  {/* Quick switch to text mode button */}
+  1040→                  {importMode === "url" && (
+  1041→                    <button
+  1042→                      onClick={() => { setImportMode("text"); setImportError(""); setImportHint(""); }}
+  1043→                      className="mt-2 mq-t-meta-2 font-semibold"
+  1044→                      style={{ color: "var(--mq-accent)" }}
+  1045→                    >
+  1046→                      Перейти к «Импорт текстом» →
+  1047→                    </button>
+  1048→                  )}
+  1049→                </div>
+  1050→              )}
+  1051→            </motion.div>
+  1052→          </motion.div>
+  1053→        )}
+  1054→      </AnimatePresence>
+  1055→
+  1056→      {/* Grid */}
+  1057→      {playlists.length === 0 ? (
+  1058→        <EmptyState
+  1059→          type="playlists"
+  1060→          title="Нет плейлистов"
+  1061→          description="Создайте свой первый плейлист или импортируйте существующий"
+  1062→          action={{ label: "Создать плейлист", onClick: () => setShowCreate(true) }}
+  1063→        />
+  1064→      ) : (
+  1065→        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+  1066→          {sortedPlaylists.map((pl, i) => (
+  1067→            <PlaylistTile
+  1068→              key={pl.id}
+  1069→              playlist={pl}
+  1070→              index={i}
+  1071→              pinned={pinnedIds.has(pl.id)}
+  1072→              isCurrentPlaying={!!currentTrack && pl.tracks.some(t => t.id === currentTrack.id) && storeIsPlaying}
+  1073→              coverUploading={coverUploadingId === pl.id}
+  1074→              editing={editingId === pl.id}
+  1075→              editName={editName}
+  1076→              menuOpen={menuOpenId === pl.id}
+  1077→              menuAnchor={menuAnchor}
+  1078→              animationsEnabled={animationsEnabled}
+  1079→              onOpen={() => setSelectedPlaylistId(pl.id)}
+  1080→              onPlay={(e) => { e.stopPropagation(); handlePlayAll(pl); }}
+  1081→              onRenameStart={() => handleStartRename(pl)}
+  1082→              onRenameChange={setEditName}
+  1083→              onRenameConfirm={handleConfirmRename}
+  1084→              onRenameCancel={() => setEditingId(null)}
+  1085→              onDelete={() => handleDelete(pl)}
+  1086→              onTogglePin={() => handleTogglePin(pl.id)}
+  1087→              onToggleMenu={(e) => { e.stopPropagation(); setMenuAnchor({ x: e.clientX, y: e.clientY }); setMenuOpenId(menuOpenId === pl.id ? null : pl.id); }}
+  1088→              onCoverUpload={(file) => handleCoverUpload(pl.id, file)}
+  1089→              onCoverRemove={() => handleRemoveCover(pl.id)}
+  1090→            />
+  1091→          ))}
+  1092→        </div>
+  1093→      )}
+  1094→    </div>
+  1095→  );
+  1096→}
+  1097→
+  1098→// ─── Track row (premium) ─────────────────────────────────────────────────
+  1099→
+  1100→interface TrackRowProps {
+  1101→  track: Track;
+  1102→  index: number;
+  1103→  isCurrent: boolean;
+  1104→  isPlaying: boolean;
+  1105→  isLiked: boolean;
+  1106→  playlistId: string;
+  1107→  onPlay: () => void;
+  1108→  onLike: () => void;
+  1109→  onRemove: () => void;
+  1110→  onArtistClick: () => void;
+  1111→}
+  1112→
+  1113→function TrackRow({ track, index, isCurrent, isPlaying, isLiked, playlistId, onPlay, onLike, onRemove, onArtistClick }: TrackRowProps) {
+  1114→  // §F/§J: CSS-only hover (.mq-row) — no per-row hover state, no framer
+  1115→  // gestures on the row itself (press feedback via CSS :active).
+  1116→  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; show: boolean }>({ x: 0, y: 0, show: false });
+  1117→
+  1118→  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+  1119→    e.preventDefault();
+  1120→    e.stopPropagation();
+  1121→    setContextMenu({ x: e.clientX, y: e.clientY, show: true });
+  1122→  }, []);
+  1123→
+  1124→  const handleMoreClick = useCallback((e: React.MouseEvent) => {
+  1125→    e.stopPropagation();
+  1126→    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  1127→    setContextMenu({ x: rect.left, y: rect.bottom + 4, show: true });
+  1128→  }, []);
+  1129→
+  1130→  const closeContextMenu = useCallback(() => setContextMenu((p) => ({ ...p, show: false })), []);
+  1131→
+  1132→  return (
+  1133→    <>
+  1134→      <div
+  1135→        onClick={onPlay}
+  1136→        onContextMenu={handleContextMenu}
+  1137→        role="button"
+  1138→        tabIndex={0}
+  1139→        onKeyDown={(e) => {
+  1140→          if (e.key === "Enter" || e.key === " ") {
+  1141→            e.preventDefault();
+  1142→            onPlay();
+  1143→          }
+  1144→        }}
+  1145→        aria-label={`Слушать ${track.title} — ${track.artist}${isCurrent ? " (играет сейчас)" : ""}`}
+  1146→        className="mq-row group"
+  1147→        data-active={isCurrent || undefined}
+  1148→      >
+  1149→        {/* Index → play affordance on hover (CSS swap, no state) */}
+  1150→        <div className="w-7 flex-shrink-0 flex items-center justify-center">
+  1151→          {isCurrent ? (
+  1152→            <NowPlayingEqualizer size="sm" variant="inline" paused={!isPlaying} />
+  1153→          ) : (
+  1154→            <>
+  1155→              <span className="mq-t-num text-xs group-hover:hidden" style={{ color: "var(--mq-text-muted)", opacity: 0.65 }}>
+  1156→                {index}
+  1157→              </span>
+  1158→              <Play className="w-3.5 h-3.5 hidden group-hover:block" style={{ color: "var(--mq-text)" }} fill="currentColor" />
+  1159→            </>
+  1160→          )}
+  1161→        </div>
+  1162→
+  1163→        {/* Cover — 44px unified art */}
+  1164→        <div className="w-11 h-11 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art" style={{ backgroundColor: "var(--mq-surface-2)" }}>
+  1165→          {track.cover ? (
+  1166→            <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+  1167→          ) : (
+  1168→            <div className="w-full h-full flex items-center justify-center">
+  1169→              <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)", opacity: 0.45 }} />
+  1170→            </div>
+  1171→          )}
+  1172→        </div>
+  1173→
+  1174→        {/* Info */}
+  1175→        <div className="flex-1 min-w-0">
+  1176→          <p
+  1177→            className="text-sm font-semibold truncate"
+  1178→            style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)", letterSpacing: "-0.01em" }}
+  1179→            title={`${track.title} — ${track.artist}`}
+  1180→          >
+  1181→            {track.title}
+  1182→          </p>
+  1183→          <button
+  1184→            onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
+  1185→            className="mq-t-body block max-w-full text-left truncate hover:underline transition-colors"
+  1186→            style={{ color: "var(--mq-text-muted)" }}
+  1187→            title={track.artist}
+  1188→          >
+  1189→            {track.artist}
+  1190→          </button>
+  1191→        </div>
+  1192→
+  1193→        {/* Duration — v69: visible on ALL viewport sizes (was hidden <sm);
+  1194→            shrink-0 + nowrap so a long title can never push it out. */}
+  1195→        {track.duration > 0 && (
+  1196→          <span className="mq-t-num flex-shrink-0 whitespace-nowrap text-right w-[48px] sm:w-[68px]" style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}>
+  1197→            {formatDuration(track.duration)}
+  1198→          </span>
+  1199→        )}
+  1200→
+  1201→        {/* Actions — revealed on row hover (CSS) */}
+  1202→        <div className="flex items-center gap-0.5 flex-shrink-0">
+  1203→          <button
+  1204→            onClick={(e) => { e.stopPropagation(); onLike(); }}
+  1205→            className="w-8 h-8 rounded-full flex items-center justify-center transition-[background-color,color,opacity] duration-150 hover:bg-[var(--mq-overlay-hover)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
+  1206→            style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
+  1207→            aria-label={isLiked ? "Убрать из избранного" : "В избранное"}
+  1208→            aria-pressed={isLiked}
+  1209→          >
+  1210→            <Heart className="w-4 h-4" fill={isLiked ? "currentColor" : "none"} />
+  1211→          </button>
+  1212→          <button
+  1213→            onClick={(e) => { e.stopPropagation(); onRemove(); }}
+  1214→            className="w-8 h-8 rounded-full flex items-center justify-center transition-[background-color,color,opacity] duration-150 hover:bg-[var(--mq-overlay-hover)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
+  1215→            style={{ color: "var(--mq-text-muted)" }}
+  1216→            aria-label="Убрать из плейлиста"
+  1217→            title="Убрать из плейлиста"
+  1218→          >
+  1219→            <Trash2 className="w-3.5 h-3.5" />
+  1220→          </button>
+  1221→          <button
+  1222→            onClick={handleMoreClick}
+  1223→            className="w-8 h-8 rounded-full flex items-center justify-center transition-[background-color,color,opacity] duration-150 hover:bg-[var(--mq-overlay-hover)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
+  1224→            style={{ color: "var(--mq-text-muted)" }}
+  1225→            aria-label="Меню трека"
+  1226→          >
+  1227→            <MoreHorizontal className="w-4 h-4" />
+  1228→          </button>
+  1229→        </div>
+  1230→      </div>
+  1231→
+  1232→      {/* Context menu — v68 unified engine + playlist context (adds
+  1233→          "Убрать из плейлиста" as separated destructive action) */}
+  1234→      {contextMenu.show && (
+  1235→        <ContextMenu
+  1236→          track={track}
+  1237→          x={contextMenu.x}
+  1238→          y={contextMenu.y}
+  1239→          onClose={closeContextMenu}
+  1240→          context={{ kind: "playlist", playlistId, onRemove }}
+  1241→          bottomInset={96}
+  1242→        />
+  1243→      )}
+  1244→    </>
+  1245→  );
+  1246→}
+  1247→
+  1248→// ─── Tile (grid card) ────────────────────────────────────────────────────
+  1249→
+  1250→interface PlaylistTileProps {
+  1251→  playlist: UserPlaylist;
+  1252→  index: number;
+  1253→  pinned: boolean;
+  1254→  isCurrentPlaying: boolean;
+  1255→  coverUploading: boolean;
+  1256→  editing: boolean;
+  1257→  editName: string;
+  1258→  menuOpen: boolean;
+  1259→  animationsEnabled: boolean;
+  1260→  onOpen: () => void;
+  1261→  onPlay: (e: React.MouseEvent) => void;
+  1262→  onRenameStart: () => void;
+  1263→  onRenameChange: (v: string) => void;
+  1264→  onRenameConfirm: () => void;
+  1265→  onRenameCancel: () => void;
+  1266→  onDelete: () => void;
+  1267→  onTogglePin: () => void;
+  1268→  onToggleMenu: (e: React.MouseEvent) => void;
+  1269→  menuAnchor?: { x: number; y: number } | null;
+  1270→  onCoverUpload: (file: File) => void;
+  1271→  onCoverRemove: () => void;
+  1272→}
+  1273→
+  1274→function PlaylistTile({
+  1275→  playlist: pl, index, pinned, isCurrentPlaying, coverUploading, editing, editName, menuOpen,
+  1276→  menuAnchor, animationsEnabled,
+  1277→  onOpen, onPlay, onRenameStart, onRenameChange, onRenameConfirm, onRenameCancel,
+  1278→  onDelete, onTogglePin, onToggleMenu, onCoverUpload, onCoverRemove,
+  1279→}: PlaylistTileProps) {
+  1280→  const fileInputRef = useRef<HTMLInputElement>(null);
+  1281→  const totalDur = formatTotalDuration(pl.tracks);
+  1282→
+  1283→  const handleTileContextMenu = useCallback((e: React.MouseEvent) => {
+  1284→    e.preventDefault();
+  1285→    e.stopPropagation();
+  1286→    onToggleMenu(e);
+  1287→  }, [onToggleMenu]);
+  1288→
+  1289→  return (
+  1290→    <motion.div
+  1291→      initial={animationsEnabled ? { opacity: 0, y: 16 } : undefined}
+  1292→      animate={{ opacity: 1, y: 0 }}
+  1293→      transition={{ delay: Math.min(index * 0.04, 0.4), duration: 0.3 }}
+  1294→      /* §HOVER one-owner + no-delay: the gesture carries its OWN transition
+  1295→         so the entrance stagger delay (index*0.04, up to 0.4s) can NEVER
+  1296→         leak into the hover/tap response (the "second effect appears with
+  1297→         delay" bug). Framer owns transform; CSS owns colors. */
+  1298→      whileHover={{ y: -3, transition: { duration: 0.15, ease: "easeOut" } }}
+  1299→
+  1300→      onClick={onOpen}
+  1301→      onKeyDown={(e) => {
+  1302→        if (e.key === "Enter" || e.key === " ") {
+  1303→          e.preventDefault();
+  1304→          onOpen();
+  1305→        }
+  1306→      }}
+  1307→      onContextMenu={handleTileContextMenu}
+  1308→      role="button"
+  1309→      tabIndex={0}
+  1310→      aria-label={`Открыть плейлист ${pl.name}, ${pl.tracks.length} треков`}
+  1311→      className="group relative rounded-2xl p-3 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2"
+  1312→      style={{
+  1313→        backgroundColor: "var(--mq-card)",
+  1314→        border: "1px solid var(--mq-border-hairline)",
+  1315→        boxShadow: "var(--mq-shadow-premium-md)",
+  1316→      }}
+  1317→    >
+  1318→      {/* Cover */}
+  1319→      <div
+  1320→        className="relative aspect-square rounded-xl overflow-hidden mb-3 flex items-center justify-center"
+  1321→        style={pl.cover ? { backgroundColor: "transparent" } : { background: gradientCover(pl.name) }}
+  1322→      >
+  1323→        {pl.cover ? (
+  1324→          <img
+  1325→            src={pl.cover}
+  1326→            alt=""
+  1327→            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+  1328→            loading="lazy"
+  1329→          />
+  1330→        ) : (
+  1331→          <div className="flex flex-col items-center justify-center w-full h-full" style={patternStyle(pl.name)}>
+  1332→            <ListMusic className="w-9 h-9" style={{ color: "rgba(255,255,255,0.6)" }} />
+  1333→            <span className="mq-t-meta-2 font-medium mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+  1334→              {pl.tracks.length}
+  1335→            </span>
+  1336→          </div>
+  1337→        )}
+  1338→
+  1339→        {/* Cover upload overlay */}
+  1340→        <button
+  1341→          className="absolute inset-0 bg-black/60 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity flex items-center justify-center"
+  1342→          onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+  1343→        >
+  1344→          {coverUploading ? (
+  1345→            <Loader2 className="w-5 h-5 animate-spin text-white" />
+  1346→          ) : (
+  1347→            <Camera className="w-5 h-5 text-white" />
+  1348→          )}
+  1349→        </button>
+  1350→
+  1351→        {/* Play button on hover */}
+  1352→        {pl.tracks.length > 0 && (
+  1353→          <motion.button
+  1354→            initial={{ opacity: 0, scale: 0.8 }}
+  1355→            whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+  1356→
+  1357→            onClick={onPlay}
+  1358→            className="absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity duration-300"
+  1359→            style={{
+  1360→              backgroundColor: "var(--mq-accent)",
+  1361→              boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
+  1362→            }}
+  1363→          >
+  1364→            {isCurrentPlaying ? (
+  1365→              <NowPlayingEqualizer size="sm" variant="overlay" />
+  1366→            ) : (
+  1367→              <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
+  1368→            )}
+  1369→          </motion.button>
+  1370→        )}
+  1371→
+  1372→        {/* Pinned indicator */}
+  1373→        {pinned && (
+  1374→          <div
+  1375→            className="absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center"
+  1376→            style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)" }}
+  1377→          >
+  1378→            <Pin className="w-3 h-3" style={{ color: "var(--mq-accent)" }} fill="currentColor" />
+  1379→          </div>
+  1380→        )}
+  1381→
+  1382→        {/* More menu trigger */}
+  1383→        <button
+  1384→          onClick={onToggleMenu}
+  1385→          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity z-10"
+  1386→          style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)" }}
+  1387→        >
+  1388→          <MoreVertical className="w-3.5 h-3.5 text-white" />
+  1389→        </button>
+  1390→
+  1391→        {/* Context menu — uses fixed positioning + portal to avoid overflow clipping */}
+  1392→        <AnimatePresence>
+  1393→          {menuOpen && (
+  1394→            <PlaylistContextMenu
+  1395→              playlist={pl}
+  1396→              pinned={pinned}
+  1397→              anchor={menuAnchor}
+  1398→              onClose={() => onToggleMenu({ stopPropagation: () => {} } as React.MouseEvent)}
+  1399→              onTogglePin={onTogglePin}
+  1400→              onRenameStart={onRenameStart}
+  1401→              onCoverUpload={() => fileInputRef.current?.click()}
+  1402→              onShare={() => {
+  1403→                navigator.clipboard?.writeText(`${window.location.origin}/play?pl=${pl.id}`).catch(() => {});
+  1404→              }}
+  1405→              onDelete={onDelete}
+  1406→            />
+  1407→          )}
+  1408→        </AnimatePresence>
+  1409→
+  1410→        <input
+  1411→          ref={fileInputRef}
+  1412→          type="file"
+  1413→          accept="image/jpeg,image/png,image/webp"
+  1414→          className="hidden"
+  1415→          onChange={(e) => {
+  1416→            const f = e.target.files?.[0];
+  1417→            if (f) onCoverUpload(f);
+  1418→            e.target.value = "";
+  1419→          }}
+  1420→        />
+  1421→      </div>
+  1422→
+  1423→      {/* Title / meta */}
+  1424→      {editing ? (
+  1425→        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+  1426→          <input
+  1427→            value={editName}
+  1428→            onChange={(e) => onRenameChange(e.target.value)}
+  1429→            className="flex-1 text-sm rounded-lg px-1.5 py-0.5 min-w-0 outline-none"
+  1430→            style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-accent)", color: "var(--mq-text)" }}
+  1431→            onKeyDown={(e) => {
+  1432→              if (e.key === "Enter") onRenameConfirm();
+  1433→              if (e.key === "Escape") onRenameCancel();
+  1434→            }}
+  1435→            autoFocus
+  1436→          />
+  1437→          <button onClick={onRenameConfirm} style={{ color: "var(--mq-accent)" }}>
+  1438→            <Check className="w-3.5 h-3.5" />
+  1439→          </button>
+  1440→        </div>
+  1441→      ) : (
+  1442→        <>
+  1443→          <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }} title={pl.name}>
+  1444→            {pl.name}
+  1445→          </p>
+  1446→          <div className="flex items-center gap-2 mt-1">
+  1447→            <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
+  1448→              {pl.tracks.length} треков
+  1449→            </span>
+  1450→            {totalDur && (
+  1451→              <span className="mq-t-meta-2 flex items-center gap-0.5" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+  1452→                <Clock className="w-2.5 h-2.5" />
+  1453→                {totalDur}
+  1454→              </span>
+  1455→            )}
+  1456→          </div>
+  1457→        </>
+  1458→      )}
+  1459→    </motion.div>
+  1460→  );
+  1461→}
+  1462→
+  1463→// ─── small UI helpers ────────────────────────────────────────────────────
+  1464→
+  1465→function MenuItem({ icon: Icon, label, onClick, danger }: { icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; label: string; onClick: () => void; danger?: boolean }) {
+  1466→  return (
+  1467→    <button
+  1468→      onClick={onClick}
+  1469→      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-white/5"
+  1470→      style={{ color: danger ? "#ef4444" : "var(--mq-text)" }}
+  1471→    >
+  1472→      <Icon className="w-3.5 h-3.5" />
+  1473→      {label}
+  1474→    </button>
+  1475→  );
+  1476→}
+  1477→
+  1478→function pluralRu(n: number, one: string, few: string, many: string): string {
+  1479→  const mod10 = n % 10;
+  1480→  const mod100 = n % 100;
+  1481→  if (mod10 === 1 && mod100 !== 11) return one;
+  1482→  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+  1483→  return many;
+  1484→}
+  1485→
+  1486→// ═════════════════════════════════════════════════════════════════════════
+  1487→// PLAYLIST CONTEXT MENU — v68: thin wrapper over the unified engine
+  1488→// (PlaylistActionsMenu). Same call-site API (anchor / pin / rename / cover /
+  1489→// share / delete), new premium internals: portal, keyboard nav, Escape,
+  1490→// click-outside, auto-flip, mobile bottom-sheet, destructive separation.
+  1491→// ═════════════════════════════════════════════════════════════════════════
+  1492→
+  1493→function PlaylistContextMenu({
+  1494→  playlist: pl, pinned, anchor, onClose, onTogglePin, onRenameStart, onCoverUpload, onShare, onDelete,
+  1495→}: {
+  1496→  playlist: UserPlaylist;
+  1497→  pinned: boolean;
+  1498→  anchor?: { x: number; y: number } | null;
+  1499→  onClose: () => void;
+  1500→  onTogglePin: () => void;
+  1501→  onRenameStart: () => void;
+  1502→  onCoverUpload: () => void;
+  1503→  onShare: () => void;
+  1504→  onDelete: () => void;
+  1505→}) {
+  1506→  return (
+  1507→    <PlaylistActionsMenu
+  1508→      playlist={pl}
+  1509→      x={anchor?.x ?? window.innerWidth - 240}
+  1510→      y={anchor?.y ?? 100}
+  1511→      onClose={onClose}
+  1512→      side="below"
+  1513→      pinned={pinned}
+  1514→      onTogglePin={onTogglePin}
+  1515→      onRenameStart={onRenameStart}
+  1516→      onCoverUpload={onCoverUpload}
+  1517→      onDelete={onDelete}
+  1518→      shareUrl={`${window.location.origin}/play?pl=${pl.id}`}
+  1519→    />
+  1520→  );
+  1521→}
+  1522→
+  1523→

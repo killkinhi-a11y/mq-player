@@ -1,0 +1,1377 @@
+     1→"use client";
+     2→
+     3→import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
+     4→import { useAppStore } from "@/store/useAppStore";
+     5→import { canPollProtected } from "@/lib/authGate";
+     6→import { motion, AnimatePresence } from "framer-motion";
+     7→import {
+     8→  User, Camera, Edit3, Check, X, LogOut, Heart, MessageCircle, Music,
+     9→  Loader2, AlertCircle, EyeOff, Eye, Clock, Users, Settings, Shield,
+    10→  Headphones, TrendingUp, Calendar, BarChart3, Disc3,
+    11→} from "lucide-react";
+    12→import ScrollReveal from "./ScrollReveal";
+    13→import { LiquidGlassToggle } from "@/components/ui/liquid-glass-toggle";
+    14→import { formatDuration, type Track } from "@/lib/musicApi";
+    15→import ContextMenu from "./ContextMenu";
+    16→import { TrackMoreButton } from "./ui/TrackMoreButton";
+    17→
+    18→const USERNAME_RULES = "Буквы, цифры, _ и -. 2-20 символов.";
+    19→
+    20→const ProfileView = React.memo(function ProfileView() {
+    21→  const username = useAppStore((s) => s.username);
+    22→  const telegramUsername = useAppStore((s) => s.telegramUsername);
+    23→  const email = useAppStore((s) => s.email);
+    24→  const avatar = useAppStore((s) => s.avatar);
+    25→  const likedTrackIds = useAppStore((s) => s.likedTrackIds);
+    26→  const dislikedTrackIds = useAppStore((s) => s.dislikedTrackIds);
+    27→  const messages = useAppStore((s) => s.messages);
+    28→  const setView = useAppStore((s) => s.setView);
+    29→  const logout = useAppStore((s) => s.logout);
+    30→  const userId = useAppStore((s) => s.userId);
+    31→  const compactMode = useAppStore((s) => s.compactMode);
+    32→  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+    33→  const history = useAppStore((s) => s.history);
+    34→  const contacts = useAppStore((s) => s.contacts);
+    35→  const playlists = useAppStore((s) => s.playlists);
+    36→  const favoriteArtists = useAppStore((s) => s.favoriteArtists);
+    37→  const tasteGenres = useAppStore((s) => s.tasteGenres);
+    38→  const tasteArtists = useAppStore((s) => s.tasteArtists);
+    39→  const currentTrack = useAppStore((s) => s.currentTrack);
+    40→  const lastSyncAt = useAppStore((s) => s.lastSyncAt);
+    41→  const userRole = useAppStore((s) => s.userRole);
+    42→  const unreadCounts = useAppStore((s) => s.unreadCounts);
+    43→  const supportUnreadCount = useAppStore((s) => s.supportUnreadCount);
+    44→  const safeLiked = Array.isArray(likedTrackIds) ? likedTrackIds : [];
+    45→  const safeDisliked = Array.isArray(dislikedTrackIds) ? dislikedTrackIds : [];
+    46→  const safeMessages = Array.isArray(messages) ? messages : [];
+    47→  const safeContacts = Array.isArray(contacts) ? contacts : [];
+    48→
+    49→  const fileInputRef = useRef<HTMLInputElement>(null);
+    50→  const [isEditingName, setIsEditingName] = useState(false);
+    51→  const [editName, setEditName] = useState(username || "");
+    52→  const [usernameStatus, setUsernameStatus] = useState<{ available: boolean; error?: string } | null>(null);
+    53→  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+    54→  const [isSavingUsername, setIsSavingUsername] = useState(false);
+    55→
+    56→  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
+    57→  const [avatarError, setAvatarError] = useState<string | null>(null);
+    58→  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    59→
+    60→  // ── Computed stats ──
+    61→  const stats = useMemo(() => {
+    62→    const totalDurationSec = history.reduce((sum, h) => sum + (h.track.duration || 0), 0);
+    63→    const hours = Math.floor(totalDurationSec / 3600);
+    64→    const minutes = Math.floor((totalDurationSec % 3600) / 60);
+    65→    const uniqueConversations = new Set(safeMessages.map((m: any) =>
+    66→      m.senderId === userId ? m.receiverId : m.senderId
+    67→    )).size;
+    68→
+    69→    // Compute total tracks played
+    70→    const totalTracksPlayed = history.length;
+    71→
+    72→    // Compute favorite genre from taste profile
+    73→    const genreEntries = Object.entries(tasteGenres || {});
+    74→    let topGenre = "—";
+    75→    if (genreEntries.length > 0) {
+    76→      genreEntries.sort((a, b) => b[1] - a[1]);
+    77→      topGenre = genreEntries[0][0];
+    78→    }
+    79→
+    80→    return {
+    81→      likedCount: safeLiked.length,
+    82→      conversationsCount: uniqueConversations,
+    83→      listeningTime: totalDurationSec > 0
+    84→        ? hours > 0 ? `${hours} ч ${minutes} мин` : `${minutes} мин`
+    85→        : "0 мин",
+    86→      friendsCount: safeContacts.length,
+    87→      totalTracksPlayed,
+    88→      hoursListened: hours > 0 ? hours : Math.max(0, Math.round(totalDurationSec / 3600 * 10) / 10),
+    89→      topGenre,
+    90→    };
+    91→  }, [history, safeLiked, safeMessages, safeContacts, userId, tasteGenres]);
+    92→
+    93→  // ── Listening activity chart (past 7 days) ──
+    94→  const listeningActivity = useMemo(() => {
+    95→    const days = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+    96→    const now = new Date();
+    97→    const result: { day: string; count: number; date: Date }[] = [];
+    98→
+    99→    for (let i = 6; i >= 0; i--) {
+   100→      const d = new Date(now);
+   101→      d.setDate(d.getDate() - i);
+   102→      d.setHours(23, 59, 59, 999);
+   103→      const endOfDay = d.getTime();
+   104→      const startOfDay = new Date(d);
+   105→      startOfDay.setHours(0, 0, 0, 0);
+   106→      const startMs = startOfDay.getTime();
+   107→
+   108→      const count = history.filter((h) => {
+   109→        const t = h.playedAt;
+   110→        return t >= startMs && t <= endOfDay;
+   111→      }).length;
+   112→
+   113→      result.push({
+   114→        day: days[d.getDay()],
+   115→        count,
+   116→        date: new Date(startMs),
+   117→      });
+   118→    }
+   119→    return result;
+   120→  }, [history]);
+   121→
+   122→  const maxActivity = useMemo(() => {
+   123→    const m = Math.max(...listeningActivity.map((d) => d.count), 1);
+   124→    return m;
+   125→  }, [listeningActivity]);
+   126→
+   127→  // ── Top artists from history ──
+   128→  const topArtists = useMemo(() => {
+   129→    const artistCount: Record<string, { count: number; cover: string }> = {};
+   130→    for (const h of history) {
+   131→      const a = h.track.artist || "Unknown";
+   132→      if (!artistCount[a]) artistCount[a] = { count: 0, cover: h.track.cover || "" };
+   133→      artistCount[a].count += 1;
+   134→      // Keep latest cover
+   135→      if (h.track.cover) artistCount[a].cover = h.track.cover;
+   136→    }
+   137→    return Object.entries(artistCount)
+   138→      .sort((a, b) => b[1].count - a[1].count)
+   139→      .slice(0, 6)
+   140→      .map(([name, data]) => ({ name, count: data.count, cover: data.cover }));
+   141→  }, [history]);
+   142→
+   143→  // ── Achievements — P2: gamification badges ──
+   144→  const achievements = useMemo(() => {
+   145→    const totalTracks = history.length;
+   146→    const totalLikes = Array.isArray(likedTrackIds) ? likedTrackIds.length : 0;
+   147→    const totalFriends = Array.isArray(contacts) ? contacts.length : 0;
+   148→    const totalPlaylists = Array.isArray(playlists) ? playlists.length : 0;
+   149→    const totalDurationSec = history.reduce((sum, h) => sum + (h.track.duration || 0), 0);
+   150→    const hoursListened = Math.floor(totalDurationSec / 3600);
+   151→
+   152→    return [
+   153→      { id: "first-listen", icon: "🎵", title: "Первый трек", desc: "Слушайте первый трек", unlocked: totalTracks >= 1, progress: Math.min(100, totalTracks * 100) },
+   154→      { id: "ten-tracks", icon: "🎶", title: "Меломан", desc: "10 треков", unlocked: totalTracks >= 10, progress: Math.min(100, (totalTracks / 10) * 100) },
+   155→      { id: "fifty-tracks", icon: "🎧", title: "Меломан 50", desc: "50 треков", unlocked: totalTracks >= 50, progress: Math.min(100, (totalTracks / 50) * 100) },
+   156→      { id: "hundred-tracks", icon: "🏆", title: "Сотня", desc: "100 треков", unlocked: totalTracks >= 100, progress: Math.min(100, (totalTracks / 100) * 100) },
+   157→      { id: "first-like", icon: "❤️", title: "Сердцеед", desc: "Первый лайк", unlocked: totalLikes >= 1, progress: Math.min(100, totalLikes * 100) },
+   158→      { id: "ten-likes", icon: "💖", title: "Любитель", desc: "10 лайков", unlocked: totalLikes >= 10, progress: Math.min(100, (totalLikes / 10) * 100) },
+   159→      { id: "first-friend", icon: "👋", title: "Друг", desc: "Добавьте друга", unlocked: totalFriends >= 1, progress: Math.min(100, totalFriends * 100) },
+   160→      { id: "first-playlist", icon: "📋", title: "Куратор", desc: "Создайте плейлист", unlocked: totalPlaylists >= 1, progress: Math.min(100, totalPlaylists * 100) },
+   161→      { id: "hour-listened", icon: "⏰", title: "Час музыки", desc: "1 час", unlocked: hoursListened >= 1, progress: Math.min(100, hoursListened * 100) },
+   162→      { id: "ten-hours", icon: "🌙", title: "Сова", desc: "10 часов", unlocked: hoursListened >= 10, progress: Math.min(100, (hoursListened / 10) * 100) },
+   163→    ];
+   164→  }, [history, likedTrackIds, contacts, playlists]);
+   165→
+   166→  // ── Listening heatmap — 7 days × 24 hours — P2: visual listening pattern ──
+   167→  const listeningHeatmap = useMemo(() => {
+   168→    const days = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+   169→    const grid: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
+   170→    const now = new Date();
+   171→    const weekAgo = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+   172→
+   173→    for (const h of history) {
+   174→      if (h.playedAt < weekAgo) continue;
+   175→      const d = new Date(h.playedAt);
+   176→      const dayIdx = (d.getDay() + 6) % 7; // Monday = 0
+   177→      const hourIdx = d.getHours();
+   178→      grid[dayIdx][hourIdx]++;
+   179→    }
+   180→
+   181→    const maxVal = Math.max(...grid.flat(), 1);
+   182→    return { grid, days, maxVal };
+   183→  }, [history]);
+   184→
+   185→  // ── Peak listening hour + day — P2: insights ──
+   186→  const listeningInsights = useMemo(() => {
+   187→    const { grid, days } = listeningHeatmap;
+   188→    let peakHour = 0, peakHourCount = 0;
+   189→    let peakDay = 0, peakDayCount = 0;
+   190→    const hourTotals = Array(24).fill(0);
+   191→
+   192→    for (let d = 0; d < 7; d++) {
+   193→      let dayCount = 0;
+   194→      for (let h = 0; h < 24; h++) {
+   195→        hourTotals[h] += grid[d][h];
+   196→        dayCount += grid[d][h];
+   197→      }
+   198→      if (dayCount > peakDayCount) {
+   199→        peakDayCount = dayCount;
+   200→        peakDay = d;
+   201→      }
+   202→    }
+   203→
+   204→    for (let h = 0; h < 24; h++) {
+   205→      if (hourTotals[h] > peakHourCount) {
+   206→        peakHourCount = hourTotals[h];
+   207→        peakHour = h;
+   208→      }
+   209→    }
+   210→
+   211→    const formatHour = (h: number) => {
+   212→      if (h === 0) return "00:00";
+   213→      if (h < 6) return "Ночь";
+   214→      if (h < 12) return "Утро";
+   215→      if (h < 18) return "День";
+   216→      return "Вечер";
+   217→    };
+   218→
+   219→    return {
+   220→      peakHour,
+   221→      peakHourLabel: `${peakHour}:00`,
+   222→      peakHourPeriod: formatHour(peakHour),
+   223→      peakDay: days[peakDay],
+   224→      peakDayCount,
+   225→    };
+   226→  }, [listeningHeatmap]);
+   227→
+   228→  // ── Recent tracks (last 5) ──
+   229→  const recentTracks = useMemo(() => {
+   230→    return history.slice(0, 5).map((h) => ({
+   231→      track: h.track,
+   232→      playedAt: h.playedAt,
+   233→    }));
+   234→  }, [history]);
+   235→
+   236→  // ── Taste profile data (top genres + artists with frequency) ──
+   237→  const tasteProfileGenres = useMemo(() => {
+   238→    const entries = Object.entries(tasteGenres || {})
+   239→      .sort((a, b) => b[1] - a[1])
+   240→      .slice(0, 6);
+   241→    const maxVal = entries.length > 0 ? entries[0][1] : 1;
+   242→    return entries.map(([genre, level]) => ({
+   243→      genre,
+   244→      level,
+   245→      width: Math.max(8, (level / maxVal) * 100),
+   246→    }));
+   247→  }, [tasteGenres]);
+   248→
+   249→  const tasteProfileArtists = useMemo(() => {
+   250→    const entries = Object.entries(tasteArtists || {})
+   251→      .sort((a, b) => b[1] - a[1])
+   252→      .slice(0, 5);
+   253→    const maxVal = entries.length > 0 ? entries[0][1] : 1;
+   254→    return entries.map(([artist, level]) => ({
+   255→      artist,
+   256→      level,
+   257→      width: Math.max(8, (level / maxVal) * 100),
+   258→    }));
+   259→  }, [tasteArtists]);
+   260→
+   261→  // ── Member since (use lastSyncAt as approximate account date, or oldest history) ──
+   262→  const memberSince = useMemo(() => {
+   263→    // Try fetching from server-side user data
+   264→    // Use lastSyncAt or oldest history entry as approximation
+   265→    if (lastSyncAt) {
+   266→      const d = new Date(lastSyncAt);
+   267→      if (!isNaN(d.getTime())) {
+   268→        return d.toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+   269→      }
+   270→    }
+   271→    // Fallback: use oldest history entry
+   272→    if (history.length > 0) {
+   273→      const oldest = history[history.length - 1];
+   274→      if (oldest?.playedAt) {
+   275→        const d = new Date(oldest.playedAt);
+   276→        if (!isNaN(d.getTime())) {
+   277→          return d.toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+   278→        }
+   279→      }
+   280→    }
+   281→    return "Недавно";
+   282→  }, [lastSyncAt, history]);
+   283→
+   284→  // Fetch account creation date from server
+   285→  const [accountCreated, setAccountCreated] = useState<string | null>(null);
+   286→  useEffect(() => {
+   287→    // Phase 2C: gated — demo profile is local-only (no 401 on view open).
+   288→    if (!userId) return;
+   289→    if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) return;
+   290→    fetch("/api/user/profile")
+   291→      .then(r => r.ok ? r.json() : null)
+   292→      .then(data => {
+   293→        if (data?.createdAt) {
+   294→          const d = new Date(data.createdAt);
+   295→          if (!isNaN(d.getTime())) {
+   296→            setAccountCreated(d.toLocaleDateString("ru-RU", { month: "long", year: "numeric" }));
+   297→          }
+   298→        }
+   299→      })
+   300→      .catch(() => {});
+   301→  }, [userId]);
+   302→
+   303→  // ── Format time ago ──
+   304→  const formatTimeAgo = useCallback((timestamp: number) => {
+   305→    const now = Date.now();
+   306→    const diffMs = now - timestamp;
+   307→    const diffMin = Math.floor(diffMs / 60000);
+   308→    if (diffMin < 1) return "Сейчас";
+   309→    if (diffMin < 60) return `${diffMin} мин назад`;
+   310→    const diffH = Math.floor(diffMin / 60);
+   311→    if (diffH < 24) return `${diffH} ч назад`;
+   312→    const diffD = Math.floor(diffH / 24);
+   313→    if (diffD < 7) return `${diffD} дн. назад`;
+   314→    return new Date(timestamp).toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+   315→  }, []);
+   316→
+   317→  // Invisible mode state (shared with MessengerView via localStorage)
+   318→  const [hideOnline, setHideOnline] = useState(() => {
+   319→    if (typeof window !== "undefined") {
+   320→      try { return JSON.parse(localStorage.getItem("mq-hide-online") || "false"); } catch { return false; }
+   321→    }
+   322→    return false;
+   323→  });
+   324→  const [trackMenu, setTrackMenu] = useState<{ track: Track; x: number; y: number } | null>(null);
+   325→
+   326→  const toggleHideOnline = useCallback(() => {
+   327→    const newVal = !hideOnline;
+   328→    setHideOnline(newVal);
+   329→    try { localStorage.setItem("mq-hide-online", JSON.stringify(newVal)); } catch { /* */ }
+   330→    window.dispatchEvent(new StorageEvent("storage", { key: "mq-hide-online", newValue: JSON.stringify(newVal) }));
+   331→  }, [hideOnline]);
+   332→
+   333→  useEffect(() => {
+   334→    const handler = (e: StorageEvent) => {
+   335→      if (e.key === "mq-hide-online" && e.newValue !== null) {
+   336→        try { setHideOnline(JSON.parse(e.newValue)); } catch { /* */ }
+   337→      }
+   338→    };
+   339→    window.addEventListener("storage", handler);
+   340→    return () => window.removeEventListener("storage", handler);
+   341→  }, []);
+   342→
+   343→  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+   344→    const file = e.target.files?.[0];
+   345→    if (!file) return;
+   346→    setAvatarError(null);
+   347→    if (file.size > 2 * 1024 * 1024) {
+   348→      setAvatarError("Файл слишком большой (макс. 2 МБ)");
+   349→      return;
+   350→    }
+   351→
+   352→    const reader = new FileReader();
+   353→    reader.onload = (ev) => {
+   354→      const result = ev.target?.result as string;
+   355→      const img = new Image();
+   356→      img.onload = () => {
+   357→        const canvas = document.createElement("canvas");
+   358→        const size = 200;
+   359→        canvas.width = size;
+   360→        canvas.height = size;
+   361→        const ctx = canvas.getContext("2d");
+   362→        if (!ctx) return;
+   363→
+   364→        const minDim = Math.min(img.width, img.height);
+   365→        const sx = (img.width - minDim) / 2;
+   366→        const sy = (img.height - minDim) / 2;
+   367→        ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
+   368→
+   369→        const resized = canvas.toDataURL("image/jpeg", 0.8);
+   370→        const previousAvatar = useAppStore.getState().avatar;
+   371→        useAppStore.setState({ avatar: resized });
+   372→        const uid = useAppStore.getState().userId;
+   373→        if (uid) {
+   374→          setIsSavingAvatar(true);
+   375→          fetch("/api/user/avatar", {
+   376→            method: "POST",
+   377→            headers: { "Content-Type": "application/json" },
+   378→            body: JSON.stringify({ avatar: resized }),
+   379→          })
+   380→            .then(async (r) => {
+   381→              const data = await r.json();
+   382→              if (!r.ok) {
+   383→                setAvatarError(data.error || "Ошибка загрузки аватара");
+   384→                useAppStore.setState({ avatar: previousAvatar });
+   385→              }
+   386→            })
+   387→            .catch(() => {
+   388→              setAvatarError("Ошибка загрузки аватара");
+   389→              useAppStore.setState({ avatar: previousAvatar });
+   390→            })
+   391→            .finally(() => setIsSavingAvatar(false));
+   392→        }
+   393→      };
+   394→      img.src = result;
+   395→    };
+   396→    reader.readAsDataURL(file);
+   397→  };
+   398→
+   399→  const validateUsername = useCallback((name: string): string | null => {
+   400→    if (name.length < 2) return "Минимум 2 символа";
+   401→    if (name.length > 20) return "Максимум 20 символов";
+   402→    if (!/^[a-zA-Z0-9_-]+$/.test(name)) return "Только буквы, цифры, _ и -";
+   403→    const reserved = ["admin", "administrator", "moderator", "support", "help", "system", "mq", "mqplayer", "root", "null", "undefined"];
+   404→    if (reserved.includes(name.toLowerCase())) return "Это имя зарезервировано";
+   405→    return null;
+   406→  }, []);
+   407→
+   408→  const checkUsernameTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+   409→
+   410→  const handleEditNameChange = useCallback((value: string) => {
+   411→    setEditName(value);
+   412→    setUsernameStatus(null);
+   413→    if (checkUsernameTimeout.current) clearTimeout(checkUsernameTimeout.current);
+   414→    const localError = validateUsername(value);
+   415→    if (localError) {
+   416→      setUsernameStatus({ available: false, error: localError });
+   417→      return;
+   418→    }
+   419→    if (value === username) {
+   420→      setUsernameStatus(null);
+   421→      return;
+   422→    }
+   423→    checkUsernameTimeout.current = setTimeout(async () => {
+   424→      setIsCheckingUsername(true);
+   425→      try {
+   426→        const excludeParam = userId ? `&excludeId=${userId}` : "";
+   427→        const res = await fetch(`/api/auth/username-check?username=${encodeURIComponent(value)}${excludeParam}`);
+   428→        const data = await res.json();
+   429→        setUsernameStatus({ available: data.available, error: data.error });
+   430→      } catch {
+   431→        setUsernameStatus(null);
+   432→      } finally {
+   433→        setIsCheckingUsername(false);
+   434→      }
+   435→    }, 500);
+   436→  }, [username, userId, validateUsername]);
+   437→
+   438→  const handleSaveName = useCallback(async () => {
+   439→    if (!editName.trim() || editName === username) {
+   440→      setIsEditingName(false);
+   441→      setUsernameStatus(null);
+   442→      return;
+   443→    }
+   444→    const localError = validateUsername(editName);
+   445→    if (localError) return;
+   446→    setIsSavingUsername(true);
+   447→    try {
+   448→      const res = await fetch("/api/auth/update-username", {
+   449→        method: "POST",
+   450→        headers: { "Content-Type": "application/json" },
+   451→        body: JSON.stringify({ username: editName }),
+   452→      });
+   453→      const data = await res.json();
+   454→      if (res.ok) {
+   455→        useAppStore.setState({ username: editName });
+   456→        setIsEditingName(false);
+   457→        setUsernameStatus(null);
+   458→      } else {
+   459→        setUsernameStatus({ available: false, error: data.error || "Ошибка сохранения" });
+   460→      }
+   461→    } catch {
+   462→      setUsernameStatus({ available: false, error: "Ошибка подключения" });
+   463→    } finally {
+   464→      setIsSavingUsername(false);
+   465→    }
+   466→  }, [editName, username, userId, validateUsername]);
+   467→
+   468→  const handleCancelEditName = () => {
+   469→    setEditName(username || "");
+   470→    setIsEditingName(false);
+   471→    setUsernameStatus(null);
+   472→  };
+   473→
+   474→  return (
+   475→    <div className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28 space-y-4"} max-w-[var(--mq-container-narrow)] mx-auto mq-anim-fade-in`} style={{ scrollBehavior: "smooth" }}>
+   476→
+   477→      {/* ════════════════════════════════════════════
+   478→          Profile Header — gradient + larger avatar + edit overlay + member since
+   479→          ════════════════════════════════════════════ */}
+   480→      <ScrollReveal direction="up" delay={0.05}>
+   481→        <motion.div
+   482→          initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
+   483→          animate={{ opacity: 1, y: 0 }}
+   484→          transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+   485→          className="relative overflow-hidden rounded-[var(--mq-r-card)]"
+   486→          style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
+   487→        >
+   488→          {/* Phase 4B: gradient banner removed — the avatar IS the identity. */}
+   489→
+   490→          <div className="relative flex flex-col items-center pt-8 pb-6 px-6">
+   491→            {/* Larger avatar with edit overlay */}
+   492→            <motion.div
+   493→              className="relative group"
+   494→              whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} }
+   495→            >
+   496→              <div
+   497→                className="w-28 h-28 rounded-full overflow-hidden flex items-center justify-center"
+   498→                style={{
+   499→                  backgroundColor: avatar ? "transparent" : "var(--mq-surface-2)",
+   500→                  boxShadow: "0 0 0 1px var(--mq-edge-strong), var(--mq-art-shadow)",
+   501→                }}
+   502→              >
+   503→                {avatar ? (
+   504→                  <img src={avatar} alt="Avatar" className="w-full h-full object-cover" draggable={false} />
+   505→                ) : (
+   506→                  <User className="w-14 h-14" style={{ color: "var(--mq-text-muted)" }} />
+   507→                )}
+   508→              </div>
+   509→              {/* Edit overlay — desktop hover affordance (touch uses the badge below) */}
+   510→              <button
+   511→                onClick={() => fileInputRef.current?.click()}
+   512→                className="absolute inset-0 rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+   513→                style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+   514→              >
+   515→                {isSavingAvatar ? (
+   516→                  <Loader2 className="w-6 h-6 animate-spin" style={{ color: "white" }} />
+   517→                ) : (
+   518→                  <>
+   519→                    <Camera className="w-6 h-6" style={{ color: "white" }} />
+   520→                    <span className="mq-t-meta-2 mt-1 font-semibold" style={{ color: "white" }}>Изменить</span>
+   521→                  </>
+   522→                )}
+   523→              </button>
+   524→              {/* v72 mobile: group-hover never fires on touch — compact
+   525→                  always-visible camera badge instead (see .mq-avatar-edit-badge) */}
+   526→              <button
+   527→                onClick={() => fileInputRef.current?.click()}
+   528→                className="mq-avatar-edit-badge"
+   529→                aria-label="Изменить аватар"
+   530→              >
+   531→                <Camera className="w-4 h-4" />
+   532→              </button>
+   533→              <input
+   534→                ref={fileInputRef}
+   535→                type="file"
+   536→                accept="image/*"
+   537→                onChange={handleAvatarChange}
+   538→                className="hidden"
+   539→              />
+   540→            </motion.div>
+   541→
+   542→            {/* Avatar error message */}
+   543→            {avatarError && (
+   544→              <div className="mt-2 px-3 py-1.5 rounded-lg flex items-center gap-1.5" style={{ backgroundColor: "rgba(239,68,68,0.08)" }}>
+   545→                <AlertCircle className="w-3 h-3 flex-shrink-0" style={{ color: "#ef4444" }} />
+   546→                <p className="text-xs" style={{ color: "#ef4444" }}>{avatarError}</p>
+   547→              </div>
+   548→            )}
+   549→
+   550→            {/* Username edit area */}
+   551→            <div className="mt-4 text-center">
+   552→              {!isEditingName ? (
+   553→                <div className="flex items-center justify-center gap-2">
+   554→                  <h2 className="mq-t-display text-[23px]" style={{ color: "var(--mq-text)" }}>
+   555→                    @{username || "User"}
+   556→                  </h2>
+   557→                  <button
+   558→                    onClick={() => { setEditName(username || ""); setIsEditingName(true); }}
+   559→                    className="p-1.5 rounded-lg transition-colors hover:bg-white/5"
+   560→                    style={{ color: "var(--mq-accent)" }}
+   561→                    title="Изменить имя"
+   562→                  >
+   563→                    <Edit3 className="w-3.5 h-3.5" />
+   564→                  </button>
+   565→                </div>
+   566→              ) : (
+   567→                <div className="space-y-2 max-w-xs mx-auto">
+   568→                  <div className="flex items-center gap-2">
+   569→                    <div
+   570→                      className="flex-1 flex items-center rounded-xl px-3 py-2"
+   571→                      style={{
+   572→                        backgroundColor: "var(--mq-input-bg)",
+   573→                        border: `1px solid ${usernameStatus && !usernameStatus.available ? "rgba(239,68,68,0.5)" : "var(--mq-border)"}`,
+   574→                      }}
+   575→                    >
+   576→                      <span style={{ color: "var(--mq-text-muted)" }}>@</span>
+   577→                      <input
+   578→                        value={editName}
+   579→                        onChange={(e) => handleEditNameChange(e.target.value)}
+   580→                        onKeyDown={(e) => {
+   581→                          if (e.key === "Enter" && usernameStatus?.available !== false) handleSaveName();
+   582→                          if (e.key === "Escape") handleCancelEditName();
+   583→                        }}
+   584→                        className="flex-1 bg-transparent outline-none text-sm ml-1"
+   585→                        style={{ color: "var(--mq-text)" }}
+   586→                        maxLength={20}
+   587→                        autoFocus
+   588→                        autoComplete="off"
+   589→                      />
+   590→                      {isCheckingUsername && (
+   591→                        <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
+   592→                      )}
+   593→                    </div>
+   594→                    <button
+   595→                      onClick={handleSaveName}
+   596→                      disabled={isSavingUsername || (usernameStatus !== null && !usernameStatus.available)}
+   597→                      className="p-2 rounded-lg"
+   598→                      style={{
+   599→                        color: (usernameStatus === null || usernameStatus.available) && !isSavingUsername ? "#4ade80" : "var(--mq-text-muted)",
+   600→                        opacity: (usernameStatus === null || usernameStatus.available) && !isSavingUsername ? 1 : 0.5,
+   601→                      }}
+   602→                    >
+   603→                      {isSavingUsername ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+   604→                    </button>
+   605→                    <button onClick={handleCancelEditName} className="p-2 rounded-lg" style={{ color: "var(--mq-text-muted)" }}>
+   606→                      <X className="w-4 h-4" />
+   607→                    </button>
+   608→                  </div>
+   609→                  {usernameStatus && (
+   610→                    <div className="flex items-center gap-1.5 justify-center">
+   611→                      {usernameStatus.available ? (
+   612→                        <Check className="w-3.5 h-3.5" style={{ color: "#4ade80" }} />
+   613→                      ) : (
+   614→                        <AlertCircle className="w-3.5 h-3.5" style={{ color: "#ef4444" }} />
+   615→                      )}
+   616→                      <span className="text-xs" style={{ color: usernameStatus.available ? "#4ade80" : "#ef4444" }}>
+   617→                        {usernameStatus.available ? "Имя доступно" : (usernameStatus.error || "Имя занято")}
+   618→                      </span>
+   619→                    </div>
+   620→                  )}
+   621→                  <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+   622→                    {USERNAME_RULES}
+   623→                  </p>
+   624→                </div>
+   625→              )}
+   626→            </div>
+   627→
+   628→            {/* Telegram / email under name */}
+   629→            {!isEditingName && (telegramUsername || email) && (
+   630→              <p className="text-xs mt-2" style={{ color: "var(--mq-text-muted)" }}>
+   631→                {telegramUsername ? `@${telegramUsername}` : email}
+   632→              </p>
+   633→            )}
+   634→
+   635→            {/* Member since badge */}
+   636→            {!isEditingName && (
+   637→              <div className="flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)", border: "1px solid var(--mq-border-thin)" }}>
+   638→                <Calendar className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
+   639→                <span className="mq-t-meta-2 font-medium" style={{ color: "var(--mq-text)", opacity: 0.85 }}>
+   640→                  Участник с {accountCreated || memberSince}
+   641→                </span>
+   642→              </div>
+   643→            )}
+   644→          </div>
+   645→        </motion.div>
+   646→      </ScrollReveal>
+   647→
+   648→      {/* ════════════════════════════════════════════
+   649→          Чаты entry point — navigate to messenger
+   650→          ════════════════════════════════════════════ */}
+   651→      <ScrollReveal direction="up" delay={0.08}>
+   652→        <motion.div
+   653→          initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
+   654→          animate={{ opacity: 1, y: 0 }}
+   655→          transition={{ delay: 0.08, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+   656→          /* §HOVER one-owner: CSS owns hover background (class), Framer owns
+   657→             only the tap transform — no bg double-easing, no entrance-delay
+   658→             leak into gestures. */
+   659→          className="rounded-[var(--mq-r-card)] overflow-hidden cursor-pointer transition-colors hover:bg-[var(--mq-card-hover)]"
+   660→          style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
+   661→          onClick={() => setView("messenger")}
+   662→
+   663→        >
+   664→          <div className="px-4 py-4 flex items-center gap-4">
+   665→            <div
+   666→              className="w-11 h-11 rounded-[var(--mq-r-card)] flex items-center justify-center flex-shrink-0"
+   667→              style={{ backgroundColor: "var(--mq-surface-2)", border: "1px solid var(--mq-edge)" }}
+   668→            >
+   669→              <MessageCircle className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
+   670→            </div>
+   671→            <div className="flex-1 min-w-0">
+   672→              <p className="text-base font-semibold" style={{ color: "var(--mq-text)" }}>Чаты</p>
+   673→              <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+   674→                Сообщения и уведомления
+   675→              </p>
+   676→            </div>
+   677→            {(Object.values(unreadCounts).reduce((sum, c) => sum + c, 0) + supportUnreadCount) > 0 && (
+   678→              <span
+   679→                className="flex-shrink-0 min-w-[20px] h-5 rounded-full flex items-center justify-center mq-t-meta-2 font-bold px-1.5"
+   680→                style={{
+   681→                  backgroundColor: "var(--mq-accent)",
+   682→                  color: "#fff",
+   683→                }}
+   684→              >
+   685→                {Object.values(unreadCounts).reduce((sum, c) => sum + c, 0) + supportUnreadCount}
+   686→              </span>
+   687→            )}
+   688→          </div>
+   689→        </motion.div>
+   690→      </ScrollReveal>
+   691→
+   692→      {/* ════════════════════════════════════════════
+   693→          Settings shortcut — navigate to settings
+   694→          ════════════════════════════════════════════ */}
+   695→      <ScrollReveal direction="up" delay={0.1}>
+   696→        <motion.div
+   697→          initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
+   698→          animate={{ opacity: 1, y: 0 }}
+   699→          transition={{ delay: 0.1, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+   700→          /* §HOVER one-owner: CSS owns hover background, Framer owns the tap. */
+   701→          className="rounded-[var(--mq-r-card)] overflow-hidden cursor-pointer transition-colors hover:bg-[var(--mq-card-hover)]"
+   702→          style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
+   703→          onClick={() => setView("settings")}
+   704→
+   705→        >
+   706→          <div className="px-4 py-4 flex items-center gap-4">
+   707→            <div
+   708→              className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+   709→              style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)" }}
+   710→            >
+   711→              <Settings className="w-6 h-6" style={{ color: "var(--mq-text-muted)" }} />
+   712→            </div>
+   713→            <div className="flex-1 min-w-0">
+   714→              <p className="text-base font-semibold" style={{ color: "var(--mq-text)" }}>Настройки</p>
+   715→              <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+   716→                Тема, звук, внешний вид
+   717→              </p>
+   718→            </div>
+   719→          </div>
+   720→        </motion.div>
+   721→      </ScrollReveal>
+   722→
+   723→      {/* ════════════════════════════════════════════
+   724→          Stats Cards — listening stats
+   725→          ════════════════════════════════════════════ */}
+   726→      <ScrollReveal direction="up" delay={0.1}>
+   727→        <div className="grid grid-cols-2 gap-3">
+   728→          {/* Total tracks played */}
+   729→          <motion.div
+   730→            className="rounded-[var(--mq-r-card)] p-4 flex items-center gap-3.5"
+   731→            style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
+   732→            initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
+   733→            animate={{ opacity: 1, y: 0 }}
+   734→            transition={{ delay: 0.06, duration: 0.3 }}
+   735→          >
+   736→            <div
+   737→              className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+   738→              style={{ backgroundColor: "var(--mq-surface-2)", border: "1px solid var(--mq-edge)" }}
+   739→            >
+   740→              <Music className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
+   741→            </div>
+   742→            <div className="min-w-0">
+   743→              <p className="mq-t-num text-xl leading-none" style={{ color: "var(--mq-text)" }}>
+   744→                {stats.totalTracksPlayed}
+   745→              </p>
+   746→              <p className="mq-t-meta-2 mt-1 truncate font-medium" style={{ color: "var(--mq-text-muted)" }}>
+   747→                Треков прослушано
+   748→              </p>
+   749→            </div>
+   750→          </motion.div>
+   751→
+   752→          {/* Hours listened */}
+   753→          <motion.div
+   754→            className="rounded-[var(--mq-r-card)] p-4 flex items-center gap-3.5"
+   755→            style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
+   756→            initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
+   757→            animate={{ opacity: 1, y: 0 }}
+   758→            transition={{ delay: 0.1, duration: 0.3 }}
+   759→          >
+   760→            <div
+   761→              className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+   762→              style={{ backgroundColor: "var(--mq-surface-2)", border: "1px solid var(--mq-edge)" }}
+   763→            >
+   764→              <Headphones className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
+   765→            </div>
+   766→            <div className="min-w-0">
+   767→              <p className="mq-t-num text-xl leading-none" style={{ color: "var(--mq-text)" }}>
+   768→                {stats.hoursListened > 0 ? `${stats.hoursListened}` : "0"}
+   769→              </p>
+   770→              <p className="mq-t-meta-2 mt-1 truncate font-medium" style={{ color: "var(--mq-text-muted)" }}>
+   771→                Часов прослушано
+   772→              </p>
+   773→            </div>
+   774→          </motion.div>
+   775→
+   776→          {/* Favorite genre */}
+   777→          <motion.div
+   778→            className="rounded-[var(--mq-r-card)] p-4 flex items-center gap-3.5"
+   779→            style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
+   780→            initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
+   781→            animate={{ opacity: 1, y: 0 }}
+   782→            transition={{ delay: 0.14, duration: 0.3 }}
+   783→          >
+   784→            <div
+   785→              className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+   786→              style={{ backgroundColor: "var(--mq-surface-2)", border: "1px solid var(--mq-edge)" }}
+   787→            >
+   788→              <TrendingUp className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
+   789→            </div>
+   790→            <div className="min-w-0">
+   791→              <p className="mq-t-title mq-t-section leading-none truncate" style={{ color: "var(--mq-text)" }}>
+   792→                {stats.topGenre}
+   793→              </p>
+   794→              <p className="mq-t-meta-2 mt-1 truncate font-medium" style={{ color: "var(--mq-text-muted)" }}>
+   795→                Любимый жанр
+   796→              </p>
+   797→            </div>
+   798→          </motion.div>
+   799→
+   800→          {/* Liked tracks */}
+   801→          <motion.div
+   802→            className="rounded-[var(--mq-r-card)] p-4 flex items-center gap-3.5"
+   803→            style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
+   804→            initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
+   805→            animate={{ opacity: 1, y: 0 }}
+   806→            transition={{ delay: 0.18, duration: 0.3 }}
+   807→          >
+   808→            <div
+   809→              className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+   810→              style={{ backgroundColor: "var(--mq-surface-2)", border: "1px solid var(--mq-edge)" }}
+   811→            >
+   812→              <Heart className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
+   813→            </div>
+   814→            <div className="min-w-0">
+   815→              <p className="mq-t-num text-xl leading-none" style={{ color: "var(--mq-text)" }}>
+   816→                {stats.likedCount}
+   817→              </p>
+   818→              <p className="mq-t-meta-2 mt-1 truncate font-medium" style={{ color: "var(--mq-text-muted)" }}>
+   819→                Избранных
+   820→              </p>
+   821→            </div>
+   822→          </motion.div>
+   823→        </div>
+   824→      </ScrollReveal>
+   825→
+   826→      {/* ════════════════════════════════════════════
+   827→          Listening Activity Chart — past 7 days
+   828→          ════════════════════════════════════════════ */}
+   829→      <ScrollReveal direction="up" delay={0.12}>
+   830→        <motion.div
+   831→          initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+   832→          animate={{ opacity: 1, y: 0 }}
+   833→          className="rounded-[var(--mq-r-card)] overflow-hidden"
+   834→          style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
+   835→        >
+   836→          <div className="px-4 pt-4 pb-2">
+   837→            <div className="flex items-center gap-2">
+   838→              <BarChart3 className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+   839→              <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+   840→                Активность за неделю
+   841→              </h3>
+   842→            </div>
+   843→          </div>
+   844→          <div className="px-4 pb-4 pt-2">
+   845→            <div className="flex items-end gap-2 h-28">
+   846→              {listeningActivity.map((day, i) => (
+   847→                <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
+   848→                  <div className="w-full flex items-end justify-center" style={{ height: "80px" }}>
+   849→                    <motion.div
+   850→                      initial={animationsEnabled ? { height: 0 } : undefined}
+   851→                      animate={{ height: `${Math.max(4, (day.count / maxActivity) * 72)}px` }}
+   852→                      transition={{ delay: i * 0.06, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+   853→                      className="w-full max-w-[32px] rounded-t-md"
+   854→                      style={{
+   855→                        backgroundColor: day.count > 0
+   856→                          ? "var(--mq-accent)"
+   857→                          : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
+   858→                        opacity: day.count > 0 ? 0.85 : 1,
+   859→                        minHeight: "4px",
+   860→                      }}
+   861→                    />
+   862→                  </div>
+   863→                  <span className="mq-t-meta-2" style={{ color: day.count > 0 ? "var(--mq-text)" : "var(--mq-text-muted)" }}>
+   864→                    {day.day}
+   865→                  </span>
+   866→                  {day.count > 0 && (
+   867→                    <span className="mq-t-meta-2 font-medium" style={{ color: "var(--mq-accent)" }}>
+   868→                      {day.count}
+   869→                    </span>
+   870→                  )}
+   871→                </div>
+   872→              ))}
+   873→            </div>
+   874→          </div>
+   875→        </motion.div>
+   876→      </ScrollReveal>
+   877→
+   878→      {/* ════════════════════════════════════════════
+   879→          Listening Heatmap — 7 days × 24 hours
+   880→          ════════════════════════════════════════════ */}
+   881→      {history.length > 0 && (
+   882→        <ScrollReveal direction="up" delay={0.12}>
+   883→          <motion.div
+   884→            initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+   885→            animate={{ opacity: 1, y: 0 }}
+   886→            className="rounded-[var(--mq-r-card)] overflow-hidden"
+   887→            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", boxShadow: "var(--mq-shadow-card)" }}
+   888→          >
+   889→            <div className="px-4 pt-4 pb-2 flex items-center gap-2.5">
+   890→              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--mq-accent) 18%, transparent)" }}>
+   891→                <Clock className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+   892→              </div>
+   893→              <h3 className="mq-t-meta-2 font-bold uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>
+   894→                Тепловая карта
+   895→              </h3>
+   896→            </div>
+   897→
+   898→            {/* Insights */}
+   899→            <div className="px-4 pb-2 flex flex-wrap gap-2">
+   900→              <span className="mq-t-meta-2 px-2.5 py-1 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)", color: "var(--mq-accent)" }}>
+   901→                🕐 Пик: {listeningInsights.peakHourLabel} ({listeningInsights.peakHourPeriod})
+   902→              </span>
+   903→              <span className="mq-t-meta-2 px-2.5 py-1 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)", color: "var(--mq-accent)" }}>
+   904→                📅 День: {listeningInsights.peakDay}
+   905→              </span>
+   906→            </div>
+   907→
+   908→            {/* Heatmap grid */}
+   909→            <div className="px-4 pb-4 pt-2 overflow-x-auto" style={{ scrollbarWidth: "thin" }}>
+   910→              <div className="min-w-[280px]">
+   911→                {/* Hour labels */}
+   912→                <div className="flex gap-[2px] mb-1 ml-7">
+   913→                  {[0, 4, 8, 12, 16, 20].map(h => (
+   914→                    <span key={h} className="mq-t-badge flex-1 text-center" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>
+   915→                      {h}
+   916→                    </span>
+   917→                  ))}
+   918→                </div>
+   919→                {/* Day rows */}
+   920→                {listeningHeatmap.days.map((day, dIdx) => (
+   921→                  <div key={day} className="flex items-center gap-1 mb-[2px]">
+   922→                    <span className="mq-t-badge w-6 text-right flex-shrink-0" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+   923→                      {day}
+   924→                    </span>
+   925→                    <div className="flex gap-[2px] flex-1">
+   926→                      {listeningHeatmap.grid[dIdx].map((count, hIdx) => {
+   927→                        const intensity = listeningHeatmap.maxVal > 0 ? count / listeningHeatmap.maxVal : 0;
+   928→                        return (
+   929→                          <div
+   930→                            key={hIdx}
+   931→                            className="aspect-square rounded-sm flex-1 min-w-[6px]"
+   932→                            style={{
+   933→                              backgroundColor: count === 0
+   934→                                ? "color-mix(in srgb, var(--mq-text) 3%, transparent)"
+   935→                                : `color-mix(in srgb, var(--mq-accent) ${Math.max(15, intensity * 100)}%, transparent)`,
+   936→                            }}
+   937→                            title={`${day} ${hIdx}:00 — ${count} треков`}
+   938→                          />
+   939→                        );
+   940→                      })}
+   941→                    </div>
+   942→                  </div>
+   943→                ))}
+   944→                {/* Legend */}
+   945→                <div className="flex items-center justify-end gap-1 mt-2">
+   946→                  <span className="mq-t-badge" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>меньше</span>
+   947→                  {[0.1, 0.3, 0.5, 0.7, 1].map(i => (
+   948→                    <div
+   949→                      key={i}
+   950→                      className="w-2.5 h-2.5 rounded-sm"
+   951→                      style={{ backgroundColor: `color-mix(in srgb, var(--mq-accent) ${i * 100}%, transparent)` }}
+   952→                    />
+   953→                  ))}
+   954→                  <span className="mq-t-badge" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>больше</span>
+   955→                </div>
+   956→              </div>
+   957→            </div>
+   958→          </motion.div>
+   959→        </ScrollReveal>
+   960→      )}
+   961→
+   962→      {/* ════════════════════════════════════════════
+   963→          Taste Profile — genres + artists with frequency bars
+   964→          ════════════════════════════════════════════ */}
+   965→      {(tasteProfileGenres.length > 0 || tasteProfileArtists.length > 0) && (
+   966→        <ScrollReveal direction="up" delay={0.15}>
+   967→          <motion.div
+   968→            initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+   969→            animate={{ opacity: 1, y: 0 }}
+   970→            className="rounded-[var(--mq-r-card)] overflow-hidden"
+   971→            style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
+   972→          >
+   973→            <div className="px-4 pt-4 pb-2">
+   974→              <div className="flex items-center gap-2">
+   975→                <Disc3 className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+   976→                <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+   977→                  Музыкальный вкус
+   978→                </h3>
+   979→              </div>
+   980→            </div>
+   981→
+   982→            {/* Genre tags with frequency bars */}
+   983→            {tasteProfileGenres.length > 0 && (
+   984→              <div className="px-4 pb-3">
+   985→                <p className="mq-t-meta-2 uppercase tracking-wider mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+   986→                  Жанры
+   987→                </p>
+   988→                <div className="space-y-2">
+   989→                  {tasteProfileGenres.map(({ genre, level, width }) => (
+   990→                    <div key={genre} className="flex items-center gap-2">
+   991→                      <span className="text-xs font-medium w-20 truncate flex-shrink-0" style={{ color: "var(--mq-text)" }}>
+   992→                        {genre}
+   993→                      </span>
+   994→                      <div className="flex-1 h-4 rounded-full overflow-hidden" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)" }}>
+   995→                        <motion.div
+   996→                          initial={animationsEnabled ? { scaleX: 0 } : undefined}
+   997→                          animate={{ scaleX: width / 100 }}
+   998→                          transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
+   999→                          className="h-full rounded-full"
+  1000→                          style={{
+  1001→                            width: "100%",
+  1002→                            transformOrigin: "left",
+  1003→                            willChange: "transform",
+  1004→                            background: `linear-gradient(90deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, transparent))`,
+  1005→                            opacity: 0.7,
+  1006→                          }}
+  1007→                        />
+  1008→                      </div>
+  1009→                      <span className="mq-t-meta-2 w-8 text-right flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>
+  1010→                        {level}%
+  1011→                      </span>
+  1012→                    </div>
+  1013→                  ))}
+  1014→                </div>
+  1015→              </div>
+  1016→            )}
+  1017→
+  1018→            {/* Artist tags with frequency bars */}
+  1019→            {tasteProfileArtists.length > 0 && (
+  1020→              <div className="px-4 pb-4">
+  1021→                <p className="mq-t-meta-2 uppercase tracking-wider mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+  1022→                  Исполнители
+  1023→                </p>
+  1024→                <div className="flex flex-wrap gap-1.5">
+  1025→                  {tasteProfileArtists.map(({ artist, level }) => (
+  1026→                    <span
+  1027→                      key={artist}
+  1028→                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
+  1029→                      style={{
+  1030→                        backgroundColor: `color-mix(in srgb, var(--mq-accent) ${Math.max(8, level * 0.2)}%, transparent)`,
+  1031→                        color: "var(--mq-text)",
+  1032→                        border: `1px solid color-mix(in srgb, var(--mq-accent) ${Math.max(10, level * 0.3)}%, transparent)`,
+  1033→                      }}
+  1034→                    >
+  1035→                      {artist}
+  1036→                    </span>
+  1037→                  ))}
+  1038→                </div>
+  1039→              </div>
+  1040→            )}
+  1041→          </motion.div>
+  1042→        </ScrollReveal>
+  1043→      )}
+  1044→
+  1045→      {/* ════════════════════════════════════════════
+  1046→          Favorite Artists — cards with avatars
+  1047→          ════════════════════════════════════════════ */}
+  1048→      {topArtists.length > 0 && (
+  1049→        <ScrollReveal direction="up" delay={0.18}>
+  1050→          <motion.div
+  1051→            initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+  1052→            animate={{ opacity: 1, y: 0 }}
+  1053→            className="rounded-[var(--mq-r-card)] overflow-hidden"
+  1054→            style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
+  1055→          >
+  1056→            <div className="px-4 pt-4 pb-2">
+  1057→              <div className="flex items-center gap-2">
+  1058→                <Users className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+  1059→                <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+  1060→                  Любимые исполнители
+  1061→                </h3>
+  1062→              </div>
+  1063→            </div>
+  1064→            <div className="px-4 pb-4">
+  1065→              <div className="grid grid-cols-3 gap-2">
+  1066→                {topArtists.map((artist, i) => (
+  1067→                  <motion.div
+  1068→                    key={artist.name}
+  1069→                    initial={animationsEnabled ? { opacity: 0, scale: 0.9 } : undefined}
+  1070→                    animate={{ opacity: 1, scale: 1 }}
+  1071→                    transition={{ delay: i * 0.05, duration: 0.3 }}
+  1072→                    className="flex flex-col items-center p-2.5 rounded-xl"
+  1073→                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 3%, transparent)", border: "1px solid var(--mq-border-hairline)" }}
+  1074→                  >
+  1075→                    <div
+  1076→                      className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center mb-1.5"
+  1077→                      style={{
+  1078→                        backgroundColor: artist.cover ? "transparent" : "color-mix(in srgb, var(--mq-accent) 20%, transparent)",
+  1079→                        boxShadow: "var(--mq-shadow-card)",
+  1080→                      }}
+  1081→                    >
+  1082→                      {artist.cover ? (
+  1083→                        <img src={artist.cover} alt={artist.name} className="w-full h-full object-cover" />
+  1084→                      ) : (
+  1085→                        <Music className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
+  1086→                      )}
+  1087→                    </div>
+  1088→                    <p className="mq-t-meta-2 font-medium text-center truncate w-full" style={{ color: "var(--mq-text)" }}>
+  1089→                      {artist.name}
+  1090→                    </p>
+  1091→                    <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
+  1092→                      {artist.count} {artist.count === 1 ? "трек" : artist.count < 5 ? "трека" : "треков"}
+  1093→                    </p>
+  1094→                  </motion.div>
+  1095→                ))}
+  1096→              </div>
+  1097→            </div>
+  1098→          </motion.div>
+  1099→        </ScrollReveal>
+  1100→      )}
+  1101→
+  1102→      {/* ════════════════════════════════════════════
+  1103→          Recent Tracks — last 5 played
+  1104→          ════════════════════════════════════════════ */}
+  1105→      {recentTracks.length > 0 && (
+  1106→        <ScrollReveal direction="up" delay={0.2}>
+  1107→          <motion.div
+  1108→            initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+  1109→            animate={{ opacity: 1, y: 0 }}
+  1110→            className="rounded-[var(--mq-r-card)] overflow-hidden"
+  1111→            style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
+  1112→          >
+  1113→            <div className="px-4 pt-4 pb-2">
+  1114→              <div className="flex items-center gap-2">
+  1115→                <Clock className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+  1116→                <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+  1117→                  Недавние треки
+  1118→                </h3>
+  1119→              </div>
+  1120→            </div>
+  1121→            <div className="px-2 pb-2">
+  1122→              {recentTracks.map((track, i) => (
+  1123→                <motion.div
+  1124→                  key={`${track.track.id}-${i}`}
+  1125→                  initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
+  1126→                  animate={{ opacity: 1, x: 0 }}
+  1127→                  transition={{ delay: i * 0.04, duration: 0.25 }}
+  1128→                  className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.03] transition-colors"
+  1129→                >
+  1130→                  <div
+  1131→                    className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0"
+  1132→                    style={{ backgroundColor: track.track.cover ? "transparent" : "color-mix(in srgb, var(--mq-text) 5%, transparent)" }}
+  1133→                  >
+  1134→                    {track.track.cover ? (
+  1135→                      <img src={track.track.cover} alt={track.track.title} className="w-full h-full object-cover" />
+  1136→                    ) : (
+  1137→                      <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+  1138→                    )}
+  1139→                  </div>
+  1140→                  <div className="flex-1 min-w-0">
+  1141→                    <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>
+  1142→                      {track.track.title}
+  1143→                    </p>
+  1144→                    <p className="mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
+  1145→                      {track.track.artist}
+  1146→                    </p>
+  1147→                  </div>
+  1148→                  {/* v69 duration contract: recent-track rows keep duration
+  1149→                      (shrink-0) alongside the played-at stamp. */}
+  1150→                  {track.track.duration > 0 && (
+  1151→                    <span className="mq-t-num flex-shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}>
+  1152→                      {formatDuration(track.track.duration)}
+  1153→                    </span>
+  1154→                  )}
+  1155→                  <span className="mq-t-meta-2 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>
+  1156→                    {formatTimeAgo(track.playedAt)}
+  1157→                  </span>
+  1158→                  <TrackMoreButton onOpen={(e) => setTrackMenu({ track: track.track, x: e.clientX, y: e.clientY })} size="sm" label={`Действия: ${track.track.title}`} />
+  1159→                </motion.div>
+  1160→              ))}
+  1161→            </div>
+  1162→          </motion.div>
+  1163→        </ScrollReveal>
+  1164→      )}
+  1165→
+  1166→      {/* ════════════════════════════════════════════
+  1167→          Section: Аккаунт & Приватность
+  1168→          ════════════════════════════════════════════ */}
+  1169→      <ScrollReveal direction="up" delay={0.22}>
+  1170→        <motion.div
+  1171→          initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+  1172→          animate={{ opacity: 1, y: 0 }}
+  1173→          className="rounded-[var(--mq-r-card)] overflow-hidden"
+  1174→          style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
+  1175→        >
+  1176→          {/* Section header */}
+  1177→          <div className="px-4 pt-4 pb-2">
+  1178→            <div className="flex items-center gap-2">
+  1179→              <User className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+  1180→              <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+  1181→                Аккаунт
+  1182→              </h3>
+  1183→            </div>
+  1184→          </div>
+  1185→
+  1186→          {/* Telegram row */}
+  1187→          <div className="px-4 py-3"
+  1188→            style={{ borderBottom: "1px solid var(--mq-border)" }}
+  1189→          >
+  1190→            <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Telegram / Email</p>
+  1191→            <p className="text-sm font-semibold mt-0.5" style={{ color: "var(--mq-text)" }}>
+  1192→              {telegramUsername ? `@${telegramUsername}` : email || "—"}
+  1193→            </p>
+  1194→          </div>
+  1195→
+  1196→          {/* Invisible mode toggle */}
+  1197→          <div className="px-4 py-3 flex items-center justify-between">
+  1198→            <div className="flex items-center gap-3">
+  1199→              <div
+  1200→                className="w-10 h-10 rounded-xl flex items-center justify-center"
+  1201→                style={{
+  1202→                  backgroundColor: hideOnline
+  1203→                    ? "color-mix(in srgb, var(--mq-accent) 18%, transparent)"
+  1204→                    : "var(--mq-card)",
+  1205→                  border: `1px solid ${hideOnline ? "color-mix(in srgb, var(--mq-accent) 30%, transparent)" : "var(--mq-border)"}`,
+  1206→                }}
+  1207→              >
+  1208→                {hideOnline ? (
+  1209→                  <EyeOff className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+  1210→                ) : (
+  1211→                  <Eye className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
+  1212→                )}
+  1213→              </div>
+  1214→              <div>
+  1215→                <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>
+  1216→                  Невидимка
+  1217→                </p>
+  1218→                <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
+  1219→                  {hideOnline ? "Вы невидимы для других" : "Ваш статус «В сети» виден всем"}
+  1220→                </p>
+  1221→              </div>
+  1222→            </div>
+  1223→            <LiquidGlassToggle
+  1224→              checked={hideOnline}
+  1225→              onCheckedChange={toggleHideOnline}
+  1226→              size="md"
+  1227→            />
+  1228→          </div>
+  1229→        </motion.div>
+  1230→      </ScrollReveal>
+  1231→
+  1232→      {/* ════════════════════════════════════════════
+  1233→          Section: Действия
+  1234→          ════════════════════════════════════════════ */}
+  1235→      <ScrollReveal direction="up" delay={0.25}>
+  1236→        <motion.div
+  1237→          initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+  1238→          animate={{ opacity: 1, y: 0 }}
+  1239→          className="rounded-[var(--mq-r-card)] overflow-hidden"
+  1240→          style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
+  1241→        >
+  1242→          {/* Section header */}
+  1243→          <div className="px-4 pt-4 pb-2">
+  1244→            <div className="flex items-center gap-2">
+  1245→              <Settings className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+  1246→              <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+  1247→                Действия
+  1248→              </h3>
+  1249→            </div>
+  1250→          </div>
+  1251→
+  1252→          {/* Settings link */}
+  1253→          <motion.button
+  1254→            whileHover={{ scale: 1.01, transition: { duration: 0.12, ease: "easeOut" }} }
+  1255→
+  1256→            onClick={() => setView("settings")}
+  1257→            className="w-full px-4 py-3 flex items-center gap-3 text-left transition-colors"
+  1258→            style={{ borderBottom: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
+  1259→          >
+  1260→            <div
+  1261→              className="w-9 h-9 rounded-xl flex items-center justify-center"
+  1262→              style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}
+  1263→            >
+  1264→              <Music className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+  1265→            </div>
+  1266→            <div className="flex-1">
+  1267→              <p className="text-sm font-medium">Настройки приложения</p>
+  1268→              <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>Тема, звук, эквалайзер</p>
+  1269→            </div>
+  1270→          </motion.button>
+  1271→
+  1272→          {/* Admin panel — server-gated surface (/admin re-checks DB role) */}
+  1273→          {userRole === "admin" && (
+  1274→            <motion.button
+  1275→              whileHover={{ scale: 1.01, transition: { duration: 0.12, ease: "easeOut" }} }
+  1276→
+  1277→              onClick={() => window.open("/admin", "_self")}
+  1278→              className="w-full px-4 py-3 flex items-center gap-3 text-left transition-colors"
+  1279→              style={{ borderBottom: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
+  1280→            >
+  1281→              <div
+  1282→                className="w-9 h-9 rounded-xl flex items-center justify-center"
+  1283→                style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}
+  1284→              >
+  1285→                <Shield className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+  1286→              </div>
+  1287→              <div className="flex-1">
+  1288→                <p className="text-sm font-medium">Админ-панель</p>
+  1289→                <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>Управление пользователями и системой</p>
+  1290→              </div>
+  1291→            </motion.button>
+  1292→          )}
+  1293→
+  1294→          {/* Logout — cleaner design */}
+  1295→          <motion.button
+  1296→            whileHover={{ scale: 1.01, transition: { duration: 0.12, ease: "easeOut" }} }
+  1297→
+  1298→            onClick={() => setShowLogoutConfirm(true)}
+  1299→            className="w-full px-4 py-3.5 flex items-center gap-3 text-left"
+  1300→            style={{ color: "#ff6b6b" }}
+  1301→          >
+  1302→            <div
+  1303→              className="w-9 h-9 rounded-xl flex items-center justify-center"
+  1304→              style={{ backgroundColor: "rgba(224,49,49,0.1)" }}
+  1305→            >
+  1306→              <LogOut className="w-4 h-4" />
+  1307→            </div>
+  1308→            <div className="flex-1">
+  1309→              <p className="text-sm font-medium">Выйти из аккаунта</p>
+  1310→              <p className="mq-t-meta-2" style={{ color: "rgba(255,107,107,0.6)" }}>Потребуется повторный вход</p>
+  1311→            </div>
+  1312→          </motion.button>
+  1313→        </motion.div>
+  1314→      </ScrollReveal>
+  1315→
+  1316→      {/* Logout confirmation dialog — cleaner design */}
+  1317→      <AnimatePresence>
+  1318→        {showLogoutConfirm && (
+  1319→          <motion.div
+  1320→            initial={{ opacity: 0 }}
+  1321→            animate={{ opacity: 1 }}
+  1322→            exit={{ opacity: 0 }}
+  1323→            className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+  1324→            style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)" }}
+  1325→            onClick={() => setShowLogoutConfirm(false)}
+  1326→          >
+  1327→            <motion.div
+  1328→              initial={{ scale: 0.9, opacity: 0 }}
+  1329→              animate={{ scale: 1, opacity: 1 }}
+  1330→              exit={{ scale: 0.9, opacity: 0 }}
+  1331→              onClick={(e) => e.stopPropagation()}
+  1332→              className="w-full max-w-sm rounded-[var(--mq-r-card)] p-6 text-center"
+  1333→              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", boxShadow: "var(--mq-shadow-float)" }}
+  1334→            >
+  1335→              <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: "rgba(239,68,68,0.1)" }}>
+  1336→                <LogOut className="w-7 h-7" style={{ color: "#ef4444" }} />
+  1337→              </div>
+  1338→              <h3 className="text-lg font-bold mb-1.5" style={{ color: "var(--mq-text)" }}>Выйти из аккаунта?</h3>
+  1339→              <p className="text-sm mb-6" style={{ color: "var(--mq-text-muted)" }}>Вам придётся войти заново для доступа к музыке и чатам</p>
+  1340→              <div className="flex items-center gap-3">
+  1341→                <motion.button
+  1342→
+  1343→                  onClick={() => setShowLogoutConfirm(false)}
+  1344→                  className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
+  1345→                  style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text)" }}
+  1346→                >
+  1347→                  Остаться
+  1348→                </motion.button>
+  1349→                <motion.button
+  1350→
+  1351→                  onClick={() => { logout(); setShowLogoutConfirm(false); }}
+  1352→                  className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+  1353→                  style={{ backgroundColor: "#ef4444", color: "#fff" }}
+  1354→                >
+  1355→                  Выйти
+  1356→                </motion.button>
+  1357→              </div>
+  1358→            </motion.div>
+  1359→          </motion.div>
+  1360→        )}
+  1361→      </AnimatePresence>
+  1362→
+  1363→      {/* v68: unified context menu (portal) for recent tracks */}
+  1364→      {trackMenu && (
+  1365→        <ContextMenu
+  1366→          track={trackMenu.track}
+  1367→          x={trackMenu.x}
+  1368→          y={trackMenu.y}
+  1369→          onClose={() => setTrackMenu(null)}
+  1370→        />
+  1371→      )}
+  1372→    </div>
+  1373→  );
+  1374→});
+  1375→
+  1376→export default ProfileView;
+  1377→

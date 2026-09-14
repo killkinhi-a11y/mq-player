@@ -1,0 +1,736 @@
+     1→package com.mq1.player.ui.screens
+     2→
+     3→import androidx.activity.compose.rememberLauncherForActivityResult
+     4→import androidx.activity.result.PickVisualMediaRequest
+     5→import androidx.activity.result.contract.ActivityResultContracts
+     6→import androidx.compose.foundation.background
+     7→import androidx.compose.foundation.border
+     8→import androidx.compose.foundation.clickable
+     9→import androidx.compose.foundation.layout.Arrangement
+    10→import androidx.compose.foundation.layout.Box
+    11→import androidx.compose.foundation.layout.Column
+    12→import androidx.compose.foundation.layout.PaddingValues
+    13→import androidx.compose.foundation.layout.Row
+    14→import androidx.compose.foundation.layout.Spacer
+    15→import androidx.compose.foundation.layout.fillMaxSize
+    16→import androidx.compose.foundation.layout.fillMaxWidth
+    17→import androidx.compose.foundation.layout.height
+    18→import androidx.compose.foundation.layout.padding
+    19→import androidx.compose.foundation.layout.size
+    20→import androidx.compose.foundation.layout.width
+    21→import androidx.compose.foundation.lazy.LazyRow
+    22→import androidx.compose.foundation.lazy.items
+    23→import androidx.compose.foundation.rememberScrollState
+    24→import androidx.compose.foundation.shape.CircleShape
+    25→import androidx.compose.foundation.shape.RoundedCornerShape
+    26→import androidx.compose.foundation.verticalScroll
+    27→import androidx.compose.material.icons.Icons
+    28→import androidx.compose.material.icons.automirrored.filled.ArrowBack
+    29→import androidx.compose.material.icons.filled.CameraAlt
+    30→import androidx.compose.material.icons.filled.Check
+    31→import androidx.compose.material.icons.filled.Edit
+    32→import androidx.compose.material.icons.filled.Group
+    33→import androidx.compose.material.icons.filled.Refresh
+    34→import androidx.compose.material.icons.filled.Settings
+    35→import androidx.compose.material3.AlertDialog
+    36→import androidx.compose.material3.Button
+    37→import androidx.compose.material3.Card
+    38→import androidx.compose.material3.CircularProgressIndicator
+    39→import androidx.compose.material3.FilledTonalButton
+    40→import androidx.compose.material3.Icon
+    41→import androidx.compose.material3.IconButton
+    42→import androidx.compose.material3.MaterialTheme
+    43→import androidx.compose.material3.OutlinedButton
+    44→import androidx.compose.material3.OutlinedTextField
+    45→import androidx.compose.material3.SnackbarHost
+    46→import androidx.compose.material3.SnackbarHostState
+    47→import androidx.compose.material3.Text
+    48→import androidx.compose.material3.TextButton
+    49→import androidx.compose.runtime.Composable
+    50→import androidx.compose.runtime.LaunchedEffect
+    51→import androidx.compose.runtime.collectAsState
+    52→import androidx.compose.runtime.getValue
+    53→import androidx.compose.runtime.mutableStateOf
+    54→import androidx.compose.runtime.remember
+    55→import androidx.compose.runtime.rememberCoroutineScope
+    56→import androidx.compose.runtime.setValue
+    57→import androidx.compose.ui.Alignment
+    58→import androidx.compose.ui.Modifier
+    59→import androidx.compose.ui.draw.clip
+    60→import androidx.compose.ui.platform.LocalContext
+    61→import androidx.compose.ui.semantics.contentDescription
+    62→import androidx.compose.ui.semantics.semantics
+    63→import androidx.compose.ui.text.style.TextOverflow
+    64→import androidx.compose.ui.unit.dp
+    65→import androidx.lifecycle.viewmodel.compose.viewModel
+    66→import com.mq1.player.data.api.UsernameCheckResponse
+    67→import com.mq1.player.data.repo.ProfileRepository
+    68→import com.mq1.player.ui.components.Artwork
+    69→import com.mq1.player.ui.components.EmptyState
+    70→import com.mq1.player.ui.components.ErrorState
+    71→import com.mq1.player.ui.components.LoadingState
+    72→import com.mq1.player.ui.components.SectionHeader
+    73→import com.mq1.player.ui.components.TrackRow
+    74→import com.mq1.player.ui.vm.MyProfileViewModel
+    75→import kotlinx.coroutines.Dispatchers
+    76→import kotlinx.coroutines.delay
+    77→import kotlinx.coroutines.launch
+    78→import kotlinx.coroutines.withContext
+    79→
+    80→/**
+    81→ * F9 — OWN profile (full, not just an avatar screen). Real data only:
+    82→ * account from /api/user/profile + /api/auth/me, playlists from the backend,
+    83→ * likes/history from the local store (web parity), friends from SocialHub.
+    84→ * Transitions out: chat, artist, playlist, full player (track), friends,
+    85→ * settings — all preserve this screen's ViewModel state on the back stack.
+    86→ */
+    87→@Composable
+    88→fun MyProfileScreen(
+    89→    onBack: () -> Unit,
+    90→    onOpenChat: (peerId: String, peerName: String) -> Unit,
+    91→    onOpenArtist: (String) -> Unit,
+    92→    onOpenPlaylist: (id: String) -> Unit,
+    93→    onOpenFriends: () -> Unit,
+    94→    onOpenSettings: () -> Unit,
+    95→    onOpenFullPlayer: () -> Unit,
+    96→    onLogout: () -> Unit,
+    97→    playTracks: (startIndex: Int) -> Unit
+    98→) {
+    99→    val vm: MyProfileViewModel = viewModel()
+   100→    val ui by vm.ui.collectAsState()
+   101→    val snackbar = remember { SnackbarHostState() }
+   102→    val context = LocalContext.current
+   103→    val scope = rememberCoroutineScope()
+   104→
+   105→    var editOpen by remember { mutableStateOf(false) }
+   106→
+   107→    // Photo picker → bytes → VM (decode/crop/encode on IO inside the VM path)
+   108→    val imagePicker = rememberLauncherForActivityResult(
+   109→        ActivityResultContracts.PickVisualMedia()
+   110→    ) { uri ->
+   111→        if (uri != null) {
+   112→            scope.launch {
+   113→                val bytes = withContext(Dispatchers.IO) {
+   114→                    runCatching {
+   115→                        context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+   116→                    }.getOrNull()
+   117→                }
+   118→                if (bytes != null) vm.saveAvatar(bytes)
+   119→            }
+   120→        }
+   121→    }
+   122→
+   123→    LaunchedEffect(ui.message) {
+   124→        ui.message?.let {
+   125→            snackbar.showSnackbar(it)
+   126→            vm.consumeMessage()
+   127→        }
+   128→    }
+   129→
+   130→    Box(Modifier.fillMaxSize()) {
+   131→        ProfileBody(
+   132→            ui = ui,
+   133→            onBack = onBack,
+   134→            onRefresh = { vm.refresh() },
+   135→            onChangeAvatar = {
+   136→                imagePicker.launch(
+   137→                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+   138→                )
+   139→            },
+   140→            onEdit = { editOpen = true },
+   141→            onOpenChat = onOpenChat,
+   142→            onOpenArtist = onOpenArtist,
+   143→            onOpenPlaylist = onOpenPlaylist,
+   144→            onOpenFriends = onOpenFriends,
+   145→            onOpenSettings = onOpenSettings,
+   146→            onOpenFullPlayer = onOpenFullPlayer,
+   147→            onLogout = onLogout,
+   148→            playTracks = playTracks
+   149→        )
+   150→
+   151→        SnackbarHost(
+   152→            hostState = snackbar,
+   153→            modifier = Modifier.align(Alignment.BottomCenter)
+   154→        )
+   155→    }
+   156→
+   157→    if (editOpen) {
+   158→        EditUsernameDialog(
+   159→            current = ui.username,
+   160→            saving = ui.savingUsername,
+   161→            onCheck = { name -> vm.checkUsername(name) },
+   162→            onSave = {
+   163→                vm.saveUsername(it)
+   164→                editOpen = false
+   165→            },
+   166→            onDismiss = { editOpen = false }
+   167→        )
+   168→    }
+   169→}
+   170→
+   171→/**
+   172→ * Stateless profile body — pure function of [ui] + callbacks (unit-testable
+   173→ * in Robolectric without the ViewModel or network). Loading / error+retry /
+   174→ * empty states are explicit — no fake content.
+   175→ */
+   176→@Composable
+   177→internal fun ProfileBody(
+   178→    ui: MyProfileViewModel.ProfileUi,
+   179→    onBack: () -> Unit,
+   180→    onRefresh: () -> Unit,
+   181→    onChangeAvatar: () -> Unit,
+   182→    onEdit: () -> Unit,
+   183→    onOpenChat: (peerId: String, peerName: String) -> Unit,
+   184→    onOpenArtist: (String) -> Unit,
+   185→    onOpenPlaylist: (id: String) -> Unit,
+   186→    onOpenFriends: () -> Unit,
+   187→    onOpenSettings: () -> Unit,
+   188→    onOpenFullPlayer: () -> Unit,
+   189→    onLogout: () -> Unit,
+   190→    playTracks: (startIndex: Int) -> Unit
+   191→) {
+   192→    Column(
+   193→        Modifier
+   194→            .fillMaxSize()
+   195→            .verticalScroll(rememberScrollState())
+   196→    ) {
+   197→        // ── Header ──────────────────────────────────────────────────────
+   198→        Spacer(Modifier.height(52.dp))
+   199→        Row(
+   200→            modifier = Modifier
+   201→                .fillMaxWidth()
+   202→                .padding(horizontal = 8.dp),
+   203→            verticalAlignment = Alignment.CenterVertically
+   204→        ) {
+   205→            IconButton(onClick = onBack, modifier = Modifier.size(44.dp)) {
+   206→                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+   207→            }
+   208→            Text(
+   209→                "Профиль",
+   210→                style = MaterialTheme.typography.headlineMedium,
+   211→                modifier = Modifier
+   212→                    .weight(1f)
+   213→                    .padding(start = 4.dp)
+   214→            )
+   215→            IconButton(
+   216→                onClick = onRefresh,
+   217→                modifier = Modifier
+   218→                    .size(44.dp)
+   219→                    .semantics { contentDescription = "Обновить профиль" }
+   220→            ) {
+   221→                Icon(Icons.Filled.Refresh, contentDescription = "Обновить")
+   222→            }
+   223→        }
+   224→
+   225→        when {
+   226→            ui.loading -> LoadingState(label = "Загрузка профиля…")
+   227→
+   228→            ui.error != null -> ErrorState(
+   229→                message = ui.error ?: "Профиль недоступен",
+   230→                onRetry = onRefresh
+   231→            )
+   232→
+   233→            else -> {
+   234→                // ── Identity ─────────────────────────────────────────────
+   235→                Column(
+   236→                    Modifier
+   237→                        .fillMaxWidth()
+   238→                        .padding(horizontal = 20.dp),
+   239→                    horizontalAlignment = Alignment.CenterHorizontally
+   240→                ) {
+   241→                    Spacer(Modifier.height(16.dp))
+   242→                    Box {
+   243→                        Artwork(
+   244→                            url = ui.avatar,
+   245→                            sizeDp = 104,
+   246→                            corner = 52,
+   247→                            contentDescription = "Аватар: ${ui.username}"
+   248→                        )
+   249→                        if (ui.savingAvatar) {
+   250→                            CircularProgressIndicator(
+   251→                                strokeWidth = 3.dp,
+   252→                                modifier = Modifier
+   253→                                    .size(104.dp)
+   254→                                    .clip(CircleShape)
+   255→                                    .background(MaterialTheme.colorScheme.background.copy(alpha = 0.5f))
+   256→                            )
+   257→                        } else {
+   258→                            // Camera badge: visual 32dp, FULL 44dp hitbox
+   259→                            Box(
+   260→                                modifier = Modifier
+   261→                                    .size(44.dp)
+   262→                                    .align(Alignment.BottomEnd)
+   263→                                    .clickable(onClick = onChangeAvatar)
+   264→                                    .semantics {
+   265→                                        contentDescription = "Изменить аватар"
+   266→                                    },
+   267→                                contentAlignment = Alignment.Center
+   268→                            ) {
+   269→                                Box(
+   270→                                    modifier = Modifier
+   271→                                        .size(32.dp)
+   272→                                        .clip(CircleShape)
+   273→                                        .background(MaterialTheme.colorScheme.primary)
+   274→                                ) {
+   275→                                    Icon(
+   276→                                        Icons.Filled.CameraAlt,
+   277→                                        contentDescription = null,
+   278→                                        tint = MaterialTheme.colorScheme.onPrimary,
+   279→                                        modifier = Modifier.size(18.dp)
+   280→                                    )
+   281→                                }
+   282→                            }
+   283→                        }
+   284→                    }
+   285→                    Spacer(Modifier.height(12.dp))
+   286→                    Text(
+   287→                        ui.username.ifBlank { "…" },
+   288→                        style = MaterialTheme.typography.headlineSmall
+   289→                    )
+   290→                    Spacer(Modifier.height(4.dp))
+   291→                    Row(verticalAlignment = Alignment.CenterVertically) {
+   292→                        Box(
+   293→                            Modifier
+   294→                                .size(8.dp)
+   295→                                .clip(CircleShape)
+   296→                                .background(MaterialTheme.colorScheme.primary)
+   297→                        )
+   298→                        Text(
+   299→                            "  В сети",
+   300→                            style = MaterialTheme.typography.bodyMedium,
+   301→                            color = MaterialTheme.colorScheme.primary
+   302→                        )
+   303→                    }
+   304→                    memberSince(ui.createdAt)?.let {
+   305→                        Spacer(Modifier.height(2.dp))
+   306→                        Text(
+   307→                            "Участник с $it",
+   308→                            style = MaterialTheme.typography.bodyMedium,
+   309→                            color = MaterialTheme.colorScheme.onSurfaceVariant
+   310→                        )
+   311→                    }
+   312→                    Spacer(Modifier.height(12.dp))
+   313→                    OutlinedButton(onClick = onEdit, modifier = Modifier.height(44.dp)) {
+   314→                        Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+   315→                        Spacer(Modifier.width(6.dp))
+   316→                        Text("Редактировать профиль")
+   317→                    }
+   318→                }
+   319→
+   320→                // ── Stats ────────────────────────────────────────────────
+   321→                Spacer(Modifier.height(20.dp))
+   322→                Row(
+   323→                    Modifier
+   324→                        .fillMaxWidth()
+   325→                        .padding(horizontal = 20.dp),
+   326→                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+   327→                ) {
+   328→                    StatCard("Плейлисты", ui.playlists.size, Modifier.weight(1f))
+   329→                    StatCard("Лайки", ui.likes.size, Modifier.weight(1f))
+   330→                    StatCard("Друзья", ui.friends.size, Modifier.weight(1f))
+   331→                }
+   332→
+   333→                // ── Account state ────────────────────────────────────────
+   334→                if (ui.email != null || ui.telegramUsername != null || ui.confirmed != null) {
+   335→                    Spacer(Modifier.height(16.dp))
+   336→                    SectionCard("Аккаунт") {
+   337→                        ui.email?.let {
+   338→                            Row {
+   339→                                Text(
+   340→                                    "Email", style = MaterialTheme.typography.bodyMedium,
+   341→                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+   342→                                )
+   343→                                Spacer(Modifier.weight(1f))
+   344→                                Text(
+   345→                                    it, style = MaterialTheme.typography.bodyMedium,
+   346→                                    maxLines = 1, overflow = TextOverflow.Ellipsis
+   347→                                )
+   348→                            }
+   349→                        }
+   350→                        ui.telegramUsername?.takeIf { it.isNotBlank() }?.let {
+   351→                            Spacer(Modifier.height(6.dp))
+   352→                            Row {
+   353→                                Text(
+   354→                                    "Telegram", style = MaterialTheme.typography.bodyMedium,
+   355→                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+   356→                                )
+   357→                                Spacer(Modifier.weight(1f))
+   358→                                Text("@$it", style = MaterialTheme.typography.bodyMedium)
+   359→                            }
+   360→                        }
+   361→                        ui.confirmed?.let { confirmed ->
+   362→                            Spacer(Modifier.height(6.dp))
+   363→                            Row(verticalAlignment = Alignment.CenterVertically) {
+   364→                                Text(
+   365→                                    "Статус", style = MaterialTheme.typography.bodyMedium,
+   366→                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+   367→                                )
+   368→                                Spacer(Modifier.weight(1f))
+   369→                                if (confirmed) {
+   370→                                    Icon(
+   371→                                        Icons.Filled.Check,
+   372→                                        contentDescription = null,
+   373→                                        tint = MaterialTheme.colorScheme.primary,
+   374→                                        modifier = Modifier.size(16.dp)
+   375→                                    )
+   376→                                    Text(
+   377→                                        " подтверждён",
+   378→                                        style = MaterialTheme.typography.bodyMedium
+   379→                                    )
+   380→                                } else {
+   381→                                    Text(
+   382→                                        " не подтверждён",
+   383→                                        style = MaterialTheme.typography.bodyMedium,
+   384→                                        color = MaterialTheme.colorScheme.error
+   385→                                    )
+   386→                                }
+   387→                            }
+   388→                        }
+   389→                        Spacer(Modifier.height(6.dp))
+   390→                        Row {
+   391→                            Text(
+   392→                                "Роль", style = MaterialTheme.typography.bodyMedium,
+   393→                                color = MaterialTheme.colorScheme.onSurfaceVariant
+   394→                            )
+   395→                            Spacer(Modifier.weight(1f))
+   396→                            Text(roleName(ui.role), style = MaterialTheme.typography.bodyMedium)
+   397→                        }
+   398→                    }
+   399→                }
+   400→
+   401→                // ── Top artists (derived from likes) → Artist screen ──────
+   402→                if (ui.topArtists.isNotEmpty()) {
+   403→                    Spacer(Modifier.height(16.dp))
+   404→                    SectionHeader("Любимые исполнители")
+   405→                    LazyRow(
+   406→                        contentPadding = PaddingValues(horizontal = 20.dp),
+   407→                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+   408→                    ) {
+   409→                        items(ui.topArtists) { artist ->
+   410→                            FilledTonalButton(
+   411→                                onClick = { onOpenArtist(artist) },
+   412→                                modifier = Modifier.height(44.dp)
+   413→                            ) {
+   414→                                Text(artist, maxLines = 1, overflow = TextOverflow.Ellipsis)
+   415→                            }
+   416→                        }
+   417→                    }
+   418→                }
+   419→
+   420→                // ── Friends → Chat ───────────────────────────────────────
+   421→                Spacer(Modifier.height(16.dp))
+   422→                SectionHeader(
+   423→                    title = "Друзья",
+   424→                    trailing = {
+   425→                        TextButton(onClick = onOpenFriends, modifier = Modifier.height(44.dp)) {
+   426→                            Icon(Icons.Filled.Group, contentDescription = null, modifier = Modifier.size(16.dp))
+   427→                            Text(" Все")
+   428→                        }
+   429→                    }
+   430→                )
+   431→                if (ui.friends.isEmpty()) {
+   432→                    EmptyState("Друзей пока нет — добавьте из поиска")
+   433→                } else {
+   434→                    LazyRow(
+   435→                        contentPadding = PaddingValues(horizontal = 20.dp),
+   436→                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+   437→                    ) {
+   438→                        items(ui.friends, key = { it.id }) { friend ->
+   439→                            val isOnline = ui.online[friend.id] == true
+   440→                            Column(
+   441→                                horizontalAlignment = Alignment.CenterHorizontally,
+   442→                                modifier = Modifier
+   443→                                    .width(72.dp)
+   444→                                    .clip(RoundedCornerShape(12.dp))
+   445→                                    .clickable { onOpenChat(friend.id, friend.username) }
+   446→                                    .padding(vertical = 8.dp)
+   447→                                    .semantics {
+   448→                                        contentDescription =
+   449→                                            "Друг: ${friend.username}, " +
+   450→                                                if (isOnline) "в сети" else "не в сети"
+   451→                                    }
+   452→                            ) {
+   453→                                Box {
+   454→                                    Artwork(url = friend.avatar, sizeDp = 56, corner = 28)
+   455→                                    if (isOnline) {
+   456→                                        Box(
+   457→                                            Modifier
+   458→                                                .size(14.dp)
+   459→                                                .align(Alignment.BottomEnd)
+   460→                                                .clip(CircleShape)
+   461→                                                .background(MaterialTheme.colorScheme.primary)
+   462→                                                .border(2.dp, MaterialTheme.colorScheme.background, CircleShape)
+   463→                                        )
+   464→                                    }
+   465→                                }
+   466→                                Spacer(Modifier.height(4.dp))
+   467→                                Text(
+   468→                                    friend.username,
+   469→                                    style = MaterialTheme.typography.labelMedium,
+   470→                                    maxLines = 1,
+   471→                                    overflow = TextOverflow.Ellipsis
+   472→                                )
+   473→                            }
+   474→                        }
+   475→                    }
+   476→                }
+   477→
+   478→                // ── Likes → Full Player ──────────────────────────────────
+   479→                Spacer(Modifier.height(16.dp))
+   480→                SectionHeader("Лайки · ${ui.likes.size}")
+   481→                if (ui.likes.isEmpty()) {
+   482→                    EmptyState("Лайканных треков пока нет")
+   483→                } else {
+   484→                    val shown = ui.likes.take(10)
+   485→                    shown.forEachIndexed { _, track ->
+   486→                        TrackRow(
+   487→                            track = track,
+   488→                            isPlaying = false,
+   489→                            isFavorite = true,
+   490→                            onPlay = {
+   491→                                playTracks(ui.likes.indexOfFirst { it.id == track.id }
+   492→                                    .coerceAtLeast(0))
+   493→                                onOpenFullPlayer()
+   494→                            }
+   495→                        )
+   496→                    }
+   497→                    if (ui.likes.size > shown.size) {
+   498→                        Text(
+   499→                            "… и ещё ${ui.likes.size - shown.size}",
+   500→                            style = MaterialTheme.typography.bodyMedium,
+   501→                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+   502→                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+   503→                        )
+   504→                    }
+   505→                }
+   506→
+   507→                // ── My playlists → Playlist screen ────────────────────────
+   508→                Spacer(Modifier.height(16.dp))
+   509→                SectionHeader("Мои плейлисты · ${ui.playlists.size}")
+   510→                if (ui.playlists.isEmpty()) {
+   511→                    EmptyState("Плейлистов пока нет — создайте в Библиотеке")
+   512→                } else {
+   513→                    ui.playlists.take(10).forEach { pl ->
+   514→                        PlaylistRow(
+   515→                            name = pl.name,
+   516→                            trackCount = pl.trackCount,
+   517→                            cover = pl.cover,
+   518→                            onClick = { onOpenPlaylist(pl.id) }
+   519→                        )
+   520→                    }
+   521→                }
+   522→
+   523→                // ── Recent activity (history) ─────────────────────────────
+   524→                if (ui.history.isNotEmpty()) {
+   525→                    Spacer(Modifier.height(16.dp))
+   526→                    SectionHeader("Недавняя активность")
+   527→                    ui.history.take(5).forEach { track ->
+   528→                        TrackRow(
+   529→                            track = track,
+   530→                            isPlaying = false,
+   531→                            isFavorite = ui.likes.any { it.id == track.id },
+   532→                            onPlay = {
+   533→                                playTracks(0)
+   534→                                onOpenFullPlayer()
+   535→                            }
+   536→                        )
+   537→                    }
+   538→                }
+   539→
+   540→                // ── Actions ───────────────────────────────────────────────
+   541→                Spacer(Modifier.height(24.dp))
+   542→                Row(
+   543→                    Modifier
+   544→                        .fillMaxWidth()
+   545→                        .padding(horizontal = 20.dp),
+   546→                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+   547→                ) {
+   548→                    OutlinedButton(
+   549→                        onClick = onOpenSettings,
+   550→                        modifier = Modifier
+   551→                            .weight(1f)
+   552→                            .height(44.dp)
+   553→                    ) {
+   554→                        Icon(Icons.Filled.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
+   555→                        Text(" Настройки")
+   556→                    }
+   557→                    OutlinedButton(
+   558→                        onClick = onLogout,
+   559→                        modifier = Modifier
+   560→                            .weight(1f)
+   561→                            .height(44.dp)
+   562→                    ) {
+   563→                        Text("Выйти", color = MaterialTheme.colorScheme.error)
+   564→                    }
+   565→                }
+   566→                Spacer(Modifier.height(32.dp))
+   567→            }
+   568→        }
+   569→    }
+   570→}
+   571→
+   572→/** "Участник с …" from createdAt (ISO). */
+   573→internal fun memberSince(iso: String?): String? {
+   574→    val t = runCatching { java.time.Instant.parse(iso) }.getOrNull() ?: return null
+   575→    // "d MMMM" (format pattern) → genitive month in Russian: "15 января 2026"
+   576→    return java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy")
+   577→        .withLocale(java.util.Locale("ru"))
+   578→        .format(java.time.ZonedDateTime.ofInstant(t, java.time.ZoneId.systemDefault()))
+   579→}
+   580→
+   581→private fun roleName(role: String): String = when (role) {
+   582→    "admin" -> "Администратор"
+   583→    "moderator" -> "Модератор"
+   584→    else -> "Слушатель"
+   585→}
+   586→
+   587→@Composable
+   588→private fun StatCard(label: String, value: Int, modifier: Modifier = Modifier) {
+   589→    Card(modifier = modifier) {
+   590→        Column(
+   591→            Modifier
+   592→                .fillMaxWidth()
+   593→                .padding(vertical = 12.dp),
+   594→            horizontalAlignment = Alignment.CenterHorizontally
+   595→        ) {
+   596→            Text(
+   597→                value.toString(),
+   598→                style = MaterialTheme.typography.titleLarge,
+   599→                color = MaterialTheme.colorScheme.primary
+   600→            )
+   601→            Text(
+   602→                label,
+   603→                style = MaterialTheme.typography.labelMedium,
+   604→                color = MaterialTheme.colorScheme.onSurfaceVariant
+   605→            )
+   606→        }
+   607→    }
+   608→}
+   609→
+   610→@Composable
+   611→private fun SectionCard(title: String, content: @Composable () -> Unit) {
+   612→    Card(
+   613→        Modifier
+   614→            .fillMaxWidth()
+   615→            .padding(horizontal = 20.dp)
+   616→    ) {
+   617→        Column(Modifier.padding(16.dp)) {
+   618→            Text(
+   619→                title.uppercase(),
+   620→                style = MaterialTheme.typography.labelLarge,
+   621→                color = MaterialTheme.colorScheme.onSurfaceVariant
+   622→            )
+   623→            Spacer(Modifier.height(10.dp))
+   624→            content()
+   625→        }
+   626→    }
+   627→}
+   628→
+   629→@Composable
+   630→private fun PlaylistRow(
+   631→    name: String,
+   632→    trackCount: Int,
+   633→    cover: String,
+   634→    onClick: () -> Unit
+   635→) {
+   636→    Row(
+   637→        modifier = Modifier
+   638→            .fillMaxWidth()
+   639→            .clickable(onClick = onClick)
+   640→            .padding(horizontal = 20.dp, vertical = 8.dp),
+   641→        verticalAlignment = Alignment.CenterVertically,
+   642→        horizontalArrangement = Arrangement.spacedBy(12.dp)
+   643→    ) {
+   644→        Artwork(url = cover, sizeDp = 48, corner = 8)
+   645→        Column(Modifier.weight(1f)) {
+   646→            Text(
+   647→                name, style = MaterialTheme.typography.bodyLarge,
+   648→                maxLines = 1, overflow = TextOverflow.Ellipsis
+   649→            )
+   650→            Text(
+   651→                "$trackCount треков",
+   652→                style = MaterialTheme.typography.bodyMedium,
+   653→                color = MaterialTheme.colorScheme.onSurfaceVariant
+   654→            )
+   655→        }
+   656→    }
+   657→}
+   658→
+   659→/** Server availability verdict for the username being checked. */
+   660→private data class CheckVerdict(val available: Boolean, val error: String?)
+   661→
+   662→/**
+   663→ * Username edit dialog — same contract as the web: local validation (regex,
+   664→ * length, reserved), debounced server availability check, then save.
+   665→ */
+   666→@Composable
+   667→private fun EditUsernameDialog(
+   668→    current: String,
+   669→    saving: Boolean,
+   670→    onCheck: suspend (String) -> UsernameCheckResponse?,
+   671→    onSave: (String) -> Unit,
+   672→    onDismiss: () -> Unit
+   673→) {
+   674→    var name by remember { mutableStateOf(current) }
+   675→    // null | "checking" | CheckVerdict — network failure leaves no verdict
+   676→    // (null) so the user can still attempt the save server-side.
+   677→    var status by remember { mutableStateOf<Any?>(null) }
+   678→
+   679→    val localError = ProfileRepository.validateUsername(name)
+   680→
+   681→    // Debounced availability check (500ms — same as web)
+   682→    LaunchedEffect(name) {
+   683→        if (localError != null || name == current) {
+   684→            status = null
+   685→            return@LaunchedEffect
+   686→        }
+   687→        delay(500)
+   688→        status = "checking"
+   689→        val resp = onCheck(name)
+   690→        status = resp?.let { CheckVerdict(it.available, it.error) }
+   691→    }
+   692→
+   693→    AlertDialog(
+   694→        onDismissRequest = if (saving) ({}) else onDismiss,
+   695→        title = { Text("Имя пользователя") },
+   696→        text = {
+   697→            Column {
+   698→                OutlinedTextField(
+   699→                    value = name,
+   700→                    onValueChange = { if (it.length <= 20) name = it },
+   701→                    singleLine = true,
+   702→                    label = { Text("Имя (2-20 символов)") },
+   703→                    isError = localError != null || (status as? CheckVerdict)?.available == false,
+   704→                    supportingText = {
+   705→                        val msg = localError ?: when (val st = status) {
+   706→                            "checking" -> "Проверяем…"
+   707→                            is CheckVerdict -> if (st.available) "Имя свободно"
+   708→                            else st.error ?: "Имя занято"
+   709→                            else -> null
+   710→                        }
+   711→                        if (msg != null) Text(msg)
+   712→                    }
+   713→                )
+   714→            }
+   715→        },
+   716→        confirmButton = {
+   717→            Button(
+   718→                onClick = { onSave(name.trim()) },
+   719→                enabled = !saving && localError == null &&
+   720→                    name != current && (status as? CheckVerdict)?.available != false
+   721→            ) {
+   722→                if (saving) {
+   723→                    CircularProgressIndicator(
+   724→                        strokeWidth = 2.dp, modifier = Modifier.size(18.dp)
+   725→                    )
+   726→                } else {
+   727→                    Text("Сохранить")
+   728→                }
+   729→            }
+   730→        },
+   731→        dismissButton = {
+   732→            TextButton(onClick = onDismiss, enabled = !saving) { Text("Отмена") }
+   733→        }
+   734→    )
+   735→}
+   736→
