@@ -33,8 +33,14 @@ object ParityStub {
         val headers: List<String> = emptyList(), // raw "Set-Cookie: ..." lines
     )
 
-    /** One captured request: method, path, Cookie header, body. */
-    class CapturedRequest(val method: String, val path: String, val cookieHeader: String?, val body: String)
+    /** One captured request: method, path, Cookie header, body, all raw headers. */
+    class CapturedRequest(
+        val method: String,
+        val path: String,
+        val cookieHeader: String?,
+        val body: String,
+        val headers: List<Pair<String, String>> = emptyList(),
+    )
 
     /** Path-suffix → custom response (checked BEFORE the defaults). */
     @JvmStatic
@@ -71,12 +77,15 @@ object ParityStub {
                             val reqLine = readLineBytes() ?: return@Thread
                             var contentLength = 0
                             var cookieHeader: String? = null
+                            val rawHeaders = mutableListOf<Pair<String, String>>()
                             while (true) {
                                 val h = readLineBytes() ?: return@Thread
                                 if (h.isEmpty()) break
                                 val lc = h.lowercase()
                                 if (lc.startsWith("content-length:")) contentLength = lc.substringAfter(":").trim().toInt()
                                 if (lc.startsWith("cookie:")) cookieHeader = h.substringAfter(":").trim()
+                                val idx = h.indexOf(':')
+                                if (idx > 0) rawHeaders.add(h.substring(0, idx).trim() to h.substring(idx + 1).trim())
                             }
                             var bodyText = ""
                             if (contentLength > 0) {
@@ -91,7 +100,7 @@ object ParityStub {
                             }
                                 val method = reqLine.split(" ").getOrNull(0) ?: "GET"
                                 val path = reqLine.split(" ").getOrNull(1) ?: "/"
-                                capturedRequests.add(CapturedRequest(method, path, cookieHeader, bodyText))
+                                capturedRequests.add(CapturedRequest(method, path, cookieHeader, bodyText, rawHeaders))
                                 // match custom keys on the PATH ONLY (query
                                 // strings differ per call) — full path stays captured
                                 val pathNoQuery = path.substringBefore('?')

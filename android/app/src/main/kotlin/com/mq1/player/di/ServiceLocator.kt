@@ -48,7 +48,6 @@ object ServiceLocator {
      *  x-demo-user-id header (same mechanism the web demo uses). */
     @Volatile var demoUserId: String? = null
     @Volatile var demoUserName: String? = null
-
     /** Web-parity session-expiry bus: any authenticated API call returning
      *  401 (with a session cookie present, not in demo mode) emits here;
      *  MainActivity logs the user out with an honest message — exactly the
@@ -70,7 +69,12 @@ object ServiceLocator {
                     .header("Accept", "application/json")
                     .header("User-Agent", "MQ-Android/${BuildConfig.VERSION_NAME}")
                 demoUserId?.let { builder.header("x-demo-user-id", it) }
-                demoUserName?.let { builder.header("x-demo-user-name", it) }
+                // Web parity: header values must be ASCII (web fetch omits the
+                // name for exactly this reason; OkHttp throws on non-ASCII —
+                // runtime-proven crash «Unexpected char 0x414 … value: Демо»).
+                // The backend defaults x-demo-user-name to «Демо» when absent.
+                demoHeaderSafeValueOrNull(demoUserName)
+                    ?.let { builder.header("x-demo-user-name", it) }
                 val response = chain.proceed(builder.build())
                 // 401 on authenticated endpoints + a held session cookie + a
                 // real (non-demo) session ⇒ session expired → honest logout.
@@ -133,3 +137,12 @@ object ServiceLocator {
         appContext = context.applicationContext
     }
 }
+
+/** Header values must be printable ASCII — OkHttp's Headers validator throws
+ *  IllegalArgumentException on anything else (runtime-proven: «Unexpected
+ *  char 0x414 at 0 in x-demo-user-name value: Демо» killed the app on the
+ *  Demo tap). The web demo omits non-ASCII header values for the same reason
+ *  (fetch rejects them) and the backend defaults x-demo-user-name to «Демо»
+ *  when the header is absent — see src/app/api/group-chats/route.ts. */
+internal fun demoHeaderSafeValueOrNull(value: String?): String? =
+    value?.takeIf { v -> v.all { it.code in 0x20..0x7E } }

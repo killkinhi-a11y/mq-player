@@ -41,8 +41,8 @@ android {
         // account picker), full Google error taxonomy, official googleid R8
         // keep rules, crash diagnostics (MqCrash — logged + persisted, never
         // masked), SecureCookieJar.hasSessionCookie restored on restart.
-        versionCode = 7
-        versionName = "2.3.1"
+        versionCode = 8
+        versionName = "2.3.2"
 
         buildConfigField("String", "API_BASE", "\"$mqApiBase\"")
         vectorDrawables { useSupportLibrary = true }
@@ -143,6 +143,10 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation("org.robolectric:robolectric:4.13")
+    // Regression pin for the Demo-tap crash: OkHttp's header validator
+    // (IllegalArgumentException on non-ASCII values) must stay on the
+    // unit-test classpath — see DemoHeaderSafetyTest.
+    testImplementation(libs.okhttp)
     testImplementation("androidx.compose.ui:ui-test-junit4")
     testImplementation("androidx.test.ext:junit:1.2.1")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

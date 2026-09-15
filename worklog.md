@@ -3615,3 +3615,77 @@ Work Log:
 Stage Summary:
 - Environment failure root causes fully mapped: TCG slowness -> networkstack 20s ANR -> system_server cascade; snapshot loading impossible on non-ext4 rootfs.
 - v41 = the definitive Demo test chunk (single-shot, evidence-durable).
+---
+Task ID: v41-final-runtime
+Agent: main (Super Z)
+Task: v41 FINAL emulator runtime experiment — Demo crash verdict on exact APK 2.3.1 (user protocol v41: cold boot, link ON, 120s settle, screencap truth, CASE 1-5)
+
+Work Log:
+- Reconstructed v41 toolchain after session restart: restored hmp.py (QEMU HMP client), added footerfind.py (footer-row two-cluster detector: Демо-режим left cx<120 + Регистрация right cx>200, bottom-most, legal-row-merge excluded).
+- Verified durable lab intact: /tmp/my-project SDK+AVD mq35x, exact-release-2.3.1.apk SHA-256 6ff2d10b...ca2386, state dir.
+- Confirmed LoginScreen.kt footer: Row(SpaceBetween) = «Демо-режим»(left, clickable→onDemo, sets demoBusy→«Загрузка…») | «Регистрация»(right); legal links below merge to one centered cluster.
+- Confirmed decisive logcat checkpoint: AuthViewModel.onLoggedIn logs `MqBoot auth.onLoggedIn demo=true id=dem…` immediately when Demo tap handled.
+- Rewrote scripts/emulator-chunk-v41.sh per protocol: cold boot (-no-snapshot-load/-save), set_link ON at t~5s, boot poll→root, settle ≥120s with ss+networkstack poll every 12s + pm grant + pm path (install fallback) + device_config service_timeout 120000/180000, am start -W (exact flags, backgrounded), pid poll, 14s render, dialog band check (input-tap dismiss + blob fallback), input swipe scroll (blob fallback), footerfind coords, streaming logcat -b all started BEFORE tap, demo tap at real coords, shots +0/+5/+15/+30, ss/ns/app pid every 8s, early-exit on death, classification CASE1-5 incl. logcat click-evidence branch (click handled vs unregistered), durable evidence (crash.log/crash-blocks/last_crash.txt/tombstones), bonus Profile nav probe if budget remains, emulator killed LAST.
+- bash -n syntax OK; footerfind unit-tested on synthetic bands → (55,549) correct.
+
+Stage Summary:
+- v41 chunk ready to launch. Next: execute with 600s tool budget; classify DEMO per CASE 1-5; then (only if PASS) chunk 2 = nav+Google-to-blockage; else DIAGNOSTIC APK path per protocol §14-15.
+---
+Task ID: v41-final-runtime (cont.)
+Agent: main (Super Z)
+Task: v41 final runtime — runs a/b/c/d forensics and fixes
+
+Work Log:
+- v41a: boot timeout at 471s (guest alive, TCG slow; sandbox had just restarted). Fixed: output-to-file (adb daemon held the pipe), -no-audio, adaptive budgets.
+- v41b: boot 366s ✓, settle 120s ✓ (system_server 621 stable), app launched pid=1712 ✓, NO permission dialog (pm grant works), LoginScreen RENDERED (light theme, bg 248,249,250) — but killed by tool 600s cap ~10s before tap, stuck on footer detection (detector assumed dark theme).
+- Pixel forensics on v41b shots: footer row = y621-631, Демо-режим x[40..124] cx≈82, Регистрация x[193..278]; login content ~140px scrollable; input swipe DOES scroll; login render completes ~pid+30-38s.
+- VLM (z-ai createVision) confirmed v41b screen = LoginScreen (logo, "Вход в MQ Player", Google/Telegram-OTP/Email buttons, footer Демо-режим|Регистрация, legal links).
+- v41c: guest DIED ~t=44s (adb offline→none; emulator internal adb also "device not found"). qemu-img check: qcow2 structurally OK (6 leaked clusters, harmless). Root cause theory: QEMU writeback cache lost on v41b's kill -9 → ext4 journal torn → init crash.
+- v41d (-show-kernel added): guest RECOVERED (journal replay ok) — boot 356s ✓, settle ✓ ss=615 stable, app pid=1744 ✓, LoginScreen rendered (bright 90%) — but footer NOT found because: render shot scr-render-1.png shows footer ALREADY VISIBLE (y547-631 clusters x40-140 + x193-278) and my blind swipe scrolled it OUT of the y540+ scan zone. Footer measured at (82,635) on the PRE-swipe shot — identical to v41b's post-swipe position.
+- v41e (final): footer2 scan zone y440-640; footer checked on RENDER shot FIRST (no blind swipe); render shot = diff baseline (saves a 10s shot); swipe only as fallback; measured fallback coords (82,635); POST fallback fixed; BASE tracks the successful render shot.
+
+Stage Summary:
+- v41e ready = the actual DEMO TAP run. All prior failures were infrastructure/tooling, never the app. App state so far: launches, renders LoginScreen, no crash at any point pre-tap.
+---
+Task ID: v41-hotfix-2.3.2
+Agent: main (Super Z)
+Task: Minimal hotfix for the runtime-proven Demo crash + build 2.3.2
+
+Work Log:
+- EVIDENCE (v41e, exact 2.3.1 APK, system_server 617 alive throughout):
+  tap Демо (82,635) 22:09:07 → MqBoot auth.onLoggedIn demo=true 22:09:12 →
+  FATAL 22:09:16 java.lang.IllegalArgumentException: Unexpected char 0x414 at 0
+  in x-demo-user-name value: Демо (OkHttp dispatcher thread) → app DEAD,
+  ss ALIVE. CrashDiagnostics captured it (MqCrash in logcat).
+- ROOT CAUSE: ServiceLocator.kt interceptor sent the raw Cyrillic demo
+  username as an HTTP header value; OkHttp's Headers validator rejects
+  non-ASCII → uncaught on the dispatcher thread → process death.
+- WEB PARITY: MessengerView.tsx deliberately omits x-demo-user-name
+  ("fetch rejects non-ISO-8859-1"); backend defaults it to «Демо» when
+  absent (group-chats/route.ts).
+- FIX (minimal): demoHeaderSafeValueOrNull() in ServiceLocator.kt —
+  only printable-ASCII (0x20..0x7E) values are sent; non-ASCII omitted
+  exactly like the web.
+- TESTS: +4 DemoHeaderSafetyTest (crash value, ascii passthrough, control
+  chars, OkHttp mechanism pin) — 4/4 green. Fix-path suites green
+  (DemoLoginFlowTest 2/2, AuthEndpointsContractTest 7/7). 14 pre-existing
+  failures in Google/parity suites IDENTICAL with the fix stashed
+  (control run) — they hit the live backend via a stub-flag gap that
+  predates this change; NOT a regression.
+- Version bumped 2.3.2 / versionCode 8.
+- SIGNING: original 2.2.0/2.3.1 keystore was sandbox-local + gitignored
+  and lost with the /home/z re-sync (same loss pattern as 2.1.0→2.2.0).
+  NEW keystore generated IN THE DURABLE LAB
+  (/tmp/my-project/android-runtime/keys/mq-release.jks, RSA-2048, 30y).
+  New cert SHA-256 0d0d374f992a787aea481de8dbaff6939e2a1a64a9f41e073091954279ac1214.
+  Consequence (as documented at 2.2.0): upgraders from ≤2.3.1 must
+  uninstall/reinstall (cert rotation).
+- BUILD: assembleRelease R8 OK, lintVitalRelease OK.
+  APK 4 167 992 B, SHA-256 206bc9790efe038f8b00d9d2c252e53f8d084ab38b5a8446ca81c85aa6650838,
+  apksigner verify OK, com.mq1.player 2.3.2 (code 8), minSdk 26 / target 35.
+  Saved to /tmp/my-project/android-runtime/fixed-release-2.3.2.apk.
+
+Stage Summary:
+- Next: runtime acceptance = install 2.3.2 into the emulator (uninstall first —
+  cert changed) and REPEAT THE SAME v41 Demo test; PASS → nav+Google-to-blockage;
+  only then GitHub release decision.
