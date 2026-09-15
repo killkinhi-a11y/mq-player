@@ -3689,3 +3689,45 @@ Stage Summary:
 - Next: runtime acceptance = install 2.3.2 into the emulator (uninstall first —
   cert changed) and REPEAT THE SAME v41 Demo test; PASS → nav+Google-to-blockage;
   only then GitHub release decision.
+---
+Task ID: v41-final-verdict
+Agent: main (Super Z)
+Task: v41 final report state — verdicts, fix verification, infra collapse record
+
+Work Log:
+- v41f/g: two more mid-boot guest deaths → OOM forensics: dmesg shows
+  3× "Out of memory: Killed process (qemu-system-x86)" — the system image
+  force-bumps guest RAM to 2560MB (emulator "Increasing RAM size to 2560MB"),
+  QEMU RSS ~3.4G on the 4G host. -qemu -m 2048 override fixed the host side
+  (RSS 1.6G, no OOM).
+- v41h/h2 (-wipe-data recovery): fresh userdata creation on this non-ext4
+  sandbox TRUNCATES (userdata-qemu.img 6.4MB instead of 6GiB sparse) → guest
+  keystore2/vold boot loop (the documented pre-PolarFS failure mode). The
+  previously-initialized userdata (which booted fine) was destroyed by the
+  wipe. No ext4-capable mount, no fuse2fs → EMULATOR = BLOCKED for any
+  further runs. Emulator experiments STOPPED per protocol §1/§14.
+- FIX VERIFICATION at the deepest JVM level: DemoHeaderFlowHttpTest — real
+  ServiceLocator.okHttp interceptor + exact crash values (demoUserId +
+  demoUserName="Демо") + wire-captured request: call SUCCEEDS,
+  x-demo-user-id present, x-demo-user-name correctly ABSENT (ParityStub
+  extended to capture raw headers).
+- Full suite: 157/157 green with the fix (the earlier "14 failures" were
+  STALE COMPILED CLASSES — the flagged run reused classes built against the
+  production API_BASE; clean rerun = all green; control run with the fix
+  stashed confirmed zero regressions from the hotfix itself).
+- Committed c43a3f90: fix + 2 test files + ParityHarness header capture +
+  v41 infra scripts + worklog. NO release (runtime acceptance incomplete),
+  NO web changes (git scope verified: android/scripts/worklog only).
+- FINAL VERDICTS (protocol §18):
+  EMULATOR = PASS for the decisive 2.3.1 Demo run; BLOCKED afterward (infra)
+  SYSTEM = STABLE during the decisive run (system_server 617 unchanged)
+  DEMO 2.3.1 = REAL APP FAILURE (CASE 2, runtime-proven)
+  DEMO 2.3.2 = fixed; 157/157 tests; runtime re-acceptance BLOCKED (infra)
+  GOOGLE = BLOCKED (AOSP no GMS; device-only picker)
+  RELEASE = NOT DONE (policy: no release without runtime acceptance)
+  WEB/VERCEL = untouched
+
+Stage Summary:
+- Question 1 answered: YES — MQ Player 2.3.1 crashed exactly on the Demo
+  tap (runtime-proven, system_server alive). Root cause: Cyrillic header
+  value. Fix prepared, tested, committed; release pending device acceptance.
