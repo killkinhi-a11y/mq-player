@@ -1,0 +1,397 @@
+    10→   440→   440→        }
+    11→   441→   441→        input.mq-ft-vol:active::-webkit-slider-thumb {
+    12→   442→   442→          border-color: var(--mq-accent);
+    13→   443→   443→          box-shadow: var(--mq-shadow-accent-hover), 0 0 0 5px color-mix(in srgb, var(--mq-accent) 16%, transparent);
+    14→   444→   444→        }
+    15→   445→   445→        input.mq-ft-vol::-moz-range-track { height: 6px; border-radius: 3px; background: var(--mq-glass-bg); box-shadow: var(--mq-shadow-inner-glow); }
+    16→   446→   446→        input.mq-ft-vol::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--mq-accent); }
+    17→   447→   447→        input.mq-ft-vol::-moz-range-thumb {
+    18→   448→   448→          width: 16px;
+    19→   449→   449→          height: 16px;
+    20→   450→   450→          border-radius: 5px;
+    21→   451→   451→          background-color: var(--mq-card);
+    22→   452→   452→          background-image: linear-gradient(var(--mq-text-muted), var(--mq-text-muted));
+    23→   453→   453→          background-size: 8px 2px;
+    24→   454→   454→          background-position: center;
+    25→   455→   455→          background-repeat: no-repeat;
+    26→   456→   456→          border: 2px solid color-mix(in srgb, var(--mq-text-muted) 55%, var(--mq-card));
+    27→   457→   457→          cursor: pointer;
+    28→   458→   458→        }
+    29→   459→   459→      `}</style>
+    30→   460→   460→
+    31→   461→   461→      {/* Ambient glow behind the artwork — one radial accent pool.
+    32→   462→   462→          Pure CSS (no filter:blur) — GPU-composited, theme-token based. */}
+    33→   463→   463→      <div
+    34→   464→   464→        aria-hidden
+    35→   465→   465→        className="absolute inset-x-0 top-[8%] bottom-[30%] pointer-events-none"
+    36→   466→   466→        style={{
+    37→   467→   467→          background:
+    38→   468→   468→            "radial-gradient(ellipse 70% 55% at 50% 42%, color-mix(in srgb, var(--mq-accent) 16%, transparent) 0%, transparent 72%)",
+    39→   469→   469→        }}
+    40→   470→   470→      />
+    41→   471→   471→
+    42→   472→   472→      <div className="relative z-10 h-full flex flex-col">
+    43→   473→   473→
+    44→   474→   474→        {/* ── Header: close · context · more ── */}
+    45→   475→   475→        <div className="flex items-center justify-between px-4" style={{ paddingTop: "max(10px, env(safe-area-inset-top))", paddingBottom: 6, flexShrink: 0 }}>
+    46→   476→   476→          <button onClick={() => setOpen(false)} aria-label="Закрыть" className="mq-ft-btn" style={iconBtn}><ChevronDown className="w-6 h-6" style={{ color: "var(--mq-text)" }} /></button>
+    47→   477→   477→          <div className="flex-1 min-w-0 flex items-center justify-center gap-1.5">
+    48→   478→   478→            {isPlaying && <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)" }} aria-hidden="true" />}
+    49→   479→   479→            <p className="mq-t-meta mq-t-meta-2 font-semibold uppercase tracking-[0.18em] truncate" style={{ color: "var(--mq-text-muted)" }}>
+    50→   480→   480→              {contextLabel}{queueName ? ` · ${queueName}` : ""}
+    51→   481→   481→            </p>
+    52→   482→   482→            <span className="flex-1 h-px max-w-14" style={{ backgroundColor: "var(--mq-border-thin)" }} aria-hidden="true" />
+    53→   483→   483→          </div>
+    54→   484→   484→          <button onClick={() => setShowMore(true)} aria-label="Ещё" className="mq-ft-btn" style={iconBtn}><MoreHorizontal className="w-6 h-6" style={{ color: "var(--mq-text)" }} /></button>
+    55→   485→   485→        </div>
+    56→   486→   486→
+    57→   487→   487→        {/* ── Dominant artwork (fills the leftover space) ──
+    58→   488→   488→            §C redesign: NO white hairline edge (the old 1px border read as
+    59→   489→   489→            a "sticker" outline — VLM critique) — pure grounded shadow. */}
+    60→   490→   490→        <div className="flex-1 flex items-center justify-center px-4 min-h-0" style={{ paddingTop: 6, paddingBottom: 10 }}>
+    61→   491→   491→          <div
+    62→   492→   492→            className="mq-ft-anim relative rounded-[20px] overflow-hidden"
+    63→   493→   493→            style={{
+    64→   494→   494→              width: "min(92vw, 58vh)",
+    65→   495→   495→              aspectRatio: "1 / 1",
+    66→   496→   496→              boxShadow: "var(--mq-art-shadow)",
+    67→   497→   497→            }}
+    68→   498→   498→            onTouchStart={handleCoverTouchStart}
+    69→   499→   499→            onTouchEnd={handleCoverTouchEnd}
+    70→   500→   500→          >
+    71→   501→   501→            {currentTrack.cover ? (
+    72→   502→   502→              <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" draggable={false} />
+    73→   503→   503→            ) : (
+    74→   504→   504→              <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
+    75→   505→   505→                <Music className="w-16 h-16" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} />
+    76→   506→   506→              </div>
+    77→   507→   507→            )}
+    78→   508→   508→            {isPlaying && (
+    79→   509→   509→              <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: "inset 0 0 0 1.5px color-mix(in srgb, var(--mq-accent) 32%, transparent)" }} />
+    80→   510→   510→            )}
+    81→   511→   511→          </div>
+    82→   512→   512→        </div>
+    83→   513→   513→
+    84→   514→   514→        {/* ── TRACK IDENTITY: title + artist (left) + LIKE (right) ──
+    85→   515→   515→            §C redesign: the like action lives HERE, anchored to identity,
+    86→   516→   516→            instead of a glass-button row wedged between title and progress.
+    87→   517→   517→            Weight contrast: title 800 / artist regular-muted. */}
+    88→   518→   518→        <div className="mq-ft-anim px-4 flex items-end justify-between gap-3" style={{ flexShrink: 0, animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 60ms backwards" }}>
+    89→   519→   519→          <div className="min-w-0 flex-1">
+    90→   520→   520→            <h1 className="mq-text-display text-[28px] leading-[1.12] tracking-[-0.02em] line-clamp-2 font-extrabold" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</h1>
+    91→   521→   521→            <button onClick={handleArtist} className="mq-t-body text-sm mt-1.5 flex items-center gap-1 max-w-full text-left group" style={{ color: "var(--mq-text-muted)" }}>
+    92→   522→   522→              <span className="truncate">{currentTrack.artist}</span>
+    93→   523→   523→              <ChevronUp className="w-3.5 h-3.5 flex-shrink-0 rotate-90 opacity-60" />
+    94→   524→   524→            </button>
+    95→   525→   525→          </div>
+    96→   526→   526→          <button
+    97→   527→   527→            onClick={handleLike}
+    98→   528→   528→            aria-label={isLiked ? "Убрать из избранного" : "Нравится"}
+    99→   529→   529→            aria-pressed={isLiked}
+   100→   530→   530→            className="mq-ft-btn flex-shrink-0 mb-1"
+   101→   531→   531→            style={{ width: 44, height: 44, borderRadius: "9999px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 16%, transparent)" : "var(--mq-glass-bg)", border: "none", cursor: "pointer", padding: 0 }}
+   102→   532→   532→          >
+   103→   533→   533→            <Heart className="w-[22px] h-[22px]" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
+   104→   534→   534→          </button>
+   105→   535→   535→        </div>
+   106→   536→   536→
+   107→   537→   537→        {/* Playlist picker sheet */}
+   108→   538→   538→        {showPlaylistPicker && currentTrack && (
+   109→   539→   539→          <div className="px-5 mt-3" style={{ flexShrink: 0 }}>
+   110→   540→   540→            <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}>
+   111→   541→   541→              <div className="px-4 py-2.5" style={{ borderBottom: "1px solid var(--mq-border-thin)" }}>
+   112→   542→   542→                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+   113→   543→   543→                  Добавить в плейлист
+   114→   544→   544→                </span>
+   115→   545→   545→              </div>
+   116→   546→   546→              <div className="max-h-48 overflow-y-auto">
+   117→   547→   547→                {playlists.length === 0 ? (
+   118→   548→   548→                  <div className="px-4 py-5 text-center">
+   119→   549→   549→                    <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+   120→   550→   550→                      Нет плейлистов
+   121→   551→   551→                    </p>
+   122→   552→   552→                  </div>
+   123→   553→   553→                ) : (
+   124→   554→   554→                  playlists.map(pl => (
+   125→   555→   555→                    <button
+   126→   556→   556→                      key={pl.id}
+   127→   557→   557→                      onClick={() => {
+   128→   558→   558→                        addToPlaylist(pl.id, currentTrack);
+   129→   559→   559→                        setShowPlaylistPicker(false);
+   130→   560→   560→                      }}
+   131→   561→   561→                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
+   132→   562→   562→                    >
+   133→   563→   563→                      <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: "var(--mq-bg)" }}>
+   134→   564→   564→                        {pl.cover ? (
+   135→   565→   565→                          <img src={pl.cover} alt="" className="w-full h-full object-cover" />
+   136→   566→   566→                        ) : (
+   137→   567→   567→                          <div className="w-full h-full flex items-center justify-center">
+   138→   568→   568→                            <ListMusic className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
+   139→   569→   569→                          </div>
+   140→   570→   570→                        )}
+   141→   571→   571→                      </div>
+   142→   572→   572→                      <div className="flex-1 min-w-0">
+   143→   573→   573→                        <p className="text-xs font-medium truncate" style={{ color: "var(--mq-text)" }}>
+   144→   574→   574→                          {pl.name}
+   145→   575→   575→                        </p>
+   146→   576→   576→                        <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
+   147→   577→   577→                          {pl.tracks.length} треков
+   148→   578→   578→                        </p>
+   149→   579→   579→                      </div>
+   150→   580→   580→                    </button>
+   151→   581→   581→                  ))
+   152→   582→   582→                )}
+   153→   583→   583→              </div>
+   154→   584→   584→            </div>
+   155→   585→   585→          </div>
+   156→   586→   586→        )}
+   157→   587→   587→
+   158→   588→   588→        {/* ── Seek (28px touch) + times ── */}
+   159→   589→   589→        <div className="mq-ft-anim px-4 mt-3.5" style={{ flexShrink: 0, animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 150ms backwards" }}>
+   160→   590→   590→          {/* Editorial flip: times ABOVE the bar — current in text color, larger.
+   161→   591→   591→              v69: Manrope tabular (font-mono dropped), remaining honest “—”. */}
+   162→   592→   592→          <div className="flex items-baseline justify-between">
+   163→   593→   593→            <span ref={timeCurrentRef} className="text-[26px] tabular-nums font-bold leading-none tracking-tight shrink-0" style={{ color: "var(--mq-text)" }}>0:00</span>
+   164→   594→   594→            <span ref={timeRemainingRef} className="mq-t-body tabular-nums shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)" }}>{duration > 0 ? `−${formatDuration(duration)}` : "—"}</span>
+   165→   595→   595→          </div>
+   166→   596→   596→          <input
+   167→   597→   597→            ref={seekInputRef}
+   168→   598→   598→            type="range"
+   169→   599→   599→            min={0}
+   170→   600→   600→            max={100}
+   171→   601→   601→            step={0.1}
+   172→   602→   602→            defaultValue={0}
+   173→   603→   603→            onChange={handleSeekChange}
+   174→   604→   604→            onPointerDown={() => { isDraggingRef.current = true; }}
+   175→   605→   605→            onPointerUp={commitSeek}
+   176→   606→   606→            onPointerCancel={() => { isDraggingRef.current = false; }}
+   177→   607→   607→            aria-label="Позиция воспроизведения"
+   178→   608→   608→            className="mq-ft-seek-input"
+   179→   609→   609→          />
+   180→   610→   610→        </div>
+   181→   611→   611→
+   182→   612→   612→        {/* ── Transport: shuffle 44 · prev 56 · PLAY 76 · next 56 · repeat 44 ── */}
+   183→   613→   613→        <div className="mq-ft-anim flex items-center justify-between px-4 mt-2" style={{ flexShrink: 0, animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 190ms backwards" }}>
+   184→   614→   614→          <button onClick={toggleShuffle} aria-label="Перемешать" aria-pressed={shuffle} className="mq-ft-btn" style={{ ...iconBtn, borderRadius: 14, backgroundColor: shuffle ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)" : iconBtn.backgroundColor, boxShadow: shuffle ? "inset 0 0 0 1.5px color-mix(in srgb, var(--mq-accent) 40%, transparent)" : "none" }}>
+   185→   615→   615→            <Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+   186→   616→   616→          </button>
+   187→   617→   617→          <button onClick={prevTrack} aria-label="Предыдущий трек" className="mq-ft-btn" style={{ ...iconBtn, width: 56, height: 56, borderRadius: 18 }}>
+   188→   618→   618→            <SkipBack className="w-8 h-8" style={{ color: "var(--mq-text)" }} fill="currentColor" />
+   189→   619→   619→          </button>
+   190→   620→   620→          <button
+   191→   621→   621→            onClick={togglePlay}
+   192→   622→   622→            aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
+   193→   623→   623→            className="mq-ft-btn"
+   194→   624→   624→            style={{
+   195→   625→   625→              width: 76, height: 76, borderRadius: "9999px",
+   196→   626→   626→              display: "flex", alignItems: "center", justifyContent: "center",
+   197→   627→   627→              backgroundColor: "var(--mq-accent)", border: "none", cursor: "pointer", padding: 0,
+   198→   628→   628→              boxShadow: "0 10px 30px -8px color-mix(in srgb, var(--mq-accent) 55%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)",
+   199→   629→   629→            }}
+   200→   630→   630→          >
+   201→   631→   631→            {isLoading ? (
+   202→   632→   632→              <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+   203→   633→   633→            ) : isPlaying ? (
+   204→   634→   634→              <Pause className="w-8 h-8" fill="currentColor" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+   205→   635→   635→            ) : (
+   206→   636→   636→              <Play className="w-8 h-8 ml-1" fill="currentColor" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+   207→   637→   637→            )}
+   208→   638→   638→          </button>
+   209→   639→   639→          <button onClick={nextTrack} aria-label="Следующий трек" className="mq-ft-btn" style={{ ...iconBtn, width: 56, height: 56, borderRadius: 18 }}>
+   210→   640→   640→            <SkipForward className="w-8 h-8" style={{ color: "var(--mq-text)" }} fill="currentColor" />
+   211→   641→   641→          </button>
+   212→   642→   642→          <button onClick={toggleRepeat} aria-label="Повтор" aria-pressed={repeat !== "off"} className="mq-ft-btn" style={{ ...iconBtn, borderRadius: 14, backgroundColor: repeat !== "off" ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)" : iconBtn.backgroundColor, boxShadow: repeat !== "off" ? "inset 0 0 0 1.5px color-mix(in srgb, var(--mq-accent) 40%, transparent)" : "none" }}>
+   213→   643→   643→            {repeat === "one" ? <Repeat1 className="w-5 h-5" style={{ color: "var(--mq-accent)" }} /> : <Repeat className="w-5 h-5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
+   214→   644→   644→          </button>
+   215→   645→   645→        </div>
+   216→   646→   646→
+   217→   647→   647→        {/* ── SECONDARY ACTIONS (§C hierarchy: after transport) ──
+   218→   648→   648→            dislike · playlist · lyrics · queue · history · share —
+   219→   649→   649→            one even row of 40px icon targets (like lives up in identity). */}
+   220→   650→   650→        <div
+   221→   651→   651→          className="mq-ft-anim flex items-center justify-between px-6"
+   222→   652→   652→          style={{ flexShrink: 0, paddingTop: 14, paddingBottom: "max(14px, env(safe-area-inset-bottom))", animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 230ms backwards" }}
+   223→   653→   653→        >
+   224→   654→   654→          {([
+   225→   655→   655→            { id: "dislike", icon: ThumbsDown, label: "Не нравится", on: isDisliked, danger: true, onClick: handleDislike },
+   226→   656→   656→            { id: "playlist", icon: ListPlus, label: "В плейлист", on: showPlaylistPicker, danger: false, onClick: () => setShowPlaylistPicker(v => !v) },
+   227→   657→   657→            { id: "lyrics", icon: Mic2, label: "Текст", on: panel === "lyrics", danger: false, onClick: () => setPanel(p => (p === "lyrics" ? null : "lyrics")) },
+   228→   658→   658→            { id: "queue", icon: ListMusic, label: "Очередь", on: panel === "queue", danger: false, onClick: () => setPanel(p => (p === "queue" ? null : "queue")) },
+   229→   659→   659→            { id: "history", icon: History, label: "История", on: panel === "history", danger: false, onClick: () => setPanel(p => (p === "history" ? null : "history")) },
+   230→   660→   660→            { id: "share", icon: Share2, label: "Поделиться", on: false, danger: false, onClick: handleShare },
+   231→   661→   661→          ] as const).map(({ id, icon: Icon, label, on, danger, onClick }) => (
+   232→   662→   662→            <button
+   233→   663→   663→              key={id}
+   234→   664→   664→              onClick={onClick}
+   235→   665→   665→              aria-label={label}
+   236→   666→   666→              aria-pressed={on || undefined}
+   237→   667→   667→              title={label}
+   238→   668→   668→              className="mq-ft-btn w-11 h-11 rounded-[14px] flex items-center justify-center"
+   239→   669→   669→              style={{
+   240→   670→   670→                backgroundColor: on
+   241→   671→   671→                  ? danger
+   242→   672→   672→                    ? "rgba(239,68,68,0.15)"
+   243→   673→   673→                    : "color-mix(in srgb, var(--mq-accent) 16%, transparent)"
+   244→   674→   674→                  : "transparent",
+   245→   675→   675→                color: on
+   246→   676→   676→                  ? danger
+   247→   677→   677→                    ? "var(--mq-error, #ef4444)"
+   248→   678→   678→                    : "var(--mq-accent)"
+   249→   679→   679→                  : "var(--mq-text-muted)",
+   250→   680→   680→              }}
+   251→   681→   681→            >
+   252→   682→   682→              <Icon className="w-[19px] h-[19px]" fill={on && (id === "dislike") ? "currentColor" : "none"} />
+   253→   683→   683→            </button>
+   254→   684→   684→          ))}
+   255→   685→   685→        </div>
+   256→   686→   686→
+   257→   687→   687→        {/* ── Panel overlay (lyrics/queue/history) ── */}
+   258→   688→   688→        {panel && (
+   259→   689→   689→          <div className="absolute inset-0 z-20 flex flex-col" style={{ background: "var(--mq-bg)", paddingTop: "max(16px, env(safe-area-inset-top))", animation: "mqFtSlideUp 0.2s ease-out" }}>
+   260→   690→   690→            <div className="flex items-center justify-between px-4 py-3" style={{ flexShrink: 0 }}>
+   261→   691→   691→              <p className="text-base font-semibold" style={{ color: "var(--mq-text)" }}>{panel === "lyrics" ? "Текст песни" : panel === "queue" ? "Очередь" : "Недавно играло"}</p>
+   262→   692→   692→              <button onClick={() => setPanel(null)} aria-label="Закрыть" className="mq-ft-btn" style={iconBtn}><X className="w-5 h-5" style={{ color: "var(--mq-text)" }} /></button>
+   263→   693→   693→            </div>
+   264→   694→   694→            <div className="flex-1 overflow-y-auto px-4 pb-4">
+   265→   695→   695→              {panel === "lyrics" && (lyricsLoading ? <div className="flex items-center gap-2 py-6 justify-center"><Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} /><span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Поиск...</span></div>
+   266→   696→   696→                : lyrics.length ? <SyncedLyrics lines={lyrics} onSeek={seekToTime} />
+   267→   697→   697→                : plainLyrics ? <div className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "var(--mq-text-muted)" }}>{plainLyrics}</div>
+   268→   698→   698→                : <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>{lyricsError || "Текст не найден"}</p>)}
+   269→   699→   699→              {panel === "queue" && (upcoming.length ? upcoming.map((t, i) => (
+   270→   700→   700→                <div key={t.id + i} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playTrack?.(t, queue); setPanel(null); } }} onClick={() => { playTrack?.(t, queue); setPanel(null); }} className="mq-ft-btn w-full flex items-center gap-3 p-2 rounded-xl text-left" style={{ border: "none", cursor: "pointer", background: "transparent" }}>
+   271→   701→   701→                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">{t.cover ? <img src={t.cover} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: "var(--mq-accent)" }} />}</div>
+   272→   702→   702→                  <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{t.title}</p><p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{t.artist}</p></div>
+   273→   703→   703→                  {/* v69 duration contract: queue rows keep duration (shrink-0) */}
+   274→   704→   704→                  {t.duration > 0 && (
+   275→   705→   705→                    <span className="mq-t-num shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}>{formatDuration(t.duration)}</span>
+   276→   706→   706→                  )}
+   277→   707→   707→                  <TrackMoreButton onOpen={(e) => { e.stopPropagation(); setTrackMenu({ track: t, x: e.clientX, y: e.clientY }); }} size="sm" label={`Действия: ${t.title}`} />
+   278→   708→   708→                </div>)) : <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>Очередь пуста</p>)}
+   279→   709→   709→              {panel === "history" && (recent.length ? recent.map((t, i) => (
+   280→   710→   710→                <div key={t.id + i} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playTrack?.(t, [t]); setPanel(null); } }} onClick={() => { playTrack?.(t, [t]); setPanel(null); }} className="mq-ft-btn w-full flex items-center gap-3 p-2 rounded-xl text-left" style={{ border: "none", cursor: "pointer", background: "transparent" }}>
+   281→   711→   711→                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">{t.cover ? <img src={t.cover} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: "var(--mq-accent)" }} />}</div>
+   282→   712→   712→                  <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{t.title}</p><p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{t.artist}</p></div>
+   283→   713→   713→                  {/* v69 duration contract: history rows keep duration (shrink-0) */}
+   284→   714→   714→                  {t.duration > 0 && (
+   285→   715→   715→                    <span className="mq-t-num shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}>{formatDuration(t.duration)}</span>
+   286→   716→   716→                  )}
+   287→   717→   717→                  <TrackMoreButton onOpen={(e) => { e.stopPropagation(); setTrackMenu({ track: t, x: e.clientX, y: e.clientY }); }} size="sm" label={`Действия: ${t.title}`} />
+   288→   718→   718→                </div>)) : <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>История пуста</p>)}
+   289→   719→   719→            </div>
+   290→   720→   720→          </div>
+   291→   721→   721→        )}
+   292→   722→   722→
+   293→   723→   723→        {/* ── More sheet (volume, speed, sleep timer, EQ, spatial, share) ── */}
+   294→   724→   724→        {showMore && (
+   295→   725→   725→          <>
+   296→   726→   726→            <div className="absolute inset-0 z-30" style={{ background: "var(--mq-overlay-scrim)" }} onClick={() => setShowMore(false)} />
+   297→   727→   727→            <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 40, borderRadius: "20px 20px 0 0", padding: "20px", paddingBottom: "max(20px, env(safe-area-inset-bottom))", background: "var(--mq-surface-1)", border: "1px solid var(--mq-edge-strong)", boxShadow: "var(--mq-elev-dialog)", animation: "mqFtSlideUp 0.25s cubic-bezier(0.32, 0.72, 0, 1)", maxHeight: "80vh", overflowY: "auto" }}>
+   298→   728→   728→              <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: "var(--mq-glass-bg-active)" }} />
+   299→   729→   729→              {/* Track info header */}
+   300→   730→   730→              <div className="flex items-center gap-3 mb-4">
+   301→   731→   731→                <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">{currentTrack.cover ? <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: "var(--mq-accent)" }} />}</div>
+   302→   732→   732→                <div className="min-w-0 flex-1"><p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p><p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p></div>
+   303→   733→   733→              </div>
+   304→   734→   734→              <div className="h-px mb-3" style={{ background: "var(--mq-border-thin)" }} />
+   305→   735→   735→
+   306→   736→   736→              {/* Volume */}
+   307→   737→   737→              <div className="py-3">
+   308→   738→   738→                <div className="flex items-center gap-3 mb-2"><Volume2 className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} /><span className="text-sm" style={{ color: "var(--mq-text)" }}>Громкость</span><span className="mq-t-num ml-auto" style={{ color: "var(--mq-text-muted)" }}>{Math.round(volume)}%</span></div>
+   309→   739→   739→                <input type="range" min={0} max={100} value={volume} onChange={(e) => { const v = Number(e.target.value); setVolume(v); e.target.style.setProperty('--mq-vol-pct', `${v}%`); }} className="mq-ft-vol" style={{ width: "100%", ['--mq-vol-pct' as string]: `${volume}%` }} />
+   310→   740→   740→              </div>
+   311→   741→   741→              <div className="h-px my-2" style={{ background: "var(--mq-border-thin)" }} />
+   312→   742→   742→
+   313→   743→   743→              {/* Playback speed */}
+   314→   744→   744→              <div className="py-3">
+   315→   745→   745→                <div className="flex items-center gap-3 mb-2"><Gauge className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} /><span className="text-sm" style={{ color: "var(--mq-text)" }}>Скорость</span><span className="mq-t-num ml-auto" style={{ color: playbackRate !== 1 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>{playbackRate}x</span></div>
+   316→   746→   746→                <div className="flex items-center gap-2 flex-wrap pl-8">
+   317→   747→   747→                  {speedOptions.map(speed => (
+   318→   748→   748→                    <button key={speed} onClick={() => handleSpeedChange(speed)} className="mq-ft-btn px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: playbackRate === speed ? "var(--mq-accent)" : "var(--mq-input-bg)", color: playbackRate === speed ? "#fff" : "var(--mq-text-muted)", border: "none", cursor: "pointer" }}>
+   319→   749→   749→                      {speed}x
+   320→   750→   750→                    </button>
+   321→   751→   751→                  ))}
+   322→   752→   752→                </div>
+   323→   753→   753→              </div>
+   324→   754→   754→              <div className="h-px my-2" style={{ background: "var(--mq-border-thin)" }} />
+   325→   755→   755→
+   326→   756→   756→              {/* Sleep timer */}
+   327→   757→   757→              <div className="py-3">
+   328→   758→   758→                <div className="flex items-center gap-3 mb-2"><Timer className="w-5 h-5" style={{ color: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} /><span className="text-sm" style={{ color: "var(--mq-text)" }}>Таймер сна</span>{sleepTimerActive && <span className="mq-t-num ml-auto" style={{ color: "var(--mq-accent)" }}>{sleepRemainingMin}м</span>}</div>
+   329→   759→   759→                <div className="flex items-center gap-2 flex-wrap pl-8">
+   330→   760→   760→                  {sleepOptions.map(min => (
+   331→   761→   761→                    <button key={min} onClick={() => handleSleepSet(min)} className="mq-ft-btn px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: "var(--mq-input-bg)", color: "var(--mq-text-muted)", border: "none", cursor: "pointer" }}>
+   332→   762→   762→                      {min} мин
+   333→   763→   763→                    </button>
+   334→   764→   764→                  ))}
+   335→   765→   765→                  {sleepTimerActive && (
+   336→   766→   766→                    <button onClick={() => { stopSleepTimer(); toast({ title: "Таймер отменён" }); }} className="mq-ft-btn px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: "rgba(239,68,68,0.15)", color: "var(--mq-error, #ef4444)", border: "none", cursor: "pointer" }}>
+   337→   767→   767→                      Отменить
+   338→   768→   768→                    </button>
+   339→   769→   769→                  )}
+   340→   770→   770→                </div>
+   341→   771→   771→              </div>
+   342→   772→   772→              <div className="h-px my-2" style={{ background: "var(--mq-border-thin)" }} />
+   343→   773→   773→
+   344→   774→   774→              {/* Equalizer */}
+   345→   775→   775→              <button onClick={() => { setShowMore(false); setEqOpen(true); }} className="mq-ft-btn w-full flex items-center gap-3 py-3" style={{ background: "transparent", border: "none", cursor: "pointer" }}>
+   346→   776→   776→                <Sliders className="w-5 h-5" style={{ color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+   347→   777→   777→                <div className="flex-1 text-left min-w-0">
+   348→   778→   778→                  <p className="text-sm" style={{ color: "var(--mq-text)" }}>Эквалайзер</p>
+   349→   779→   779→                  <p className="mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
+   350→   780→   780→                    {eqEnabled ? `Активен · ${eqPreset === "custom" ? "свои настройки" : eqPreset}` : "10-полосный с пресетами"}
+   351→   781→   781→                  </p>
+   352→   782→   782→                </div>
+   353→   783→   783→                <span
+   354→   784→   784→                  className="mq-t-meta-2 font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+   355→   785→   785→                  style={{
+   356→   786→   786→                    backgroundColor: eqEnabled
+   357→   787→   787→                      ? "color-mix(in srgb, var(--mq-accent) 18%, transparent)"
+   358→   788→   788→                      : "var(--mq-glass-bg)",
+   359→   789→   789→                    color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)",
+   360→   790→   790→                    border: eqEnabled
+   361→   791→   791→                      ? "1px solid color-mix(in srgb, var(--mq-accent) 35%, transparent)"
+   362→   792→   792→                      : "1px solid var(--mq-border-thin)",
+   363→   793→   793→                  }}
+   364→   794→   794→                >
+   365→   795→   795→                  {eqEnabled ? "ON" : "OFF"}
+   366→   796→   796→                </span>
+   367→   797→   797→              </button>
+   368→   798→   798→              <div className="h-px my-2" style={{ background: "var(--mq-border-thin)" }} />
+   369→   799→   799→
+   370→   800→   800→              {/* Spatial audio toggle */}
+   371→   801→   801→              <button onClick={() => setSpatialAudioEnabled(!spatialAudioEnabled)} className="mq-ft-btn w-full flex items-center gap-3 py-3" style={{ background: "transparent", border: "none", cursor: "pointer" }}>
+   372→   802→   802→                <AirVent className="w-5 h-5" style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+   373→   803→   803→                <span className="text-sm flex-1 text-left" style={{ color: "var(--mq-text)" }}>Пространственное аудио</span>
+   374→   804→   804→                <div className="w-10 h-6 rounded-full relative flex-shrink-0" style={{ background: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-glass-bg-active)" }}>
+   375→   805→   805→                  <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform" style={{ transform: spatialAudioEnabled ? "translateX(20px)" : "translateX(2px)" }} />
+   376→   806→   806→                </div>
+   377→   807→   807→              </button>
+   378→   808→   808→              <div className="h-px my-2" style={{ background: "var(--mq-border-thin)" }} />
+   379→   809→   809→
+   380→   810→   810→              {/* Share */}
+   381→   811→   811→              <button onClick={() => { handleShare(); setShowMore(false); }} className="mq-ft-btn w-full flex items-center gap-3 py-3" style={{ background: "transparent", border: "none", cursor: "pointer" }}>
+   382→   812→   812→                <Share2 className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} /><span className="text-sm" style={{ color: "var(--mq-text)" }}>Поделиться</span>
+   383→   813→   813→              </button>
+   384→   814→   814→            </div>
+   385→   815→   815→          </>
+   386→   816→   816→        )}
+   387→   817→   817→      </div>
+   388→   818→   818→      </div>
+   389→   819→   819→
+   390→   820→   820→      {/* v68: unified context menu (portal) for queue/history rows */}
+   391→   821→   821→      {trackMenu && (
+   392→   822→   822→        <ContextMenu
+   393→   823→   823→          track={trackMenu.track}
+   394→   824→   824→          x={trackMenu.x}
+   395→   825→   825→          y={trackMenu.y}
+   396→   826→   826→          onClose={() => setTrackMenu(null)}
+   397→   827→   827→          side="above"
+   398→   828→   828→          bottomInset={120}
+   399→   829→   829→        />
+   400→   830→   830→      )}
+   401→   831→   831→    </>
+   402→   832→   832→  );
+   403→   833→   833→}
+   404→   834→   834→
+   405→   835→   835→export default memo(FullTrackViewMobileInner);
+   406→   836→   836→

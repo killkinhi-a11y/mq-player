@@ -1,0 +1,798 @@
+     1→package com.mq1.player.player
+     2→
+     3→import android.content.ComponentName
+     4→import android.content.Context
+     5→import android.net.ConnectivityManager
+     6→import android.net.Network
+     7→import android.net.NetworkCapabilities
+     8→import android.net.NetworkRequest
+     9→import android.os.Handler
+    10→import android.os.Looper
+    11→import android.util.Log
+    12→import androidx.media3.common.MediaItem
+    13→import androidx.media3.common.MediaMetadata
+    14→import androidx.media3.common.Player
+    15→import androidx.media3.session.MediaController
+    16→import androidx.media3.session.SessionToken
+    17→import com.google.common.util.concurrent.MoreExecutors
+    18→import com.mq1.player.data.api.Track
+    19→import com.mq1.player.data.repo.PlayableStream
+    20→import com.mq1.player.data.repo.playableStream
+    21→import com.mq1.player.di.ServiceLocator
+    22→import kotlinx.coroutines.CoroutineScope
+    23→import kotlinx.coroutines.Dispatchers
+    24→import kotlinx.coroutines.Job
+    25→import kotlinx.coroutines.SupervisorJob
+    26→import kotlinx.coroutines.delay
+    27→import kotlinx.coroutines.flow.MutableStateFlow
+    28→import kotlinx.coroutines.flow.StateFlow
+    29→import kotlinx.coroutines.flow.asStateFlow
+    30→import kotlinx.coroutines.flow.first
+    31→import kotlinx.coroutines.launch
+    32→import java.util.concurrent.atomic.AtomicBoolean
+    33→
+    34→/**
+    35→ * App-process facade over the MediaController bound to [MqPlaybackService].
+    36→ * UI and ViewModels talk ONLY to this class — never to the player directly.
+    37→ *
+    38→ * Responsibilities:
+    39→ *  - queue state (tracks + index) mirrored as StateFlows for Compose
+    40→ *  - stream URL pre-resolution for the current and next item (TTL cache in
+    41→ *    MusicRepository; wave prefetch costs no extra backend hits)
+    42→ *  - automatic Wave extension when the queue nears its end
+    43→ *  - now-playing report + history push on track transitions
+    44→ *  - network-loss recovery: player errors of IO kind trigger a wait-for-
+    45→ *    connectivity then prepare() retry (max 3), preserving position
+    46→ */
+    47→class PlaybackController(private val context: Context) {
+    48→
+    49→    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    50→    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    51→    private val tag = "PlaybackController"
+    52→
+    53→    private var controller: MediaController? = null
+    54→    private val mainHandler = Handler(Looper.getMainLooper())
+    55→
+    56→    private val _queue = MutableStateFlow<List<Track>>(emptyList())
+    57→    val queue: StateFlow<List<Track>> = _queue.asStateFlow()
+    58→
+    59→    private val _currentIndex = MutableStateFlow(-1)
+    60→    val currentIndex: StateFlow<Int> = _currentIndex.asStateFlow()
+    61→
+    62→    private val _isPlaying = MutableStateFlow(false)
+    63→    val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
+    64→
+    65→    private val _isBuffering = MutableStateFlow(false)
+    66→    val isBuffering: StateFlow<Boolean> = _isBuffering.asStateFlow()
+    67→
+    68→    private val _positionMs = MutableStateFlow(0L)
+    69→    val positionMs: StateFlow<Long> = _positionMs.asStateFlow()
+    70→
+    71→    private val _durationMs = MutableStateFlow(0L)
+    72→    val durationMs: StateFlow<Long> = _durationMs.asStateFlow()
+    73→
+    74→    private val _error = MutableStateFlow<String?>(null)
+    75→    val error: StateFlow<String?> = _error.asStateFlow()
+    76→
+    77→    private val _waveMode = MutableStateFlow(false)
+    78→    val waveMode: StateFlow<Boolean> = _waveMode.asStateFlow()
+    79→
+    80→    private val _networkWaiting = MutableStateFlow(false)
+    81→    val networkWaiting: StateFlow<Boolean> = _networkWaiting.asStateFlow()
+    82→
+    83→    // Reactive playback modes (UI tint updates immediately, not on next tick)
+    84→    private val _shuffleEnabled = MutableStateFlow(false)
+    85→    val shuffleEnabled: StateFlow<Boolean> = _shuffleEnabled.asStateFlow()
+    86→
+    87→    private val _repeatMode = MutableStateFlow(Player.REPEAT_MODE_OFF)
+    88→    val repeatMode: StateFlow<Int> = _repeatMode.asStateFlow()
+    89→
+    90→    // F8: playback speed — 0.5 / 0.75 / 1.0 / 1.25 / 1.5 / 2.0, player-wide
+    91→    // (ExoPlayer PlaybackParameters; audio pitch stays natural)
+    92→    private val _speed = MutableStateFlow(1.0f)
+    93→    val speed: StateFlow<Float> = _speed.asStateFlow()
+    94→
+    95→    // P1 (web parity): player volume in percent 0..100 — the web applies the
+    96→    // quadratic curve audio.volume = (pct/100)^2; we replicate exactly.
+    97→    private val _volumePercent = MutableStateFlow(100f)
+    98→    val volumePercent: StateFlow<Float> = _volumePercent.asStateFlow()
+    99→
+   100→    // P1 (web parity): REAL sleep timer. TIME mode = absolute epoch deadline
+   101→    // (drift-free, survives navigation — the controller is app-process-wide);
+   102→    // END_OF_TRACK = Media3 pauseAtEndOfMediaItem (exact, player-level).
+   103→    // Web expiry semantics: linear fade over the last 30 s, then pause and
+   104→    // restore the original volume.
+   105→    enum class SleepKind { NONE, TIME, END_OF_TRACK }
+   106→
+   107→    private val _sleepKind = MutableStateFlow(SleepKind.NONE)
+   108→    val sleepKind: StateFlow<SleepKind> = _sleepKind.asStateFlow()
+   109→
+   110→    private val _sleepRemainingMs = MutableStateFlow(0L)
+   111→    val sleepRemainingMs: StateFlow<Long> = _sleepRemainingMs.asStateFlow()
+   112→
+   113→    @Volatile private var sleepEndMs: Long = 0L
+   114→    @Volatile private var sleepOriginalVolumePercent: Float = 100f
+   115→    @Volatile private var sleepTargetTrackId: String? = null
+   116→
+   117→    fun startSleepTimer(minutes: Int) {
+   118→        sleepOriginalVolumePercent = _volumePercent.value
+   119→        sleepEndMs = System.currentTimeMillis() + minutes * 60_000L
+   120→        sleepTargetTrackId = nowPlaying?.id
+   121→        _sleepKind.value = SleepKind.TIME
+   122→        _sleepRemainingMs.value = minutes * 60_000L
+   123→    }
+   124→
+   125→    fun startSleepEndOfTrack() {
+   126→        if (nowPlaying == null) return
+   127→        sleepEndMs = 0L
+   128→        sleepTargetTrackId = nowPlaying?.id
+   129→        _sleepKind.value = SleepKind.END_OF_TRACK
+   130→        _sleepRemainingMs.value = 0L
+   131→        // media3 1.4.1 has no pauseAtEndOfMediaItem (added in 1.5) — the
+   132→        // ticker pauses ~300 ms before the natural end (imperceptible for a
+   133→        // sleep-stop) and the transition listener guards against any race.
+   134→    }
+   135→
+   136→    fun cancelSleepTimer() {
+   137→        sleepEndMs = 0L
+   138→        sleepTargetTrackId = null
+   139→        _sleepKind.value = SleepKind.NONE
+   140→        _sleepRemainingMs.value = 0L
+   141→        // Volume may have been mid-fade — restore honestly.
+   142→        applyVolume(sleepOriginalVolumePercent)
+   143→    }
+   144→
+   145→    private fun finishSleepTimer() {
+   146→        controller?.pause()
+   147→        applyVolume(sleepOriginalVolumePercent)
+   148→        sleepEndMs = 0L
+   149→        sleepTargetTrackId = null
+   150→        _sleepKind.value = SleepKind.NONE
+   151→        _sleepRemainingMs.value = 0L
+   152→    }
+   153→
+   154→    private fun tickSleepTimer() {
+   155→        when (_sleepKind.value) {
+   156→            SleepKind.NONE -> { if (_sleepRemainingMs.value != 0L) _sleepRemainingMs.value = 0L }
+   157→            SleepKind.END_OF_TRACK -> {
+   158→                val c = controller
+   159→                // Pause ~300 ms before the natural end (no pauseAtEndOfMediaItem
+   160→                // in media3 1.4.1 — honest near-exact stop for sleep purposes).
+   161→                if (c != null && c.isPlaying && _durationMs.value > 0) {
+   162→                    val remain = _durationMs.value - c.currentPosition
+   163→                    if (remain <= 300L) {
+   164→                        finishSleepTimer()
+   165→                        return
+   166→                    }
+   167→                }
+   168→                // The user moved to another track manually — timer consumed.
+   169→                if (sleepTargetTrackId != null && sleepTargetTrackId != nowPlaying?.id) {
+   170→                    sleepTargetTrackId = null
+   171→                    _sleepKind.value = SleepKind.NONE
+   172→                    _sleepRemainingMs.value = 0L
+   173→                }
+   174→            }
+   175→            SleepKind.TIME -> {
+   176→                val remaining = sleepEndMs - System.currentTimeMillis()
+   177→                _sleepRemainingMs.value = remaining.coerceAtLeast(0L)
+   178→                if (remaining <= 30_000L && remaining > 0L) {
+   179→                    // web parity: linear fade over the final 30 s
+   180→                    val faded = sleepOriginalVolumePercent * (remaining / 30_000f)
+   181→                    applyVolume(faded)
+   182→                }
+   183→                if (remaining <= 0L) finishSleepTimer()
+   184→            }
+   185→        }
+   186→    }
+   187→
+   188→    /** Web parity volume curve: player.volume = (pct/100)^2. */
+   189→    fun setVolume(percent: Float) {
+   190→        val p = percent.coerceIn(0f, 100f)
+   191→        _volumePercent.value = p
+   192→        // A manual volume change during a TIME fade re-baselines the origin
+   193→        // (like the web: user stays in control).
+   194→        if (_sleepKind.value == SleepKind.TIME && sleepRemainingMs.value > 30_000L) {
+   195→            sleepOriginalVolumePercent = p
+   196→        }
+   197→        applyVolume(p)
+   198→    }
+   199→
+   200→    private fun applyVolume(percent: Float) {
+   201→        val p = percent.coerceIn(0f, 100f) / 100f
+   202→        controller?.volume = p * p
+   203→    }
+   204→
+   205→    // Deep links (mq://player): monotonically increasing request counter;
+   206→    // the NavHost observes it and opens the Full Player once per request.
+   207→    private val _openPlayerRequest = MutableStateFlow(0)
+   208→    val openPlayerRequest: StateFlow<Int> = _openPlayerRequest.asStateFlow()
+   209→
+   210→    fun requestOpenPlayer() {
+   211→        _openPlayerRequest.value += 1
+   212→    }
+   213→
+   214→    @Volatile var resumePositionMs: Long = 0L
+   215→        private set
+   216→
+   217→    private var waveExtending = AtomicBoolean(false)
+   218→    private var pendingMediaItems: List<MediaItem>? = null
+   219→    private var pendingStartIndex: Int = 0
+   220→    private var pendingStartPositionMs: Long = 0
+   221→    private var pendingAutoplay: Boolean = true
+   222→
+   223→    // ── Connection ──────────────────────────────────────────────────────────
+   224→
+   225→    fun connect() {
+   226→        if (controller != null) return
+   227→        val token = SessionToken(context, ComponentName(context, MqPlaybackService::class.java))
+   228→        val future = MediaController.Builder(context, token).buildAsync()
+   229→        future.addListener({
+   230→            runCatching { future.get() }.onSuccess { mediaController ->
+   231→                controller = mediaController
+   232→                mediaController.addListener(playerListener)
+   233→                // re-apply persisted volume after (re)connect — the player
+   234→                // instance resets to 1.0 on service recreation
+   235→                applyVolume(_volumePercent.value)
+   236→                startPositionTicker()
+   237→                if (pendingMediaItems != null) {
+   238→                    val items = pendingMediaItems!!
+   239→                    applyMediaItems(items, pendingStartIndex, pendingStartPositionMs, pendingAutoplay)
+   240→                    pendingMediaItems = null
+   241→                }
+   242→            }.onFailure { Log.e(tag, "controller connect failed: ${it.message}") }
+   243→        }, MoreExecutors.directExecutor())
+   244→    }
+   245→
+   246→    fun release() {
+   247→        controller?.release()
+   248→        controller = null
+   249→    }
+   250→
+   251→    private fun requireController(): MediaController? = controller
+   252→
+   253→    // ── Public API ──────────────────────────────────────────────────────────
+   254→
+   255→    val nowPlaying: Track?
+   256→        get() = _queue.value.getOrNull(_currentIndex.value)
+   257→
+   258→    val currentQueue: List<Track> get() = _queue.value
+   259→
+   260→    fun playQueue(tracks: List<Track>, startIndex: Int = 0, autoplay: Boolean = true) {
+   261→        if (tracks.isEmpty()) return
+   262→        _waveMode.value = false
+   263→        scope.launch { startQueue(tracks, startIndex, wave = false, autoplay = autoplay) }
+   264→    }
+   265→
+   266→    fun startWave(tracks: List<Track>) {
+   267→        if (tracks.isEmpty()) return
+   268→        scope.launch { startQueue(tracks, 0, wave = true) }
+   269→    }
+   270→
+   271→    private suspend fun startQueue(tracks: List<Track>, startIndex: Int, wave: Boolean, autoplay: Boolean = true) {
+   272→        val safeIndex = startIndex.coerceIn(0, tracks.size - 1)
+   273→        _queue.value = tracks
+   274→        _currentIndex.value = safeIndex
+   275→        _waveMode.value = wave
+   276→        _error.value = null
+   277→
+   278→        // F8: resolve the FIRST track before building its MediaItem so HLS
+   279→        // gets the right mime type and encrypted streams get their DRM
+   280→        // configuration up front (the lazy DataSource path cannot attach
+   281→        // either — same reason the web resolves before feeding HLS.js).
+   282→        // TTL cache + single-flight make this free for repeats.
+   283→        val firstStream = tracks.getOrNull(safeIndex)?.let { t ->
+   284→            t.scTrackId?.let { ServiceLocator.musicRepository.resolveStreamById(it) }
+   285→        }?.let { playableStream(it, com.mq1.player.BuildConfig.API_BASE) }
+   286→
+   287→        val items = tracks.mapIndexed { i, t ->
+   288→            if (i == safeIndex && firstStream != null) {
+   289→                t.buildMediaItem(resolved = firstStream)
+   290→            } else {
+   291→                t.buildMediaItem(resolved = null)
+   292→            }
+   293→        }
+   294→        applyOrDefer(items, safeIndex, 0L, autoplay)
+   295→
+   296→        // Pre-resolve the active stream so playback starts instantly.
+   297→        preResolve(tracks.getOrNull(safeIndex + 1))
+   298→    }
+   299→
+   300→    private fun applyOrDefer(items: List<MediaItem>, startIndex: Int, positionMs: Long, autoplay: Boolean = true) {
+   301→        val c = requireController()
+   302→        if (c == null) {
+   303→            pendingMediaItems = items
+   304→            pendingStartIndex = startIndex
+   305→            pendingStartPositionMs = positionMs
+   306→            pendingAutoplay = autoplay
+   307→            connect()
+   308→            return
+   309→        }
+   310→        applyMediaItems(items, startIndex, positionMs, autoplay)
+   311→    }
+   312→
+   313→    private fun applyMediaItems(items: List<MediaItem>, startIndex: Int, positionMs: Long, autoplay: Boolean = true) {
+   314→        val c = controller ?: return
+   315→        c.setMediaItems(items, startIndex, positionMs)
+   316→        c.prepare()
+   317→        // autoplay=false (demo login — web parity: queue loaded, isPlaying=false):
+   318→        // items are prepared/paused; the first play tap resumes from position 0.
+   319→        if (autoplay) c.play()
+   320→    }
+   321→
+   322→    fun addToQueue(tracks: List<Track>) {
+   323→        if (tracks.isEmpty()) return
+   324→        val c = controller ?: return
+   325→        _queue.value = _queue.value + tracks
+   326→        c.addMediaItems(tracks.map { it.buildMediaItem(resolved = null) })
+   327→        scope.launch { preResolve(tracks.firstOrNull()) }
+   328→    }
+   329→
+   330→    fun playNext(track: Track) {
+   331→        val c = controller ?: return
+   332→        _queue.value = _queue.value.toMutableList().apply {
+   333→            add((_currentIndex.value + 1).coerceAtLeast(0), track)
+   334→        }
+   335→        c.addMediaItems(
+   336→            (_currentIndex.value + 1).coerceAtLeast(0),
+   337→            listOf(track.buildMediaItem(resolved = null))
+   338→        )
+   339→        scope.launch { preResolve(track) }
+   340→    }
+   341→
+   342→    // ── REAL queue editing (web QueueView parity) ──────────────
+   343→
+   344→    /**
+   345→     * REAL removal — replaces the old fake `next()` "removal".
+   346→     * Removing the current item lets ExoPlayer auto-transition to the next
+   347→     * (the transition listener mirrors the new index); removing the last
+   348→     * item empties the queue.
+   349→     */
+   350→    fun removeQueueItem(index: Int) {
+   351→        val c = controller ?: return
+   352→        val queue = _queue.value
+   353→        if (index !in queue.indices) return
+   354→        val wasCurrent = index == _currentIndex.value
+   355→        c.removeMediaItem(index)
+   356→        _queue.value = queue.filterIndexed { i, _ -> i != index }
+   357→        when {
+   358→            _queue.value.isEmpty() -> {
+   359→                _currentIndex.value = -1
+   360→                _isPlaying.value = false
+   361→            }
+   362→            wasCurrent -> {
+   363→                // player auto-advanced; the transition listener refreshes,
+   364→                // but mirror immediately for responsive UI
+   365→                _currentIndex.value = c.currentMediaItemIndex.coerceIn(0, _queue.value.size - 1)
+   366→                if (index >= _queue.value.size && _waveMode.value) {
+   367→                    scope.launch { extendWave() }
+   368→                }
+   369→            }
+   370→            index < _currentIndex.value -> _currentIndex.value -= 1
+   371→        }
+   372→    }
+   373→
+   374→    fun moveQueueItem(from: Int, to: Int) {
+   375→        val c = controller ?: return
+   376→        val queue = _queue.value.toMutableList()
+   377→        if (from !in queue.indices || to !in queue.indices || from == to) return
+   378→        c.moveMediaItem(from, to)
+   379→        queue.add(to, queue.removeAt(from))
+   380→        _queue.value = queue
+   381→        val cur = _currentIndex.value
+   382→        _currentIndex.value = when (cur) {
+   383→            from -> to
+   384→            else -> if (from < cur && to >= cur) cur - 1
+   385→                    else if (from > cur && to <= cur) cur + 1
+   386→                    else cur
+   387→        }
+   388→    }
+   389→
+   390→    fun togglePlayPause() {
+   391→        val c = controller ?: return
+   392→        if (c.isPlaying) c.pause() else c.play()
+   393→    }
+   394→
+   395→    /** Toggle favorite for an EXPLICIT track (list rows favorite their own
+   396→     *  track — previously every row hearted the *currently playing* track). */
+   397→    fun toggleFavorite(track: Track) {
+   398→        ioScope.launch {
+   399→            ServiceLocator.localStore.toggleFavorite(track)
+   400→            // Taste feedback to the recommendation engine (best-effort).
+   401→            track.scTrackId?.let { id ->
+   402→                runCatching {
+   403→                    ServiceLocator.api.recommendationFeedback(
+   404→                        mapOf("scTrackId" to id.toString(), "action" to "like")
+   405→                    )
+   406→                }
+   407→            }
+   408→        }
+   409→    }
+   410→
+   411→    // ── Dislikes / artist subscriptions / similar tracks (web parity) ───
+   412→
+   413→    private val _subscribedArtists = MutableStateFlow<Set<String>>(emptySet())
+   414→    val subscribedArtists: StateFlow<Set<String>> = _subscribedArtists.asStateFlow()
+   415→
+   416→    private val _dislikedIds = MutableStateFlow<Set<String>>(emptySet())
+   417→    val dislikedIds: StateFlow<Set<String>> = _dislikedIds.asStateFlow()
+   418→
+   419→    init {
+   420→        // Mirror the persisted library lists for instant UI labels.
+   421→        scope.launch {
+   422→            ServiceLocator.localStore.favoriteArtists.collect { _subscribedArtists.value = it.toSet() }
+   423→        }
+   424→        scope.launch {
+   425→            ServiceLocator.localStore.dislikedScIds.collect { _dislikedIds.value = it }
+   426→        }
+   427→    }
+   428→
+   429→    /** Web «Не нравится» — persists locally + taste feedback. */
+   430→    fun dislike(track: Track) {
+   431→        ioScope.launch {
+   432→            val added = ServiceLocator.localStore.toggleDisliked(track)
+   433→            if (added) {
+   434→                track.scTrackId?.let { id ->
+   435→                    runCatching {
+   436→                        ServiceLocator.api.recommendationFeedback(
+   437→                            mapOf("scTrackId" to id.toString(), "action" to "dislike")
+   438→                        )
+   439→                    }
+   440→                }
+   441→            }
+   442→        }
+   443→    }
+   444→
+   445→    /** Web «Подписаться на артиста» — local + server sync. */
+   446→    fun toggleArtistSubscription(artist: String) {
+   447→        ioScope.launch {
+   448→            ServiceLocator.localStore.toggleFavoriteArtist(artist)
+   449→            runCatching {
+   450→                val artists = ServiceLocator.localStore.favoriteArtists.first()
+   451→                ServiceLocator.api.saveFavoriteArtists(
+   452→                    com.mq1.player.data.api.SaveFavoriteArtistsBody(artists = artists)
+   453→                )
+   454→            }
+   455→        }
+   456→    }
+   457→
+   458→    /** Web «Похожие треки» — seed track + /api/music/radio batch, radio
+   459→     *  continuation on (auto-extends like Wave when the batch runs out). */
+   460→    fun startSimilar(seed: Track) {
+   461→        scope.launch {
+   462→            val similar = ServiceLocator.musicRepository.similarTracks(seed)
+   463→            if (similar.isEmpty()) {
+   464→                _error.value = "Похожие треки не найдены"
+   465→                return@launch
+   466→            }
+   467→            _error.value = null
+   468→            startQueue(listOf(seed) + similar, 0, wave = true)
+   469→            requestOpenPlayer()
+   470→        }
+   471→    }
+   472→
+   473→    fun next() { controller?.seekToNextMediaItem() }
+   474→
+   475→    fun previous() {
+   476→        val c = controller ?: return
+   477→        if (c.currentPosition > 3000) c.seekTo(0) else c.seekToPreviousMediaItem()
+   478→    }
+   479→
+   480→    fun seekTo(positionMs: Long) {
+   481→        controller?.seekTo(positionMs.coerceIn(0, _durationMs.value.coerceAtLeast(1)))
+   482→    }
+   483→
+   484→    fun seekToIndex(index: Int) {
+   485→        val c = controller ?: return
+   486→        if (index in _queue.value.indices) c.seekTo(index, 0)
+   487→    }
+   488→
+   489→    fun setShuffle(enabled: Boolean) { controller?.shuffleModeEnabled = enabled }
+   490→
+   491→    fun setRepeatMode(mode: Int) { controller?.repeatMode = mode }
+   492→
+   493→    /** F8: set playback speed (clamped to the supported ladder). */
+   494→    fun setPlaybackSpeed(speed: Float) {
+   495→        val clamped = when {
+   496→            speed < 0.5f -> 0.5f
+   497→            speed > 2f -> 2f
+   498→            else -> speed
+   499→        }
+   500→        _speed.value = clamped
+   501→        controller?.setPlaybackSpeed(clamped)
+   502→    }
+   503→
+   504→    fun stop() {
+   505→        controller?.run {
+   506→            stop()
+   507→            clearMediaItems()
+   508→        }
+   509→        cancelSleepTimer()
+   510→        _queue.value = emptyList()
+   511→        _currentIndex.value = -1
+   512→        _waveMode.value = false
+   513→    }
+   514→
+   515→    // ── Wave integration ────────────────────────────────────────────────────
+   516→
+   517→    fun waveNextFromNotification() {
+   518→        scope.launch {
+   519→            val c = controller ?: return@launch
+   520→            if (c.hasNextMediaItem()) {
+   521→                c.seekToNextMediaItem()
+   522→            } else {
+   523→                extendWave()
+   524→            }
+   525→        }
+   526→    }
+   527→
+   528→    fun skipWave() { waveNextFromNotification() }
+   529→
+   530→    private suspend fun extendWave() {
+   531→        if (!waveExtending.compareAndSet(false, true)) return
+   532→        try {
+   533→            val batch = ServiceLocator.waveRepository.nextBatch(15)
+   534→            if (batch.isNotEmpty()) {
+   535→                addToQueue(batch)
+   536→            } else {
+   537→                _error.value = "Волна: не удалось получить следующие треки"
+   538→            }
+   539→        } finally {
+   540→            waveExtending.set(false)
+   541→        }
+   542→    }
+   543→
+   544→    // ── Favorites / now playing ─────────────────────────────────────────────
+   545→
+   546→    fun toggleFavoriteForCurrent() {
+   547→        val track = nowPlaying ?: return
+   548→        ioScope.launch {
+   549→            ServiceLocator.localStore.toggleFavorite(track)
+   550→            // Taste feedback to the recommendation engine (best-effort).
+   551→            track.scTrackId?.let { id ->
+   552→                runCatching {
+   553→                    ServiceLocator.api.recommendationFeedback(
+   554→                        mapOf("scTrackId" to id.toString(), "action" to "like")
+   555→                    )
+   556→                }
+   557→            }
+   558→        }
+   559→    }
+   560→
+   561→    private fun reportTrackStarted(track: Track) {
+   562→        ioScope.launch {
+   563→            ServiceLocator.musicRepository.reportNowPlaying(track)
+   564→            ServiceLocator.localStore.pushHistory(track)
+   565→        }
+   566→    }
+   567→
+   568→    // ── Stream pre-resolution ───────────────────────────────────────────────
+   569→
+   570→    /**
+   571→     * Resolve the real CDN URL for a track and swap the lazy URI in the
+   572→     * player's media item (if it is the current/next item). The TTL cache in
+   573→     * MusicRepository makes this free for repeated plays.
+   574→     * F8: the rebuilt item now carries the HLS mime AND the Widevine DRM
+   575→     * configuration for encrypted streams (license proxy = backend route).
+   576→     */
+   577→    private suspend fun preResolve(track: Track?) {
+   578→        if (track == null) return
+   579→        val id = track.scTrackId ?: return
+   580→        val resolved = ServiceLocator.musicRepository.resolveStreamById(id) ?: return
+   581→        val playable = playableStream(
+   582→            resolved, com.mq1.player.BuildConfig.API_BASE
+   583→        ) ?: return
+   584→
+   585→        val c = controller ?: return
+   586→        val itemIndex = c.currentMediaItemIndex
+   587→        val nextIndex = itemIndex + 1
+   588→
+   589→        for (i in listOf(itemIndex, nextIndex)) {
+   590→            if (i >= c.mediaItemCount) continue
+   591→            val item = c.getMediaItemAt(i)
+   592→            val key = track.scTrackId?.toString() ?: track.id
+   593→            if (item.mediaId == key && item.localConfiguration?.uri?.scheme == MqStreamDataSource.SCHEME) {
+   594→                val rebuilt = item.buildUpon()
+   595→                    .setUri(android.net.Uri.parse(playable.url))
+   596→                    .setMimeType(
+   597→                        if (playable.isHls) androidx.media3.common.MimeTypes.APPLICATION_M3U8 else null
+   598→                    )
+   599→                    .apply {
+   600→                        if (playable.isEncrypted && playable.licenseProxyUrl != null) {
+   601→                            setDrmConfiguration(
+   602→                                MediaItem.DrmConfiguration.Builder(androidx.media3.common.C.WIDEVINE_UUID)
+   603→                                    .setLicenseUri(android.net.Uri.parse(playable.licenseProxyUrl))
+   604→                                    .build()
+   605→                            )
+   606→                        }
+   607→                    }
+   608→                    .build()
+   609→                // Replace in place: only safe when player not currently reading it
+   610→                if (i != itemIndex || !c.isPlaying) {
+   611→                    c.replaceMediaItem(i, rebuilt)
+   612→                }
+   613→            }
+   614→        }
+   615→    }
+   616→
+   617→    // ── Player events ───────────────────────────────────────────────────────
+   618→
+   619→    private val playerListener = object : Player.Listener {
+   620→
+   621→        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+   622→            val c = controller ?: return
+   623→            _currentIndex.value = c.currentMediaItemIndex
+   624→            resumePositionMs = 0
+   625→            val track = nowPlaying
+   626→            if (track != null && reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
+   627→                reportTrackStarted(track)
+   628→            }
+   629→            // Pre-resolve the upcoming item.
+   630→            scope.launch { preResolve(_queue.value.getOrNull(_currentIndex.value + 1)) }
+   631→            // Auto-extend wave queue.
+   632→            if (_waveMode.value) {
+   633→                val remaining = _queue.value.size - _currentIndex.value - 1
+   634→                if (remaining <= 2) scope.launch { extendWave() }
+   635→            }
+   636→        }
+   637→
+   638→        override fun onIsPlayingChanged(isPlaying: Boolean) {
+   639→            _isPlaying.value = isPlaying
+   640→            _isBuffering.value = controller?.playbackState == Player.STATE_BUFFERING
+   641→            if (isPlaying) recoveryAttempts = 0 // healthy again — future blips get full retries
+   642→        }
+   643→
+   644→        override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+   645→            _shuffleEnabled.value = shuffleModeEnabled
+   646→        }
+   647→
+   648→        override fun onRepeatModeChanged(repeatMode: Int) {
+   649→            _repeatMode.value = repeatMode
+   650→        }
+   651→
+   652→        override fun onPlaybackParametersChanged(playbackParameters: androidx.media3.common.PlaybackParameters) {
+   653→            _speed.value = playbackParameters.speed
+   654→        }
+   655→
+   656→        override fun onPlaybackStateChanged(playbackState: Int) {
+   657→            _isBuffering.value = playbackState == Player.STATE_BUFFERING
+   658→            _durationMs.value = controller?.duration?.takeIf { it > 0 } ?: 0L
+   659→        }
+   660→
+   661→        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+   662→            val isNetwork = error.errorCode in
+   663→                androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED..
+   664→                androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ||
+   665→                error.errorCode == androidx.media3.common.PlaybackException.ERROR_CODE_IO_UNSPECIFIED
+   666→            Log.e(tag, "player error ${error.errorCode}: ${error.message}")
+   667→            if (isNetwork) {
+   668→                scheduleNetworkRecovery()
+   669→            } else {
+   670→                _error.value = "Ошибка воспроизведения: ${error.errorCodeName.substringAfterLast('.')}"
+   671→                // Skip to next track for codec/source-level failures.
+   672→                val c = controller
+   673→                if (c != null && c.hasNextMediaItem()) {
+   674→                    c.seekToNextMediaItem()
+   675→                } else if (_waveMode.value) {
+   676→                    scope.launch { extendWave() }
+   677→                }
+   678→            }
+   679→        }
+   680→    }
+   681→
+   682→    // ── Network recovery (P20.8) ────────────────────────────────────────────
+   683→
+   684→    private var recoveryAttempts = 0
+   685→    private var connectivityCallback: ConnectivityManager.NetworkCallback? = null
+   686→
+   687→    private fun scheduleNetworkRecovery() {
+   688→        if (recoveryAttempts >= 3) {
+   689→            _error.value = "Сеть недоступна. Проверьте подключение и нажмите «Играть»."
+   690→            recoveryAttempts = 0
+   691→            return
+   692→        }
+   693→        _networkWaiting.value = true
+   694→        _error.value = null
+   695→        recoveryAttempts++
+   696→
+   697→        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+   698→        if (connectivityCallback != null) return // already waiting
+   699→
+   700→        val request = NetworkRequest.Builder()
+   701→            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+   702→            .build()
+   703→        val callback = object : ConnectivityManager.NetworkCallback() {
+   704→            override fun onAvailable(network: Network) {
+   705→                mainHandler.post {
+   706→                    _networkWaiting.value = false
+   707→                    unregisterRecovery()
+   708→                    val c = controller
+   709→                    if (c != null) {
+   710→                        val pos = c.currentPosition.coerceAtLeast(0)
+   711→                        c.seekTo(pos)
+   712→                        c.prepare()
+   713→                        c.play()
+   714→                    }
+   715→                }
+   716→            }
+   717→        }
+   718→        connectivityCallback = callback
+   719→        runCatching { cm.registerNetworkCallback(request, callback) }
+   720→    }
+   721→
+   722→    private fun unregisterRecovery() {
+   723→        connectivityCallback?.let { cb ->
+   724→            runCatching {
+   725→                (context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager)
+   726→                    ?.unregisterNetworkCallback(cb)
+   727→            }
+   728→        }
+   729→        connectivityCallback = null
+   730→    }
+   731→
+   732→    // ── Position ticker ─────────────────────────────────────────────────────
+   733→
+   734→    private fun startPositionTicker() {
+   735→        scope.launch {
+   736→            while (true) {
+   737→                val c = controller
+   738→                if (c != null && c.isPlaying) {
+   739→                    _positionMs.value = c.currentPosition.coerceAtLeast(0)
+   740→                    resumePositionMs = _positionMs.value
+   741→                    if (c.duration > 0) _durationMs.value = c.duration
+   742→                }
+   743→                tickSleepTimer()
+   744→                delay(500)
+   745→            }
+   746→        }
+   747→    }
+   748→}
+   749→
+   750→// MediaItem construction lives here so the service stays declarative.
+   751→// F8: `resolved` (when known) attaches the HLS mime type and, for encrypted
+   752→// streams, the Widevine license-proxy configuration — without it ExoPlayer
+   753→// cannot pick an HLS media source or run the DRM handshake.
+   754→// Tracks WITHOUT a SoundCloud id (demo/public files) carry their own playable
+   755→// http(s) URL — previously they all collapsed onto the synthetic
+   756→// mq-stream://0 URI and failed with "stream unresolved for track 0".
+   757→private fun Track.buildMediaItem(resolved: PlayableStream?): MediaItem {
+   758→    val key = scTrackId?.toString() ?: id
+   759→    val uri = when {
+   760→        resolved != null -> android.net.Uri.parse(resolved.url)
+   761→        scTrackId != null -> MqStreamDataSource.lazyUri(scTrackId)
+   762→        else -> audioUrl.takeIf { it.isNotBlank() }?.let { android.net.Uri.parse(it) }
+   763→            ?: MqStreamDataSource.lazyUri(0L)
+   764→    }
+   765→    return MediaItem.Builder()
+   766→        .setMediaId(key)
+   767→        .setUri(uri)
+   768→        .setMimeType(
+   769→            if (resolved?.isHls == true) androidx.media3.common.MimeTypes.APPLICATION_M3U8 else null
+   770→        )
+   771→        .apply {
+   772→            if (resolved?.isEncrypted == true && resolved.licenseProxyUrl != null) {
+   773→                setDrmConfiguration(
+   774→                    MediaItem.DrmConfiguration.Builder(androidx.media3.common.C.WIDEVINE_UUID)
+   775→                        .setLicenseUri(android.net.Uri.parse(resolved.licenseProxyUrl))
+   776→                        .build()
+   777→                )
+   778→            }
+   779→        }
+   780→        .setMediaMetadata(
+   781→            MediaMetadata.Builder()
+   782→                .setTitle(title)
+   783→                .setArtist(artist)
+   784→                .setAlbumTitle(album.takeIf { it.isNotBlank() })
+   785→                .setGenre(genre.takeIf { it.isNotBlank() })
+   786→                .setDurationMs((duration * 1000).toLong())
+   787→                // P0: covers are origin-relative — resolve so notification /
+   788→                // lock-screen artwork actually loads (web browser does this
+   789→                // implicitly; Coil / MediaMetadata do not).
+   790→                .setArtworkUri(
+   791→                    com.mq1.player.data.MqUrls.absolute(cover)?.let { android.net.Uri.parse(it) }
+   792→                )
+   793→                .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
+   794→                .build()
+   795→        )
+   796→        .build()
+   797→}
+   798→
