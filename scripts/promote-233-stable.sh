@@ -31,12 +31,17 @@ api() { curl -s -m 60 -H "Authorization: Bearer $TOKEN" -H "Accept: application/
 LOCAL_APK="/home/z/my-project/download/mq-player-v2.3.3-rc.apk"
 [ "$(sha256sum "$LOCAL_APK" | cut -d' ' -f1)" = "$EXPECT_SHA256" ] || { echo "FATAL: local APK SHA mismatch"; exit 1; }
 
-# 1. commit of the RC tag
-SHA=$(api "https://api.github.com/repos/$GITHUB_REPO/git/ref/tags/$RC_TAG" | python3 -c "import json,sys; print(json.load(sys.stdin)['object']['sha'])")
+# 1. commit of the RC tag (dereference annotated tags: /git/ref returns the
+#    TAG object sha — release creation needs the COMMIT sha)
+TAG_OBJ=$(api "https://api.github.com/repos/$GITHUB_REPO/git/ref/tags/$RC_TAG" | python3 -c "import json,sys; print(json.load(sys.stdin)['object']['sha'])")
+SHA=$(api "https://api.github.com/repos/$GITHUB_REPO/git/tags/$TAG_OBJ" | python3 -c "import json,sys; d=json.load(sys.stdin)['object']; print(d['sha'] if d['type']=='commit' else '')")
+[ -n "$SHA" ] || { echo "FATAL: could not resolve RC tag to a commit"; exit 1; }
 echo "RC tag commit: $SHA"
 
-# 2. create stable tag (fails cleanly if it already exists)
-api -X POST "https://api.github.com/repos/$GITHUB_REPO/releases" -d @- <<JSON | python3 -c "import json,sys; d=json.load(sys.stdin); print('release:', d.get('html_url') or d)"
+# 2. create stable release (fails cleanly if the tag/release already exists)
+RESP=$(mktemp); STATUS=$(curl -s -m 120 -o "$RESP" -w "%{http_code}" \
+  -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" \
+  -X POST "https://api.github.com/repos/$GITHUB_REPO/releases" -d @- <<JSON
 {
   "tag_name": "$STABLE_TAG",
   "target_commitish": "$SHA",
@@ -46,6 +51,11 @@ api -X POST "https://api.github.com/repos/$GITHUB_REPO/releases" -d @- <<JSON | 
   "prerelease": false
 }
 JSON
+)
+echo "release create: HTTP $STATUS"
+if [ "$STATUS" != "201" ]; then python3 -c "import json; d=json.load(open('$RESP')); print('  already-exists?' if d.get('errors') and 'already_exists' in str(d) else '  body:', str(d)[:400])"; fi
+[ "$STATUS" = "201" ] || [ "$STATUS" = "422" ] || { python3 -c "print(open('$RESP').read()[:400])"; rm -f "$RESP"; echo "FATAL: release creation failed"; exit 1; }
+rm -f "$RESP"
 
 # 3. upload the same bytes as MQPlayer.apk (the name the site's permanent URL expects)
 RELEASE_ID=$(api "https://api.github.com/repos/$GITHUB_REPO/releases/tags/$STABLE_TAG" | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
