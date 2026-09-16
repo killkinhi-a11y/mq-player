@@ -395,7 +395,7 @@ private fun MobileNowHero(
             }
             if (isNow) {
                 Box(
-                    modifier = Modifier.size(44.dp).clickable(onClick = onNext),
+                    modifier = Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onNext),
                     contentAlignment = Alignment.Center
                 ) {
                     MqIcon(
@@ -405,7 +405,7 @@ private fun MobileNowHero(
                 }
             }
             Box(
-                modifier = Modifier.size(44.dp).clickable(onClick = onMore),
+                modifier = Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onMore),
                 contentAlignment = Alignment.Center
             ) {
                 MqIcon(
@@ -550,6 +550,7 @@ private fun IconButton44(onClick: () -> Unit, content: @Composable () -> Unit) {
     Box(
         modifier = Modifier
             .size(44.dp)
+            .clip(CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) { content() }
@@ -560,6 +561,7 @@ fun PlaylistCard(playlist: PlaylistDto, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .width(140.dp)
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
     ) {
         Artwork(

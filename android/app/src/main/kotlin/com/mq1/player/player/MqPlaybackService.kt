@@ -11,6 +11,7 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.CommandButton
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
@@ -42,6 +43,17 @@ class MqPlaybackService : MediaLibraryService() {
 
     override fun onCreate() {
         super.onCreate()
+
+        // Canonical MQ mark in the media notification: the DefaultMediaNotification
+        // Provider would otherwise show the generic media3 glyph. The small icon is
+        // the alpha-only "mq" wordmark (same source as the launcher/monochrome
+        // layers) — Android tints it per system requirements.
+        setMediaNotificationProvider(
+            DefaultMediaNotificationProvider.Builder(this)
+                .setChannelName(R.string.media_notification_channel_name)
+                .build()
+                .apply { setSmallIcon(R.drawable.ic_notif_mq) }
+        )
 
         val httpFactory = DefaultHttpDataSource.Factory()
             .setUserAgent("MQ-Android")

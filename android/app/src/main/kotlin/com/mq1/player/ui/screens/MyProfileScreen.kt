@@ -201,6 +201,7 @@ internal fun ProfileBody(
             Box(
                 modifier = Modifier
                     .size(44.dp)
+                    .clip(RoundedCornerShape(50))
                     .clickable(onClick = onBack)
                     .semantics { contentDescription = "Назад" },
                 contentAlignment = Alignment.Center
@@ -218,6 +219,7 @@ internal fun ProfileBody(
             Box(
                 modifier = Modifier
                     .size(44.dp)
+                    .clip(RoundedCornerShape(50))
                     .clickable(onClick = onRefresh)
                     .semantics { contentDescription = "Обновить профиль" },
                 contentAlignment = Alignment.Center

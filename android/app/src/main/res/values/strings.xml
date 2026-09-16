@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">MQ</string>
+    <string name="media_notification_channel_name">Воспроизведение</string>
+    <string name="media_notification_channel_description">Управление воспроизведением MQ Player</string>
 </resources>

@@ -163,6 +163,7 @@ fun TrackRow(
             Box(
                 modifier = Modifier
                     .size(44.dp)
+                    .clip(RoundedCornerShape(50))
                     .clickable(onClick = onFavorite)
                     .semantics { contentDescription = "Нравится: ${track.title}" },
                 contentAlignment = Alignment.Center
@@ -181,6 +182,7 @@ fun TrackRow(
             Box(
                 modifier = Modifier
                     .size(44.dp)
+                    .clip(RoundedCornerShape(50))
                     .clickable(onClick = onMenu)
                     .semantics { contentDescription = "Меню трека" },
                 contentAlignment = Alignment.Center

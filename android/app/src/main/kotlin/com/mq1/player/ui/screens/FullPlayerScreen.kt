@@ -177,6 +177,7 @@ fun FullPlayerScreen(
                 Box(
                     Modifier
                         .size(44.dp)
+                        .clip(CircleShape)
                         .clickable(onClick = onClose),
                     contentAlignment = Alignment.Center
                 ) {
@@ -209,6 +210,7 @@ fun FullPlayerScreen(
                 Box(
                     Modifier
                         .size(44.dp)
+                        .clip(CircleShape)
                         .clickable(onClick = { moreOpen = true }),
                     contentAlignment = Alignment.Center
                 ) {
@@ -368,6 +370,7 @@ fun FullPlayerScreen(
                     Box(
                         Modifier
                             .size(44.dp)
+                            .clip(CircleShape)
                             .clickable { controller.setShuffle(!shuffleEnabled) }
                             .semantics { contentDescription = "Перемешать" },
                         contentAlignment = Alignment.Center
@@ -381,6 +384,7 @@ fun FullPlayerScreen(
                     Box(
                         Modifier
                             .size(52.dp)
+                            .clip(CircleShape)
                             .clickable { controller.previous() }
                             .semantics { contentDescription = "Предыдущий трек" },
                         contentAlignment = Alignment.Center
@@ -418,6 +422,7 @@ fun FullPlayerScreen(
                     Box(
                         Modifier
                             .size(52.dp)
+                            .clip(CircleShape)
                             .clickable { controller.next() }
                             .semantics { contentDescription = "Следующий трек" },
                         contentAlignment = Alignment.Center
@@ -428,6 +433,7 @@ fun FullPlayerScreen(
                     Box(
                         Modifier
                             .size(44.dp)
+                            .clip(CircleShape)
                             .clickable {
                                 val next = when (repeatMode) {
                                     Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ONE
@@ -883,6 +889,7 @@ private fun SecondaryAction(
     Box(
         Modifier
             .size(44.dp)
+            .clip(CircleShape)
             .clickable(onClick = onClick)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center
