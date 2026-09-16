@@ -99,3 +99,6 @@ bun.lockb
 /out/
 /capacitor.config.json
 .mq-build-id
+
+# Sandbox internal artifacts (never publish)
+tool-results/
