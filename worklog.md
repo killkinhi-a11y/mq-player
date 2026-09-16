@@ -3960,3 +3960,58 @@ Stage Summary:
   com.mq1.player + SHA-1 70:3F:B1:…FC:E7 under webClientId
   577360231136-2mb4v7pkbvdceqjg926961c4dagn2d8e…). Stable promotion only
   after device PASS.
+
+---
+Task ID: google-oauth-wiring
+Agent: main (Super Z)
+Task: Wire the user-provided Google OAuth credential (final pass: Google auth + verify all other items stand)
+
+Work Log:
+- Credential type determined: WEB Client ID + matching Client Secret (the ID is
+  byte-identical to the one the backend already serves via /api/auth/providers).
+  Per instruction: Web Client ID → serverClientId (Android already fetches it
+  dynamically via AuthRepository.googleClientId() — no hardcode, no change
+  needed); Client Secret → server-side ONLY.
+- Secret handling: value passed ONLY via script argv to the Vercel API;
+  NEVER written to git/worklog/logs/APK/report. Scripts
+  (scripts/vercel-env-check.py, scripts/vercel-env-set.py) take argv — they
+  contain no secret material.
+- Vercel env audit: GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET both existed
+  (production+preview, encrypted/write-only — values unreadable via API).
+  GOOGLE_CLIENT_SECRET upserted to the user-provided value (id BQT356NSJk0WE3Ym)
+  — idempotent guarantee that the stored secret is current; Google never puts
+  the secret in any client.
+- Controlled redeploy after env change: dpl_CLFvt7RUiReQZ58iopnznuKBh7AN
+  (gitSource main 4ce0cce7) → READY (~80s). Prior deployments:
+  dpl_9CmiZEL8 (auto, worklog push), dpl_FhN93359 (752e09e0).
+- POST-DEPLOY SMOKE — ALL PASS on mq1.vercel.app:
+  / → 307 → /play ✓; /play 200 ✓; /api/app-version 200 ✓;
+  assetlinks 2.3.3 fingerprint present ✓; 17/17 JS chunks 200 ✓;
+  native nonce GET → 200 + HttpOnly mq_native_nonce cookie ✓;
+  WEB Google flow start: GET /api/auth/google → 307 →
+  accounts.google.com/o/oauth2/v2/auth with client_id = user-provided ID,
+  server-derived redirect_uri, scope openid email profile, CSRF state cookie ✓
+  (proves isGoogleConfigured() true = ID+SECRET both bound on the new
+  deployment); APK stable path → android-v2.3.1, 4 167 996 B,
+  SHA-256 6ff2d10b… = verified 2.3.1 artifact ✓ (RC NOT promoted).
+- Android code re-verification (read-only, no changes needed): GoogleAuthFlow
+  two-pass (authorized accounts → NoCredentialException → all-accounts picker),
+  full failure taxonomy (cancel/provider/NoCredential/parse/backend/
+  unreachable), "Google-аккаунт не найден" only after genuine pass-2 failure;
+  serverClientId from backend; DemoTracks only in LoginScreen demo path;
+  MqPlaybackService = real Media3 MediaLibrarySession with branded
+  notification + custom Like/Wave commands + playback resumption; ripple
+  clips present; canonical MQ icon in launcher/monochrome/splash/notification
+  (in-APK verified in the 2.3.3 gate).
+- No Android source changes this session → 2.3.3-rc APK unchanged (SHA-256
+  09afedbe…), quality gate stands (157/157, assembleRelease, R8, apksigner,
+  zipalign). Signing identity NOT rotated (mq-release-233.jks, credentials
+  persisted in durable lab).
+
+Stage Summary:
+- Google backend + web flow: PROVEN live with the provided credential.
+- Android Google: code PROVEN; device runtime BLOCKED (no device). Remaining
+  external dependency: Android OAuth client registration in Google Cloud
+  (package com.mq1.player + SHA-1 70:3F:B1:FD:5E:C1:61:05:E3:1E:F8:04:
+  9:0E:8B:AC:AE:5E:FC:E7) — only observable on device.
+- Web production: deployed, verified; stable APK remains 2.3.1.
