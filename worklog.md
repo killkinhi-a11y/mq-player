@@ -3731,3 +3731,31 @@ Stage Summary:
 - Question 1 answered: YES — MQ Player 2.3.1 crashed exactly on the Demo
   tap (runtime-proven, system_server alive). Root cause: Cyrillic header
   value. Fix prepared, tested, committed; release pending device acceptance.
+---
+Task ID: v41-closeout
+Agent: main (Super Z)
+Task: Post-context-loss state re-verification + v41 close-out
+
+Work Log:
+- Re-verified durable state after session continuation:
+  git c43a3f90 (2.3.2 fix) + ee2f6335 (verdicts) present; working-tree
+  diffs are mode-bit only (0644→0755, /home/z re-sync artifact, zero
+  content changes); post-verdict commit ce6f1b2f touched screenshots +
+  one helper script only (no web, no production code).
+- Fix present in source: di/ServiceLocator.kt L71-77 sends
+  x-demo-user-name only when demoHeaderSafeValueOrNull() returns
+  printable ASCII; non-ASCII omitted (web parity). Build config:
+  2.3.2 / versionCode 8. APK artifacts intact in
+  /tmp/my-project/android-runtime/ (exact-release-2.3.1.apk,
+  fixed-release-2.3.2.apk + keys/).
+- Emulator infra re-confirmed BLOCKED: userdata-qemu.img truncated
+  (6.4MB, non-ext4 sandbox, no fuse2fs) — matches v41h2 verdict.
+- IM channel received a bare Vercel-type credential (vcp_ prefix).
+  Per v41 §17 (web/Vercel frozen) and absent any attached instruction:
+  NOT used, NOT stored, NOT echoed. No web deploy performed.
+
+Stage Summary:
+- v41 fully closed. Final report delivered in §18 format.
+- Standing verdicts: DEMO 2.3.1 = REAL APP FAILURE (runtime-proven,
+  system_server alive); fix 2.3.2 verified at unit+wire level; release
+  pending device acceptance; GOOGLE = BLOCKED (AOSP, no GMS).
