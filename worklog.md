@@ -3894,3 +3894,69 @@ Stage Summary:
   70:3F:B1:FD:5E:C1:61:05:E3:1E:F8:04:D9:0E:8B:AC:AE:5E:FC:E7 in the
   Google Cloud OAuth client of webClientId 577360231136-… — code cannot
   fix this; without it Credential Manager refuses tokens.
+
+---
+Task ID: acceptance-233-final
+Agent: main (Super Z)
+Task: 2.3.3-RC final acceptance — end-to-end verification, production web deploy (assetlinks), smoke tests, report
+
+Work Log:
+- State re-verified after session continuation: working-tree diff = mode-bits only
+  (0 content changes); durable lab intact (mq-release-233.jks + keystore.properties
+  chmod 600); 2.3.3-rc APK SHA-256 recomputed = 09afedbeae20dce91ecece1ed6aeba43c
+  36b54607d57b75a62396dcf86310d71 (matches published RC).
+- Cert values for Google registration re-proven from keystore: SHA-1
+  70:3F:B1:FD:5E:C1:61:05:E3:1E:F8:04:D9:0E:8B:AC:AE:5E:FC:E7, SHA-256
+  D3:D7:ED:0B:… (2.3.3-rc signing).
+- Android spot re-verification: DemoTracks referenced ONLY by LoginScreen.kt
+  (demo entry path); MqPlaybackService = complete Media3 integration (branded
+  notification ic_notif_mq, audio focus, becoming-noisy, wake mode, custom
+  Like/Wave session commands, playback resumption, full metadata+artwork);
+  ripple clips present across all screens; no hover patterns (only false
+  positive: @Query("cursor") pagination param).
+- Google backend verified LIVE: GET /api/auth/google/native → 200 + nonce +
+  HttpOnly mq_native_nonce cookie (600s); POST garbage → 401
+  google_token_invalid; /api/auth/providers → google=true + webClientId.
+  (Earlier 404 in this session was a wrong-path test, not a backend issue.)
+- WEB DELTA CLASSIFICATION (origin/main..HEAD before hygiene): WEB =
+  assetlinks.json (+2 fingerprints) + auto version.json; ANDROID = 2.3.2 fix
+  + 2.3.3 quality pass; TOOLS = scripts; ARTIFACTS = download/ (repo
+  convention, not web-served — Vercel serves public/ only). Other web files
+  (google-auth.ts, native route, test) = mode-bits only, content identical.
+- Local production build: npm ci + npm run build → PASS (compiled 24.9s,
+  100/100 static pages, /api/auth/google/native in route table, BUILD_ID
+  mq-build-aac78570).
+- GIT HYGIENE (scripts/repo-hygiene-prepush.sh): restored 76 skills/ppt+fasti
+  files lost in the sandbox re-sync from origin/main; untracked tool-results/
+  (37 local + 29 that were on origin) + gitignored; normalized file modes to
+  origin values (killed the +x re-sync noise). One hygiene commit 752e09e0.
+  Final delta vs origin: 52 A / 31 D (2 intentional android drawables + 29
+  tool-results removals) / 22 M / 0 mode noise.
+- SECRET SWEEP on full delta: token VALUES absent (only prose mentions of
+  "vcp_…" prefix in worklog); keystore passwords absent; dry-run + push OK.
+- PUSHED main: 716ae4f8 → 752e09e0 (12 commits: c43a3f90 2.3.2 fix,
+  097b24f1 2.3.3 quality pass, worklog, hygiene).
+- VERCEL: git integration auto-triggered dpl_FhN93359TL6zAaDLS6JPnsbBqG9c
+  from 752e09e0 → READY (~90s). Rollback anchor recorded (not needed):
+  dpl_HhaBjScKmf5d3W8REqEcjWto5PYD @ 716ae4f8.
+- POST-DEPLOY SMOKE (all on mq1.vercel.app): / → 307 → /play ✓; /play 200 ✓;
+  /api/app-version 200 JSON (apkUrl = releases/latest/download/MQPlayer.apk)
+  ✓; /.well-known/assetlinks.json → contains 2.3.2-rc + 2.3.3 fingerprints ✓
+  (proves production alias serves the new deployment); 17/17 /_next/static
+  chunks → 200 (no html/chunk mismatch); robots/sitemap/privacy/terms 200 ✓;
+  favicon 200 ✓; APK path: releases/latest → android-v2.3.1 (STABLE, RC NOT
+  promoted per policy) → download 4 167 996 B, SHA-256
+  6ff2d10b5c904f74cd7bdee52fccffb8eca8c0f3aeb5061c9d7eff6d56ca2386 = exact
+  verified 2.3.1 artifact.
+- No Android code changes this session → no re-run of the Android gate
+  (2.3.3 gate from quality-pass-233 stands: 157/157, assembleRelease,
+  apksigner, zipalign, R8 verified).
+
+Stage Summary:
+- WEB: deployed & verified. assetlinks live. Stable APK = 2.3.1. No rollback
+  needed.
+- ANDROID: 2.3.3-rc stands as published; runtime acceptance remains BLOCKED
+  (no device). Google blocker = EXTERNAL OAuth client registration (package
+  com.mq1.player + SHA-1 70:3F:B1:…FC:E7 under webClientId
+  577360231136-2mb4v7pkbvdceqjg926961c4dagn2d8e…). Stable promotion only
+  after device PASS.
