@@ -3759,3 +3759,41 @@ Stage Summary:
 - Standing verdicts: DEMO 2.3.1 = REAL APP FAILURE (runtime-proven,
   system_server alive); fix 2.3.2 verified at unit+wire level; release
   pending device acceptance; GOOGLE = BLOCKED (AOSP, no GMS).
+---
+Task ID: vercel-deploy
+Agent: main (Super Z)
+Task: User-ordered Vercel production deploy of the MQ Player web (token supplied via IM)
+
+Work Log:
+- User instruction: «задеплой на версел» + Vercel token (vcp_…). Token used ONLY
+  inline in curl commands; never written to any file/log (it was already in the
+  chat). The v41 web freeze is lifted by this explicit owner order — but no web
+  code was changed anywhere.
+- Pre-deploy audit: local main = origin/main + 6 unpushed commits
+  (android/scripts/worklog only; ZERO web content changes — 3 web files differ
+  by permission bits only). Existing production (dpl_5mVPZpEVSWqXsMFacukZfkdcpDdv,
+  READY, built by git integration from 716ae4f8 = origin/main HEAD) was already
+  at identical web content. /tmp durable tree holds dead Aug-31 visual
+  components (never committed) — NOT deployed, left untouched.
+- Project identified: mq1 (prj_5BaGhJQWIgpOI6rot5nyOHsrl8uH,
+  team_YkWCNO2YliSwODKoAtG7jE3h), GitHub-linked killkinhi-a11y/mq-player,
+  production branch main, aliases mq1.vercel.app. Stray projects (mq-player —
+  unlinked, mq — different repo) deliberately untouched.
+- DEPLOY: POST /v13/deployments {gitSource: github repoId 1214410486, ref
+  main, target production} -> dpl_HhaBjScKmf5d3W8REqEcjWto5PYD; READY in
+  ~2.5 min (polling BUILDING -> READY at 10:35 UTC).
+- VERIFIED: production aliases moved to the new deployment (mq1.vercel.app +
+  mq1-git-main-… + mq1-killkinhi-5353s-projects.vercel.app); / -> 307 ->
+  /play -> 200 (x-vercel-id fresh); /api/app-version -> JSON ok (apkUrl =
+  permanent releases/latest/download/MQPlayer.apk); GitHub latest APK ->
+  302 -> android-v2.3.1/MQPlayer.apk (2.3.1 remains the latest release —
+  2.3.2 still frozen pending device acceptance).
+- Content delta vs previous production: NONE (same commit 716ae4f8) — this
+  was a fresh rebuild of the same code, not a content change. Local unpushed
+  commits were NOT pushed (no such order; release-freeze policy intact).
+- No files changed; nothing committed; token never persisted to disk.
+
+Stage Summary:
+- Vercel production redeployed and verified healthy; production content
+  unchanged (was already current). Nothing pushed to GitHub; 2.3.2 release
+  still awaits on-device acceptance.
