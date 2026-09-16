@@ -3797,3 +3797,36 @@ Stage Summary:
 - Vercel production redeployed and verified healthy; production content
   unchanged (was already current). Nothing pushed to GitHub; 2.3.2 release
   still awaits on-device acceptance.
+---
+Task ID: rc-release-232
+Agent: main (Super Z)
+Task: Make fixed-release-2.3.2.apk reachable for the user (was only in the sandbox lab)
+
+Work Log:
+- User reported the 2.3.2 APK was nowhere to download. True: it existed only
+  at /tmp/my-project/android-runtime/ (sandbox, user-inaccessible).
+- APK re-verified before publishing: SHA-256 206bc9790efe038f8…, apksigner
+  OK (cert 0d0d374f992a787a…), badging com.mq1.player 2.3.2 / code 8.
+- Copied to /home/z/my-project/download/mq-player-v2.3.2-rc.apk
+  (user-accessible dir, byte-identical).
+- Push audit of delta 716ae4f8..c43a3f90: token/secret regex scan clean
+  (only false positives: Compose password params in LoginScreen reads);
+  noted the delta also drops 76 skills/ppt files (sandbox re-sync loss) —
+  therefore pushed ONLY the tag, NOT main: main branch on GitHub untouched.
+- Published: tag android-v2.3.2-rc -> c43a3f90 pushed; GitHub pre-release
+  id 390044180 (prerelease=true) with RU notes (fix summary, cert-rotation
+  uninstall/reinstall warning, build params, SHA-256, device checklist);
+  asset mq-player-v2.3.2-rc.apk uploaded (4 167 992 B, state=uploaded).
+- VERIFIED: asset URL -> 200, downloaded 4 167 992 B, SHA-256 == lab build;
+  /releases/latest still android-v2.3.1; site APK button -> 302 ->
+  android-v2.3.1/MQPlayer.apk (production channel frozen until device
+  acceptance, per policy).
+- Site NOT modified; no new production deploy needed (latest URL is
+  permanent and auto-switches when 2.3.2 is promoted).
+
+Stage Summary:
+- 2.3.2-rc now downloadable: (1) download/mq-player-v2.3.2-rc.apk in the
+  user dir, (2) GitHub pre-release android-v2.3.2-rc + asset. After the
+  user confirms Demo+Google on a real device: promote to a full release
+  (prerelease=false or a new android-v2.3.2 tag) — the site APK button
+  then serves it automatically via releases/latest.
