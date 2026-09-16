@@ -4015,3 +4015,41 @@ Stage Summary:
   (package com.mq1.player + SHA-1 70:3F:B1:FD:5E:C1:61:05:E3:1E:F8:04:
   9:0E:8B:AC:AE:5E:FC:E7) — only observable on device.
 - Web production: deployed, verified; stable APK remains 2.3.1.
+
+---
+Task ID: device-acceptance-233
+Agent: main (Super Z)
+Task: Final real-device acceptance of 2.3.3-RC → stable decision
+
+Work Log:
+- Device availability honestly checked: adb devices = empty, no /dev/bus/usb,
+  no android_usb sysfs — this sandbox physically cannot host an Android
+  device. Emulator path remains closed per the standing v41 verdict (host
+  OOM, userdata truncation, no GMS → useless for Google anyway).
+- Pre-install artifact verification (3 of 4; launch requires device):
+  package com.mq1.player, versionName 2.3.3 / versionCode 9, minSdk 26 /
+  target 35, label "MQ"; apksigner cert SHA-1
+  70:3F:B1:FD:5E:C1:61:05:E3:1E:F8:04:D9:0E:8B:AC:AE:5E:FC:E7 (matches the
+  OAuth config requirement exactly), cert SHA-256 d3d7ed0b…; APK SHA-256
+  09afedbe…f86310d71 = published RC.
+- Download channel verified: GitHub pre-release android-v2.3.3-rc asset
+  round-trip byte-identical (4 239 743 B), asset state=uploaded,
+  prerelease=true; site stable target still android-v2.3.1 (releases/latest
+  302). Production web re-confirmed healthy (/play 200, native nonce 200,
+  google flow 307 → accounts.google.com with the configured client id).
+- DECISION per the acceptance rule ("device verification absent → no
+  stable"): RC stays RC. Not a product REJECT — the first blocker is device
+  availability, not a failing feature.
+- Prepared for the owner's device run: download/DEVICE-ACCEPTANCE-CHECKLIST-
+  2.3.3.md (TEST 1-9 run sheet incl. adb logcat MqAuth/MqBoot/MqCrash stage
+  capture and the Google→PASS→FAIL-at-stage report format).
+- Prepared (NOT executed): scripts/promote-233-stable.sh — creates tag
+  android-v2.3.3 + full release with the SAME verified bytes under asset
+  name MQPlayer.apk, verifies latest redirect → 200 → SHA-256; guards: local
+  SHA pin, --confirm flag, GITHUB_TOKEN from env. Site needs no redeploy
+  (permanent releases/latest URL follows the latest release automatically).
+
+Stage Summary:
+- Verdict: 2.3.3 = RC, NOT ACCEPTED as stable — BLOCKED on real-device
+  verification (no device in sandbox). All device-independent evidence
+  green. Promotion path ready; executes only on the owner's PASS report.
