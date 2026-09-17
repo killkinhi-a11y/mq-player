@@ -222,10 +222,33 @@ fun FullPlayerScreen(
             }
 
             if (track == null) {
-                Spacer(Modifier.height(80.dp))
+                // UX pass 2.3.4: web-style empty state (icon + hint + CTA)
+                // instead of a bare text line — matches EmptyState.tsx.
+                Spacer(Modifier.height(120.dp))
+                Box(
+                    Modifier
+                        .size(88.dp)
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MqIcon(
+                        icon = MqIcons.Music, size = 36.dp,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
                 Text(
                     "Ничего не играет",
                     style = MqType.section,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Выберите трек на Главной или в Поиске",
+                    style = MqType.meta,
                     color = muted,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
@@ -241,7 +264,7 @@ fun FullPlayerScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Artwork(
-                        url = track.cover, sizeDp = 320, corner = 8,
+                        url = track.cover, sizeDp = 320, corner = 20,
                         contentDescription = "Обложка: ${track.title}",
                         modifier = Modifier
                             .offset(x = (dragX * 0.25f).dp, y = (dragY * 0.35f).dp)
@@ -277,7 +300,7 @@ fun FullPlayerScreen(
                 ) {
                     Text(
                         track.title.ifBlank { "Без названия" },
-                        style = MqType.page,
+                        style = MqType.page.copy(fontSize = 28.sp),
                         color = text,
                         maxLines = 2,   // web wraps long titles at 2 lines
                         overflow = TextOverflow.Ellipsis,
@@ -331,9 +354,26 @@ fun FullPlayerScreen(
 
                 Spacer(Modifier.height(20.dp))
 
-                // ── progress: 4dp track, 12dp thumb, cur / -remaining ────
+                // ── progress: times ABOVE the bar (web: 26px bold current +
+                //    13px remaining), then 4dp track, 12dp thumb ─────────
                 if (!userSeeking) {
                     seekValue = if (duration > 0) position.toFloat() / duration else 0f
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(
+                        formatDuration((position / 1000).toInt()),
+                        style = MqType.time.copy(
+                            fontSize = 26.sp,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        ),
+                        color = text
+                    )
+                    val remaining = ((duration - position) / 1000).toInt().coerceAtLeast(0)
+                    Text(
+                        "-" + formatDuration(remaining),
+                        style = MqType.time.copy(fontSize = 13.sp),
+                        color = muted
+                    )
                 }
                 WebProgressSlider(
                     fraction = seekValue.coerceIn(0f, 1f),
@@ -346,17 +386,6 @@ fun FullPlayerScreen(
                         .fillMaxWidth()
                         .semantics { contentDescription = "Позиция трека" }
                 )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(
-                        formatDuration((position / 1000).toInt()),
-                        style = MqType.time, color = muted
-                    )
-                    val remaining = ((duration - position) / 1000).toInt().coerceAtLeast(0)
-                    Text(
-                        "-" + formatDuration(remaining),
-                        style = MqType.time, color = muted
-                    )
-                }
 
                 Spacer(Modifier.height(28.dp))
 
@@ -380,21 +409,21 @@ fun FullPlayerScreen(
                             tint = if (shuffleEnabled) accent else muted
                         )
                     }
-                    // prev 30
+                    // prev 56 / icon 32 (web: 56px, w-8 icon)
                     Box(
                         Modifier
-                            .size(52.dp)
+                            .size(56.dp)
                             .clip(CircleShape)
                             .clickable { controller.previous() }
                             .semantics { contentDescription = "Предыдущий трек" },
                         contentAlignment = Alignment.Center
                     ) {
-                        MqIcon(icon = MqIcons.SkipBack, size = 30.dp, tint = text)
+                        MqIcon(icon = MqIcons.SkipBack, size = 32.dp, tint = text, fill = true, strokeWidth = 0f)
                     }
-                    // play 64 accent circle
+                    // play 76 accent circle (web: 76px, w-8 icon, glow)
                     Box(
                         modifier = Modifier
-                            .size(64.dp)
+                            .size(76.dp)
                             .clip(CircleShape)
                             .background(accent)
                             .clickable { controller.togglePlayPause() }
@@ -403,31 +432,31 @@ fun FullPlayerScreen(
                     ) {
                         if (isBuffering) {
                             com.mq1.player.ui.components.SpinLoader(
-                                size = 24.dp, stroke = 2.5.dp, tint = MaterialTheme.colorScheme.onPrimary
+                                size = 28.dp, stroke = 2.5.dp, tint = MaterialTheme.colorScheme.onPrimary
                             )
                         } else if (isPlaying) {
                             MqIcon(
-                                icon = MqIcons.Pause, size = 28.dp,
+                                icon = MqIcons.Pause, size = 32.dp,
                                 tint = MaterialTheme.colorScheme.onPrimary, fill = true, strokeWidth = 0f
                             )
                         } else {
                             MqIcon(
-                                icon = MqIcons.Play, size = 28.dp,
+                                icon = MqIcons.Play, size = 32.dp,
                                 tint = MaterialTheme.colorScheme.onPrimary, fill = true, strokeWidth = 0f,
                                 modifier = Modifier.offset(x = 2.dp)
                             )
                         }
                     }
-                    // next 30
+                    // next 56 / icon 32 (web: 56px, w-8 icon)
                     Box(
                         Modifier
-                            .size(52.dp)
+                            .size(56.dp)
                             .clip(CircleShape)
                             .clickable { controller.next() }
                             .semantics { contentDescription = "Следующий трек" },
                         contentAlignment = Alignment.Center
                     ) {
-                        MqIcon(icon = MqIcons.SkipForward, size = 30.dp, tint = text)
+                        MqIcon(icon = MqIcons.SkipForward, size = 32.dp, tint = text, fill = true, strokeWidth = 0f)
                     }
                     // repeat 22 (Repeat1 when REPEAT_MODE_ONE)
                     Box(
@@ -435,9 +464,12 @@ fun FullPlayerScreen(
                             .size(44.dp)
                             .clip(CircleShape)
                             .clickable {
+                                // web cycle (CommandPalette contract): OFF → ALL
+                                // → ONE → OFF — the old Android order started
+                                // at ONE, firing single-track repeat first.
                                 val next = when (repeatMode) {
-                                    Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ONE
-                                    Player.REPEAT_MODE_ONE -> Player.REPEAT_MODE_ALL
+                                    Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                                    Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
                                     else -> Player.REPEAT_MODE_OFF
                                 }
                                 controller.setRepeatMode(next)
@@ -521,7 +553,12 @@ fun FullPlayerScreen(
                             track = t,
                             isPlaying = i == index,
                             isFavorite = favorites.any { it.id == t.id },
-                            onPlay = { controller.seekToIndex(i) },
+                            onPlay = {
+                                controller.seekToIndex(i)
+                                // web: picking a track closes the panel
+                                // (playTrack?.(t, queue); setPanel(null))
+                                queueOpen = false
+                            },
                             onFavorite = { controller.toggleFavorite(t) },
                             onMenu = { menu.open(t, queueIndex = i, isCurrent = i == index) }
                         )
@@ -554,8 +591,17 @@ fun FullPlayerScreen(
                             isPlaying = track?.id == t.id,
                             isFavorite = favorites.any { it.id == t.id },
                             onPlay = {
+                                // UX pass 2.3.4: re-use the existing queue
+                                // entry instead of appending a duplicate
+                                // (old code did playQueue(q + t) always).
                                 val q = controller.currentQueue
-                                controller.playQueue(q + listOf(t), startIndex = q.size)
+                                val existing = q.indexOfFirst { it.id == t.id }
+                                if (existing >= 0) {
+                                    controller.seekToIndex(existing)
+                                } else {
+                                    controller.playQueue(q + listOf(t), startIndex = q.size)
+                                }
+                                historyOpen = false
                             },
                             onFavorite = { controller.toggleFavorite(t) },
                             onMenu = { menu.open(t, isCurrent = track?.id == t.id) }
@@ -721,7 +767,7 @@ fun FullPlayerScreen(
                                     else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                                 )
                                 .clickable { controller.setPlaybackSpeed(s) }
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -768,7 +814,7 @@ fun FullPlayerScreen(
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                                 .clickable { controller.startSleepTimer(min) }
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text("${min}м", style = MqType.menu, color = muted)
@@ -790,7 +836,7 @@ fun FullPlayerScreen(
                                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                             )
                             .clickable { controller.startSleepEndOfTrack() }
-                            .padding(vertical = 8.dp),
+                            .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -806,7 +852,7 @@ fun FullPlayerScreen(
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(Color(0xFFEF4444).copy(alpha = 0.14f))
                                 .clickable { controller.cancelSleepTimer() }
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text("Отменить", style = MqType.menu, color = Color(0xFFEF4444))
@@ -830,7 +876,8 @@ fun FullPlayerScreen(
                     Text("Эквалайзер", style = MqType.track, color = text, modifier = Modifier.weight(1f))
                     Text("10 полос · лимитер", style = MqType.meta, color = muted)
                 }
-                Spacer(Modifier.height(18.dp))
+                // gesture-bar clearance, same inset the queue sheet uses
+                Spacer(Modifier.height(24.dp))
             }
         }
     }
@@ -950,12 +997,19 @@ private fun WebProgressSlider(
                     .background(fillColor)
             )
         }
-        // 12dp thumb at the fill edge
+        // 12dp thumb at the fill edge — clamped to BOTH edges (UX pass
+        // 2.3.4: only the left side was clamped before; at 100% the thumb
+        // clipped past the right end of the track)
         val density = androidx.compose.ui.platform.LocalDensity.current
+        val thumbXDp = with(density) {
+            val maxOffsetPx = (widthPx - 12.dp.toPx()).coerceAtLeast(0f)
+            val thumbX = ((fraction * widthPx) - 6.dp.toPx()).coerceIn(0f, maxOffsetPx)
+            thumbX.toDp()
+        }
         Box(
             Modifier
                 .align(Alignment.CenterStart)
-                .offset(x = with(density) { ((fraction * widthPx) - 6.dp.toPx()).coerceAtLeast(0f).toDp() })
+                .offset(x = thumbXDp)
                 .size(12.dp)
                 .clip(CircleShape)
                 .background(fillColor)

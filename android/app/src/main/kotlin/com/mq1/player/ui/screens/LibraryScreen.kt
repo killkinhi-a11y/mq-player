@@ -2,6 +2,8 @@
 
 package com.mq1.player.ui.screens
 
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -102,13 +104,24 @@ fun LibraryScreen(
     val currentIndex by player.controller.currentIndex.collectAsState()
     val favorites by player.favorites.collectAsState(initial = emptyList())
     val history by ServiceLocator.localStore.history.collectAsState(initial = emptyList())
+    // UX pass 2.3.4: real «Сегодня» — web filters history by playedAt >= start
+    // of today; Android now keeps the same per-entry timestamps.
+    val historyPlayedAt by ServiceLocator.localStore.historyPlayedAt.collectAsState(initial = emptyList())
+    val todayCount = remember(historyPlayedAt) {
+        val startOfDay = java.time.LocalDate.now()
+            .atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        historyPlayedAt.count { it >= startOfDay }
+    }
     val disliked by ServiceLocator.localStore.disliked.collectAsState(initial = emptyList())
     val subscribedArtists by ServiceLocator.localStore.favoriteArtists.collectAsState(initial = emptyList())
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
-    var tab by remember { mutableIntStateOf(initialTab.coerceIn(0, 2)) }
-    var query by remember { mutableStateOf("") }
-    var sort by remember { mutableIntStateOf(0) }
+    // UX pass 2.3.4: rememberSaveable — the web SPA keeps view state across
+    // tab switches (Zustand); Android previously lost tab/query/sort every
+    // time the back-stack entry was disposed.
+    var tab by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(initialTab.coerceIn(0, 2)) }
+    var query by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    var sort by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(0) }
     var showCreate by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
     var newDescription by remember { mutableStateOf("") }
@@ -135,6 +148,7 @@ fun LibraryScreen(
         LibraryBody(
             ui = ui,
             activeTab = tab,
+            todayCount = todayCount,
             favorites = favorites,
             disliked = disliked,
             subscribedArtists = subscribedArtists,
@@ -222,6 +236,7 @@ internal fun LibraryBody(
     activeTab: Int,
     favorites: List<Track>,
     history: List<Track>,
+    todayCount: Int = 0,
     playingTrackId: String?,
     favoriteIds: Set<String>,
     query: String,
@@ -278,14 +293,21 @@ internal fun LibraryBody(
         }
         list
     }
-    val filteredPlaylists = remember(playlists, query) {
-        playlists.filter { query.isBlank() || it.name.contains(query, true) }
+    val filteredPlaylists = remember(playlists, query, sort) {
+        var list = playlists.filter { query.isBlank() || it.name.contains(query, true) }
+        // UX pass 2.3.4: playlists now honor the sort selection like the
+        // other two tabs (web <select> applies to the whole Library).
+        when (sort) {
+            1 -> list = list.sortedBy { it.name.lowercase() }
+            2 -> list = list.sortedBy { it.name.lowercase() } // by owner ≠ by artist for playlists — name is the only meaningful key
+        }
+        list
     }
 
     // favorites sub-tab / batch-selection state (hoisted so the LazyColumn
     // content re-executes when they change)
-    var favSubTab by remember { mutableIntStateOf(0) }
-    var favBatchMode by remember { mutableStateOf(false) }
+    var favSubTab by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(0) }
+    var favBatchMode by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     val favSelection = remember { androidx.compose.runtime.mutableStateListOf<String>() }
 
     LazyColumn(
@@ -379,42 +401,71 @@ internal fun LibraryBody(
                         if (query.isNotEmpty()) {
                             Box(
                                 modifier = Modifier
-                                    .size(24.dp)
+                                    .size(40.dp)
                                     .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f))
                                     .clickable { onQueryChange("") },
                                 contentAlignment = Alignment.Center
                             ) {
-                                MqIcon(
-                                    icon = MqIcons.X, size = 14.dp,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    MqIcon(
+                                        icon = MqIcons.X, size = 14.dp,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
                         }
                     }
                 }
-                // web <select> Недавние / По названию / По артисту
-                Row(
-                    modifier = Modifier
-                        .height(40.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainer)
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.22f), RoundedCornerShape(12.dp))
-                        .clickable { onSortChange((sort + 1) % 3) }
-                        .padding(horizontal = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        when (sort) { 1 -> "По названию"; 2 -> "По артисту"; else -> "Недавние" },
-                        // web: text-xs font-medium = 12/500
-                        style = MqType.meta.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                    MqIcon(
-                        icon = MqIcons.ChevronDown, size = 14.dp,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                // web <select> Недавние / По названию / По артисту.
+                // UX pass 2.3.4: this looked like a dropdown (chevron) but
+                // silently CYCLED on tap — now it opens a real menu like the
+                // web control it mirrors.
+                var sortMenuOpen by remember { mutableStateOf(false) }
+                Box {
+                    Row(
+                        modifier = Modifier
+                            .height(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainer)
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.22f), RoundedCornerShape(12.dp))
+                            .clickable { sortMenuOpen = true }
+                            .padding(horizontal = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            when (sort) { 1 -> "По названию"; 2 -> "По артисту"; else -> "Недавние" },
+                            // web: text-xs font-medium = 12/500
+                            style = MqType.meta.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                        MqIcon(
+                            icon = MqIcons.ChevronDown, size = 14.dp,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    androidx.compose.material3.DropdownMenu(
+                        expanded = sortMenuOpen,
+                        onDismissRequest = { sortMenuOpen = false }
+                    ) {
+                        listOf("Недавние" to 0, "По названию" to 1, "По артисту" to 2).forEach { (label, value) ->
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(label, style = MqType.menu, color = MaterialTheme.colorScheme.onBackground) },
+                                trailingIcon = {
+                                    if (sort == value) {
+                                        MqIcon(icon = MqIcons.Check, size = 14.dp, tint = MaterialTheme.colorScheme.primary)
+                                    }
+                                },
+                                onClick = { onSortChange(value); sortMenuOpen = false }
+                            )
+                        }
+                    }
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -469,6 +520,7 @@ internal fun LibraryBody(
             )
             else -> historyTab(
                 history = filteredHistory,
+                todayCount = todayCount,
                 query = query,
                 playingTrackId = playingTrackId,
                 favoriteIds = favoriteIds,
@@ -739,18 +791,26 @@ private fun LazyListScope.favoritesTab(
                     }
                 }
                 if (query.isNotEmpty()) {
+                    // UX pass 2.3.4: 20dp visual inside a 36dp touch target
                     Box(
                         modifier = Modifier
-                            .size(20.dp)
+                            .size(36.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.10f))
                             .clickable { onQueryChange("") },
                         contentAlignment = Alignment.Center
                     ) {
-                        MqIcon(
-                            icon = MqIcons.X, size = 12.dp,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.10f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            MqIcon(
+                                icon = MqIcons.X, size = 12.dp,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }
@@ -938,7 +998,8 @@ private fun LazyListScope.favoritesTab(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(8.dp))
                                             .clickable { onRemoveDisliked(track) }
-                                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                                            // UX pass 2.3.4: ≥36dp touch target
+                                            .padding(horizontal = 12.dp, vertical = 12.dp),
                                     )
                                 }
                                 if (i < disliked.lastIndex) RowSeparator()
@@ -972,6 +1033,7 @@ private fun LazyListScope.favoritesTab(
                                 Row(
                                     Modifier
                                         .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
                                         .clickable { onOpenArtist(artist) }
                                         .padding(horizontal = 12.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -1005,7 +1067,8 @@ private fun LazyListScope.favoritesTab(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(8.dp))
                                             .clickable { onUnsubscribe(artist) }
-                                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                                            // UX pass 2.3.4: ≥36dp touch target
+                                            .padding(horizontal = 12.dp, vertical = 12.dp),
                                     )
                                 }
                                 if (i < subscribedArtists.lastIndex) RowSeparator()
@@ -1043,7 +1106,8 @@ private fun LazyListScope.favoritesTab(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .clickable { selection.clear() }
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                        // UX pass 2.3.4: ≥40dp touch target
+                        .padding(horizontal = 10.dp, vertical = 14.dp),
                 )
                 Text(
                     "Удалить",
@@ -1055,7 +1119,8 @@ private fun LazyListScope.favoritesTab(
                             favorites.filter { it.id in selection }.forEach(onFavorite) // un-like
                             selection.clear()
                         }
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                        // UX pass 2.3.4: ≥40dp touch target
+                        .padding(horizontal = 10.dp, vertical = 14.dp),
                 )
             }
         }
@@ -1089,6 +1154,7 @@ private fun SelectableTrackRow(
         Row(
             Modifier
                 .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
                 .clickable { onToggleSelect() }
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -1220,13 +1286,26 @@ private fun FavoritesEmptyState(onGoHome: () -> Unit) {
             ) {
                 MqIcon(icon = MqIcons.Heart, size = 32.dp, tint = LikedRed.copy(alpha = 0.35f))
             }
-            // web: pulsing dot at -top-1 -right-1 (w-5, mid-animation alpha)
+            // web: pulsing dot at -top-1 -right-1 (w-5) — UX pass 2.3.4:
+            // actually ANIMATED like the web, not a frozen mid-alpha.
+            val pulseTransition = androidx.compose.animation.core.rememberInfiniteTransition(
+                label = "favoritesEmptyPulse"
+            )
+            val pulseAlpha = pulseTransition.animateFloat(
+                initialValue = 0.10f,
+                targetValue = 0.32f,
+                animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                    animation = androidx.compose.animation.core.tween(650),
+                    repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+                ),
+                label = "pulseAlpha"
+            ).value
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .offset(x = 4.dp, y = (-4).dp)
                     .size(20.dp)
-                    .background(LikedRed.copy(alpha = 0.14f), CircleShape)
+                    .background(LikedRed.copy(alpha = pulseAlpha), CircleShape)
             )
         }
         Spacer(Modifier.height(16.dp))
@@ -1722,7 +1801,7 @@ private fun PlaylistTile(
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(8.dp)
+                        .padding(horizontal = 10.dp, vertical = 10.dp)
                         .size(40.dp)
                         .clip(CircleShape)
                         .background(accent)
@@ -1732,17 +1811,24 @@ private fun PlaylistTile(
                     MqIcon(icon = MqIcons.Play, size = 16.dp, tint = Color.White, fill = true, strokeWidth = 0f)
                 }
             }
-            // web tile menu trigger — REAL menu now
+            // web tile menu trigger — REAL menu now. UX pass 2.3.4: the web
+            // visual is 28px but Android gets a 44dp touch target wrapping it.
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(8.dp)
-                    .size(28.dp)
-                    .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                    .padding(2.dp)
+                    .size(44.dp)
                     .clickable { menuOpen = true },
                 contentAlignment = Alignment.Center
             ) {
-                MqIcon(icon = MqIcons.MoreHorizontal, size = 14.dp, tint = Color.White)
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .background(Color.Black.copy(alpha = 0.6f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MqIcon(icon = MqIcons.MoreHorizontal, size = 14.dp, tint = Color.White)
+                }
             }
             androidx.compose.material3.DropdownMenu(
                 expanded = menuOpen,
@@ -1839,7 +1925,7 @@ private fun PlaylistTile(
                             if (renameText.isNotBlank()) onRename(renameText.trim())
                             renameOpen = false
                         }
-                        .padding(8.dp)
+                        .padding(horizontal = 10.dp, vertical = 10.dp)
                 )
             },
             dismissButton = {
@@ -1850,7 +1936,7 @@ private fun PlaylistTile(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .clickable { renameOpen = false }
-                        .padding(8.dp)
+                        .padding(horizontal = 10.dp, vertical = 10.dp)
                 )
             }
         )
@@ -1874,7 +1960,7 @@ private fun PlaylistTile(
                             confirmDelete = false
                             onDelete()
                         }
-                        .padding(8.dp)
+                        .padding(horizontal = 10.dp, vertical = 10.dp)
                 )
             },
             dismissButton = {
@@ -1885,7 +1971,7 @@ private fun PlaylistTile(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .clickable { confirmDelete = false }
-                        .padding(8.dp)
+                        .padding(horizontal = 10.dp, vertical = 10.dp)
                 )
             }
         )
@@ -1921,6 +2007,7 @@ private fun gradientCover(name: String): Brush = Brush.linearGradient(
 
 private fun LazyListScope.historyTab(
     history: List<Track>,
+    todayCount: Int = 0,
     query: String,
     playingTrackId: String?,
     favoriteIds: Set<String>,
@@ -2053,7 +2140,7 @@ private fun LazyListScope.historyTab(
         item { HistoryEmptyState(onGoHome = onGoHome) }
     } else {
         // listening stats (web «Listening Stats»: 3 main + 2 secondary cards)
-        item { HistoryStatsCards(history) }
+        item { HistoryStatsCards(history, todayCount = todayCount) }
         item {
             Column(Modifier.padding(horizontal = 16.dp)) {
                 Spacer(Modifier.height(20.dp))
@@ -2129,7 +2216,7 @@ private val ClearRed = Color(0xFFFF6B6B)
 
 /** Web «Listening Stats»: 3-col main cards + 2-col top artist/genre cards. */
 @Composable
-private fun HistoryStatsCards(history: List<Track>) {
+private fun HistoryStatsCards(history: List<Track>, todayCount: Int) {
     val accent = MaterialTheme.colorScheme.primary
     val totalSec = history.sumOf { it.duration }.toInt()
     val topArtist = history.groupingBy { it.artist }.eachCount().maxByOrNull { it.value }
@@ -2180,7 +2267,7 @@ private fun HistoryStatsCards(history: List<Track>) {
             StatCard(icon = MqIcons.Headphones, value = history.size.toString(), valueStyleLarge = true, label = "Прослушиваний", modifier = Modifier.weight(1f))
             // web: BarChart3 icon — closest available Lucide shape is List
             StatCard(icon = MqIcons.List, value = formatTotal(totalSec), valueStyleLarge = false, label = "Время", modifier = Modifier.weight(1f))
-            StatCard(icon = MqIcons.Flame, value = history.size.toString(), valueStyleLarge = true, label = "Сегодня", modifier = Modifier.weight(1f))
+            StatCard(icon = MqIcons.Flame, value = todayCount.toString(), valueStyleLarge = true, label = "Сегодня", modifier = Modifier.weight(1f))
         }
         if (topArtist != null || topGenre != null) {
             Spacer(Modifier.height(8.dp))

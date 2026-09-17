@@ -377,12 +377,14 @@ internal fun ChatsBody(
     }
 }
 
-/** Web chat row: p-3, 44dp avatar + name/track + last/meta + time + unread. */
+/** Web chat row: p-3, 44dp avatar + name/track + last/meta + time + unread.
+ *  UX pass 2.3.4: ripple clipped to the web row radius (10). */
 @Composable
 private fun ChatRow(row: ChatRowUi, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically

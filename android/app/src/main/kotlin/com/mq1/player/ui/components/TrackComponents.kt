@@ -1,7 +1,9 @@
 package com.mq1.player.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -93,7 +95,12 @@ private fun placeholderGradient(seed: Int): Brush {
  *   4. Row uses fixed structure — no wrap_content traps, no horizontal
  *      scroll; RTL-safe via start/end semantics
  *   5. duration fixed column, never overlapped
+ *
+ * UX pass 2.3.4: ripple clipped to the web .mq-row radius (10) — no square
+ * flash over rounded cards — and LONG-PRESS opens the context menu
+ * (web contract: every track row opens MenuCore on 500ms long-press).
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TrackRow(
     track: Track,
@@ -108,7 +115,17 @@ fun TrackRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onPlay)
+            .clip(RoundedCornerShape(10.dp))
+            .then(
+                if (onMenu != null) {
+                    Modifier.combinedClickable(
+                        onClick = onPlay,
+                        onLongClick = onMenu
+                    )
+                } else {
+                    Modifier.clickable(onClick = onPlay)
+                }
+            )
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -140,9 +157,11 @@ fun TrackRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = if (onOpenArtist != null && track.artist.isNotBlank()) {
+                    // web: the artist is a nested link with a 36px hit area
                     Modifier
                         .clip(RoundedCornerShape(4.dp))
                         .clickable { onOpenArtist(track.artist) }
+                        .padding(vertical = 6.dp)
                         .semantics { contentDescription = "Артист: ${track.artist}" }
                 } else Modifier
             )

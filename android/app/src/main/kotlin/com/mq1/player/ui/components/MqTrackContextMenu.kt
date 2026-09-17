@@ -102,12 +102,16 @@ fun MqTrackContextMenu(
         containerColor = MaterialTheme.colorScheme.surface,
         scrimColor = Color.Black.copy(alpha = 0.45f),
         dragHandle = {
-            // web grabber: 36×4 r2 edge-strong
+            // web grabber: 36×4 r2 edge-strong.
+            // P0 fix: the old modifier order applied 10dp of vertical padding
+            // INSIDE a 4dp-high box → negative content height → the grabber
+            // never painted. Padding must wrap the sized element (M3 default
+            // dragHandle does exactly this).
             Box(
                 Modifier
+                    .padding(top = 4.dp, bottom = 8.dp)
                     .width(36.dp)
                     .height(4.dp)
-                    .padding(top = 4.dp, bottom = 6.dp)
                     .clip(RoundedCornerShape(2.dp))
                     .background(MaterialTheme.colorScheme.outline)
             )

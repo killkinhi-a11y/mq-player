@@ -257,23 +257,44 @@ class LocalStore(private val context: Context) {
         p[Keys.history]?.let { runCatching { json.decodeFromString<List<Track>>(it) }.getOrNull() } ?: emptyList()
     }
 
+    // UX pass 2.3.4: per-entry playedAt timestamps, index-aligned with
+    // [history] (web parity — the web store keeps {track, playedAt} and its
+    // «Сегодня» stat filters playedAt >= start of today). Older installs
+    // without the key degrade to 0L (epoch) — counted as "not today".
+    private val historyPlayedAtKey = stringPreferencesKey("history_played_at")
+
+    val historyPlayedAt: Flow<List<Long>> = context.dataStore.data.map { p ->
+        p[historyPlayedAtKey]?.let {
+            runCatching { json.decodeFromString<List<Long>>(it) }.getOrNull()
+        } ?: emptyList()
+    }
+
     suspend fun pushHistory(track: Track) {
         context.dataStore.edit { p ->
             val current = p[Keys.history]?.let {
                 runCatching { json.decodeFromString<List<Track>>(it) }.getOrNull()
             } ?: emptyList()
-            val next = (listOf(track) + current.filterNot { it.id == track.id }).take(200)
+            val playedAt = p[historyPlayedAtKey]?.let {
+                runCatching { json.decodeFromString<List<Long>>(it) }.getOrNull()
+            } ?: List(current.size) { 0L }
+            val tsById = current.indices.associate { i -> current[i].id to playedAt.getOrElse(i) { 0L } }
+            val kept = current.filterNot { it.id == track.id }
+            val next = (listOf(track) + kept).take(200)
+            val nextPlayedAt = (listOf(System.currentTimeMillis()) +
+                kept.map { tsById[it.id] ?: 0L }).take(next.size)
             p[Keys.history] = json.encodeToString(next)
+            p[historyPlayedAtKey] = json.encodeToString(nextPlayedAt)
             // historyScIds drive Wave diversity — track separately
             val histIds = p[stringSetPreferencesKey("history_sc_ids")] ?: emptySet()
             p[stringSetPreferencesKey("history_sc_ids")] = histIds + (track.scTrackId?.toString() ?: track.id)
         }
     }
 
-    /** Web HistoryView «Очистить историю» — wipes both the list and ids. */
+    /** Web HistoryView «Очистить историю» — wipes the list, ids and times. */
     suspend fun clearHistory() {
         context.dataStore.edit { p ->
             p.remove(Keys.history)
+            p.remove(historyPlayedAtKey)
             p.remove(stringSetPreferencesKey("history_sc_ids"))
         }
     }

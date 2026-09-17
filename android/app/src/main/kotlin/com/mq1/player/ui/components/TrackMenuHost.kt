@@ -115,12 +115,19 @@ fun TrackMenuHost(
         canDownload = state.isCurrent,
         onDismiss = { state.close(); onDismissed() },
         onPlay = {
-            if (state.queueIndex >= 0) {
-                controller.seekToIndex(state.queueIndex)
-            } else {
-                // web semantics: keep the queue, append this track, play it
-                val q = controller.currentQueue
-                controller.playQueue(q + listOf(track), startIndex = q.size)
+            // UX pass 2.3.4: the queue can mutate while the sheet is open
+            // (auto-advance on track end) — the captured index may be stale.
+            // Re-resolve by track id before acting, exactly like the web
+            // which plays from the live queue object.
+            val live = controller.currentQueue
+            val liveIndex = live.indexOfFirst { it.id == track.id }
+            when {
+                liveIndex >= 0 && liveIndex == state.queueIndex -> controller.seekToIndex(state.queueIndex)
+                liveIndex >= 0 -> controller.seekToIndex(liveIndex)
+                else -> {
+                    // not in the queue anymore — web semantics: keep queue, append, play
+                    controller.playQueue(live + listOf(track), startIndex = live.size)
+                }
             }
         },
         onAddToQueue = { controller.addToQueue(listOf(track)) },
@@ -161,7 +168,17 @@ fun TrackMenuHost(
                 }
             }
         },
-        onRemoveFromQueue = { idx -> controller.removeQueueItem(idx) },
+        onRemoveFromQueue = { idx ->
+            // UX pass 2.3.4: re-validate the captured index against the LIVE
+            // queue before removing — a stale index (auto-advance while the
+            // sheet was open) would otherwise delete the WRONG track.
+            val live = controller.currentQueue
+            val safeIndex = when {
+                live.getOrNull(idx)?.id == track.id -> idx
+                else -> live.indexOfFirst { it.id == track.id }
+            }
+            if (safeIndex >= 0) controller.removeQueueItem(safeIndex)
+        },
         onRemoveFromPlaylist = state.playlistId?.let { pid ->
             { onRemoveFromPlaylist?.invoke(track, pid) }
         },

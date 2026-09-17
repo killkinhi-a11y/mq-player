@@ -403,18 +403,27 @@ internal fun SearchBody(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 Spacer(Modifier.width(6.dp))
+                                // UX pass 2.3.4: 16dp visual inside a 32dp
+                                // touch target (chip row)
                                 Box(
                                     modifier = Modifier
-                                        .size(16.dp)
+                                        .size(32.dp)
                                         .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f))
                                         .clickable { onRemoveHistoryItem(q) },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    MqIcon(
-                                        icon = MqIcons.X, size = 10.dp,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        MqIcon(
+                                            icon = MqIcons.X, size = 10.dp,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
                             }
                         }

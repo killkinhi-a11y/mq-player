@@ -131,6 +131,7 @@ fun SettingsScreen(
         },
         onDownloadApk = { AppRelease.openDownload(context) },
         onOpenUrl = { url -> openInBrowser(context, url) },
+        onBack = onBack,
     )
 }
 
@@ -178,20 +179,40 @@ internal fun SettingsBody(
     onToggleNotifications: (Boolean) -> Unit,
     onDownloadApk: () -> Unit,
     onOpenUrl: (String) -> Unit,
+    onBack: () -> Unit = {},
 ) {
-    var tab by remember { mutableStateOf("account") }
+    var tab by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("account") }
     var selectedTaste by remember(tasteGenres) { mutableStateOf(tasteGenres) }
-    var themeExpanded by remember { mutableStateOf(false) }
+    var themeExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
         Spacer(Modifier.height(52.dp))
         Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-            // ── Header (web: mq-t-display 26px + sub) ─────────────────────
-            Text(
-                "Настройки",
-                style = MqType.display.copy(fontSize = 26.sp),
-                color = MaterialTheme.colorScheme.onBackground
-            )
+            // ── Header row: back + title (web SettingsView is a tab without
+            //    back; on Android Settings is a pushed detail route — UX pass
+            //    2.3.4 wires the previously-dead onBack param into a visible
+            //    affordance, same pattern as MyProfile) ────────────────────
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .clickable(onClick = onBack),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MqIcon(
+                        icon = MqIcons.ArrowLeft, size = 22.dp,
+                        tint = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.semantics { contentDescription = "Назад" }
+                    )
+                }
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    "Настройки",
+                    style = MqType.display.copy(fontSize = 26.sp),
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+            }
             Text(
                 "Персонализируйте ваш mq",
                 style = MqType.meta,
@@ -375,7 +396,13 @@ private fun SettingRow(
         Row(
             Modifier
                 .fillMaxWidth()
-                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+                // UX pass 2.3.4: ripple stays inside the row bounds — a bare
+                // clickable painted a square flash over the r12 card corners
+                .then(
+                    if (onClick != null)
+                        Modifier.clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick)
+                    else Modifier
+                )
                 .heightIn(min = 56.dp)
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -509,29 +536,37 @@ private fun SettingToggle(
     }
 }
 
-/** Web LiquidGlassToggle (sm): 40×22 track, 16dp knob, accent when on. */
+/** Web LiquidGlassToggle (sm): 40×22 track, 16dp knob, accent when on.
+ *  UX pass 2.3.4: wrapped in a 48dp touch box — the track itself is web
+ *  parity and stays 40×22, but the hit area was only the track. */
 @Composable
 private fun MqSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Box(
         Modifier
-            .width(40.dp)
-            .height(22.dp)
-            .clip(CircleShape)
-            .background(
-                if (checked) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.12f)
-            )
+            .size(48.dp)
             .clickable { onCheckedChange(!checked) }
             .semantics { contentDescription = if (checked) "Включено" else "Выключено" },
-        contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart
+        contentAlignment = Alignment.Center
     ) {
         Box(
             Modifier
-                .padding(3.dp)
-                .size(16.dp)
+                .width(40.dp)
+                .height(22.dp)
                 .clip(CircleShape)
-                .background(Color.White)
-        )
+                .background(
+                    if (checked) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.12f)
+                ),
+            contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart
+        ) {
+            Box(
+                Modifier
+                    .padding(3.dp)
+                    .size(16.dp)
+                    .clip(CircleShape)
+                    .background(Color.White)
+            )
+        }
     }
 }
 
@@ -747,7 +782,7 @@ private fun AppearanceTab(
                         Box(
                             Modifier
                                 .weight(1f)
-                                .height(32.dp)
+                                .height(38.dp)
                                 .clip(CircleShape)
                                 .background(
                                     if (active) MaterialTheme.colorScheme.primary
@@ -1017,7 +1052,7 @@ private fun SoundTab(
                                     else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f)
                                 )
                                 .clickable { onSetSpeed(s) }
-                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
                         )
                     }
                 }
@@ -1126,7 +1161,7 @@ private fun MoreTab(
                             Box(
                                 Modifier
                                     .weight(1f)
-                                    .height(32.dp)
+                                    .height(38.dp)
                                     .clip(CircleShape)
                                     .background(
                                         if (selected) MaterialTheme.colorScheme.primary
@@ -1223,7 +1258,7 @@ private fun MoreTab(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .clickable(onClick = { onOpenUrl(RELEASES_LIST_URL) })
-                            .padding(4.dp)
+                            .padding(horizontal = 10.dp, vertical = 10.dp)
                     )
                 }
             }

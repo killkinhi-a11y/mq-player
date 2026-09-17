@@ -124,7 +124,13 @@ fun MqAppNavHost(
     val currentRoute = backStack?.destination?.route
     // "library?tab={tab}" pattern must highlight the Library tab too
     val currentTabRoute = currentRoute?.substringBefore('?')
-    val showChrome = currentTabRoute in tabs.map { it.route }
+    // UX pass 2.3.4: web shows the dock + mini player on EVERY view (it is
+    // fixed bottom, z-60; only the full-player overlay z-100 covers it).
+    // Android previously hid the whole chrome on detail routes (Settings,
+    // Artist, Playlist, Mixer, Friends, Chat…) — playback control vanished
+    // as soon as the user left the 5 top tabs. Chrome now stays on every
+    // destination except the full player itself (which owns the screen).
+    val showChrome = currentRoute != null && currentRoute != Routes.FULL_PLAYER
     val player: PlayerViewModel = viewModel()
 
     // F7: shared social state — Chats tab unread badge
@@ -224,7 +230,9 @@ fun MqAppNavHost(
             ) {
                 composable(Routes.HOME) {
                     HomeScreen(
-                        onOpenFullPlayer = { navController.navigate(Routes.FULL_PLAYER) },
+                        onOpenFullPlayer = {
+                            navController.navigate(Routes.FULL_PLAYER) { launchSingleTop = true }
+                        },
                         onOpenArtist = { name -> navController.navigate(Routes.artist(name)) },
                         onOpenPlaylist = { id -> navController.navigate(Routes.playlist(id)) },
                         onOpenSettings = { navController.navigate(Routes.SETTINGS) },
