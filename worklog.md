@@ -4095,3 +4095,28 @@ Stage Summary:
 - Site download = MQ Player 2.3.3 (verified byte-identical to the QA'd RC
   build). Promotion path: release android-v2.3.3 + asset MQPlayer.apk.
   Nothing else touched.
+
+---
+Task ID: device-acceptance-233-close
+Agent: main (Super Z)
+Task: Owner device report received — close the 2.3.3 acceptance cycle
+
+Work Log:
+- OWNER DEVICE REPORT: «апк работает стабильно» — the real-device
+  acceptance that was the only remaining blocker. Recorded as
+  DEVICE = PASS (owner-reported on real hardware).
+- Final production health sweep after acceptance (all green):
+  /play 200; /api/app-version 200; google native nonce 200;
+  releases/latest = android-v2.3.3 (prerelease=false);
+  site APK round-trip 4 239 743 B, SHA-256 09afedbe… = the verified
+  apksigner-confirmed artifact (com.mq1.player 2.3.3, code 9, cert
+  SHA-1 70:3F:B1:…FC:E7).
+- No code changes in this step; no web deploy (site already serves 2.3.3
+  via the permanent releases/latest URL); android-v2.3.3-rc pre-release
+  and android-v2.3.1 kept as release history.
+
+Stage Summary:
+- FINAL STATE: MQ Player 2.3.3 = STABLE, ACCEPTED (owner device PASS),
+  distributed by the production site; web production healthy.
+  Standing item closed. Next product work should start from a fresh
+  audit of whatever the owner prioritizes next.
