@@ -4185,3 +4185,50 @@ Stage Summary:
   RC published; device QA pending — Full Player / Settings / Library /
   Context Menu (incl. grabber + long-press + chrome-on-detail-screens)
   need the owner's phone.
+
+---
+Task ID: site-apk-234
+Agent: main (Super Z)
+Task: Owner order «деплой эту версию на сайт» — make 2.3.4 (mobile UX pass) the site download
+
+Work Log:
+- Session recovery first: sandbox re-sync left local main 3 commits behind
+  origin (236fe5d8 accept-close / 2c2fbd9a UX pass / 670f057d worklog) with
+  50 mode-bit-only "modified" files (0 insertions/deletions). reset --hard
+  origin/main restored both; working tree clean, no local content lost.
+- Order context: owner's explicit deployment order for the just-finished
+  2.3.4 RC (mobile UX/visual quality pass, 15 items, 157/157 tests,
+  apksigner-verified, SHA-256 885c1bac…, versionCode 10, same signing
+  identity). Device acceptance for 2.3.4 still pending — owner tests from
+  the site download (same pattern as the 2.3.3 promotion).
+- Mechanism unchanged: the site download button and /api/app-version use the
+  PERMANENT url releases/latest/download/MQPlayer.apk — no web redeploy, no
+  web code changes.
+- Promotion via scripts/promote-234-stable.sh --confirm (adapted from the 233
+  script; SHA pin 885c1bac…, --confirm guard). One fix during bring-up: the
+  2.3.4-rc tag is LIGHTWEIGHT (points straight at commit 2c2fbd9a) — the
+  233 script's unconditional /git/tags/{sha} dereference (annotated-only)
+  404'd with KeyError 'object'. Script now branches on ref object type.
+  Failed run had zero side effects (fell before release creation — pre-check
+  HTTP 404 confirmed).
+- Guards executed: local APK SHA pin PASS; RC release asset on GitHub
+  round-trip SHA PASS (uploaded bytes = local verified bytes).
+- Result: release android-v2.3.4 created (HTTP 201) at commit 2c2fbd9a,
+  NOT prerelease, asset MQPlayer.apk (site asset name) = the verified bytes.
+  android-v2.3.4-rc pre-release left intact; android-v2.3.3 stays as history.
+- END-TO-END VERIFIED: releases/latest -> android-v2.3.4; permanent URL
+  round-trip -> 4 239 743 B, SHA-256 885c1bac… = the apksigner-verified
+  2.3.4 artifact; site /api/app-version apkUrl unchanged and now serves
+  those bytes.
+- Production health sweep: /play 200; / 307 -> /play (standard root
+  redirect); /api/app-version 200; GET native nonce 200 (nonce 256-bit;
+  earlier 400s were my malformed POST probes — the endpoint correctly
+  requires idToken on POST); assetlinks.json 200.
+
+Stage Summary:
+- Site download = MQ Player 2.3.4 (byte-identical to the QA'd RC). Promotion
+  path: release android-v2.3.4 + asset MQPlayer.apk. Web untouched.
+- Honest caveat: device QA for the UX pass items (Full Player / Settings /
+  Library / Context Menu — grabber, long-press, chrome on detail screens)
+  still pending the owner's phone; 2.3.3 remains the last device-accepted
+  version.
