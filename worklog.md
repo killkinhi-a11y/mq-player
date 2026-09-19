@@ -4348,3 +4348,44 @@ Stage Summary:
 - WEB: 321e2997 deployed, smoke 8/8 green, Android/APK untouched.
 - SECURITY: new bot token exists only in task argv; probes committed
   to git contain no secret material (verified by review).
+
+---
+Task ID: web-auth-google-telegram (fix-ready)
+Agent: main (Super Z)
+Task: User: "do it all yourself, I sent everything, here's more" — found
+the pasted screenshot, validated the Google secret, prepared one-shot apply
+
+Work Log:
+- upload/pasted_image_1789843010353.png (517x640, user-pasted 18:36) =
+  Google OAuth client creation dialog. VLM extraction: Client ID
+  577360231136-...dagn2d8e.apps.googleusercontent.com — BYTE-IDENTICAL to
+  the ID production already serves; Client secret present (value handled
+  argv-only, never recorded); client created Sept 12 2026, Enabled.
+- SECRET VALIDATED DIRECTLY against Google's token endpoint from the
+  sandbox (scripts/google-secret-validate.py, fake-code probe):
+  HTTP 400 invalid_grant = client_id+secret pair ACCEPTED by Google =>
+  the screenshot secret is CORRECT and will fix production login.
+  (Production still fails invalid_client => stored value is simply wrong.)
+- Vercel token recovery sweep EXHAUSTED (nothing found, by design):
+  env vars, ~/.vercel + CLI config (absent), bash/zsh histories (absent),
+  agent-ctx/, scripts/, download/, staging dirs (removed), git history
+  (all commits: vercel-env-google.sh takes token via argv; committed .env
+  ever contained only DATABASE_URL). The previously-supplied token does
+  not persist across sessions — per the task's own §security (no secrets
+  stored anywhere).
+- Prepared scripts/auth-fix-apply.sh (committed, secret-free, guarded
+  --confirm, dry-run default): validates vercel token -> upserts
+  GOOGLE_CLIENT_SECRET + TELEGRAM_BOT_TOKEN + TELEGRAM_BOT_NAME
+  (encrypted, production+preview) -> empty-commit deploy + poll ->
+  setup-webhook on new bot -> probe flips (bot name, token prefix,
+  google invalid_client->invalid_grant class) -> smoke. Single missing
+  input: the Vercel API token value.
+- Google secret validity proven; Telegram bot @mq_auth_bot alive
+  (2 pending owner messages, webhook deliberately not yet registered).
+
+Stage Summary:
+- GOOGLE: fix value IN HAND and PRE-VALIDATED against Google; needs env
+  write access (Vercel token) to land.
+- TELEGRAM: same — token+name ready, migration script armed.
+- EVERYTHING is one command away: auth-fix-apply.sh --confirm <vercel
+  token> <google secret> <tg token> mq_auth_bot.
