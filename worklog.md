@@ -4389,3 +4389,65 @@ Stage Summary:
 - TELEGRAM: same — token+name ready, migration script armed.
 - EVERYTHING is one command away: auth-fix-apply.sh --confirm <vercel
   token> <google secret> <tg token> mq_auth_bot.
+
+---
+Task ID: web-auth-google-telegram (APPLIED)
+Agent: main (Super Z)
+Task: Owner sent the Vercel token + earlier the OAuth client screenshot;
+execute the full fix: google secret + telegram bot migration
+
+Work Log:
+- Owner-supplied Vercel token validated (user killkinhi-5353; token
+  handled argv-only, never stored — and the earlier screenshot with the
+  Google secret was DELETED from upload/ after use per §security).
+- Pre-flight: project mq1 (prj_5BaGhJQWIgpOI6rot5nyOHsrl8uH) reachable;
+  rollback anchor recorded = 2eddd781 (mq-build-2eddd781).
+- First apply attempt: GOOGLE_CLIENT_SECRET upserted OK (id
+  BQT356NSJk0WE3Ym, production+preview — the pre-validated value);
+  TELEGRAM_BOT_TOKEN upserted OK but to the production-only entry
+  (id aQrHNRIdt3RyjYpK); TELEGRAM_BOT_NAME upserted to the WRONG entry —
+  key has THREE duplicate entries (development buL38M95gBT2fq2G / preview
+  su6NcotKPwWR675o / production Xj4EheQ5dkRSFjyT) and by-key lookup hit
+  the development one. Also: the pushed EMPTY commit e7743b3f did NOT
+  create a Vercel deployment (project skips empty commits — all earlier
+  deploys were real commits). Apply script's poll timed out; diagnosed
+  via v6/deployments list (no deployment for that sha).
+- Fix tooling: scripts/vercel-env-list.py (key/id/target listing, no
+  values) + scripts/vercel-env-set-by-id.py (per-id PATCH, preserves
+  target). Updated TELEGRAM_BOT_NAME production entry Xj4EheQ5dkRSFjyT
+  AND preview entry su6NcotKPwWR675o => mq_auth_bot. All three entries
+  now consistent; token + google secret entries verified by listing.
+- Deploy: real commit 6215bfb7 (env tooling) pushed; live after 90s
+  (version.json: version 77, mq-build-6215bfb7, 19:05:12Z).
+- POST-DEPLOY VERIFICATION — EVERYTHING FLIPPED:
+  * Google fake-code probe: google_not_configured ->
+    google_exchange_failed = CREDENTIALS_VALID (exchange now reaches
+    Google with accepted client auth; invalid_grant only because the
+    probe code is fake). P0 ROOT CAUSE FIXED at the exchange step.
+  * /api/auth/telegram-bot-name = mq_auth_bot; providers.telegramBotName
+    = mq_auth_bot; diagnose token prefix = 83522979 (new bot), botInfo
+    getMe from production = @mq_auth_bot (old token was dead — Telegram
+    login was effectively down; now restored on the new bot).
+  * POST /api/telegram/setup-webhook: ok=true, url=
+    https://mq1.vercel.app/api/telegram/webhook, commands + menu set,
+    botInfo @mq_auth_bot id 8352297992.
+  * Webhook health: pending_update_count 2 -> 0, last_error none — the
+    owner's 2 earlier messages were delivered and processed (real
+    traffic through the OTP send path).
+- Smoke 10/10: / 307->/play, /play 200, app-version 200, providers 200,
+  telegram-bot-name 200, assetlinks 200, native nonce 200, Google start
+  307 -> accounts.google.com (client_id + redirect_uri + state correct),
+  invalid_state guard intact, APK permanent URL 4 239 743 B SHA-256
+  885c1bac... = untouched stable 2.3.4. Android code/release untouched.
+
+Stage Summary:
+- GOOGLE: FIXED at server level (proven by probe flip). Real end-to-end
+  login (Google account consent -> session) = owner device step.
+- TELEGRAM: MIGRATED to @mq_auth_bot (env all targets, webhook live,
+  commands set, owner messages processed). Full OTP->session login =
+  owner device step. Old bot unreferenced; its token was already dead.
+- WEB: commits e7743b3f (empty, no deploy) + 6215bfb7 (live deploy).
+  Rollback anchor if needed: 2eddd781.
+- SECURITY: all three secrets only via argv; screenshot with the Google
+  secret deleted; no secrets in git/scripts/worklog/logs; committed
+  tooling reviewed clean.
