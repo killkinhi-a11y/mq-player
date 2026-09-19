@@ -4294,3 +4294,57 @@ Stage Summary:
 - TELEGRAM: new bot verified (@mq_auth_bot), migration automated and ready;
   execution blocked on Vercel access; real OTP login = owner device step.
 - WEB: 8e13d28a deployed, all smoke green, Android/APK untouched.
+
+---
+Task ID: web-auth-google-telegram (continuation)
+Agent: main (Super Z)
+Task: User said "I gave everything — check": verify whether Vercel env
+was updated (Google secret + new Telegram bot), complete what's possible
+
+Work Log:
+- Sandbox credential sweep: NO Vercel API token in env/config/history
+  (by security design previous sessions never stored it — argv-only).
+  .env has only DATABASE_URL. Git remote = GitHub PAT (push works).
+- Telegram Bot API check on the NEW bot (token argv-only, never printed):
+  @mq_auth_bot id 8352297992 first_name "MQ" ALIVE; webhook NOT set;
+  2 PENDING UPDATES (owner already messaged the bot, awaiting reply).
+- Production diagnose (deployment 1a1fd07c): TELEGRAM_BOT_TOKEN prefix
+  87629625... = OLD bot; botInfo null + webhookInfo null on repeated
+  calls => OLD token appears REVOKED/dead => Telegram OTP login on
+  production is effectively DOWN until the env swap.
+- Google probe (valid state + FAKE code, no secrets sent): fresh verdict
+  on 1a1fd07c = google_not_configured => Google answers invalid_client
+  => stored GOOGLE_CLIENT_SECRET still WRONG. Re-confirmed root cause.
+- CONTROLLED REDEPLOY to test "did the user update dashboard env":
+  commit 321e2997 (adds scripts/google-secret-probe.sh +
+  scripts/telegram-bot-check.py, both argv-only, zero runtime impact).
+  Pre-checks: tree clean vs origin, no secrets in diff. Deploy LIVE
+  after 70s (version.json: version 77, buildId mq-build-321e2997,
+  releasedAt 2026-09-19T18:18:19Z). Rollback anchor: 1a1fd07c.
+- POST-REDEPLOY PROBES (definitive — fresh deployment reads CURRENT
+  dashboard env): telegram-bot-name = mqplay_bot (OLD); diagnose token
+  prefix = 87629625 (OLD), botInfo still null; Google probe STILL
+  invalid_client. => Vercel dashboard env vars were NOT updated by the
+  user. The credentials they "gave" exist only in past chat messages,
+  not in the project env.
+- Smoke after deploy: / 307->/play, /play 200, app-version 200,
+  providers 200, telegram-bot-name 200, assetlinks 200, native nonce
+  GET 200, APK permanent URL = 4 239 743 B SHA-256 885c1bac... =
+  untouched stable 2.3.4. 8/8 green.
+- Webhook on the new bot deliberately NOT registered yet: with the
+  server still bound to the old (dead) token it would deliver updates
+  that production cannot answer — zero user benefit. Register only
+  AFTER the env swap (setup-webhook POST also sets commands + menu).
+
+Stage Summary:
+- GOOGLE: BLOCKED — needs the CURRENT Client Secret from Google Cloud
+  Console (client 577360231136-...dagn2d8e.apps.googleusercontent.com;
+  the previously-provided value is PROVEN wrong) + a way to write env
+  (Vercel token to me, or user sets it in dashboard).
+- TELEGRAM: migration fully prepared; env swap BLOCKED on the same
+  Vercel write access (TELEGRAM_BOT_TOKEN + TELEGRAM_BOT_NAME =
+  mq_auth_bot). Old bot token looks revoked => Telegram login DOWN
+  on production until swap. New bot alive with 2 pending user msgs.
+- WEB: 321e2997 deployed, smoke 8/8 green, Android/APK untouched.
+- SECURITY: new bot token exists only in task argv; probes committed
+  to git contain no secret material (verified by review).
