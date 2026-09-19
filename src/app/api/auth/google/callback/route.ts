@@ -3,8 +3,10 @@ import { setSessionCookie } from "@/lib/auth";
 import { resolveGoogleLogin } from "@/lib/google-auth";
 import {
   verifyOAuthState,
+  generateOAuthState,
   exchangeGoogleCode,
   verifyGoogleIdToken,
+  logAuthDiagnostic,
   getRequestOrigin,
   OAUTH_STATE_COOKIE,
 } from "@/lib/oauth";
@@ -27,6 +29,10 @@ export async function GET(req: NextRequest) {
   const origin = getRequestOrigin(req);
   const fail = (code: string) =>
     NextResponse.redirect(new URL(`/play?authError=${code}`, origin));
+
+  // Correlation ID — ties every diagnostic line of this attempt together
+  // in the server log (never exposed to the browser).
+  const correlationId = generateOAuthState().slice(0, 8);
 
   try {
     // 1. CSRF state check
@@ -53,16 +59,31 @@ export async function GET(req: NextRequest) {
     const code = req.nextUrl.searchParams.get("code");
     if (!code) return fail("missing_code");
 
-    const tokens = await exchangeGoogleCode(origin, code);
-    if (!tokens) return fail("google_exchange_failed");
+    const exchange = await exchangeGoogleCode(origin, code, correlationId);
+    if (!exchange.id_token) {
+      // Google rejected OUR server credentials (wrong/rotated client secret) —
+      // a distinct, honest, admin-actionable class. The browser still gets a
+      // generic safe message; the provider error code stays in the server log.
+      if (exchange.error?.providerError === "invalid_client") {
+        return fail("google_not_configured");
+      }
+      return fail("google_exchange_failed");
+    }
 
     // 3. Verify the id_token cryptographically
-    const identity = await verifyGoogleIdToken(tokens.id_token);
+    const identity = await verifyGoogleIdToken(exchange.id_token, correlationId);
     if (!identity || !identity.sub) return fail("google_token_invalid");
 
     // 4. Shared account resolution (identical chain for native logins)
     const result = await resolveGoogleLogin(identity);
-    if (!result.ok) return fail(result.code);
+    if (!result.ok) {
+      logAuthDiagnostic({
+        step: "google.resolve",
+        errorClass: result.code,
+        correlationId,
+      });
+      return fail(result.code);
+    }
 
     const redirectUrl = new URL(
       "/play?auth=success&provider=google" +

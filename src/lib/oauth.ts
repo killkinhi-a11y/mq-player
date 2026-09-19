@@ -75,6 +75,28 @@ export function verifyOAuthState(cookieState: string | undefined, queryState: st
 
 // ── Google: authorize + exchange + verify ───────────────────────────────────
 
+// ── Auth diagnostics (§5: safe, structured, server-side only) ───────────────
+//
+// Every auth failure leaves ONE structured log line with: auth step, error
+// class, HTTP status, safe provider error code, correlation ID.
+// NEVER logged: client secrets, id/access tokens, cookies, user PII.
+
+export interface AuthDiagnostic {
+  step: string;          // "google.exchange" | "google.idtoken" | "google.resolve"
+  errorClass: string;    // "invalid_client" | "invalid_grant" | "network" | "timeout" | "missing_id_token" | "http_error" | jose error code
+  httpStatus?: number;
+  providerError?: string; // provider's registered OAuth error code (sanitized)
+  correlationId: string;
+}
+
+/** Emit a single greppable diagnostic line (Vercel deployment logs). */
+export function logAuthDiagnostic(d: AuthDiagnostic): void {
+  console.error(`[AUTH-DIAG] ${JSON.stringify(d)}`);
+}
+
+/** Provider error codes are short snake_case identifiers — nothing else passes. */
+const SAFE_PROVIDER_ERROR = /^[a-z_]{1,64}$/;
+
 export function getGoogleRedirectUri(origin: string): string {
   return `${origin}/api/auth/google/callback`;
 }
@@ -108,13 +130,27 @@ export function buildGoogleAuthUrl(origin: string, state: string): string {
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }
 
-export interface GoogleTokens {
-  id_token: string;
+export interface GoogleExchangeResult {
+  id_token?: string;
   access_token?: string;
+  /** Present only when the exchange failed — safe fields, no secrets. */
+  error?: {
+    errorClass: string;
+    httpStatus?: number;
+    providerError?: string;
+  };
 }
 
-/** Exchange the authorization code for tokens — server-to-server. */
-export async function exchangeGoogleCode(origin: string, code: string): Promise<GoogleTokens | null> {
+/**
+ * Exchange the authorization code for tokens — server-to-server.
+ * Returns a structured result so the caller can map failure classes to
+ * honest, safe UI codes; details go to the server log, not the browser.
+ */
+export async function exchangeGoogleCode(
+  origin: string,
+  code: string,
+  correlationId = "n/a"
+): Promise<GoogleExchangeResult> {
   try {
     const res = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -128,12 +164,50 @@ export async function exchangeGoogleCode(origin: string, code: string): Promise<
       }),
       signal: AbortSignal.timeout(10000),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      // Google's token endpoint answers errors with { error, error_description }.
+      // Only the registered error CODE is extracted (sanitized) — descriptions
+      // are dropped: they can echo request parameters.
+      let providerError: string | undefined;
+      try {
+        const body = await res.json();
+        if (typeof body?.error === "string" && SAFE_PROVIDER_ERROR.test(body.error)) {
+          providerError = body.error;
+        }
+      } catch {
+        // non-JSON error body — keep class generic
+      }
+      logAuthDiagnostic({
+        step: "google.exchange",
+        errorClass: providerError || "http_error",
+        httpStatus: res.status,
+        providerError,
+        correlationId,
+      });
+      return {
+        error: {
+          errorClass: providerError || "http_error",
+          httpStatus: res.status,
+          providerError,
+        },
+      };
+    }
     const data = await res.json();
-    if (!data.id_token) return null;
+    if (!data.id_token) {
+      logAuthDiagnostic({
+        step: "google.exchange",
+        errorClass: "missing_id_token",
+        httpStatus: res.status,
+        correlationId,
+      });
+      return { error: { errorClass: "missing_id_token" } };
+    }
     return { id_token: data.id_token, access_token: data.access_token };
-  } catch {
-    return null;
+  } catch (err: unknown) {
+    const name = (err as { name?: string })?.name;
+    const errorClass = name === "TimeoutError" || name === "AbortError" ? "timeout" : "network";
+    logAuthDiagnostic({ step: "google.exchange", errorClass, correlationId });
+    return { error: { errorClass } };
   }
 }
 
@@ -153,7 +227,10 @@ export interface GoogleIdentity {
  * Checks: signature (JWKS), issuer, audience (our client id), expiration.
  * Returns the verified identity or null — never throws.
  */
-export async function verifyGoogleIdToken(idToken: string): Promise<GoogleIdentity | null> {
+export async function verifyGoogleIdToken(
+  idToken: string,
+  correlationId = "n/a"
+): Promise<GoogleIdentity | null> {
   try {
     const { payload } = await jwtVerify(idToken, GOOGLE_JWKS, {
       issuer: ["https://accounts.google.com", "accounts.google.com"],
@@ -170,7 +247,12 @@ export async function verifyGoogleIdToken(idToken: string): Promise<GoogleIdenti
       picture: typeof payload.picture === "string" ? payload.picture : null,
       nonce: typeof payload.nonce === "string" ? payload.nonce : null,
     };
-  } catch {
+  } catch (err: unknown) {
+    // Log the library error CODE only (e.g. ERR_JWT_EXPIRED) — never the token.
+    const code = (err as { code?: string })?.code;
+    const errorClass =
+      typeof code === "string" && /^[A-Z0-9_]{1,64}$/.test(code) ? code : "jwks_verification_failed";
+    logAuthDiagnostic({ step: "google.idtoken", errorClass, correlationId });
     return null;
   }
 }
