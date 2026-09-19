@@ -4232,3 +4232,65 @@ Stage Summary:
   Library / Context Menu — grabber, long-press, chrome on detail screens)
   still pending the owner's phone; 2.3.3 remains the last device-accepted
   version.
+
+---
+Task ID: web-auth-google-telegram
+Agent: main (Super Z)
+Task: Google auth failure on production web (root cause) + Telegram bot migration prep
+
+Work Log:
+- REPRODUCED on production in a REAL browser (agent-browser, live SW):
+  login → Google button → accounts.google.com consent OK ("continue to
+  mq1.vercel.app", client_id + redirect_uri accepted) → callback with valid
+  state → /play?authError=google_exchange_failed → UI shows exactly the
+  user-reported message. Curl probe reproduced the same. The service worker
+  is INNOCENT: navigation redirects pass through natively (networkFirst
+  returns the opaqueredirect), one exchange per navigation, no caching of
+  3xx (ok=false).
+- FAIL AT (first broken step): code-for-tokens exchange — server POST to
+  oauth2.googleapis.com/token. Everything before it (client_id, consent,
+  redirect_uri registration, state CSRF, callback redirect) works.
+- MINIMAL FIX (commit 8e13d28a, deployed): §5-compliant diagnostics —
+  exchangeGoogleCode returns a structured result (sanitized snake_case
+  provider error code, HTTP status, class network/timeout/missing_id_token/
+  http_error), logAuthDiagnostic emits ONE greppable [AUTH-DIAG] JSON line
+  (step/class/status/providerError/correlationId); verifyGoogleIdToken logs
+  jose error codes; resolve failures logged. invalid_client maps to the
+  honest google_not_configured class. NEVER logged: secret, code, tokens,
+  cookies, error_description. 14 new unit tests incl. log-leak guards.
+  384/384 vitest green; build OK; deployed via push (auto).
+- ROOT CAUSE PROVEN post-deploy: fake-code probe with valid state now
+  returns authError=google_not_configured → Google answered invalid_client
+  → the stored GOOGLE_CLIENT_SECRET on production is INVALID (wrong value
+  or rotated in Google Cloud since the wiring upsert). Every exchange fails
+  at credential validation — the code never mattered.
+- FIX FOR GOOGLE (needs owner input, BLOCKED in sandbox): upsert the
+  current correct Client Secret via scripts/vercel-env-set.py + redeploy;
+  closure test = fake-code probe flips to google_exchange_failed
+  (= invalid_grant = credentials valid), then the owner's real login.
+- TELEGRAM: new token verified via getMe (argv/env only, never printed):
+  NEW BOT = @mq_auth_bot (id 8352297992) — a DIFFERENT bot from production
+  @mqplay_bot (migration, not rotation). New bot has NO webhook yet.
+  Architecture mapped: webhook /api/telegram/webhook + setup via
+  POST /api/telegram/setup-webhook (runtime token); bot username in UI is
+  fully env-driven (TELEGRAM_BOT_NAME; Android fetches it dynamically too —
+  no hardcoded old-bot references anywhere). Migration script prepared:
+  scripts/telegram-bot-migrate.sh (guarded --confirm; resolves project,
+  verifies getMe username == TELEGRAM_BOT_NAME before writing, upserts both
+  env vars encrypted production+preview, empty-commit deploy, registers
+  webhook+commands on the new bot, verifies providers output). NOT executed
+  — the env swap needs Vercel API access (no token in sandbox; none stored).
+- SMOKE post-deploy (8e13d28a): / 307→/play, /play 200, app-version 200,
+  providers 200 (old bot name — expected until swap), telegram-bot-name 200,
+  native nonce 200, assetlinks 200, APK stable 2.3.4 untouched (4 239 743 B),
+  invalid_state path intact, email login 400-on-bad-creds. Rollback point
+  recorded: 124d6939 (buildId mq-build-124d6939).
+- Security: bot token exists only in this task's argv/env — not in git,
+  scripts, worklog, logs, frontend, APK. §19 acceptance clean.
+
+Stage Summary:
+- GOOGLE: root cause PROVEN = invalid client secret on production; UI now
+  honest; fix blocked on the correct secret + Vercel access.
+- TELEGRAM: new bot verified (@mq_auth_bot), migration automated and ready;
+  execution blocked on Vercel access; real OTP login = owner device step.
+- WEB: 8e13d28a deployed, all smoke green, Android/APK untouched.
