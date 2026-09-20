@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -493,6 +494,9 @@ private fun SettingToggle(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 56.dp)
+                // Animation pass: clip ripple to the row shape — was a
+                // rectangular ripple over the r10 card corners.
+                .clip(RoundedCornerShape(10.dp))
                 // UX pass 2.3.5: FULL-ROW toggle — only the 48dp switch box
                 // toggled before; the label/icon area (80% of the row) was
                 // dead. Standard M3 pattern: row-level toggleable +
@@ -679,6 +683,8 @@ private fun AccountTab(
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = 48.dp)
+                    // Animation pass: clip ripple (was square over card corners)
+                    .clip(RoundedCornerShape(10.dp))
                     .clickable(onClick = onDownloadApk)
                     .padding(horizontal = 12.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -754,7 +760,15 @@ private fun AppearanceTab(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // Тема card — collapsed row + expandable 23-theme grid (§K picker)
-        MqCard {
+        // Animation pass: animateContentSize — the grid previously appeared
+        // as an instant 320dp jump even inside the capped container.
+        MqCard(
+            modifier = Modifier.animateContentSize(
+                animationSpec = androidx.compose.animation.core.tween(
+                    240, easing = androidx.compose.animation.core.FastOutSlowInEasing
+                )
+            )
+        ) {
             ThemeHeaderRow(
                 currentId = appearance.themeId,
                 expanded = themeExpanded,

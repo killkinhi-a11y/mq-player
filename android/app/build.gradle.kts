@@ -41,7 +41,7 @@ android {
         // account picker), full Google error taxonomy, official googleid R8
         // keep rules, crash diagnostics (MqCrash — logged + persisted, never
         // masked), SecureCookieJar.hasSessionCookie restored on restart.
-        versionCode = 11
+        versionCode = 12
         versionName = "2.3.5"
 
         buildConfigField("String", "API_BASE", "\"$mqApiBase\"")

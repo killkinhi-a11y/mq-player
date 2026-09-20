@@ -17,6 +17,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Text
@@ -28,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -127,7 +136,26 @@ fun MqTrackContextMenu(
                 .verticalScroll(rememberScrollState())
                 .padding(6.dp)
         ) {
-            if (page == "root") {
+            // Animation pass: sub-page slide (forward: from end; back: to
+            // end) — the playlists picker previously hard-swapped in place.
+            AnimatedContent(
+                targetState = page,
+                transitionSpec = {
+                    val spec = androidx.compose.animation.core.tween<IntOffset>(
+                        220, easing = androidx.compose.animation.core.FastOutSlowInEasing
+                    )
+                    if (targetState == "playlists") {
+                        (slideInHorizontally(spec) { it / 3 } + fadeIn(tween(180))) togetherWith
+                            (slideOutHorizontally(spec) { -it / 4 } + fadeOut(tween(160)))
+                    } else {
+                        (slideInHorizontally(spec) { -it / 4 } + fadeIn(tween(180))) togetherWith
+                            (slideOutHorizontally(spec) { it / 3 } + fadeOut(tween(160)))
+                    }
+                },
+                label = "menuPage"
+            ) { currentPage ->
+                Column {
+            if (currentPage == "root") {
                 // ── header: art 48 r8 + title + artist · duration ────────────
                 Row(
                     Modifier
@@ -269,6 +297,8 @@ fun MqTrackContextMenu(
                     onCreatePlaylistAndAdd(); onDismiss()
                 }
                 Box(Modifier.height(12.dp))
+            }
+                }
             }
         }
     }

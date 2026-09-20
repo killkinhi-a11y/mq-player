@@ -5,6 +5,7 @@ package com.mq1.player.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -124,9 +125,12 @@ fun SearchScreen(onOpenArtist: (String) -> Unit) {
         }
     }
 
+    // Animation pass: gate EQ bars on actual playback (Home pattern) —
+    // search rows previously kept dancing while paused.
+    val isActuallyPlaying by player.controller.isPlaying.collectAsState()
     SearchBody(
         ui = ui,
-        playingTrackId = queue.getOrNull(currentIndex)?.id,
+        playingTrackId = if (isActuallyPlaying) queue.getOrNull(currentIndex)?.id else null,
         favorites = favorites,
         onQueryChange = vm::onQueryChange,
         onGenreChange = vm::onGenreChange,
@@ -313,7 +317,10 @@ internal fun SearchBody(
                             modifier = Modifier.weight(1f)
                         )
                         Box(
-                            modifier = Modifier.size(44.dp).clickable(onClick = onRetry),
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .clickable(onClick = onRetry),
                             contentAlignment = Alignment.Center
                         ) {
                             MqIcon(
@@ -482,8 +489,25 @@ internal fun SearchBody(
         }
 
         // ── loading skeletons (web unified row geometry) ────────────────
+        // Animation pass: gentle alpha pulse (was fully static blocks — the
+        // one place a modern-app gap was obvious).
         if (ui.loading) {
             items(5) { _ ->
+                // rememberInfiniteTransition must live in the composable
+                // item scope (LazyListScope itself is not composable).
+                val skeletonAlpha by androidx.compose.animation.core.rememberInfiniteTransition(
+                    label = "searchSkeleton"
+                ).animateFloat(
+                    initialValue = 0.55f,
+                    targetValue = 1f,
+                    animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                        animation = androidx.compose.animation.core.tween(
+                            700, easing = androidx.compose.animation.core.FastOutSlowInEasing
+                        ),
+                        repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+                    ),
+                    label = "skeletonAlpha"
+                )
                 Row(
                     modifier = Modifier
                         .padding(horizontal = 16.dp, vertical = 3.dp)
@@ -499,7 +523,7 @@ internal fun SearchBody(
                         Modifier
                             .size(44.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = skeletonAlpha))
                     )
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Box(
@@ -507,14 +531,14 @@ internal fun SearchBody(
                                 .fillMaxWidth(0.75f)
                                 .height(14.dp)
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = skeletonAlpha))
                         )
                         Box(
                             Modifier
                                 .fillMaxWidth(0.5f)
                                 .height(12.dp)
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = skeletonAlpha))
                         )
                     }
                     Box(
@@ -522,7 +546,7 @@ internal fun SearchBody(
                             .width(40.dp)
                             .height(12.dp)
                             .clip(RoundedCornerShape(4.dp))
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = skeletonAlpha))
                     )
                 }
             }

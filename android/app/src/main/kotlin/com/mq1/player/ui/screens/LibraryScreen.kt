@@ -107,6 +107,9 @@ fun LibraryScreen(
     val ui by vm.ui.collectAsState()
     val queue by player.controller.queue.collectAsState()
     val currentIndex by player.controller.currentIndex.collectAsState()
+    // Animation pass: gate the EQ bars on ACTUAL playback — Library rows
+    // previously kept dancing while paused (Home already did this).
+    val isActuallyPlaying by player.controller.isPlaying.collectAsState()
     val favorites by player.favorites.collectAsState(initial = emptyList())
     val history by ServiceLocator.localStore.history.collectAsState(initial = emptyList())
     // UX pass 2.3.4: real «Сегодня» — web filters history by playedAt >= start
@@ -161,7 +164,7 @@ fun LibraryScreen(
             disliked = disliked,
             subscribedArtists = subscribedArtists,
             history = history,
-            playingTrackId = queue.getOrNull(currentIndex)?.id,
+            playingTrackId = if (isActuallyPlaying) queue.getOrNull(currentIndex)?.id else null,
             favoriteIds = favorites.map { it.id }.toSet(),
             query = query,
             sort = sort,
@@ -652,21 +655,33 @@ private fun LibraryTabBar(
                     .align(Alignment.BottomCenter)
                     .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.22f))
             )
-            Row(Modifier.fillMaxSize()) {
-                tabs.forEachIndexed { i, _ ->
-                    Box(Modifier.weight(1f).fillMaxHeight()) {
-                        if (activeTab == i) {
-                            Box(
-                                Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 8.dp)
-                                    .background(
-                                        MaterialTheme.colorScheme.primary,
-                                        RoundedCornerShape(50)
-                                    )
+            // Animation pass: ONE underline that slides between thirds
+            // (was: three conditional Boxes teleporting on tab switch).
+            androidx.compose.foundation.layout.BoxWithConstraints(
+                Modifier.fillMaxSize()
+            ) {
+                val slot = maxWidth / tabs.size.toFloat()
+                val underlineX by androidx.compose.animation.core.animateDpAsState(
+                    targetValue = slot * activeTab,
+                    animationSpec = androidx.compose.animation.core.tween(
+                        220, easing = androidx.compose.animation.core.FastOutSlowInEasing
+                    ),
+                    label = "libraryTabUnderline"
+                )
+                Box(
+                    Modifier
+                        .offset(x = underlineX)
+                        .width(slot)
+                        .padding(horizontal = 8.dp)
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .background(
+                                MaterialTheme.colorScheme.primary,
+                                RoundedCornerShape(50)
                             )
-                        }
-                    }
+                    )
                 }
             }
         }

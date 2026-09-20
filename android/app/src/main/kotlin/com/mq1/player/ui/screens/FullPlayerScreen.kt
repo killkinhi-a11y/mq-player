@@ -257,8 +257,15 @@ fun FullPlayerScreen(
                 Spacer(Modifier.height(8.dp))
                 // ── artwork 320 r8 — web gestures: drag down = close,
                 //    horizontal drag = next/prev (FullTrackViewMobile) ───
-                var dragX by remember { mutableFloatStateOf(0f) }
-                var dragY by remember { mutableFloatStateOf(0f) }
+                // Animation pass: Animatable + spring-back on release —
+                // the artwork previously TELEPORTED back to center after a
+                // drag (dragX = 0f with no transition).
+                val dragX = remember { androidx.compose.animation.core.Animatable(0f) }
+                val dragY = remember { androidx.compose.animation.core.Animatable(0f) }
+                val dragScope = androidx.compose.runtime.rememberCoroutineScope()
+                val dragReleaseSpec = androidx.compose.animation.core.spring<Float>(
+                    dampingRatio = 1f, stiffness = 700f
+                )
                 Box(
                     Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
@@ -270,25 +277,41 @@ fun FullPlayerScreen(
                         // overflowed 320dp-class screens (web: min(92vw,58vh))
                         fillWidth = true,
                         modifier = Modifier
-                            .offset(x = (dragX * 0.25f).dp, y = (dragY * 0.35f).dp)
+                            .offset(x = (dragX.value * 0.25f).dp, y = (dragY.value * 0.35f).dp)
                             .pointerInput(Unit) {
                                 detectDragGestures(
                                     onDragEnd = {
                                         // web thresholds: down >80dp dominant; |x| >60dp dominant
-                                        val dx = dragX
-                                        val dy = dragY
+                                        val dx = dragX.value
+                                        val dy = dragY.value
                                         when {
                                             dy > 80.dp.toPx() && dy > kotlin.math.abs(dx) * 1.5f -> onClose()
                                             dx < -60.dp.toPx() && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2f -> controller.next()
                                             dx > 60.dp.toPx() && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2f -> controller.previous()
                                         }
-                                        dragX = 0f; dragY = 0f
+                                        // spring-back to center (no bounce: damping 1)
+                                        dragScope.launch {
+                                            dragX.animateTo(0f, dragReleaseSpec)
+                                        }
+                                        dragScope.launch {
+                                            dragY.animateTo(0f, dragReleaseSpec)
+                                        }
                                     },
-                                    onDragCancel = { dragX = 0f; dragY = 0f }
+                                    onDragCancel = {
+                                        dragScope.launch {
+                                            dragX.animateTo(0f, dragReleaseSpec)
+                                            dragY.animateTo(0f, dragReleaseSpec)
+                                        }
+                                    }
                                 ) { change, dragAmount ->
                                     change.consume()
-                                    dragX += dragAmount.x
-                                    dragY += dragAmount.y
+                                    // snapTo is suspend AND cancels any
+                                    // running release-spring (mutatorMutex)
+                                    // so a fresh grab never fights the anim.
+                                    dragScope.launch {
+                                        dragX.snapTo(dragX.value + dragAmount.x)
+                                        dragY.snapTo(dragY.value + dragAmount.y)
+                                    }
                                 }
                             }
                     )
@@ -315,6 +338,9 @@ fun FullPlayerScreen(
                     Box(
                         Modifier
                             .size(44.dp)
+                            // Animation pass: clip ripple to the circle —
+                            // was a square ripple behind a round icon.
+                            .clip(androidx.compose.foundation.shape.CircleShape)
                             .clickable { controller.toggleFavorite(track) }
                             .semantics { contentDescription = if (isFav) "Убрать из любимых" else "В любимые" },
                         contentAlignment = Alignment.Center
@@ -372,8 +398,25 @@ fun FullPlayerScreen(
 
                 // ── progress: times ABOVE the bar (web: 26px bold current +
                 //    13px remaining), then 4dp track, 12dp thumb ─────────
+                // Animation pass: glide the bar between the 500ms position
+                // ticks (linear tween matched to the ticker cadence — was
+                // stepping). Real seeks (delta > 5%) snap instantly.
+                val glideTarget = when {
+                    userSeeking -> seekValue
+                    duration > 0 -> position.toFloat() / duration
+                    else -> 0f
+                }
+                val glideSpec = if (kotlin.math.abs(glideTarget - seekValue) > 0.05f)
+                    androidx.compose.animation.core.snap<Float>()
+                else
+                    androidx.compose.animation.core.tween<Float>(
+                        500, easing = androidx.compose.animation.core.LinearEasing
+                    )
+                val glide by androidx.compose.animation.core.animateFloatAsState(
+                    glideTarget, glideSpec, label = "seekGlide"
+                )
                 if (!userSeeking) {
-                    seekValue = if (duration > 0) position.toFloat() / duration else 0f
+                    seekValue = glide
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(
@@ -570,7 +613,8 @@ fun FullPlayerScreen(
                     itemsIndexed(queue, key = { _, t -> t.id }) { i, t ->
                         TrackRow(
                             track = t,
-                            isPlaying = i == index,
+                            // Animation pass: freeze bars while paused
+                            isPlaying = i == index && isPlaying,
                             isFavorite = favorites.any { it.id == t.id },
                             onPlay = {
                                 controller.seekToIndex(i)

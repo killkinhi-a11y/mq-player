@@ -1,7 +1,16 @@
 package com.mq1.player.ui.nav
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -340,11 +349,20 @@ fun MqAppNavHost(
                 }
                 composable(
                     Routes.FULL_PLAYER,
+                    // Animation pass: default slide springs (stiffness 400)
+                    // read as ~500ms for a full-height slide. 320ms
+                    // FastOutSlowIn keeps the expressive slide but snappy.
                     enterTransition = {
-                        slideInVertically(initialOffsetY = { it }) + androidx.compose.animation.fadeIn()
+                        slideInVertically(
+                            animationSpec = tween(320, easing = FastOutSlowInEasing),
+                            initialOffsetY = { it }
+                        ) + androidx.compose.animation.fadeIn(tween(320, easing = FastOutSlowInEasing))
                     },
                     exitTransition = {
-                        slideOutVertically(targetOffsetY = { it }) + androidx.compose.animation.fadeOut()
+                        slideOutVertically(
+                            animationSpec = tween(320, easing = FastOutSlowInEasing),
+                            targetOffsetY = { it }
+                        ) + androidx.compose.animation.fadeOut(tween(280, easing = FastOutSlowInEasing))
                     }
                 ) {
                     FullPlayerScreen(
@@ -451,26 +469,42 @@ private fun MqBottomDock(
             .background(bg.copy(alpha = 0.92f))
             .navigationBarsPadding()
     ) {
-        if (activeTrack != null) {
-            MiniPlayerBar(
-                title = activeTrack.title,
-                artist = activeTrack.artist,
-                artwork = activeTrack.cover,
-                isPlaying = isPlaying,
-                isLiked = isLiked,
-                isBuffering = isBuffering,
-                positionMs = position,
-                durationMs = duration,
-                progress = if (duration > 0) position.toFloat() / duration else 0f,
-                onToggle = onTogglePlay,
-                onToggleLike = onToggleLike,
-                onOpen = onOpenPlayer,
-            )
+        // Animation pass: the first track starting previously made the
+        // dock (and the Scaffold content padding) JUMP by 63dp. Expand+fade
+        // grows the slot smoothly — Scaffold re-measures per frame, so the
+        // content follows. Never blocks the play control itself.
+        AnimatedVisibility(
+            visible = activeTrack != null,
+            enter = expandVertically(
+                animationSpec = tween(220, easing = FastOutSlowInEasing)
+            ) + fadeIn(tween(220, easing = FastOutSlowInEasing)),
+            exit = shrinkVertically(
+                animationSpec = tween(180, easing = FastOutSlowInEasing)
+            ) + fadeOut(tween(120))
+        ) {
+            activeTrack?.let { track ->
+                MiniPlayerBar(
+                    title = track.title,
+                    artist = track.artist,
+                    artwork = track.cover,
+                    isPlaying = isPlaying,
+                    isLiked = isLiked,
+                    isBuffering = isBuffering,
+                    positionMs = position,
+                    durationMs = duration,
+                    progress = if (duration > 0) position.toFloat() / duration else 0f,
+                    onToggle = onTogglePlay,
+                    onToggleLike = onToggleLike,
+                    onOpen = onOpenPlayer,
+                )
+            }
         }
 
         // 1dp hairline between mini player / nav row and content edge
         Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
 
+        val dockAccent = MaterialTheme.colorScheme.primary
+        Box(Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -505,16 +539,8 @@ private fun MqBottomDock(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    // active accent hairline at tab top (web ::before)
-                    if (active) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .width(22.dp)
-                                .height(2.5.dp)
-                                .background(accent, RoundedCornerShape(bottomStart = 3.dp, bottomEnd = 3.dp))
-                        )
-                    }
+                    // The accent hairline is drawn ONCE above the Row and
+                    // slides between tabs (see BoxWithConstraints below).
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.padding(vertical = 4.dp)
@@ -556,6 +582,33 @@ private fun MqBottomDock(
                     }
                 }
             }
+        }
+
+        // Sliding tab indicator (web ::before parity): ONE accent hairline
+        // that travels between tab slots instead of teleporting. Plain Box
+        // overlays are not hit-testable, so taps pass through to the tabs.
+        BoxWithConstraints(Modifier.matchParentSize()) {
+            val slot = maxWidth / tabs.size.toFloat()
+            val activeIndex = tabs.indexOfFirst { currentRoute == it.route }.coerceAtLeast(0)
+            val indicatorX by animateDpAsState(
+                targetValue = slot * activeIndex,
+                animationSpec = tween(220, easing = FastOutSlowInEasing),
+                label = "dockIndicatorX"
+            )
+            Box(
+                Modifier
+                    .offset(x = indicatorX)
+                    .width(slot)
+            ) {
+                Box(
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .width(22.dp)
+                        .height(2.5.dp)
+                        .background(dockAccent, RoundedCornerShape(bottomStart = 3.dp, bottomEnd = 3.dp))
+                )
+            }
+        }
         }
     }
 }
