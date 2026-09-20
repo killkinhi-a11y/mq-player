@@ -41,8 +41,8 @@ android {
         // account picker), full Google error taxonomy, official googleid R8
         // keep rules, crash diagnostics (MqCrash — logged + persisted, never
         // masked), SecureCookieJar.hasSessionCookie restored on restart.
-        versionCode = 10
-        versionName = "2.3.4"
+        versionCode = 11
+        versionName = "2.3.5"
 
         buildConfigField("String", "API_BASE", "\"$mqApiBase\"")
         vectorDrawables { useSupportLibrary = true }

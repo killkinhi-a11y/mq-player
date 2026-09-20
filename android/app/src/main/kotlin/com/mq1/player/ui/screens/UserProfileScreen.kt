@@ -1,6 +1,7 @@
 package com.mq1.player.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -69,8 +70,8 @@ fun UserProfileScreen(
     }
 
     Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
-            Spacer(Modifier.height(52.dp))
+        // UX pass 2.3.5: real status-bar inset (was fixed 52dp fake)
+        Column(Modifier.fillMaxSize().statusBarsPadding()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -118,7 +119,8 @@ fun UserProfileScreen(
                                     .size(20.dp)
                                     .align(Alignment.BottomEnd)
                                     .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary)
+                                    // UX pass 2.3.5: web parity dot #4ade80
+                                    .background(androidx.compose.ui.graphics.Color(0xFF4ADE80))
                                     .border(3.dp, MaterialTheme.colorScheme.background, CircleShape)
                             )
                         }

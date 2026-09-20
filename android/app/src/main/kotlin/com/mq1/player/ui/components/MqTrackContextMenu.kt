@@ -94,7 +94,10 @@ fun MqTrackContextMenu(
     val text = MaterialTheme.colorScheme.onBackground
     val textMuted = MaterialTheme.colorScheme.onSurfaceVariant
     val hairline = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-    val error = Color(0xFFEF4444)
+    // UX pass 2.3.5: scheme error (was hardcoded #EF4444 — light themes
+    // define error as C92A2A, so the sheet's red disagreed with every
+    // other red on the same screen).
+    val error = MaterialTheme.colorScheme.error
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -236,11 +239,17 @@ fun MqTrackContextMenu(
                 Box(Modifier.height(12.dp))
             } else {
                 // ── playlists sub-page ──────────────────────────────────────
+                // UX pass 2.3.5: BACK affordance — the sub-page previously
+                // had none, and the system back gesture killed the WHOLE
+                // sheet (web parity: ContextMenu sub-page has a Back row).
+                SheetItem(MqIcons.ArrowLeft, "Назад", text, textMuted) {
+                    page = "root"
+                }
                 Text(
                     "Добавить в плейлист",
                     style = MqType.label,
                     color = textMuted,
-                    modifier = Modifier.padding(start = 10.dp, top = 8.dp, bottom = 4.dp)
+                    modifier = Modifier.padding(start = 10.dp, top = 4.dp, bottom = 4.dp)
                 )
                 if (playlists.isEmpty()) {
                     Text(
@@ -276,10 +285,12 @@ private fun SheetItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(48.dp)
+            // UX pass 2.3.5: min-height instead of fixed height — long
+            // playlist names wrapped nowhere (48dp hard clipped them).
+            .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -288,7 +299,7 @@ private fun SheetItem(
             label,
             style = MqType.menu.copy(fontSize = 14.sp),
             color = labelColor,
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
     }

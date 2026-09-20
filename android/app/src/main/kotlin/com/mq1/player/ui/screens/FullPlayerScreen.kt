@@ -266,6 +266,9 @@ fun FullPlayerScreen(
                     Artwork(
                         url = track.cover, sizeDp = 320, corner = 20,
                         contentDescription = "Обложка: ${track.title}",
+                        // UX pass 2.3.5: responsive square — fixed 320dp
+                        // overflowed 320dp-class screens (web: min(92vw,58vh))
+                        fillWidth = true,
                         modifier = Modifier
                             .offset(x = (dragX * 0.25f).dp, y = (dragY * 0.35f).dp)
                             .pointerInput(Unit) {
@@ -347,9 +350,22 @@ fun FullPlayerScreen(
                         style = MqType.meta2, color = muted
                     )
                 }
-                error?.let {
+                error?.let { err ->
                     Spacer(Modifier.height(8.dp))
-                    Text(it, color = MaterialTheme.colorScheme.error, style = MqType.meta2)
+                    Text(err, color = MaterialTheme.colorScheme.error, style = MqType.meta2)
+                    // UX pass 2.3.5: a dead stream previously had NO recovery
+                    // path — retry re-prepares the current queue entry.
+                    Text(
+                        "Повторить",
+                        style = MqType.meta2.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .padding(top = 6.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f))
+                            .clickable { if (index in queue.indices) controller.seekToIndex(index) }
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                    )
                 }
 
                 Spacer(Modifier.height(20.dp))
@@ -500,7 +516,10 @@ fun FullPlayerScreen(
                         controller.dislike(track)
                         if (index in queue.indices && queue[index].id == track.id) controller.next()
                     }
-                    SecondaryAction(MqIcons.ListMusic, "В плейлист") { playlistPickerOpen = true }
+                    // UX pass 2.3.5: ListPlus for «В плейлист» — it shared the
+                    // ListMusic glyph with «Очередь» in an icon-only row (two
+                    // identical buttons side by side, undiscoverable).
+                    SecondaryAction(MqIcons.ListPlus, "В плейлист") { playlistPickerOpen = true }
                     SecondaryAction(MqIcons.Mic2, "Текст песни") {
                         lyricsOpen = true
                         track.let { lyricsVm.loadIfNeeded(it) }
@@ -545,7 +564,7 @@ fun FullPlayerScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
             if (queue.isEmpty()) {
-                com.mq1.player.ui.components.EmptyState("Очередь пуста")
+                com.mq1.player.ui.components.EmptyState("Очередь пуста", icon = MqIcons.ListMusic)
             } else {
                 LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
                     itemsIndexed(queue, key = { _, t -> t.id }) { i, t ->
@@ -582,7 +601,7 @@ fun FullPlayerScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
             if (recentHistory.isEmpty()) {
-                com.mq1.player.ui.components.EmptyState("История пуста")
+                com.mq1.player.ui.components.EmptyState("История пуста", icon = MqIcons.Clock)
             } else {
                 LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)) {
                     itemsIndexed(recentHistory, key = { _, t -> t.id }) { i, t ->
@@ -850,12 +869,12 @@ fun FullPlayerScreen(
                             Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFFEF4444).copy(alpha = 0.14f))
+                                .background(MaterialTheme.colorScheme.error.copy(alpha = 0.14f))
                                 .clickable { controller.cancelSleepTimer() }
                                 .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("Отменить", style = MqType.menu, color = Color(0xFFEF4444))
+                            Text("Отменить", style = MqType.menu, color = MaterialTheme.colorScheme.error)
                         }
                     }
                 }

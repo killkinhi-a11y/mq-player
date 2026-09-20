@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -77,14 +78,18 @@ import com.mq1.player.ui.vm.PlaylistViewModel
  *  │ + count badge, accent underline, 48dp rows)
  *  ├ toolbar: «Поиск в библиотеке...» r12 + «Недавние» sort chip
  *  ├ FAVORITES: icon chip + «Избранное» 18/700 + «N понр. · N не понр. ·
- *  │ N подписок», pill tabs (icon + count), action bar («Найти трек...» +
- *  │ sort + shuffle), «Слушать все»/«Перемешать» pills, r16 list card /
- *  │ «Пока пусто» empty (72 r24 heart chip + «Искать музыку» CTA)
+ *  │ N подписок», pill tabs (icon + count), stats bar («Слушать все» /
+ *  │ «Перемешать») — UX pass 2.3.5: ONE search field (toolbar) and ONE
+ *  │ sort control (toolbar DropdownMenu); the duplicate favorites/history
+ *  │ search bars and the silent cycle-sort button are gone, batch mode
+ *  │ gained «В плейлист» and batch rows keep their artwork,
+ *  │ r16 list card / «Пока пусто» empty (72 r24 heart chip + «Искать музыку» CTA)
  *  ├ PLAYLISTS: header + «Создать»/«Импорт», 2-col tile grid (r16 cards,
  *  │ gradient art + ListMusic), mq-empty «Нет плейлистов», inline create
  *  │ card («Новый плейлист», Отмена/Создать)
  *  └ HISTORY: 48 r16 clock chip + «История» 20/700 + «Слушать всё»/clear,
- *     search bar, 3+2 stat cards, grouped day cards («Сегодня»…), or
+ *     3+2 stat cards, grouped day cards («Сегодня» / «Ранее» — honest split
+ *     by playedAt; 2.3.5: per-tab search moved to the toolbar), or
  *     «История пуста» hero (96 r24 clock chip + «Начать слушать» CTA)
  *
  * LibraryBody is stateless (fixture-renderable for parity screenshots);
@@ -106,11 +111,14 @@ fun LibraryScreen(
     val history by ServiceLocator.localStore.history.collectAsState(initial = emptyList())
     // UX pass 2.3.4: real «Сегодня» — web filters history by playedAt >= start
     // of today; Android now keeps the same per-entry timestamps.
+    // UX pass 2.3.5: index-aligned split into today vs earlier — the «Сегодня»
+    // card now lists ONLY today's plays (was: the entire history under a
+    // «Сегодня» label — untrue data), earlier plays get their own card.
     val historyPlayedAt by ServiceLocator.localStore.historyPlayedAt.collectAsState(initial = emptyList())
-    val todayCount = remember(historyPlayedAt) {
+    val todayHistory = remember(history, historyPlayedAt) {
         val startOfDay = java.time.LocalDate.now()
             .atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
-        historyPlayedAt.count { it >= startOfDay }
+        history.zip(historyPlayedAt).mapNotNull { (t, ts) -> t.takeIf { ts >= startOfDay } }
     }
     val disliked by ServiceLocator.localStore.disliked.collectAsState(initial = emptyList())
     val subscribedArtists by ServiceLocator.localStore.favoriteArtists.collectAsState(initial = emptyList())
@@ -148,7 +156,7 @@ fun LibraryScreen(
         LibraryBody(
             ui = ui,
             activeTab = tab,
-            todayCount = todayCount,
+            todayHistory = todayHistory,
             favorites = favorites,
             disliked = disliked,
             subscribedArtists = subscribedArtists,
@@ -199,6 +207,24 @@ fun LibraryScreen(
             onUnsubscribe = { scope.launch { ServiceLocator.localStore.toggleFavoriteArtist(it) } },
             onDislike = { player.controller.dislike(it) },
             onTrackMenu = { track -> menu.open(track) },
+            // UX pass 2.3.5: batch «В плейлист» — repository add with dedupe,
+            // honest snackbar feedback (same chain as the track menu).
+            onAddSelectedToPlaylist = { pid, tracks ->
+                scope.launch {
+                    val res = runCatching {
+                        val repo = ServiceLocator.playlistRepository
+                        val pl = repo.playlist(pid) ?: error("Плейлист недоступен")
+                        val existing = pl.tracks.map { it.id }.toSet()
+                        val toAdd = tracks.filter { it.id !in existing }
+                        if (toAdd.isNotEmpty()) {
+                            repo.updateTracks(pid, pl, pl.tracks + toAdd).getOrThrow()
+                        }
+                        "Добавлено в плейлист: ${tracks.size}"
+                    }.getOrElse { "Не удалось добавить в плейлист" }
+                    snackbar.showSnackbar(res)
+                    vm.refresh()
+                }
+            },
             onPlaylistRename = { id, name -> vm.rename(id, name) },
             onPlaylistDelete = { id -> vm.delete(id) },
             onPlaylistCover = { id, bytes ->
@@ -236,7 +262,7 @@ internal fun LibraryBody(
     activeTab: Int,
     favorites: List<Track>,
     history: List<Track>,
-    todayCount: Int = 0,
+    todayHistory: List<Track>? = null,
     playingTrackId: String?,
     favoriteIds: Set<String>,
     query: String,
@@ -266,6 +292,7 @@ internal fun LibraryBody(
     onUnsubscribe: (String) -> Unit = {},
     onDislike: (Track) -> Unit = {},
     onTrackMenu: (Track) -> Unit = {},
+    onAddSelectedToPlaylist: (String, List<Track>) -> Unit = { _, _ -> },
     onPlaylistRename: (String, String) -> Unit = { _, _ -> },
     onPlaylistDelete: (String) -> Unit = {},
     onPlaylistCover: (String, ByteArray) -> Unit = { _, _ -> },
@@ -316,8 +343,7 @@ internal fun LibraryBody(
     ) {
         // ── header ──────────────────────────────────────────────────────
         item {
-            Column(Modifier.padding(horizontal = 16.dp)) {
-                Spacer(Modifier.height(52.dp))
+            Column(Modifier.statusBarsPadding().padding(horizontal = 16.dp)) {
                 Text(
                     "Библиотека",
                     style = MqType.page.copy(fontSize = 24.sp, fontWeight = FontWeight.Bold),
@@ -485,6 +511,8 @@ internal fun LibraryBody(
                 subTab = favSubTab,
                 batchMode = favBatchMode,
                 selection = favSelection,
+                playlists = playlists,
+                onAddSelectedToPlaylist = onAddSelectedToPlaylist,
                 onSubTabChange = { favSubTab = it },
                 onBatchModeChange = { favBatchMode = it },
                 onQueryChange = onQueryChange,
@@ -520,7 +548,9 @@ internal fun LibraryBody(
             )
             else -> historyTab(
                 history = filteredHistory,
-                todayCount = todayCount,
+                todayHistory = todayHistory?.filter {
+                    query.isBlank() || it.title.contains(query, true) || it.artist.contains(query, true)
+                },
                 query = query,
                 playingTrackId = playingTrackId,
                 favoriteIds = favoriteIds,
@@ -585,6 +615,8 @@ private fun LibraryTabBar(
                             ),
                             color = if (active) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         if (count > 0) {
                             Spacer(Modifier.width(6.dp))
@@ -655,6 +687,8 @@ private fun LazyListScope.favoritesTab(
     subTab: Int,
     batchMode: Boolean,
     selection: MutableList<String>,
+    playlists: List<com.mq1.player.data.api.PlaylistDto> = emptyList(),
+    onAddSelectedToPlaylist: (String, List<Track>) -> Unit = { _, _ -> },
     onSubTabChange: (Int) -> Unit,
     onBatchModeChange: (Boolean) -> Unit,
     onQueryChange: (String) -> Unit,
@@ -736,120 +770,6 @@ private fun LazyListScope.favoritesTab(
         )
     }
 
-    // action bar: «Найти трек...» + sort + shuffle
-    item {
-        Row(
-            Modifier
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(40.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.04f))
-                    .border(
-                        if (query.isNotEmpty()) 1.5.dp else 1.dp,
-                        if (query.isNotEmpty()) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.outline,
-                        RoundedCornerShape(16.dp)
-                    )
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                MqIcon(
-                    icon = MqIcons.Search, size = 14.dp,
-                    tint = if (query.isNotEmpty()) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Box(Modifier.weight(1f)) {
-                    BasicTextField(
-                        value = query,
-                        onValueChange = onQueryChange,
-                        singleLine = true,
-                        textStyle = TextStyle(
-                            fontFamily = MqType.body.fontFamily,
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onBackground,
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (query.isEmpty()) {
-                        Text(
-                            "Найти трек...",
-                            style = TextStyle(
-                                fontFamily = MqType.body.fontFamily,
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            ),
-                            maxLines = 1,
-                        )
-                    }
-                }
-                if (query.isNotEmpty()) {
-                    // UX pass 2.3.4: 20dp visual inside a 36dp touch target
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .clickable { onQueryChange("") },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(20.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.10f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            MqIcon(
-                                icon = MqIcons.X, size = 12.dp,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
-            // sort (web ArrowDownUp → ArrowUpRight in MqIcons)
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        if (sort != 0) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.06f)
-                    )
-                    .clickable { onSortChange((sort + 1) % 3) },
-                contentAlignment = Alignment.Center
-            ) {
-                MqIcon(
-                    icon = MqIcons.ArrowUpRight, size = 14.dp,
-                    tint = if (sort != 0) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            // shuffle — web disabled:opacity-30 when the list is empty
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.06f))
-                    .alpha(if (favorites.isNotEmpty()) 1f else 0.3f)
-                    .clickable(enabled = favorites.isNotEmpty()) {
-                        onPlayQueue(favorites.shuffled(), 0)
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                MqIcon(
-                    icon = MqIcons.Shuffle, size = 14.dp,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
 
     // stats bar («Слушать все» + «Перемешать» + total time)
     if (favorites.isNotEmpty()) {
@@ -1099,6 +1019,40 @@ private fun LazyListScope.favoritesTab(
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.weight(1f),
                 )
+                // UX pass 2.3.5: «В плейлист» — the batch bar could only
+                // DELETE before; adding to a playlist is the primary batch
+                // action on the web too. Anchor a playlist picker menu.
+                var playlistMenuOpen by remember { mutableStateOf(false) }
+                Box {
+                    Text(
+                        "В плейлист",
+                        style = MqType.meta.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(enabled = playlists.isNotEmpty()) { playlistMenuOpen = true }
+                            // ≥40dp touch target (2.3.4 contract)
+                            .padding(horizontal = 10.dp, vertical = 14.dp),
+                    )
+                    androidx.compose.material3.DropdownMenu(
+                        expanded = playlistMenuOpen,
+                        onDismissRequest = { playlistMenuOpen = false }
+                    ) {
+                        playlists.forEach { pl ->
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(pl.name, style = MqType.menu, color = MaterialTheme.colorScheme.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                onClick = {
+                                    playlistMenuOpen = false
+                                    onAddSelectedToPlaylist(
+                                        pl.id,
+                                        favorites.filter { it.id in selection }
+                                    )
+                                    selection.clear()
+                                }
+                            )
+                        }
+                    }
+                }
                 Text(
                     "Снять все",
                     style = MqType.meta,
@@ -1174,21 +1128,25 @@ private fun SelectableTrackRow(
                     MqIcon(icon = MqIcons.Check, size = 14.dp, tint = Color.White)
                 }
             }
-            Text(
-                track.title.ifBlank { "Без названия" },
-                style = MqType.track,
-                color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                track.artist,
-                style = MqType.meta,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            // UX pass 2.3.5: batch rows keep the artwork — the batch list
+            // was a text-only list before; selection must not strip identity.
+            Artwork(url = track.cover, sizeDp = 50, corner = 8)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    track.title.ifBlank { "Без названия" },
+                    style = MqType.track,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    track.artist,
+                    style = MqType.meta,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     } else {
         TrackRow(
@@ -2007,7 +1965,7 @@ private fun gradientCover(name: String): Brush = Brush.linearGradient(
 
 private fun LazyListScope.historyTab(
     history: List<Track>,
-    todayCount: Int = 0,
+    todayHistory: List<Track>? = null,
     query: String,
     playingTrackId: String?,
     favoriteIds: Set<String>,
@@ -2081,130 +2039,139 @@ private fun LazyListScope.historyTab(
         }
     }
 
-    // search bar (visible when history non-empty)
-    if (history.isNotEmpty()) {
-        item {
-            Column(Modifier.padding(horizontal = 16.dp)) {
-                Spacer(Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(40.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        // web: bg --mq-card; border --mq-border (idle) / accent
-                        .background(MaterialTheme.colorScheme.surfaceContainer)
-                        .border(
-                            if (query.isNotEmpty()) 1.5.dp else 1.dp,
-                            if (query.isNotEmpty()) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.outline,
-                            RoundedCornerShape(12.dp)
-                        )
-                        .padding(horizontal = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    MqIcon(icon = MqIcons.Search, size = 16.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Box(Modifier.weight(1f)) {
-                        BasicTextField(
-                            value = query,
-                            onValueChange = onQueryChange,
-                            singleLine = true,
-                            textStyle = TextStyle(
-                                fontFamily = MqType.body.fontFamily,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onBackground,
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        if (query.isEmpty()) {
-                            Text(
-                                "Поиск по истории (название, артист, жанр)...",
-                                style = TextStyle(
-                                    fontFamily = MqType.body.fontFamily,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                ),
-                                maxLines = 1,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     // grouped day cards / empty hero
     if (history.isEmpty()) {
         item { HistoryEmptyState(onGoHome = onGoHome) }
     } else {
         // listening stats (web «Listening Stats»: 3 main + 2 secondary cards)
-        item { HistoryStatsCards(history, todayCount = todayCount) }
+        // UX pass 2.3.5: honest grouping — «Сегодня» lists ONLY today's plays
+        // (todayHistory from playedAt), earlier plays render under «Ранее».
+        // todayHistory == null (parity fixtures) → legacy single full card.
+        // plain vals — LazyListScope bodies are not composable (no remember)
+        val today = todayHistory ?: history
+        val todayIds = today.map { it.id }.toSet()
+        val earlier = history.filter { it.id !in todayIds }
+        item { HistoryStatsCards(history, todayCount = today.size) }
         item {
             Column(Modifier.padding(horizontal = 16.dp)) {
                 Spacer(Modifier.height(20.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // web: «Сегодня» group icon is Zap — MqIcons has no Zap;
-                    // Flame is the closest energy glyph (also used on web stats)
-                    MqIcon(icon = MqIcons.Flame, size = 14.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        "Сегодня",
-                        style = MqType.track.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onBackground,
+                HistoryDayCard(
+                    title = "Сегодня",
+                    icon = { tint ->
+                        // web: «Сегодня» group icon is Zap — MqIcons has no
+                        // Zap; Flame is the closest energy glyph (web stats)
+                        MqIcon(icon = MqIcons.Flame, size = 14.dp, tint = tint)
+                    },
+                    tracks = today,
+                    emptyHint = "Сегодня вы ещё ничего не слушали",
+                    playingTrackId = playingTrackId,
+                    favoriteIds = favoriteIds,
+                    onPlayQueue = onPlayQueue,
+                    onFavorite = onFavorite,
+                    onTrackMenu = onTrackMenu,
+                )
+                if (earlier.isNotEmpty()) {
+                    Spacer(Modifier.height(16.dp))
+                    HistoryDayCard(
+                        title = "Ранее",
+                        icon = { tint ->
+                            MqIcon(icon = MqIcons.Clock, size = 14.dp, tint = tint)
+                        },
+                        tracks = earlier,
+                        emptyHint = "",
+                        playingTrackId = playingTrackId,
+                        favoriteIds = favoriteIds,
+                        onPlayQueue = onPlayQueue,
+                        onFavorite = onFavorite,
+                        onTrackMenu = onTrackMenu,
                     )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        history.size.toString(),
-                        style = MqType.meta2.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                    )
-                    Spacer(Modifier.weight(1f))
-                    if (history.size > 1) {
-                        Text(
-                            "Играть",
-                            style = MqType.meta2.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f))
-                                .clickable { onPlayQueue(history, 0) }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
                 }
-                Spacer(Modifier.height(8.dp))
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        // web: bg --mq-card + border hairline (22%)
-                        .background(MaterialTheme.colorScheme.surfaceContainer)
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.22f), RoundedCornerShape(16.dp))
-                ) {
-                    history.forEachIndexed { i, track ->
-                        TrackRow(
-                            track = track,
-                            isPlaying = playingTrackId == track.id,
-                            isFavorite = track.id in favoriteIds,
-                            onPlay = { onPlayQueue(history, i) },
-                            onFavorite = { onFavorite(track) },
-                            onMenu = { onTrackMenu(track) },
-                        )
-                        if (i < history.lastIndex) {
-                            Box(
-                                Modifier
-                                    .padding(start = 66.dp, end = 12.dp)
-                                    .height(1.dp)
-                                    .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.04f))
-                            )
-                        }
-                    }
+            }
+        }
+    }
+}
+
+/** One honest day-group card: header (icon + title + count badge + «Играть»)
+ *  and a list of TrackRows separated by hairlines. */
+@Composable
+private fun HistoryDayCard(
+    title: String,
+    icon: @Composable (tint: androidx.compose.ui.graphics.Color) -> Unit,
+    tracks: List<Track>,
+    emptyHint: String,
+    playingTrackId: String?,
+    favoriteIds: Set<String>,
+    onPlayQueue: (List<Track>, Int) -> Unit,
+    onFavorite: (Track) -> Unit,
+    onTrackMenu: (Track) -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        icon(MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(8.dp))
+        Text(
+            title,
+            style = MqType.track.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            tracks.size.toString(),
+            style = MqType.meta2.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                .padding(horizontal = 8.dp, vertical = 2.dp)
+        )
+        Spacer(Modifier.weight(1f))
+        if (tracks.size > 1) {
+            Text(
+                "Играть",
+                style = MqType.meta2.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f))
+                    .clickable { onPlayQueue(tracks, 0) }
+                    // ≥40dp touch target (UX pass 2.3.4 contract)
+                    .padding(horizontal = 12.dp, vertical = 12.dp)
+            )
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            // web: bg --mq-card + border hairline (22%)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.22f), RoundedCornerShape(16.dp))
+    ) {
+        if (tracks.isEmpty()) {
+            Text(
+                emptyHint,
+                style = MqType.meta,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 18.dp),
+            )
+        } else {
+            tracks.forEachIndexed { i, track ->
+                TrackRow(
+                    track = track,
+                    isPlaying = playingTrackId == track.id,
+                    isFavorite = track.id in favoriteIds,
+                    onPlay = { onPlayQueue(tracks, i) },
+                    onFavorite = { onFavorite(track) },
+                    onMenu = { onTrackMenu(track) },
+                )
+                if (i < tracks.lastIndex) {
+                    Box(
+                        Modifier
+                            .padding(start = 66.dp, end = 12.dp)
+                            .height(1.dp)
+                            .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.04f))
+                    )
                 }
             }
         }

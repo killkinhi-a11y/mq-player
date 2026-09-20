@@ -1,6 +1,7 @@
 package com.mq1.player.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -87,8 +90,8 @@ fun FriendsScreen(
         }
     }
 
-    Column(Modifier.fillMaxSize()) {
-        Spacer(Modifier.height(52.dp))
+    // UX pass 2.3.5: real status-bar inset (was fixed 52dp fake)
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -235,7 +238,9 @@ private fun OnlineAvatar(url: String?, online: Boolean, contentDescription: Stri
                     .size(12.dp)
                     .align(Alignment.BottomEnd)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary)
+                    // UX pass 2.3.5: web parity dot #4ade80 (was accent —
+                    // three different online-dot values across the app)
+                    .background(androidx.compose.ui.graphics.Color(0xFF4ADE80))
                     .border(2.dp, MaterialTheme.colorScheme.background, CircleShape)
             )
         }
@@ -387,12 +392,12 @@ private fun FriendRow(
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 DropdownMenuItem(
                     text = { Text("Написать сообщение") },
-                    leadingIcon = { Icon(Icons.Filled.PersonAdd, contentDescription = null) },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null) }, // UX pass 2.3.5: was PersonAdd (wrong semantic)
                     onClick = { menuOpen = false; onOpenChat() }
                 )
                 DropdownMenuItem(
                     text = { Text("Профиль") },
-                    leadingIcon = { Icon(Icons.Filled.Check, contentDescription = null) },
+                    leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) }, // UX pass 2.3.5: was Check (wrong semantic)
                     onClick = { menuOpen = false; onOpenProfile() }
                 )
                 DropdownMenuItem(

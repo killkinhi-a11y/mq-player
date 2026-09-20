@@ -3,7 +3,7 @@
 # (cmdline-tools, platform-35, build-tools 35.0.0). Re-run safe.
 set -e
 BASE=/home/z
-JDK_DIR=$BASE/jdk-21
+JDK_DIR=/home/z/jdk-21
 SDK_DIR=$BASE/android-sdk
 
 # ── 1. Temurin JDK 21 (system JRE lacks javac) ─────────────────────────────

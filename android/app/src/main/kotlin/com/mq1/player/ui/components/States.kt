@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -132,16 +133,23 @@ fun WebPrimaryButton(
     )
 }
 
-/** Empty state — Lucide SearchX, mq-t-body. */
+/** Empty state — context-appropriate icon (default SearchX for search
+ *  results; pass e.g. ListMusic for queue, Clock for history, Users for
+ *  friends — web uses per-context glyphs, never one icon everywhere). */
 @Composable
-fun EmptyState(message: String, modifier: Modifier = Modifier) {
+fun EmptyState(
+    message: String,
+    modifier: Modifier = Modifier,
+    icon: LucideIcon = MqIcons.SearchX,
+    cta: (@Composable () -> Unit)? = null,
+) {
     Column(
-        modifier = modifier.fillMaxWidth().height(180.dp),
+        modifier = modifier.fillMaxWidth().heightIn(min = 180.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         MqIcon(
-            icon = MqIcons.SearchX,
+            icon = icon,
             size = 36.dp,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -151,6 +159,7 @@ fun EmptyState(message: String, modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 10.dp)
         )
+        cta?.invoke()
     }
 }
 

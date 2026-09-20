@@ -7,6 +7,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -76,7 +77,8 @@ fun MixerScreen(onBack: () -> Unit) {
             .verticalScroll(rememberScrollState())
     ) {
         // ── Header ──────────────────────────────────────────────────────
-        Spacer(Modifier.height(52.dp))
+        // UX pass 2.3.5: real status-bar inset (was fixed 52dp fake)
+        Spacer(Modifier.statusBarsPadding())
         Row(
             modifier = Modifier
                 .fillMaxWidth()

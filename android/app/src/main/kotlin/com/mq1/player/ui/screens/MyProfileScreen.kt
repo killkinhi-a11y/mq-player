@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -64,6 +65,7 @@ import com.mq1.player.ui.components.MqIcons
 import com.mq1.player.ui.components.SectionHeader
 import com.mq1.player.ui.components.TrackRow
 import com.mq1.player.ui.theme.MqType
+import com.mq1.player.di.ServiceLocator
 import com.mq1.player.ui.vm.MyProfileViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -96,6 +98,9 @@ fun MyProfileScreen(
     val scope = rememberCoroutineScope()
 
     var editOpen by remember { mutableStateOf(false) }
+    // UX pass 2.3.5: likes/history rows gain the app-wide long-press context
+    // menu — they were the only track lists without it.
+    val trackMenu = remember { com.mq1.player.ui.components.TrackMenuState() }
 
     // Photo picker → bytes → VM (decode/crop/encode on IO inside the VM path)
     val imagePicker = rememberLauncherForActivityResult(
@@ -138,7 +143,8 @@ fun MyProfileScreen(
             onOpenSettings = onOpenSettings,
             onOpenFullPlayer = onOpenFullPlayer,
             onLogout = onLogout,
-            playTracks = playTracks
+            playTracks = playTracks,
+            onTrackMenu = { trackMenu.open(it) }
         )
 
         SnackbarHost(
@@ -146,6 +152,13 @@ fun MyProfileScreen(
             modifier = Modifier.align(Alignment.BottomCenter)
         )
     }
+
+    // UX pass 2.3.5: shared web-parity context menu host for likes/history
+    com.mq1.player.ui.components.TrackMenuHost(
+        state = trackMenu,
+        controller = ServiceLocator.playbackController,
+        onOpenArtist = onOpenArtist,
+    )
 
     if (editOpen) {
         EditUsernameDialog(
@@ -183,7 +196,9 @@ internal fun ProfileBody(
     onOpenSettings: () -> Unit,
     onOpenFullPlayer: () -> Unit,
     onLogout: () -> Unit,
-    playTracks: (startIndex: Int) -> Unit
+    playTracks: (startIndex: Int) -> Unit,
+    // UX pass 2.3.5: likes/history rows join the app-wide long-press menu
+    onTrackMenu: (com.mq1.player.data.api.Track) -> Unit = {}
 ) {
     Column(
         Modifier
@@ -191,7 +206,8 @@ internal fun ProfileBody(
             .verticalScroll(rememberScrollState())
     ) {
         // ── Header ──────────────────────────────────────────────────────
-        Spacer(Modifier.height(52.dp))
+        // UX pass 2.3.5: real status-bar inset (was fixed 52dp fake)
+        Spacer(Modifier.statusBarsPadding())
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -585,7 +601,8 @@ internal fun ProfileBody(
                                 playTracks(ui.likes.indexOfFirst { it.id == track.id }
                                     .coerceAtLeast(0))
                                 onOpenFullPlayer()
-                            }
+                            },
+                            onMenu = { onTrackMenu(track) }
                         )
                     }
                     if (ui.likes.size > shown.size) {
@@ -626,7 +643,8 @@ internal fun ProfileBody(
                             onPlay = {
                                 playTracks(0)
                                 onOpenFullPlayer()
-                            }
+                            },
+                            onMenu = { onTrackMenu(track) }
                         )
                     }
                 }

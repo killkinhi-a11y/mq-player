@@ -25,6 +25,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -165,13 +169,12 @@ internal fun SearchBody(
     var showFilters by remember { mutableStateOf(false) }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().imePadding(),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
         // ── page header ─────────────────────────────────────────────────
         item {
-            Column(Modifier.padding(horizontal = 16.dp)) {
-                Spacer(Modifier.height(52.dp))
+            Column(Modifier.statusBarsPadding().padding(horizontal = 16.dp)) {
                 // web: mq-t-display text-[26px] at 375px (sm: 30px);
                 // gap to the search field = mb-1 + space-y-5 (+ collapsed) = 20px
                 Text(
@@ -246,7 +249,7 @@ internal fun SearchBody(
                         // (same tray+arrow geometry, mirrored direction) is the
                         // closest available Lucide shape
                         MqIcon(
-                            icon = MqIcons.Download, size = 16.dp,
+                            icon = MqIcons.Upload, size = 16.dp,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
@@ -330,6 +333,7 @@ internal fun SearchBody(
                                 QuickPickCard(
                                     track = track,
                                     onPlay = { onPlayQueue(quickPicks, quickPicks.indexOf(track)) },
+                                    modifier = Modifier.weight(1f),
                                 )
                             }
                         }
@@ -680,6 +684,9 @@ private fun WebSearchField(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Box(Modifier.weight(1f)) {
+                // focusManager hoisted — keyboardActions lambdas are not
+                // composable, LocalFocusManager.current must resolve here
+                val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
                 BasicTextField(
                     value = value,
                     onValueChange = onValueChange,
@@ -690,6 +697,10 @@ private fun WebSearchField(
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onBackground,
                     ),
+                    keyboardOptions = KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = {
+                        focusManager.clearFocus()
+                    }),
                     modifier = Modifier.fillMaxWidth()
                 )
                 if (value.isEmpty()) {
@@ -707,18 +718,27 @@ private fun WebSearchField(
                 }
             }
             if (value.isNotEmpty()) {
+                // UX pass 2.3.5: 40dp touch target (was 28dp — the only
+                // clear button missed by the 2.3.4 pass), 24dp visual.
                 Box(
                     modifier = Modifier
-                        .size(28.dp)
+                        .size(40.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f))
                         .clickable { onValueChange("") },
                     contentAlignment = Alignment.Center
                 ) {
-                    MqIcon(
-                        icon = MqIcons.X, size = 14.dp,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        MqIcon(
+                            icon = MqIcons.X, size = 14.dp,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
@@ -756,10 +776,9 @@ private fun GenreChip(label: String, icon: LucideIcon, selected: Boolean, onClic
 
 /** Web quick-pick card: surface r12 border, 40 art, title 12/600, artist meta2. */
 @Composable
-private fun QuickPickCard(track: Track, onPlay: () -> Unit) {
+private fun QuickPickCard(track: Track, onPlay: () -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier = Modifier
-            .width(167.dp)
+        modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surface)
             .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.36f), RoundedCornerShape(12.dp))

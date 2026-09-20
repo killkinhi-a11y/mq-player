@@ -68,6 +68,13 @@ import com.mq1.player.ui.vm.PlayerViewModel
  *  ├ «Популярное» section + track rows with real context menus
  *  └ long names ellipsized, RTL-safe
  */
+/** 12345 → «12,3 тыс.» (web-style compact counts). */
+internal fun formatCount(n: Long): String = when {
+    n >= 1_000_000 -> String.format("%.1f млн", n / 1_000_000f).replace(".0", "")
+    n >= 1_000 -> String.format("%.1f тыс.", n / 1_000f).replace(".0", "")
+    else -> n.toString()
+}
+
 @Composable
 fun ArtistScreen(artistName: String, onBack: () -> Unit) {
     val vm: ArtistViewModel = viewModel()
@@ -150,29 +157,36 @@ fun ArtistScreen(artistName: String, onBack: () -> Unit) {
                             .padding(horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Назад",
-                                tint = Color.White
-                            )
+                        // UX pass 2.3.5: MQ icon language — Material
+                        // ArrowBack broke the Lucide stroke style on the most
+                        // visual screen (web: chevron-left 44px circle).
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .clickable(onClick = onBack)
+                                .semantics { contentDescription = "Назад" },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            MqIcon(icon = MqIcons.ArrowLeft, size = 20.dp, tint = Color.White)
                         }
                         Spacer(Modifier.weight(1f))
-                        IconButton(
-                            onClick = {
-                                val url = com.mq1.player.deeplink.DeepLinkParser.shareArtistUrl(artistName)
-                                val share = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, "Артист: $artistName\n$url")
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .clickable {
+                                    val url = com.mq1.player.deeplink.DeepLinkParser.shareArtistUrl(artistName)
+                                    val share = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, "Артист: $artistName\n$url")
+                                    }
+                                    context.startActivity(Intent.createChooser(share, "Поделиться"))
                                 }
-                                context.startActivity(Intent.createChooser(share, "Поделиться"))
-                            }
+                                .semantics { contentDescription = "Поделиться артистом" },
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                Icons.Filled.Share,
-                                contentDescription = "Поделиться артистом",
-                                tint = Color.White
-                            )
+                            MqIcon(icon = MqIcons.Share2, size = 18.dp, tint = Color.White)
                         }
                     }
 
@@ -217,7 +231,7 @@ fun ArtistScreen(artistName: String, onBack: () -> Unit) {
                         Text(
                             buildString {
                                 append("${ui.tracks.size} треков")
-                                if (followers > 0) append(" · $followers подписчиков")
+                                if (followers > 0) append(" · ${formatCount(followers)} подписчиков")
                             },
                             style = MqType.meta,
                             color = Color.White.copy(alpha = 0.8f)
@@ -240,7 +254,10 @@ fun ArtistScreen(artistName: String, onBack: () -> Unit) {
                             .weight(1f)
                             .height(46.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(accent)
+                            // UX pass 2.3.5: visible disabled state — a full
+                            // accent button that silently does nothing reads
+                            // as broken (web: disabled:opacity-30).
+                            .background(accent.copy(alpha = if (ui.tracks.isNotEmpty()) 1f else 0.3f))
                             .clickable(enabled = ui.tracks.isNotEmpty()) {
                                 player.controller.playQueue(ui.tracks, 0)
                             }
@@ -311,6 +328,13 @@ fun ArtistScreen(artistName: String, onBack: () -> Unit) {
             when {
                 ui.loading -> item { LoadingState() }
                 ui.error != null -> item { ErrorState(ui.error!!, onRetry = { vm.load(artistName) }) }
+                // UX pass 2.3.5: honest zero-tracks state (was: blank space)
+                ui.tracks.isEmpty() -> item {
+                    com.mq1.player.ui.components.EmptyState(
+                        "У артиста пока нет треков",
+                        icon = MqIcons.Music,
+                    )
+                }
                 else -> items(ui.tracks, key = { it.id }) { track ->
                     TrackRow(
                         track = track,

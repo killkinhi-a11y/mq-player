@@ -3,6 +3,7 @@ package com.mq1.player.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -161,8 +162,8 @@ internal fun HomeBody(
     ) {
         // ── header ──────────────────────────────────────────────────────
         item {
-            Column(Modifier.padding(horizontal = 16.dp)) {
-                Spacer(Modifier.height(52.dp))
+            // UX pass 2.3.5: real status-bar inset (was fixed 52dp fake)
+            Column(Modifier.statusBarsPadding().padding(horizontal = 16.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
                     Column(Modifier.weight(1f)) {
                         Text(
@@ -187,17 +188,20 @@ internal fun HomeBody(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    // Wave pill — hidden on phones while nothing plays
+                    // UX pass 2.3.5: STABLE header meaning — Settings is
+                    // ALWAYS reachable from Home (previously the icon vanished
+                    // whenever a track played: same slot, changing semantics,
+                    // two hops to Settings mid-session). WavePill appears
+                    // beside it only while something plays.
+                    IconButton44(onOpenSettings) {
+                        MqIcon(
+                            icon = MqIcons.Settings,
+                            size = 22.dp,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     if (activeTrack != null) {
                         WavePill(onStartWave = onStartWave, compact = true)
-                    } else {
-                        IconButton44(onOpenSettings) {
-                            MqIcon(
-                                icon = MqIcons.Settings,
-                                size = 22.dp,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
                     }
                 }
                 Spacer(Modifier.height(16.dp))

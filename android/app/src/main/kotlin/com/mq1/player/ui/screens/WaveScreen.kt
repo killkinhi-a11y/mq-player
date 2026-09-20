@@ -1,6 +1,7 @@
 package com.mq1.player.ui.screens
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -54,7 +55,8 @@ fun WaveScreen(onOpenFullPlayer: () -> Unit) {
     ) {
         item {
             Column(Modifier.padding(horizontal = 16.dp)) {
-                Spacer(Modifier.height(52.dp))
+                // UX pass 2.3.5: real status-bar inset (was fixed 52dp fake)
+                Spacer(Modifier.statusBarsPadding())
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     Icon(
                         Icons.Filled.Radio, contentDescription = null,

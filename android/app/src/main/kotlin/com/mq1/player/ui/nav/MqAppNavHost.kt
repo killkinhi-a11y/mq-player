@@ -29,6 +29,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -484,6 +487,12 @@ private fun MqBottomDock(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxSize()
+                        // UX pass 2.3.5: selected-state semantics — color-only
+                        // tab indication is invisible to TalkBack (Role.Tab).
+                        .semantics {
+                            role = androidx.compose.ui.semantics.Role.Tab
+                            selected = active
+                        }
                         .clickable(
                             interactionSource = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                             indication = null

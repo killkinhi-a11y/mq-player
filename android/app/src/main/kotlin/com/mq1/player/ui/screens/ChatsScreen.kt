@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -231,8 +232,8 @@ internal fun ChatsBody(
         )
     }
 
-    Column(Modifier.fillMaxSize()) {
-        Spacer(Modifier.height(52.dp))
+    // UX pass 2.3.5: real status-bar inset (was fixed 52dp fake)
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
         // web: p-3 page wrapper → r-3xl messenger card (card bg + thin border)
         Box(Modifier.fillMaxSize().padding(12.dp)) {
             Column(
@@ -315,7 +316,9 @@ internal fun ChatsBody(
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .height(36.dp)
+                            // UX pass 2.3.5: 40dp (web h-10; was 36dp —
+                            // the smallest text field in the app)
+                            .height(40.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(chatsInputBg)
                             .border(1.dp, chatsBorder, RoundedCornerShape(12.dp))

@@ -1,6 +1,7 @@
 package com.mq1.player.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -41,16 +43,24 @@ fun Artwork(
     sizeDp: Int,
     modifier: Modifier = Modifier,
     corner: Int = 8,
-    contentDescription: String? = null
+    contentDescription: String? = null,
+    // UX pass 2.3.5: width-responsive square (web full player: min(92vw,58vh)
+    // — a fixed 320dp art overflowed 320dp-class screens).
+    fillWidth: Boolean = false,
 ) {
     val shape = RoundedCornerShape(corner.dp)
     // P0 fix: backend covers are origin-relative ("/api/music/soundcloud/
     // image-proxy?...") — resolve against API_BASE exactly like the web
     // browser does, otherwise Coil can never load them.
     val resolvedUrl = remember(url) { MqUrls.absolute(url) }
+    val sizeSpec = if (fillWidth) {
+        Modifier.fillMaxWidth().aspectRatio(1f)
+    } else {
+        Modifier.size(sizeDp.dp)
+    }
     Box(
         modifier = modifier
-            .size(sizeDp.dp)
+            .then(sizeSpec)
             .clip(shape)
             .background(placeholderGradient(url.hashCode())),
         contentAlignment = Alignment.Center
@@ -60,10 +70,10 @@ fun Artwork(
                 model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
                     .data(resolvedUrl)
                     .crossfade(true)
-                    .size(sizeDp.coerceAtMost(512))
+                    .size(if (fillWidth) 512 else sizeDp.coerceAtMost(512))
                     .build(),
                 contentDescription = contentDescription,
-                modifier = Modifier.size(sizeDp.dp).clip(shape),
+                modifier = Modifier.then(sizeSpec).clip(shape),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop
             )
         } else {
@@ -100,6 +110,41 @@ private fun placeholderGradient(seed: Int): Brush {
  * flash over rounded cards — and LONG-PRESS opens the context menu
  * (web contract: every track row opens MenuCore on 500ms long-press).
  */
+/** Animated 3-bar equalizer — the playing-track indicator (web parity:
+ *  active rows show an eq glyph beside the title). */
+@Composable
+fun PlayingBars(modifier: Modifier = Modifier, color: Color = Color.Unspecified) {
+    val tint = if (color == Color.Unspecified) MaterialTheme.colorScheme.primary else color
+    val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "eq")
+    val heights = listOf(0.35f, 0.75f, 0.5f).mapIndexed { i, phase ->
+        transition.animateFloat(
+            initialValue = 4f + 6f * phase,
+            targetValue = 12f - 5f * phase,
+            animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                animation = androidx.compose.animation.core.tween(
+                    durationMillis = 340 + i * 90,
+                    easing = { x -> x }, // linear saw
+                ),
+                repeatMode = androidx.compose.animation.core.RepeatMode.Reverse,
+            ),
+            label = "eq$i"
+        ).value
+    }
+    Row(
+        modifier = modifier.size(width = 14.dp, height = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        heights.forEach { h ->
+            Box(
+                modifier = Modifier
+                    .size(width = 3.dp, height = h.dp)
+                    .background(tint, RoundedCornerShape(1.5.dp))
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TrackRow(
@@ -137,18 +182,22 @@ fun TrackRow(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            // mq-t-track 14/600
-            Text(
-                text = track.title.ifBlank { "Без названия" },
-                style = MqType.track,
-                color = if (isPlaying) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.semantics {
-                    contentDescription = "Трек: ${track.title}"
-                }
-            )
+            // mq-t-track 14/600 + eq bars when playing (web parity)
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (isPlaying) PlayingBars()
+                Text(
+                    text = track.title.ifBlank { "Без названия" },
+                    style = MqType.track,
+                    color = if (isPlaying) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.semantics {
+                        contentDescription = "Трек: ${track.title}"
+                    }
+                )
+            }
             // mq-t-artist 13/500 — web rows link the artist name
             Text(
                 text = track.artist.ifBlank { "Неизвестный исполнитель" },
@@ -161,22 +210,20 @@ fun TrackRow(
                     Modifier
                         .clip(RoundedCornerShape(4.dp))
                         .clickable { onOpenArtist(track.artist) }
-                        .padding(vertical = 6.dp)
+                        .padding(vertical = 9.dp)
                         .semantics { contentDescription = "Артист: ${track.artist}" }
                 } else Modifier
             )
         }
 
-        if (onMenu == null) {
-            // mq-t-num tabular — duration only when no menu button (web rows
-            // in the compact list keep duration; hero/menu rows drop it)
-            Text(
-                text = formatDuration(track.durationInt),
-                style = MqType.num,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp)
-            )
-        }
+        // mq-t-num tabular — duration always (web rows keep duration next to
+        // like/more actions; invariant 5: fixed column, never overlapped)
+        Text(
+            text = formatDuration(track.durationInt),
+            style = MqType.num,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp)
+        )
 
         if (onFavorite != null) {
             Box(

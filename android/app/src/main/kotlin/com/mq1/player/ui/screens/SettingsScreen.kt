@@ -20,10 +20,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -186,8 +188,9 @@ internal fun SettingsBody(
     var themeExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
-        Spacer(Modifier.height(52.dp))
-        Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
+        // UX pass 2.3.5: real inset instead of a fixed 52dp fake (edge-to-edge
+        // correctness on tall/short status bars + landscape).
+        Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 12.dp)) {
             // ── Header row: back + title (web SettingsView is a tab without
             //    back; on Android Settings is a pushed detail route — UX pass
             //    2.3.4 wires the previously-dead onBack param into a visible
@@ -322,7 +325,7 @@ private val SettingsTabs = listOf(
     SettingsTab("account", "Профиль", MqIcons.User),
     SettingsTab("appearance", "Тема", MqIcons.Palette),
     SettingsTab("sound", "Звук", MqIcons.Volume2),
-    SettingsTab("notifications", "Уведом.", MqIcons.Bell),
+    SettingsTab("notifications", "Уведомления", MqIcons.Bell),
     SettingsTab("more", "Ещё", MqIcons.MoreHorizontal),
 )
 
@@ -490,6 +493,15 @@ private fun SettingToggle(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 56.dp)
+                // UX pass 2.3.5: FULL-ROW toggle — only the 48dp switch box
+                // toggled before; the label/icon area (80% of the row) was
+                // dead. Standard M3 pattern: row-level toggleable +
+                // Role.Switch semantics + non-interactive switch display.
+                .toggleable(
+                    value = value,
+                    role = androidx.compose.ui.semantics.Role.Switch,
+                    onValueChange = onCheckedChange,
+                )
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -531,21 +543,36 @@ private fun SettingToggle(
                     )
                 }
             }
-            MqSwitch(checked = value, onCheckedChange = onCheckedChange)
+            MqSwitch(checked = value)
         }
     }
 }
 
 /** Web LiquidGlassToggle (sm): 40×22 track, 16dp knob, accent when on.
  *  UX pass 2.3.4: wrapped in a 48dp touch box — the track itself is web
- *  parity and stays 40×22, but the hit area was only the track. */
+ *  parity and stays 40×22, but the hit area was only the track.
+ *  UX pass 2.3.5: knob position ANIMATED (was: instant jump) and the
+ *  switch carries Role.Switch semantics itself when interactive. */
 @Composable
-private fun MqSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Box(
+private fun MqSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)? = null) {
+    val progress by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (checked) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 160),
+        label = "switchKnob",
+    )
+    val modifier = if (onCheckedChange != null) {
         Modifier
             .size(48.dp)
-            .clickable { onCheckedChange(!checked) }
-            .semantics { contentDescription = if (checked) "Включено" else "Выключено" },
+            .toggleable(
+                value = checked,
+                role = androidx.compose.ui.semantics.Role.Switch,
+                onValueChange = onCheckedChange,
+            )
+    } else {
+        Modifier.size(48.dp)
+    }
+    Box(
+        modifier,
         contentAlignment = Alignment.Center
     ) {
         Box(
@@ -557,11 +584,11 @@ private fun MqSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
                     if (checked) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.12f)
                 ),
-            contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart
+            contentAlignment = Alignment.CenterStart
         ) {
             Box(
                 Modifier
-                    .padding(3.dp)
+                    .padding(start = 3.dp + (18.dp * progress), top = 3.dp, bottom = 3.dp)
                     .size(16.dp)
                     .clip(CircleShape)
                     .background(Color.White)
@@ -735,7 +762,15 @@ private fun AppearanceTab(
             )
             if (themeExpanded) {
                 Hairline()
-                Column(Modifier.padding(12.dp)) {
+                // UX pass 2.3.5: contained + scrollable — the 23-swatch grid
+                // grew the page by ~620dp on expand (violent jump); max-height
+                // + scroll keeps the rest of Settings reachable.
+                Column(
+                    Modifier
+                        .heightIn(max = 320.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(12.dp)
+                ) {
                     mqThemes.chunked(3).forEach { chunk ->
                         Row(
                             Modifier.fillMaxWidth().padding(bottom = 8.dp),
