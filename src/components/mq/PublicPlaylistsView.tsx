@@ -11,6 +11,7 @@ import TrackCard from "./TrackCard";
 import { Input } from "@/components/ui/input";
 import ScrollReveal from "./ScrollReveal";
 import type { PublicPlaylist } from "@/store/useAppStore";
+import { hoverProps } from "@/lib/hoverCapability";
 
 type Tab = "public" | "recommended";
 
@@ -397,7 +398,7 @@ function PlaylistCard({ playlist, index, onClick, onLike, onDislikeTags, animati
       transition={{ delay: index * 0.05 }}
       /* §HOVER: gesture transition declared inline — the entrance stagger
          delay (index*0.05) must never leak into the hover response. */
-      whileHover={{ y: -2, transition: { duration: 0.15, ease: "easeOut" } }}
+      whileHover={hoverProps({ y: -2, transition: { duration: 0.15, ease: "easeOut" } })}
 
       className="rounded-xl overflow-hidden cursor-pointer group"
       style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}

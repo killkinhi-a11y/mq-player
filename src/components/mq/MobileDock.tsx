@@ -234,11 +234,11 @@ function MobileDockInner() {
             <button onClick={onLike} aria-label={isLiked ? "Убрать из любимых" : "Добавить в любимые"} className="mq-mini w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: isLiked ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)" : "transparent", border: "none", cursor: "pointer", padding: 0 }}>
               <Heart className="w-[18px] h-[18px]" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
             </button>
-            <button onClick={onPlay} aria-label={isPlaying ? "Пауза" : "Воспроизвести"} className="mq-mini w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+            <button onClick={onPlay} aria-label={isPlaying ? "Пауза" : "Воспроизвести"} className="mq-mini w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-[filter] duration-100 hover:brightness-110"
               style={{ background: "var(--mq-accent)", border: "none", cursor: "pointer", padding: 0 }}>
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#fff" }} />
-                : isPlaying ? <Pause className="w-4 h-4" fill="#fff" style={{ color: "#fff" }} />
-                : <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />}
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+                : isPlaying ? <Pause className="w-4 h-4" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+                : <Play className="w-4 h-4 ml-0.5" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />}
             </button>
           </div>
         )}
@@ -261,7 +261,7 @@ function MobileDockInner() {
                 className="mq-nav mq-nav-tab flex flex-col items-center justify-center gap-1 flex-1"
                 style={{ background: "transparent", border: "none", cursor: "pointer", padding: "4px 0", minHeight: 44, color: active ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text-muted) 72%, transparent)" }}>
                 <div className="relative">
-                  <Icon className="w-[22px] h-[22px]" strokeWidth={active ? 2.3 : 1.7} />
+                  <Icon className="w-[22px] h-[22px]" strokeWidth={active ? 2.2 : 1.8} />
                   {badge > 0 && <span className="absolute -top-1 -right-2 min-w-[14px] h-[14px] rounded-full flex items-center justify-center mq-t-badge font-bold px-1"
                     style={{ background: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}>{badge > 99 ? "99" : badge}</span>}
                 </div>

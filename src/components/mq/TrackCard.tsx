@@ -132,7 +132,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
       <motion.div
         initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: Math.min(index * 0.025, 0.4), duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+        transition={{ delay: Math.min(index * 0.025, 0.4), duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
         // A1 fix: keyboard a11y — Enter/Space triggers click, screen reader
@@ -198,13 +198,13 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
               {isActive && isPlaying ? (
                 <Pause
                   className={`${compactMode ? "w-3.5 h-3.5" : "w-4 h-4"}`}
-                  style={{ color: "#fff" }}
+                  style={{ color: "var(--mq-text-on-accent, #fff)" }}
                   fill="#fff"
                 />
               ) : (
                 <Play
                   className={`${compactMode ? "w-3.5 h-3.5 ml-0.5" : "w-4 h-4 ml-0.5"}`}
-                  style={{ color: "#fff" }}
+                  style={{ color: "var(--mq-text-on-accent, #fff)" }}
                   fill="#fff"
                 />
               )}
@@ -308,13 +308,13 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
               sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100
               hover:bg-[var(--mq-overlay-hover)]
             `}
-            style={{ color: isLiked ? "#ef4444" : "var(--mq-text-muted)" }}
+            style={{ color: isLiked ? "var(--mq-like-color)" : "var(--mq-text-muted)" }}
             animate={likePulse ? { scale: [1, 1.3, 0.9, 1.1, 1] } : { scale: 1 }}
             transition={likePulse ? { duration: 0.4, ease: "easeInOut" } : { duration: 0.15 }}
           >
             <Heart
               className={`${compactMode ? "w-3.5 h-3.5" : "w-4 h-4"}`}
-              style={isLiked ? { fill: "#ef4444" } : {}}
+              style={isLiked ? { fill: "var(--mq-like-color)" } : {}}
             />
           </motion.button>
 
@@ -330,11 +330,11 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
               sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100
               hover:bg-[var(--mq-overlay-hover)]
             `}
-            style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }}
+            style={{ color: isDisliked ? "var(--mq-like-color)" : "var(--mq-text-muted)" }}
             animate={dislikeShake ? { x: [0, -3, 3, -2, 2, 0] } : { x: 0 }}
             transition={dislikeShake ? { duration: 0.35, ease: "easeInOut" } : { duration: 0.15 }}
           >
-            <ThumbsDown className="w-3.5 h-3.5" style={isDisliked ? { fill: "#ef4444" } : {}} />
+            <ThumbsDown className="w-3.5 h-3.5" style={isDisliked ? { fill: "var(--mq-like-color)" } : {}} />
           </motion.button>
 
           {/* More button */}

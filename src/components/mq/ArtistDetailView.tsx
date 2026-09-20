@@ -344,17 +344,17 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
               </button>
               <button onClick={heroShuffle} disabled={popular.length === 0} aria-label="Перемешать"
                 className="h-12 w-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-surface-2)]"
-                style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.16)", opacity: popular.length ? 1 : 0.4 }}>
+                style={{ background: "var(--mq-glass-bg)", border: "1px solid var(--mq-glass-border)", opacity: popular.length ? 1 : 0.4 }}>
                 <Shuffle className="w-5 h-5 text-white" />
               </button>
               <button onClick={handleFav} aria-label={isFav ? "Удалить из избранного" : "В избранное"}
                 className="h-12 w-12 rounded-full flex items-center justify-center transition-colors"
-                style={{ background: isFav ? "color-mix(in srgb, var(--mq-accent) 22%, transparent)" : "rgba(255,255,255,0.08)", border: `1px solid ${isFav ? "color-mix(in srgb, var(--mq-accent) 40%, transparent)" : "rgba(255,255,255,0.16)"}` }}>
+                style={{ background: isFav ? "color-mix(in srgb, var(--mq-accent) 22%, transparent)" : "var(--mq-glass-bg)", border: `1px solid ${isFav ? "color-mix(in srgb, var(--mq-accent) 40%, transparent)" : "var(--mq-glass-border)"}` }}>
                 <Heart className="w-5 h-5" style={{ color: isFav ? "var(--mq-accent)" : "#fff" }} fill={isFav ? "currentColor" : "none"} />
               </button>
               <button onClick={handleShare} aria-label="Поделиться"
-                className="h-12 w-12 rounded-full flex items-center justify-center transition-colors hover:bg-[rgba(255,255,255,0.14)]"
-                style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.16)" }}>
+                className="h-12 w-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-glass-hover)]"
+                style={{ background: "var(--mq-glass-bg)", border: "1px solid var(--mq-glass-border)" }}>
                 <Share2 className="w-5 h-5 text-white" />
               </button>
             </div>
@@ -405,7 +405,7 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
                         </>
                       )}
                     </div>
-                    <div className="mq-art shrink-0" style={{ width: 48, height: 48, borderRadius: 8 }}>
+                    <div className="mq-art shrink-0" style={{ width: 48, height: 48, borderRadius: "var(--mq-r-art)" }}>
                       {track.cover ? <img src={track.cover} alt="" loading="lazy" /> : (
                         <div className="w-full h-full flex items-center justify-center"><Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} /></div>
                       )}
@@ -454,7 +454,7 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
                         {isCur && isPlaying ? (
                           <div className="mq-play-overlay" data-visible="true" aria-hidden><NowPlayingEqualizer size="xs" variant="inline" /></div>
                         ) : (
-                          <div className="mq-play-overlay" aria-hidden><Play className="w-4.5 h-4.5 w-[18px] h-[18px]" fill="currentColor" /></div>
+                          <div className="mq-play-overlay" aria-hidden><Play className="w-[18px] h-[18px]" fill="currentColor" /></div>
                         )}
                         {/* More — overlay top-right */}
                         <div

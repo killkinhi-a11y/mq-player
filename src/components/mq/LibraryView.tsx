@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, lazy, Suspense } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import { Heart, ListMusic, Clock, Search, X, ArrowUpDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -59,7 +59,7 @@ const LibraryView = React.memo(function LibraryView() {
         transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
         className="mb-4"
       >
-        <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
+        <h1 className="mq-t-page" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
           Библиотека
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>
@@ -173,22 +173,21 @@ const LibraryView = React.memo(function LibraryView() {
         </select>
       </motion.div>
 
-      {/* Tab content */}
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          key={activeTab}
-          initial={animationsEnabled ? { opacity: 0, y: 8 } : undefined}
-          animate={{ opacity: 1, y: 0 }}
-          exit={animationsEnabled ? { opacity: 0, y: -8 } : undefined}
-          transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
-        >
+      {/* Tab content — instant mount + fade (Settings pattern). The old
+          mode="wait" held the OLD tab 150ms before the new one could mount:
+          300ms dead time on every sub-tab switch. */}
+      <motion.div
+        key={activeTab}
+        initial={animationsEnabled ? { opacity: 0, y: 8 } : undefined}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+      >
           <Suspense fallback={<div className="flex items-center justify-center py-8"><div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: "var(--mq-accent, #e03131)", borderTopColor: "transparent" }} /></div>}>
             {activeTab === "favorites" && <FavoritesView />}
             {activeTab === "playlists" && <PlaylistView />}
             {activeTab === "history" && <HistoryView />}
           </Suspense>
-        </motion.div>
-      </AnimatePresence>
+      </motion.div>
     </div>
   );
 });

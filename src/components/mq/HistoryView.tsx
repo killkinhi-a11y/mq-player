@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 import { useTrackContextMenu } from "@/hooks/useTrackContextMenu";
+import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 
 export default function HistoryView() {
   const history = useAppStore((s) => s.history);
@@ -580,26 +581,10 @@ export default function HistoryView() {
                                   so the play overlay takes over (no state) */}
                               {isActive && isPlaying && (
                                 <div className="absolute inset-0 flex items-center justify-center opacity-100 group-hover:opacity-0 transition-opacity duration-150" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
-                                  <div className="flex items-end gap-[2px] h-3">
-                                    <motion.div
-                                      animate={{ scaleY: [0.3, 1, 0.5] }}
-                                      transition={{ repeat: Infinity, duration: 0.6, ease: "easeInOut" }}
-                                      className="w-[2px] rounded-full"
-                                      style={{ backgroundColor: "#fff", height: "100%", transformOrigin: "bottom", willChange: "transform" }}
-                                    />
-                                    <motion.div
-                                      animate={{ scaleY: [0.6, 0.3, 1] }}
-                                      transition={{ repeat: Infinity, duration: 0.6, ease: "easeInOut", delay: 0.1 }}
-                                      className="w-[2px] rounded-full"
-                                      style={{ backgroundColor: "#fff", height: "100%", transformOrigin: "bottom", willChange: "transform" }}
-                                    />
-                                    <motion.div
-                                      animate={{ scaleY: [1, 0.6, 0.3] }}
-                                      transition={{ repeat: Infinity, duration: 0.6, ease: "easeInOut", delay: 0.2 }}
-                                      className="w-[2px] rounded-full"
-                                      style={{ backgroundColor: "#fff", height: "100%", transformOrigin: "bottom", willChange: "transform" }}
-                                    />
-                                  </div>
+                                  {/* Unified playing indicator — same SMIL
+                                      equalizer as TrackCard/PlayerBar (was a
+                                      third, JS-loop framer variant). */}
+                                  <NowPlayingEqualizer size="xs" variant="overlay" />
                                 </div>
                               )}
                             </div>

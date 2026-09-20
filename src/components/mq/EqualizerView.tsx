@@ -327,7 +327,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                ≥640: centered card. ≥1024: wide two-zone control surface. */
             className="w-full max-w-lg sm:max-w-2xl lg:max-w-[880px]
                        h-[100dvh] sm:h-auto
-                       rounded-none sm:rounded-3xl
+                       rounded-none sm:rounded-[20px]
                        overflow-hidden
                        flex flex-col"
             style={{

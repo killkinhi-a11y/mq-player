@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { Moon, Star, Play, X, Pause, Clock, Sunrise, Zap, ChevronRight } from "lucide-react";
+import { hoverProps } from "@/lib/hoverCapability";
 
 // ── Time presets ──
 const timeOptions = [5, 10, 15, 20, 25, 30, 45, 60, 90, 120, 150, 180];
@@ -313,7 +314,7 @@ export default function SleepTimerView() {
             {/* Desktop: Grid presets (PC-optimized) */}
             <div className="hidden lg:grid grid-cols-6 gap-2 w-full mb-6">
               {quickPresets.map((val) => (
-                <motion.button key={val} whileHover={{ scale: 1.05, y: -2, transition: { duration: 0.12, ease: "easeOut" } }} onClick={() => setSelectedMinutes(val)} className="py-3 rounded-xl text-sm font-semibold transition-colors" style={{ backgroundColor: selectedMinutes === val ? "var(--mq-accent)" : "var(--mq-card)", color: selectedMinutes === val ? "var(--mq-bg)" : "var(--mq-text-muted)", border: "1px solid", borderColor: selectedMinutes === val ? "var(--mq-accent)" : "var(--mq-border)", boxShadow: selectedMinutes === val ? "0 4px 16px var(--mq-glow)" : "none" }}>
+                <motion.button key={val} whileHover={hoverProps({ scale: 1.05, y: -2, transition: { duration: 0.12, ease: "easeOut" } })} onClick={() => setSelectedMinutes(val)} className="py-3 rounded-xl text-sm font-semibold transition-colors" style={{ backgroundColor: selectedMinutes === val ? "var(--mq-accent)" : "var(--mq-card)", color: selectedMinutes === val ? "var(--mq-bg)" : "var(--mq-text-muted)", border: "1px solid", borderColor: selectedMinutes === val ? "var(--mq-accent)" : "var(--mq-border)", boxShadow: selectedMinutes === val ? "0 4px 16px var(--mq-glow)" : "none" }}>
                   {formatOption(val)}
                 </motion.button>
               ))}
@@ -334,7 +335,7 @@ export default function SleepTimerView() {
             </div>
 
             {/* Start button */}
-            <motion.button whileHover={{ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } }} onClick={() => handleStart(selectedMinutes)} className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl text-base font-semibold shadow-lg w-full max-w-sm" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-bg)" }}>
+            <motion.button whileHover={hoverProps({ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } })} onClick={() => handleStart(selectedMinutes)} className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl text-base font-semibold shadow-lg w-full max-w-sm" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-bg)" }}>
               <Play className="w-5 h-5" />
               Начать {formatOption(selectedMinutes)}
             </motion.button>
@@ -349,7 +350,7 @@ export default function SleepTimerView() {
                 </div>
                 <div className="grid grid-cols-5 gap-2">
                   {recommendations.map((rec) => (
-                    <motion.div key={rec.cycles} whileHover={{ y: -2, transition: { duration: 0.12, ease: "easeOut" } }} className="rounded-xl p-3 text-center cursor-pointer transition-colors" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--mq-border)" }} onClick={() => { setSelectedMinutes(rec.cycles * SLEEP_CYCLE_MINUTES); }}>
+                    <motion.div key={rec.cycles} whileHover={hoverProps({ y: -2, transition: { duration: 0.12, ease: "easeOut" } })} className="rounded-xl p-3 text-center cursor-pointer transition-colors" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--mq-border)" }} onClick={() => { setSelectedMinutes(rec.cycles * SLEEP_CYCLE_MINUTES); }}>
                       <p className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>{rec.wakeTime}</p>
                       <p className="mq-t-meta-2 mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{rec.cycles} цикл</p>
                       <p className="mq-t-meta-2 mt-1 font-medium" style={{ color: rec.qualityColor }}>{rec.quality}</p>
@@ -433,7 +434,7 @@ export default function SleepTimerView() {
             </div>
 
             {/* Stop button */}
-            <motion.button whileHover={{ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } }} onClick={stopSleepTimer} className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl text-base font-semibold w-full max-w-sm" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}>
+            <motion.button whileHover={hoverProps({ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } })} onClick={stopSleepTimer} className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl text-base font-semibold w-full max-w-sm" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}>
               <X className="w-5 h-5" />
               Отменить таймер
             </motion.button>

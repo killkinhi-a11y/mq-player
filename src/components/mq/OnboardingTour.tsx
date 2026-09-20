@@ -428,7 +428,7 @@ export default function OnboardingTour() {
                 </div>
                 <button
                   onClick={skipTour}
-                  className="p-2 rounded-lg transition-colors hover:bg-white/5"
+                  className="p-2 rounded-lg transition-colors hover:bg-[var(--mq-overlay-hover)]"
                   style={{ color: "var(--mq-text-muted, #888)" }}
                   aria-label="Пропустить тур"
                 >
@@ -495,7 +495,7 @@ export default function OnboardingTour() {
                     {!isLastStep && (
                       <button
                         onClick={skipTour}
-                        className="px-3 py-2 sm:py-1.5 rounded-xl text-sm font-medium transition-colors hover:bg-white/5"
+                        className="px-3 py-2 sm:py-1.5 rounded-xl text-sm font-medium transition-colors hover:bg-[var(--mq-overlay-hover)]"
                         style={{
                           color: "var(--mq-text-muted, #888)",
                         }}

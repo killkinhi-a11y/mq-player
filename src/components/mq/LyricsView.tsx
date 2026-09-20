@@ -145,14 +145,18 @@ function SyncedLyrics({ lines, currentTime, onSeek }: {
             onHoverEnd={() => setHoveredIdx(null)}
             className="block w-full text-left px-3 py-2 rounded-xl cursor-pointer transition-colors"
             animate={{
-              scale: isEffectivelyActive ? 1.0 : 0.97,
+              // Scale (not fontSize) carries the active-line size change —
+              // font-size swaps reflowed the whole lyrics column on every
+              // line change during playback. 0.95 -> 1.158 keeps the exact
+              // old ratio (0.95rem vs 1.1rem) without any layout thrash.
+              scale: isEffectivelyActive ? 1.158 : 0.95,
               opacity: isHovered ? Math.max(opacity, 0.85) : opacity,
             }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             style={{
               color: isEffectivelyActive ? "var(--mq-text)" : "var(--mq-text-muted)",
               fontWeight: isEffectivelyActive ? 700 : 400,
-              fontSize: isEffectivelyActive ? "1.1rem" : "0.95rem",
+              fontSize: "1rem",
               background: isEffectivelyActive
                 ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)"
                 : "transparent",

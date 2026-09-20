@@ -1055,7 +1055,21 @@ function CanvasMascot({
 
     lastTimeRef.current = performance.now();
 
+    // Battery: skip frames entirely while the tab is hidden (RAF is
+    // throttled to ~0 by browsers anyway — this keeps timers + state clean
+    // and avoids catch-up bursts on return).
+    let paused = false;
+    const onVis = () => {
+      paused = document.hidden;
+      if (!paused) {
+        lastTimeRef.current = performance.now();
+        animRef.current = requestAnimationFrame(draw);
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+
     const draw = (timestamp: number) => {
+      if (paused) return;
       const dt = Math.min((timestamp - lastTimeRef.current) / 1000, 0.05);
       lastTimeRef.current = timestamp;
 
@@ -1077,7 +1091,10 @@ function CanvasMascot({
 
     animRef.current = requestAnimationFrame(draw);
 
-    return () => cancelAnimationFrame(animRef.current);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      cancelAnimationFrame(animRef.current);
+    };
   }, [size, updateFrame, isPlaying, isLifted]);
 
   return (

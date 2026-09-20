@@ -13,6 +13,7 @@ import {
 import { formatDuration, formatTrackDuration, type Track } from "@/lib/musicApi";
 import ContextMenu from "./ContextMenu";
 import { useTrackContextMenu } from "@/hooks/useTrackContextMenu";
+import { hoverProps } from "@/lib/hoverCapability";
 
 type TabType = "liked" | "disliked" | "subscriptions";
 type SortOption = "default" | "title" | "artist" | "duration" | "dateAdded";
@@ -313,7 +314,7 @@ export default function FavoritesView() {
         <div className="flex items-center gap-3 mb-1">
           <motion.div
             /* §HOVER: gesture carries its own spring — crisp, no overshoot */
-            whileHover={{ scale: 1.06, transition: { type: "spring", stiffness: 400, damping: 25 } }}
+            whileHover={hoverProps({ scale: 1.06, transition: { type: "spring", stiffness: 400, damping: 25 } })}
             className="w-10 h-10 rounded-xl flex items-center justify-center"
             style={{
               backgroundColor: activeTab === "subscriptions"
@@ -571,7 +572,7 @@ export default function FavoritesView() {
         {/* Shuffle — tracks tabs only */}
         {activeTab !== "subscriptions" && !batchMode && (
           <motion.button
-            whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } }}
+            whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
 
             onClick={handleShuffleAll}
             disabled={tracks.length === 0}
@@ -671,7 +672,7 @@ export default function FavoritesView() {
             /* §HOVER: Framer owns scale only; the boxShadow feedback is a
                CSS pseudo-class (below) — one owner per property, no
                double-easing between CSS transition and Framer writes. */
-            whileHover={{ scale: 1.02, transition: { duration: 0.15, ease: "easeOut" } }}
+            whileHover={hoverProps({ scale: 1.02, transition: { duration: 0.15, ease: "easeOut" } })}
 
             onClick={handlePlayAll}
             className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold cursor-pointer transition-[background-color,color,box-shadow] duration-150 hover:shadow-[var(--mq-shadow-card-hover)]"
@@ -685,7 +686,7 @@ export default function FavoritesView() {
             {activeTab === "liked" ? "Слушать все" : "Прослушать"}
           </motion.button>
           <motion.button
-            whileHover={{ scale: 1.02, transition: { duration: 0.15, ease: "easeOut" } }}
+            whileHover={hoverProps({ scale: 1.02, transition: { duration: 0.15, ease: "easeOut" } })}
 
             onClick={handleShuffleAll}
             className="flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-semibold cursor-pointer transition-colors duration-150"
@@ -782,7 +783,7 @@ export default function FavoritesView() {
                   >
                     {/* Artist avatar */}
                     <motion.div
-                      whileHover={{ scale: 1.06, transition: { duration: 0.12, ease: "easeOut" } }}
+                      whileHover={hoverProps({ scale: 1.06, transition: { duration: 0.12, ease: "easeOut" } })}
                       className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 relative"
                       style={{ border: "2px solid rgba(139,92,246,0.25)" }}
                     >
@@ -824,7 +825,7 @@ export default function FavoritesView() {
 
                     {/* Open artist */}
                     <motion.button
-                      whileHover={{ scale: 1.12, transition: { duration: 0.12, ease: "easeOut" } }}
+                      whileHover={hoverProps({ scale: 1.12, transition: { duration: 0.12, ease: "easeOut" } })}
 
                       onClick={(e) => { e.stopPropagation(); handleArtistClick(artist); }}
                       className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer sm:opacity-0 sm:group-hover:opacity-70 transition-opacity"
@@ -839,7 +840,7 @@ export default function FavoritesView() {
                       /* §HOVER one-owner: Framer owns scale; the red bg tint
                          is a CSS hover class (was a framer backgroundColor —
                          double-eased with the button CSS transition). */
-                      whileHover={{ scale: 1.12, transition: { duration: 0.12, ease: "easeOut" } }}
+                      whileHover={hoverProps({ scale: 1.12, transition: { duration: 0.12, ease: "easeOut" } })}
 
                       onClick={(e) => { e.stopPropagation(); removeFavoriteArtist(artist.id); }}
                       className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer sm:opacity-0 sm:group-hover:opacity-70 transition-[background-color,opacity] hover:bg-[rgba(239,68,68,0.12)]"
@@ -1107,7 +1108,7 @@ export default function FavoritesView() {
                       {/* More button (3-dot) — opens context menu */}
                       {!batchMode && (
                         <motion.button
-                          whileHover={{ scale: 1.12, transition: { duration: 0.12, ease: "easeOut" }} }
+                          whileHover={hoverProps({ scale: 1.12, transition: { duration: 0.12, ease: "easeOut" } })}
 
                           onClick={(e) => handleMoreClick(track, e)}
                           className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
@@ -1121,7 +1122,7 @@ export default function FavoritesView() {
                       {/* Remove button (hidden in batch mode) */}
                       {!batchMode && (
                         <motion.button
-                          whileHover={{ scale: 1.12, transition: { duration: 0.12, ease: "easeOut" }} }
+                          whileHover={hoverProps({ scale: 1.12, transition: { duration: 0.12, ease: "easeOut" } })}
 
                           onClick={(e) => { e.stopPropagation(); handleRemoveTrack(track.id, track); }}
                           className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"

@@ -143,7 +143,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[300] flex justify-end"
-          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+          style={{ backgroundColor: "var(--mq-overlay-scrim)" }}
           onClick={onClose}
         >
           <motion.div
@@ -174,12 +174,12 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
               </div>
               <div className="flex items-center gap-1">
                 {unreadCount > 0 && (
-                  <button onClick={markAllRead} className="px-2 py-1.5 rounded-lg cursor-pointer hover:bg-white/5 transition-colors"
+                  <button onClick={markAllRead} className="px-2 py-1.5 rounded-lg cursor-pointer hover:bg-[var(--mq-overlay-hover)] transition-colors"
                     style={{ color: "var(--mq-accent)" }} title="Прочитать все">
                     <Check className="w-4 h-4" />
                   </button>
                 )}
-                <button onClick={onClose} className="px-2 py-1.5 rounded-lg cursor-pointer hover:bg-white/5 transition-colors" aria-label="Закрыть">
+                <button onClick={onClose} className="px-2 py-1.5 rounded-lg cursor-pointer hover:bg-[var(--mq-overlay-hover)] transition-colors" aria-label="Закрыть">
                   <X className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
                 </button>
               </div>

@@ -8,6 +8,7 @@ import { simulateDecryptSync } from "@/lib/crypto";
 import ContextMenu from "./ContextMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
 import { type Track, formatDuration } from "@/lib/musicApi";
+import { hoverProps } from "@/lib/hoverCapability";
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -227,7 +228,7 @@ function VoicePlayer({
         {/* Play / Pause */}
         <motion.button
 
-          whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+          whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
           onClick={togglePlay}
           className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
           style={{
@@ -917,7 +918,7 @@ export default function MessageBubble({
                     transition={{ delay: i * 0.02, type: "spring", stiffness: 500, damping: 25 }}
                     /* §HOVER: own gesture transitions — entrance spring+delay
                        never leaks into the hover/tap response. */
-                    whileHover={{ scale: 1.3, y: -2, transition: { duration: 0.12, ease: "easeOut" } }}
+                    whileHover={hoverProps({ scale: 1.3, y: -2, transition: { duration: 0.12, ease: "easeOut" } })}
 
                     onClick={() => addReaction(emoji)}
                     className="w-8 h-8 flex items-center justify-center rounded-full text-lg"

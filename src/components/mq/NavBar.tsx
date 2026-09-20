@@ -86,7 +86,7 @@ const NavBar = React.memo(function NavBar() {
         margin: "10px 16px 0",
         right: "auto",
         width: "calc(100% - 32px)",
-        borderRadius: 14,
+        borderRadius: "var(--mq-r-card-lg)",
         background: "var(--mq-surface-1)",
         border: "1px solid var(--mq-edge)",
         boxShadow: "0 1px 2px rgba(0,0,0,0.25)",
@@ -159,7 +159,7 @@ const NavBar = React.memo(function NavBar() {
                   className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full z-20 flex items-center justify-center mq-t-meta-2 font-bold px-1"
                   style={{
                     backgroundColor: "var(--mq-accent)",
-                    color: "white",
+                    color: "var(--mq-text-on-accent)",
                   }}
                 >
                   {badgeCount > 99 ? "99+" : badgeCount}
@@ -188,7 +188,7 @@ const NavBar = React.memo(function NavBar() {
           {notificationCount > 0 && (
             <span
               className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] rounded-full flex items-center justify-center mq-t-meta-2 font-bold px-1"
-              style={{ backgroundColor: "var(--mq-accent)", color: "white" }}
+              style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent)" }}
             >
               {notificationCount > 99 ? "99+" : notificationCount}
             </span>
@@ -227,7 +227,7 @@ const NavBar = React.memo(function NavBar() {
           {settingsBadge > 0 && (
             <span
               className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] rounded-full flex items-center justify-center mq-t-meta-2 font-bold px-1"
-              style={{ backgroundColor: "var(--mq-accent)", color: "white" }}
+              style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent)" }}
             >
               {settingsBadge > 99 ? "99+" : settingsBadge}
             </span>

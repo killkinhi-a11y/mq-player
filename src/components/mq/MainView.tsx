@@ -25,8 +25,8 @@ import PlaylistActionsMenu from "./PlaylistActionsMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
 import MenuCore, { MenuHeader } from "./ui/MenuCore";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
-import { useMagnetic } from "@/hooks/useMagnetic";
 import { useLongPress } from "@/hooks/useLongPress";
+import { hoverProps } from "@/lib/hoverCapability";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -1808,8 +1808,8 @@ function PlaylistCard({
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
       initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ y: -4, transition: { duration: 0.15, ease: "easeOut" } }}
+      transition={{ delay: Math.min(index * 0.04, 0.4), duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={hoverProps({ y: -2, transition: { duration: 0.15, ease: "easeOut" } })}
 
       onClick={onClick}
       className="group relative text-left cursor-pointer rounded-2xl overflow-hidden w-full"
@@ -2073,7 +2073,7 @@ function ArtistCircleCard({
       initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ y: -4, transition: { duration: 0.15, ease: "easeOut" } }}
+      whileHover={hoverProps({ y: -2, transition: { duration: 0.15, ease: "easeOut" } })}
 
       onClick={onClick}
       className="text-left cursor-pointer group flex flex-col items-center"
@@ -2132,8 +2132,8 @@ function CuratedPlaylistCard({
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPlay(); } }}
       initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ y: -4, transition: { duration: 0.15, ease: "easeOut" } }}
+      transition={{ delay: Math.min(index * 0.04, 0.4), duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={hoverProps({ y: -2, transition: { duration: 0.15, ease: "easeOut" } })}
 
       onClick={onPlay}
       className="text-left cursor-pointer group rounded-2xl overflow-hidden w-full"

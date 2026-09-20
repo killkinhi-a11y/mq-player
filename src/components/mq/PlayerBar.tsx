@@ -368,7 +368,7 @@ export default function PlayerBar() {
                 <motion.button
 
                   onClick={() => { togglePlay(); hapticPlay(); }}
-                  className="w-10 h-10 rounded-full flex items-center justify-center"
+                  className="w-10 h-10 rounded-full flex items-center justify-center transition-[filter] duration-100 hover:brightness-110"
                   style={{ backgroundColor: "var(--mq-accent)" }}
                   title={isPlaying ? "Пауза" : "Воспроизвести"}
                   aria-label={isPlaying ? "Пауза" : "Воспроизвести"}

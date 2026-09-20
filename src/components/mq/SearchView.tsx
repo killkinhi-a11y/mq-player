@@ -373,8 +373,8 @@ export default function SearchView() {
           <div className="rounded-[var(--mq-r-card)] p-4" style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)", boxShadow: "var(--mq-elev-dialog)", color: "var(--mq-text)" }}>
             <div className="flex items-center gap-3 mb-2">
               {uploadProgress.status === "uploading" && <Loader2 className="w-5 h-5 flex-shrink-0 animate-spin" style={{ color: "var(--mq-accent)" }} />}
-              {uploadProgress.status === "done" && <CheckCircle2 className="w-5 h-5 flex-shrink-0" style={{ color: "#4ade80" }} />}
-              {uploadProgress.status === "error" && uploadProgress.failCount > 0 && <AlertCircle className="w-5 h-5 flex-shrink-0" style={{ color: "#fb923c" }} />}
+              {uploadProgress.status === "done" && <CheckCircle2 className="w-5 h-5 flex-shrink-0" style={{ color: "var(--mq-success)" }} />}
+              {uploadProgress.status === "error" && uploadProgress.failCount > 0 && <AlertCircle className="w-5 h-5 flex-shrink-0" style={{ color: "var(--mq-warning)" }} />}
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold truncate">{uploadProgress.status === "uploading" ? `Загрузка ${uploadProgress.current}/${uploadProgress.total}...` : `${uploadProgress.successCount} загружено`}</p>
                 <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{uploadProgress.fileName}</p>
@@ -533,7 +533,7 @@ export default function SearchView() {
             v72: hidden on mobile in this row (moved to the action row below). */}
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="hidden lg:flex w-11 h-11 rounded-[14px] items-center justify-center transition-colors duration-150 mt-[1px]"
+          className="hidden lg:flex w-11 h-11 rounded-[var(--mq-r-card-lg)] items-center justify-center transition-colors duration-150 mt-[1px]"
           style={{
             backgroundColor: showFilters || selectedGenre ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "var(--mq-surface-1)",
             color: showFilters || selectedGenre ? "var(--mq-accent)" : "var(--mq-text-muted)",
@@ -548,7 +548,7 @@ export default function SearchView() {
         {/* Upload button — v72: hidden on mobile in this row (moved below) */}
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="hidden lg:flex w-11 h-11 rounded-[14px] items-center justify-center transition-colors duration-150 mt-[1px]"
+          className="hidden lg:flex w-11 h-11 rounded-[var(--mq-r-card-lg)] items-center justify-center transition-colors duration-150 mt-[1px]"
           style={{
             backgroundColor: "var(--mq-surface-1)",
             color: isUploading ? "var(--mq-accent)" : "var(--mq-text-muted)",
@@ -566,7 +566,7 @@ export default function SearchView() {
         <div className="flex lg:hidden items-center justify-end gap-2 mt-2">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="h-11 px-4 rounded-[12px] flex items-center gap-1.5 transition-colors duration-150"
+            className="h-11 px-4 rounded-[var(--mq-r-card)] flex items-center gap-1.5 transition-colors duration-150"
             style={{
               backgroundColor: showFilters || selectedGenre ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "var(--mq-surface-1)",
               color: showFilters || selectedGenre ? "var(--mq-accent)" : "var(--mq-text-muted)",
@@ -580,7 +580,7 @@ export default function SearchView() {
           </button>
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="h-11 px-4 rounded-[12px] flex items-center gap-1.5 transition-colors duration-150"
+            className="h-11 px-4 rounded-[var(--mq-r-card)] flex items-center gap-1.5 transition-colors duration-150"
             style={{
               backgroundColor: "var(--mq-surface-1)",
               color: isUploading ? "var(--mq-accent)" : "var(--mq-text-muted)",

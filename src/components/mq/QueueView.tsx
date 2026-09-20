@@ -203,7 +203,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             className="fixed inset-0 z-[400]"
-            style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+            style={{ backgroundColor: "var(--mq-overlay-scrim)" }}
             onClick={onClose}
           />
 

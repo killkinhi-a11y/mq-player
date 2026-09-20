@@ -212,7 +212,6 @@ export default function FullTrackView() {
   const [lastTapSide, setLastTapSide] = useState<"left" | "right" | null>(null);
   const [seekFeedback, setSeekFeedback] = useState<{ side: "left" | "right"; amount: number } | null>(null);
   // Pull-down-to-close state (mobile)
-  const [pullDownY, setPullDownY] = useState(0);
 
   // ── Seek ────────────────────────────────────────────────────────────────
   const seekTo = useCallback((clientX: number) => {
@@ -299,22 +298,17 @@ export default function FullTrackView() {
   }, [isOpen, handleWheel]);
 
   // ── Pull-down to close (mobile) ───────────────────────────────────────
+  // §PERF: framer's drag gesture OWNS y during the pull (constraints +
+  // elastic) and animates back to the constraint on release. The old
+  // onDrag handler setState'd pullDownY every frame, re-rendering this
+  // whole tree (lyrics/queue/EQ included) mid-gesture for a value the
+  // renderer never actually used during drag.
   const handleDragEnd = useCallback((_: any, info: PanInfo) => {
     // Swipe down → close
     if (info.offset.y > 120 && Math.abs(info.offset.y) > Math.abs(info.offset.x) * 1.5) {
       setOpen(false);
     }
-    setPullDownY(0);
   }, [setOpen]);
-
-  const handleDrag = useCallback((_: any, info: PanInfo) => {
-    // Only track downward drag
-    if (info.offset.y > 0) {
-      setPullDownY(Math.min(200, info.offset.y));
-    } else {
-      setPullDownY(0);
-    }
-  }, []);
 
   // ── Volume ──────────────────────────────────────────────────────────────
   const handleVolumeChange = useCallback((v: number) => {
@@ -1320,12 +1314,11 @@ export default function FullTrackView() {
       {isOpen && currentTrack && (
         <motion.div
           initial={{ y: "100%" }}
-          animate={{ y: pullDownY }}
+          animate={{ y: 0 }}
           exit={{ y: "100%" }}
           drag={isMobile ? "y" : false}
           dragConstraints={{ top: 0, bottom: 0 }}
           dragElastic={{ top: 0, bottom: 0.6 }}
-          onDrag={handleDrag}
           onDragEnd={handleDragEnd}
           transition={{ type: "spring", stiffness: 300, damping: 32 }}
           className="fixed inset-0 z-[100]"

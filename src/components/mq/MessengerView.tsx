@@ -17,6 +17,7 @@ import { simulateDecryptSync, simulateEncrypt } from "@/lib/crypto";
 import { useToast } from "@/hooks/use-toast";
 import type { Message as ChatMessage } from "@/lib/musicApi";
 import { formatDuration as formatDurationCanonical } from "@/lib/musicApi";
+import { hoverProps } from "@/lib/hoverCapability";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -1197,7 +1198,7 @@ export default function MessengerView() {
   // ── Recoverable error state (no white screen ever) ──
   if (loadError && safeFriends.length === 0 && safeGroupChats.length === 0) {
     return (
-      <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container)] mx-auto`}
+      <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container-wide)] mx-auto`}
         style={{ height: "calc(100dvh - 90px - 56px)" }}>
         <div className="flex flex-col items-center justify-center h-full rounded-3xl"
           style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-thin)" }}>
@@ -1233,7 +1234,7 @@ export default function MessengerView() {
   const hairlineBorder = { borderColor: "var(--mq-border-hairline)" as const };
 
   return (
-    <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container)] mx-auto`}
+    <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container-wide)] mx-auto`}
       style={{ height: "calc(100dvh - 90px - 56px)" }}>
       <div className="flex rounded-3xl overflow-hidden h-full" style={cardStyle}>
         {/* ── Contacts list ── */}
@@ -1254,7 +1255,7 @@ export default function MessengerView() {
               <div className="flex items-center gap-1.5">
                 {/* Task 9: Friends access — opens the real FriendsView
                     (requests, online statuses, add-friend, listen invites). */}
-                <motion.button whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+                <motion.button whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
                   onClick={() => setView("friends")}
                   className="h-10 px-3 sm:px-3.5 rounded-full flex items-center gap-1.5"
                   style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
@@ -1262,14 +1263,14 @@ export default function MessengerView() {
                   <Contact className="w-4 h-4" />
                   <span className="hidden sm:inline text-xs font-medium">Друзья</span>
                 </motion.button>
-                <motion.button whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+                <motion.button whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
                   onClick={() => setShowNewGroup(true)}
                   className="w-11 h-11 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
                   aria-label="Новая группа" title="Новая группа">
                   <Users className="w-4 h-4" />
                 </motion.button>
-                <motion.button whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+                <motion.button whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
                   onClick={() => setShowNewChat(true)}
                   className="w-11 h-11 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
@@ -1317,7 +1318,7 @@ export default function MessengerView() {
                     {searchQuery.trim() ? "Попробуйте другой запрос" : "Найдите друзей — и здесь появятся чаты"}
                   </p>
                   {!searchQuery.trim() && (
-                    <motion.button whileHover={{ scale: 1.02, transition: { duration: 0.12, ease: "easeOut" }} }
+                    <motion.button whileHover={hoverProps({ scale: 1.02, transition: { duration: 0.12, ease: "easeOut" } })}
                       onClick={() => setShowNewChat(true)}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold"
                       style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
@@ -1698,7 +1699,7 @@ export default function MessengerView() {
                     <motion.span animate={{ opacity: [1, 0.3, 1] }}
                       transition={{ duration: 1, repeat: Infinity }}
                       className="w-2 h-2 rounded-full" style={{ backgroundColor: "#ef4444" }} />
-                    <span className="text-sm" style={{ color: "#ef4444" }}>
+                    <span className="text-sm" style={{ color: "var(--mq-error)" }}>
                       Запись… {formatDuration(recordingDuration)}
                     </span>
                   </div>
@@ -1721,7 +1722,7 @@ export default function MessengerView() {
                     <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
                       className="flex gap-1">
                       {QUICK_EMOJIS.map((emoji) => (
-                        <motion.button key={emoji} whileHover={{ scale: 1.2, transition: { duration: 0.12, ease: "easeOut" }} }
+                        <motion.button key={emoji} whileHover={hoverProps({ scale: 1.2, transition: { duration: 0.12, ease: "easeOut" } })}
                           onClick={() => {
                             setInputText((p) => p + emoji);
                             setShowQuickEmojis(false);
@@ -1735,7 +1736,7 @@ export default function MessengerView() {
                     </motion.div>
                   )}
                   <div className="flex items-end gap-2">
-                    <motion.button whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+                    <motion.button whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
                       onClick={() => setShowQuickEmojis((v) => !v)}
                       className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
                       style={{
@@ -1746,7 +1747,7 @@ export default function MessengerView() {
                       }} aria-label="Эмодзи">
                       <Smile className="w-4 h-4" />
                     </motion.button>
-                    <motion.button whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+                    <motion.button whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
                       onClick={startRecording}
                       className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
                       style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
@@ -1764,7 +1765,7 @@ export default function MessengerView() {
                       placeholder="Сообщение…" rows={1}
                       className="flex-1 px-4 py-2.5 rounded-2xl text-sm outline-none resize-none max-h-[120px]"
                       style={inputStyle} />
-                    <motion.button whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+                    <motion.button whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
                       onClick={handleSend} disabled={!inputText.trim() || isSending}
                       className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
                       style={{
@@ -1804,7 +1805,7 @@ export default function MessengerView() {
           <motion.div initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
             onClick={(e) => e.stopPropagation()}
-            className="fixed z-50 min-w-[160px] rounded-xl overflow-hidden py-1"
+            className="fixed z-50 min-w-[180px] rounded-[var(--mq-r-card)] overflow-hidden py-1"
             style={{
               left: Math.min(contextMenu.x,
                 (typeof window !== "undefined" ? window.innerWidth : 9999) - 180),
@@ -1813,17 +1814,17 @@ export default function MessengerView() {
               ...cardStyle,
             }}>
             <button onClick={() => handleReplyMessage(contextMenu.id)}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-[var(--mq-overlay-hover)]"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm hover:bg-[var(--mq-overlay-hover)]"
               style={{ color: "var(--mq-text)" }}>
               <Reply className="w-3.5 h-3.5" /> Ответить
             </button>
             <button onClick={() => handleCopyMessage(contextMenu.id)}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-[var(--mq-overlay-hover)]"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm hover:bg-[var(--mq-overlay-hover)]"
               style={{ color: "var(--mq-text)" }}>
               <Copy className="w-3.5 h-3.5" /> Копировать
             </button>
             <button onClick={() => togglePinMessage(contextMenu.id)}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-[var(--mq-overlay-hover)]"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm hover:bg-[var(--mq-overlay-hover)]"
               style={{ color: "var(--mq-text)" }}>
               <Pin className="w-3.5 h-3.5"
                 style={{ color: pinnedMsgId === contextMenu.id ? "var(--mq-accent)" : "currentColor" }}
@@ -1831,7 +1832,7 @@ export default function MessengerView() {
               {pinnedMsgId === contextMenu.id ? "Открепить" : "Закрепить"}
             </button>
             <button onClick={() => handleDeleteMessage(contextMenu.id)}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-[var(--mq-overlay-hover)]"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm hover:bg-[var(--mq-overlay-hover)]"
               style={{ color: "#ef4444" }}>
               <Trash2 className="w-3.5 h-3.5" /> Удалить
             </button>
@@ -1844,7 +1845,7 @@ export default function MessengerView() {
         {showNewChat && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
+            style={{ backgroundColor: "var(--mq-overlay-scrim)" }}
             onClick={() => setShowNewChat(false)}>
             <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
@@ -1909,7 +1910,7 @@ export default function MessengerView() {
         {showNewGroup && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
+            style={{ backgroundColor: "var(--mq-overlay-scrim)" }}
             onClick={() => setShowNewGroup(false)}>
             <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
@@ -2007,7 +2008,7 @@ export default function MessengerView() {
         {showAddMembers && selectedGroupId && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
+            style={{ backgroundColor: "var(--mq-overlay-scrim)" }}
             onClick={() => setShowAddMembers(false)}>
             <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}

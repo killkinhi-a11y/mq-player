@@ -56,14 +56,17 @@ function SyncedLyrics({ lines, onSeek }: { lines: SyncedLine[]; onSeek: (t: numb
           key={i}
           ref={i === activeIdx ? activeRef : null}
           onClick={() => onSeek(l.time)}
-          className="block w-full text-left px-2 py-1.5 rounded-lg transition-all duration-300 cursor-pointer"
+          className="block w-full text-left px-3 py-2 rounded-xl transition-colors duration-300 cursor-pointer"
           style={{
             color: i === activeIdx ? "var(--mq-text)" : "var(--mq-text-muted)",
             opacity: i === activeIdx ? 1 : 0.62,
-            transform: i === activeIdx ? "scale(1)" : "scale(0.985)",
-            fontWeight: i === activeIdx ? 600 : 400,
-            background: "transparent",
+            fontWeight: i === activeIdx ? 700 : 400,
+            fontSize: i === activeIdx ? "1.05rem" : "0.95rem",
+            background: i === activeIdx
+              ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)"
+              : "transparent",
             border: "none",
+            borderLeft: i === activeIdx ? "3px solid var(--mq-accent)" : "3px solid transparent",
           }}
         >
           {l.text}
@@ -133,6 +136,10 @@ function FullTrackViewMobileInner() {
   const [lyricsError, setLyricsError] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false);
   const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
+  // Exit animation: close paths set closing=true, the overlay plays
+  // mqFtSlideDown, and onAnimationEnd flips the store open flag. Mobile
+  // previously hard-unmounted with no exit — desktop springs out.
+  const [closing, setClosing] = useState(false);
 
   // v72 FIX: the player stays MOUNTED while closed (early return below does
   // not unmount it), so panel/picker/menu state survived a close→reopen —
@@ -310,6 +317,9 @@ function FullTrackViewMobileInner() {
 
   if (!isOpen || !currentTrack) return null;
 
+  // Route every close through the exit animation (idempotent while running).
+  const requestClose = () => setClosing(true);
+
   // Escape closes the mobile full player too (matches desktop; helps
   // tablet + keyboard users). Rendered via a dedicated component so hooks
   // stay unconditional.
@@ -320,21 +330,36 @@ function FullTrackViewMobileInner() {
 
   return (
     <>
-    <EscapeHandler active={isOpen} onEscape={() => setOpen(false)} />
+    <EscapeHandler active={isOpen} onEscape={requestClose} />
     <div
       className="fixed inset-0 z-[100]"
       role="dialog"
       aria-modal="true"
       aria-label={`Полноэкранный плеер: ${currentTrack.title} - ${currentTrack.artist}`}
+      onAnimationEnd={(e) => {
+        // animationend bubbles from children (mqFtRise etc.) — only the
+        // ROOT's own slide-down finishes the close.
+        if (closing && e.target === e.currentTarget) {
+          setOpen(false);
+          setClosing(false);
+        }
+      }}
       style={{
       background: "var(--mq-bg)",
-      // Open animation: translateY only (GPU-composited, no layout)
-      animation: "mqFtSlideUp 0.25s cubic-bezier(0.32, 0.72, 0, 1)",
+      // Open: translateY only (GPU-composited, no layout). Close: slide
+      // back down 200ms — short, never blocks the next interaction.
+      animation: closing
+        ? "mqFtSlideDown 0.2s cubic-bezier(0.32, 0.72, 0, 1) forwards"
+        : "mqFtSlideUp 0.25s cubic-bezier(0.32, 0.72, 0, 1)",
     }}>
       <style>{`
         @keyframes mqFtSlideUp {
           from { transform: translateY(100%); }
           to { transform: translateY(0); }
+        }
+        @keyframes mqFtSlideDown {
+          from { transform: translateY(0); }
+          to { transform: translateY(100%); }
         }
         @keyframes mqFtArtIn {
           from { transform: translateY(14px) scale(0.965); opacity: 0; }
@@ -473,7 +498,7 @@ function FullTrackViewMobileInner() {
 
         {/* ── Header: close · context · more ── */}
         <div className="flex items-center justify-between px-4" style={{ paddingTop: "max(10px, env(safe-area-inset-top))", paddingBottom: 6, flexShrink: 0 }}>
-          <button onClick={() => setOpen(false)} aria-label="Закрыть" className="mq-ft-btn" style={iconBtn}><ChevronDown className="w-6 h-6" style={{ color: "var(--mq-text)" }} /></button>
+          <button onClick={requestClose} aria-label="Закрыть" className="mq-ft-btn" style={iconBtn}><ChevronDown className="w-6 h-6" style={{ color: "var(--mq-text)" }} /></button>
           <div className="flex-1 min-w-0 flex items-center justify-center gap-1.5">
             {isPlaying && <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)" }} aria-hidden="true" />}
             <p className="mq-t-meta mq-t-meta-2 font-semibold uppercase tracking-[0.18em] truncate" style={{ color: "var(--mq-text-muted)" }}>
@@ -489,11 +514,15 @@ function FullTrackViewMobileInner() {
             a "sticker" outline — VLM critique) — pure grounded shadow. */}
         <div className="flex-1 flex items-center justify-center px-4 min-h-0" style={{ paddingTop: 6, paddingBottom: 10 }}>
           <div
+            key={currentTrack.id}
             className="mq-ft-anim relative rounded-[20px] overflow-hidden"
             style={{
               width: "min(92vw, 58vh)",
               aspectRatio: "1 / 1",
               boxShadow: "var(--mq-art-shadow)",
+              // Artwork entrance replays on track change (key remount) —
+              // previously the image just swapped src with no transition.
+              animation: "mqFtArtIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
             }}
             onTouchStart={handleCoverTouchStart}
             onTouchEnd={handleCoverTouchEnd}
@@ -669,7 +698,7 @@ function FullTrackViewMobileInner() {
               style={{
                 backgroundColor: on
                   ? danger
-                    ? "rgba(239,68,68,0.15)"
+                    ? "color-mix(in srgb, var(--mq-error) 15%, transparent)"
                     : "color-mix(in srgb, var(--mq-accent) 16%, transparent)"
                   : "transparent",
                 color: on
@@ -745,7 +774,7 @@ function FullTrackViewMobileInner() {
                 <div className="flex items-center gap-3 mb-2"><Gauge className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} /><span className="text-sm" style={{ color: "var(--mq-text)" }}>Скорость</span><span className="mq-t-num ml-auto" style={{ color: playbackRate !== 1 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>{playbackRate}x</span></div>
                 <div className="flex items-center gap-2 flex-wrap pl-8">
                   {speedOptions.map(speed => (
-                    <button key={speed} onClick={() => handleSpeedChange(speed)} className="mq-ft-btn px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: playbackRate === speed ? "var(--mq-accent)" : "var(--mq-input-bg)", color: playbackRate === speed ? "#fff" : "var(--mq-text-muted)", border: "none", cursor: "pointer" }}>
+                    <button key={speed} onClick={() => handleSpeedChange(speed)} className="mq-ft-btn px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: playbackRate === speed ? "var(--mq-accent)" : "var(--mq-input-bg)", color: playbackRate === speed ? "var(--mq-text-on-accent, #fff)" : "var(--mq-text-muted)", border: "none", cursor: "pointer" }}>
                       {speed}x
                     </button>
                   ))}
@@ -792,7 +821,7 @@ function FullTrackViewMobileInner() {
                       : "1px solid var(--mq-border-thin)",
                   }}
                 >
-                  {eqEnabled ? "ON" : "OFF"}
+                  {eqEnabled ? "ВКЛ" : "ВЫКЛ"}
                 </span>
               </button>
               <div className="h-px my-2" style={{ background: "var(--mq-border-thin)" }} />
@@ -801,8 +830,8 @@ function FullTrackViewMobileInner() {
               <button onClick={() => setSpatialAudioEnabled(!spatialAudioEnabled)} className="mq-ft-btn w-full flex items-center gap-3 py-3" style={{ background: "transparent", border: "none", cursor: "pointer" }}>
                 <AirVent className="w-5 h-5" style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                 <span className="text-sm flex-1 text-left" style={{ color: "var(--mq-text)" }}>Пространственное аудио</span>
-                <div className="w-10 h-6 rounded-full relative flex-shrink-0" style={{ background: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-glass-bg-active)" }}>
-                  <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform" style={{ transform: spatialAudioEnabled ? "translateX(20px)" : "translateX(2px)" }} />
+                <div className="w-10 h-6 rounded-full relative flex-shrink-0 transition-colors" style={{ background: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-glass-bg-active)" }}>
+                  <div className="absolute top-0.5 w-5 h-5 rounded-full transition-transform" style={{ transform: spatialAudioEnabled ? "translateX(20px)" : "translateX(2px)", backgroundColor: "var(--mq-card)", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }} />
                 </div>
               </button>
               <div className="h-px my-2" style={{ background: "var(--mq-border-thin)" }} />

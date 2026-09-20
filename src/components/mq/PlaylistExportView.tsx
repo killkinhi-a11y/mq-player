@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { type Track, formatDuration } from "@/lib/musicApi";
 import { Copy, Image as ImageIcon, X, Check, Loader2 } from "lucide-react";
+import { hoverProps } from "@/lib/hoverCapability";
 
 interface PlaylistExportViewProps {
   isOpen: boolean;
@@ -370,7 +371,7 @@ export default function PlaylistExportView({
             {/* Export buttons */}
             <div className="grid grid-cols-2 gap-3">
               <motion.button
-                whileHover={{ scale: 1.02, transition: { duration: 0.12, ease: "easeOut" }} }
+                whileHover={hoverProps({ scale: 1.02, transition: { duration: 0.12, ease: "easeOut" } })}
 
                 onClick={handleCopyText}
                 disabled={status === "copying" || status === "generating"}
@@ -403,7 +404,7 @@ export default function PlaylistExportView({
               </motion.button>
 
               <motion.button
-                whileHover={{ scale: 1.02, transition: { duration: 0.12, ease: "easeOut" }} }
+                whileHover={hoverProps({ scale: 1.02, transition: { duration: 0.12, ease: "easeOut" } })}
 
                 onClick={handleExportImage}
                 disabled={status === "generating" || status === "copying"}

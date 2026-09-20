@@ -11,6 +11,7 @@ import {
   Heart, Flame, PartyPopper, CloudRain, TreePine, GraduationCap,
   Plane, MessageSquare, ChevronDown, Loader2, Volume2,
 } from "lucide-react";
+import { hoverProps } from "@/lib/hoverCapability";
 
 interface ChatMessage {
   id: string;
@@ -434,7 +435,7 @@ export default function AIAssistant() {
                   return (
                     <motion.button
                       key={i}
-                      whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} }
+                      whileHover={hoverProps({ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" } })}
 
                       onClick={() => sendMessage(sug.prompt)}
                       className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full mq-t-meta-2 font-medium cursor-pointer transition-colors"

@@ -26,6 +26,7 @@ import {
   BarChart3,
   Palette,
 } from "lucide-react";
+import { hoverProps } from "@/lib/hoverCapability";
 
 /* ── Animation config ── */
 const stagger = {
@@ -438,7 +439,7 @@ export default function TasteProfileView() {
           </div>
         </div>
         <motion.button
-          whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+          whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
 
           onClick={resetTasteProfile}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-colors"
@@ -563,7 +564,7 @@ export default function TasteProfileView() {
                   }}
                 />
                 <motion.button
-                  whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+                  whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
 
                   onClick={addCustomGenre}
                   disabled={!customGenreInput.trim()}
@@ -662,7 +663,7 @@ export default function TasteProfileView() {
 
                     {/* Exclude toggle */}
                     <motion.button
-                      whileHover={{ scale: 1.1, transition: { duration: 0.12, ease: "easeOut" }} }
+                      whileHover={hoverProps({ scale: 1.1, transition: { duration: 0.12, ease: "easeOut" } })}
 
                       onClick={() => toggleExcludedArtist(artist.name)}
                       className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all"

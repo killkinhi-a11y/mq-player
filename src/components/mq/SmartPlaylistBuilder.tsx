@@ -176,7 +176,7 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[150] flex items-center justify-center p-4"
-      style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
+      style={{ backgroundColor: "var(--mq-overlay-scrim)" }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"

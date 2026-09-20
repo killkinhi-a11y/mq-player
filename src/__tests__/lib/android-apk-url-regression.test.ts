@@ -51,7 +51,9 @@ describe("Android APK download URL — exact contract (block «Скачать п
 
   it("app-version route: apkUrl is the same permanent release URL", () => {
     const src = read("app/api/app-version/route.ts");
-    expect(src).toContain(`apkUrl: "${ANDROID_APK_URL}"`);
+    // Since the 2.3.5 release the route imports the shared constant — the
+    // URL contract lives in ONE place (lib/androidRelease.ts, asserted above).
+    expect(src).toContain("apkUrl: ANDROID_APK_URL");
     expect(src).not.toContain("download/mq-player.apk");
   });
 
@@ -78,6 +80,41 @@ describe("Android APK download URL — exact contract (block «Скачать п
       const src = read(f);
       expect(src).not.toContain(FORBIDDEN_URL);
       expect(src).not.toMatch(/latest\/download\/mq-player\.apk/);
+    }
+  });
+});
+
+describe("Android update card — single source of truth (release 2.3.5)", () => {
+  const releaseSrc = read("lib/androidRelease.ts");
+  const settingsSrc = read("components/mq/SettingsView.tsx");
+  const routeSrc = read("app/api/app-version/route.ts");
+
+  it("androidRelease exports the permanent APK URL (same contract)", () => {
+    expect(releaseSrc).toContain(`"${ANDROID_APK_URL}"`);
+  });
+
+  it("SettingsView update card uses the shared release module, not literals", () => {
+    expect(settingsSrc).toContain('href={ANDROID_APK_URL}');
+    expect(settingsSrc).toContain("ANDROID_STABLE_VERSION");
+    expect(settingsSrc).toContain("ANDROID_WHATS_NEW");
+    // The update card button keeps download semantics.
+    expect(settingsSrc).toMatch(/href=\{ANDROID_APK_URL\}[^}]*\s*download/);
+  });
+
+  it("app-version route serves the stable version from the shared module", () => {
+    expect(routeSrc).toContain("ANDROID_STABLE_VERSION");
+    expect(routeSrc).toContain("ANDROID_APK_URL");
+    expect(routeSrc).not.toContain('"1.0.50"');
+  });
+
+  it("human changelog: no technical jargon leaks into user-facing copy", () => {
+    const jargon = [
+      "statusBarsPadding", "ListPlus", "Role.Switch", "Robolectric",
+      "API parity", "R8", "zipalign", "apksigner", "versionCode",
+      "implementation detail", "insets", "IME",
+    ];
+    for (const word of jargon) {
+      expect(releaseSrc).not.toContain(word);
     }
   });
 });

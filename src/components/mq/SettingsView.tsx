@@ -18,6 +18,13 @@ import RangeSlider from "@/components/ui/range-slider";
 import { toast } from "@/hooks/use-toast";
 import { useUpdateManager } from "@/hooks/useUpdateManager";
 import { getUpdateManager } from "@/lib/updateManager";
+import {
+  ANDROID_STABLE_VERSION,
+  ANDROID_RELEASED_AT,
+  ANDROID_APK_URL,
+  ANDROID_WHATS_NEW,
+} from "@/lib/androidRelease";
+import { hoverProps } from "@/lib/hoverCapability";
 
 // ─── Tab ──────────────────────────────────────────────────────────────────
 
@@ -54,6 +61,134 @@ function CardTitle({ icon: Icon, title }: { icon: React.ElementType; title: stri
       <span className="mq-t-meta-2 font-bold uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>
         {title}
       </span>
+    </div>
+  );
+}
+
+/** Android update card — human-language «Что нового» + one accent download
+ *  action. Version/copy come from src/lib/androidRelease.ts (single source of
+ *  truth, updated together with each stable GitHub release). */
+function AndroidUpdateCard() {
+  const [expanded, setExpanded] = useState(false);
+  // First 3 bullets are the always-visible summary; the rest unfold.
+  const summary = ANDROID_WHATS_NEW.slice(0, 3);
+  const rest = ANDROID_WHATS_NEW.slice(3);
+
+  return (
+    <div className="px-3 sm:px-4 pb-4" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
+      {/* ── Version row (wraps on mobile: title left, button below/right) ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-3">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <Smartphone className="w-5 h-5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} aria-hidden />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="mq-t-section font-semibold" style={{ color: "var(--mq-text)" }}>
+                MQ Player {ANDROID_STABLE_VERSION}
+              </span>
+              <span
+                className="mq-t-num rounded-md px-1.5 py-0.5 mq-t-meta-2 font-semibold whitespace-nowrap"
+                style={{
+                  color: "var(--mq-accent)",
+                  backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
+                }}
+              >
+                новая версия
+              </span>
+            </div>
+            <p className="mq-t-meta-2 mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+              Обновление от {ANDROID_RELEASED_AT}
+            </p>
+          </div>
+        </div>
+        <a
+          href={ANDROID_APK_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          download
+          className="mq-update-apk-btn flex h-11 items-center justify-center gap-2 rounded-lg px-5 mq-t-btn font-semibold
+                     transition-colors duration-150 flex-shrink-0"
+          style={{
+            backgroundColor: "var(--mq-accent)",
+            color: "var(--mq-text-on-accent, #fff)",
+          }}
+          aria-label={`Скачать приложение MQ Player ${ANDROID_STABLE_VERSION} для Android`}
+        >
+          <Download className="w-4 h-4" aria-hidden />
+          Скачать APK
+        </a>
+      </div>
+
+      {/* ── What's new (human changelog; details unfold) ── */}
+      <div
+        className="mt-3 rounded-[var(--mq-r-card)] overflow-hidden"
+        style={{
+          backgroundColor: "var(--mq-surface-1)",
+          border: "1px solid var(--mq-border-hairline)",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left
+                     transition-colors duration-150 hover:bg-[var(--mq-overlay-hover)]"
+          style={{ color: "var(--mq-text)" }}
+        >
+          <span className="mq-t-label" style={{ color: "var(--mq-text-muted)" }}>
+            Что нового
+          </span>
+          <ChevronDown
+            className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
+            style={{
+              color: "var(--mq-text-muted)",
+              transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+            }}
+            aria-hidden
+          />
+        </button>
+        <AnimatePresence initial={false}>
+          {(expanded || rest.length === 0) && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="overflow-hidden"
+            >
+              <ul className="px-3 pb-3 pt-1 flex flex-col gap-2">
+                {ANDROID_WHATS_NEW.map((item, i) => (
+                  <li key={i} className="flex items-start gap-2.5">
+                    <span
+                      className="mt-[6px] h-1.5 w-1.5 flex-shrink-0 rounded-full"
+                      style={{ backgroundColor: "var(--mq-accent)" }}
+                      aria-hidden
+                    />
+                    <span className="mq-t-body leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
+                      {item}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {/* Always-visible short summary (hidden once fully expanded) */}
+        {!expanded && (
+          <ul className="px-3 pb-3 pt-1 flex flex-col gap-2" aria-hidden>
+            {summary.map((item, i) => (
+              <li key={i} className="flex items-start gap-2.5">
+                <span
+                  className="mt-[6px] h-1.5 w-1.5 flex-shrink-0 rounded-full"
+                  style={{ backgroundColor: "var(--mq-text-muted)", opacity: 0.55 }}
+                />
+                <span className="mq-t-body leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
+                  {item}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
@@ -193,7 +328,7 @@ function SettingToggle({
   value: boolean; onCheckedChange: (v: boolean) => void;
 }) {
   /* §HOVER one-owner: CSS owns background (hover:bg + transition-colors);
-     the old Framer whileHover={{ backgroundColor }} double-eased with the
+     the old Framer whileHover={hoverProps({ backgroundColor })} double-eased with the
      CSS transition — one visible "highlight twice / second flash" bug. */
   return (
     <div
@@ -827,6 +962,11 @@ export default function SettingsView() {
               <CardTitle icon={Sparkles} title="Дополнительно" />
               <SettingToggle icon={Sparkles} label="MqCat" subtitle="Котик на экране" value={catEnabled} onCheckedChange={setCatEnabled} />
               <SettingRow icon={Trash2} label="Очистить кэш" subtitle="Закэшированные треки и изображения" onClick={handleClearCache} danger />
+            </Card>
+
+            <Card>
+              <CardTitle icon={Download} title="Приложение для Android" />
+              <AndroidUpdateCard />
             </Card>
 
             <Card>

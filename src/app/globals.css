@@ -97,33 +97,10 @@
 [data-active-tab="account"] .mq-settings-chat-entry { display: block; }
 [data-active-tab]:not([data-active-tab="account"]) .mq-settings-chat-entry { display: none; }
 
-/* ── View transition — non-destructive fade-in on view switch ──
-   P3-fix: NO translateY — it caused the "view flies from below" bug
-   when user had scrolled down before switching views. The new view
-   would appear 8px below the current scroll position, creating a
-   jarring vertical jump. Now fade-only for a clean cross-fade. */
-@keyframes mqViewEnter {
-  0%   { opacity: 0; }
-  100% { opacity: 1; }
-}
-.mq-view-enter {
-  animation: mqViewEnter 0.18s ease-out;
-}
-
-/* Staggered children entrance — apply to parent */
-.mq-stagger > * {
-  opacity: 0;
-  animation: mqFadeInUp 0.3s ease-out forwards;
-}
-.mq-stagger > *:nth-child(1) { animation-delay: 0.02s; }
-.mq-stagger > *:nth-child(2) { animation-delay: 0.06s; }
-.mq-stagger > *:nth-child(3) { animation-delay: 0.1s; }
-.mq-stagger > *:nth-child(4) { animation-delay: 0.14s; }
-.mq-stagger > *:nth-child(5) { animation-delay: 0.18s; }
-.mq-stagger > *:nth-child(6) { animation-delay: 0.22s; }
-.mq-stagger > *:nth-child(7) { animation-delay: 0.26s; }
-.mq-stagger > *:nth-child(8) { animation-delay: 0.3s; }
-.mq-stagger > *:nth-child(n+9) { animation-delay: 0.34s; }
+/* ── View transition — see the v68 definition in the motion section at the
+   bottom of this file (340ms, 10px rise, premium curve). Earlier duplicate
+   definitions here were removed: last-wins made them dead code, and the
+   stale comments contradicted the winning animation. ── */
 
 /* Global smooth transitions on interactive elements — see the consolidated
    rule further below (§"Interactive element transitions"). ONE PROPERTY =
@@ -493,21 +470,9 @@ main {
   color: transparent;
 }
 
-/* Premium shimmer effect for loading */
-@keyframes mqShimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-.mq-shimmer {
-  background: linear-gradient(
-    90deg,
-    rgba(255,255,255,0.04) 0%,
-    rgba(255,255,255,0.08) 50%,
-    rgba(255,255,255,0.04) 100%
-  );
-  background-size: 200% 100%;
-  animation: mqShimmer 1.8s ease-in-out infinite;
-}
+/* Premium shimmer effect — single definition lives in the motion section
+   ("6. Shimmer loading effect", mq-shimmer-sweep 1.5s). This earlier
+   duplicate (1.8s background-position variant) was always overridden. */
 
 /* Custom scrollbar — P2: themed, thin, smooth */
 ::-webkit-scrollbar {
@@ -1809,15 +1774,9 @@ html.blood-theme body::before {
   border-radius: 12px;
 }
 
-/* ── Stagger Animation Helper ── */
-.mq-stagger > *:nth-child(1) { animation-delay: 0ms; }
-.mq-stagger > *:nth-child(2) { animation-delay: 50ms; }
-.mq-stagger > *:nth-child(3) { animation-delay: 100ms; }
-.mq-stagger > *:nth-child(4) { animation-delay: 150ms; }
-.mq-stagger > *:nth-child(5) { animation-delay: 200ms; }
-.mq-stagger > *:nth-child(6) { animation-delay: 250ms; }
-.mq-stagger > *:nth-child(7) { animation-delay: 300ms; }
-.mq-stagger > *:nth-child(8) { animation-delay: 350ms; }
+/* ── Stagger Animation Helper — REMOVED: zero TSX consumers and two
+   conflicting definitions (20ms vs 50ms steps). List entrances are owned
+   by framer-motion with capped stagger (TrackCard pattern). ── */
 
 /* ── Hero Background Gradient ── */
 .mq-hero-gradient {
@@ -1952,9 +1911,7 @@ html.blood-theme body::before {
     transform: translateY(0) scale(1);
   }
 }
-.mq-spring-enter {
-  animation: mq-spring-enter var(--mq-duration-normal) var(--mq-spring-bounce) both;
-}
+/* ── mq-spring-enter — REMOVED (dead, zero consumers, two conflicting defs) ── */
 
 /* ── Cinematic background blur ── */
 .mq-cinematic-blur {
@@ -2115,21 +2072,9 @@ html.blood-theme body::before {
   color: var(--mq-text);
 }
 
-/* ── Floating card with hover lift ── */
-.mq-card-float {
-  transition: transform var(--mq-duration-normal) var(--mq-spring-smooth),
-              box-shadow var(--mq-duration-normal) var(--mq-spring-smooth);
-  box-shadow: var(--mq-elevation-3);
-}
-.mq-card-float:hover {
-  transform: translateY(-3px) scale(1.02);
-  box-shadow: var(--mq-elevation-4);
-}
+/* ── mq-card-float — REMOVED (dead, zero consumers, two conflicting defs) ── */
 
-/* ── Nav pill spring animation ── */
-.mq-nav-pill-active {
-  transition: all var(--mq-duration-fast) var(--mq-spring-bounce);
-}
+/* ── Nav pill spring animation — REMOVED (dead, zero consumers) ── */
 
 /* ── Cinematic reduced motion additions ── */
 @media (prefers-reduced-motion: reduce) {
@@ -2197,14 +2142,8 @@ html.blood-theme body::before {
   transform: rotateY(-3deg) rotateX(2deg) scale(1.03);
 }
 
-/* Floating card with ambient glow */
-.mq-card-float {
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
-}
-.mq-card-float:hover {
-  transform: translateY(-3px) scale(1.015);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 20px color-mix(in srgb, var(--mq-accent) 8%, transparent);
-}
+/* Floating card with ambient glow — REMOVED: dead (zero consumers) and a
+   tilt/lift recipe that contradicts the Phase 4B hover language. */
 
 /* Text gradient for active playing state */
 .mq-text-gradient {
@@ -2214,20 +2153,7 @@ html.blood-theme body::before {
   background-clip: text;
 }
 
-/* Spring entrance animation */
-.mq-spring-enter {
-  animation: mq-spring-enter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-@keyframes mq-spring-enter {
-  from {
-    opacity: 0;
-    transform: translateY(12px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
+/* Spring entrance animation — REMOVED: dead, zero consumers. */
 
 /* Premium glass panel for search command palette */
 .mq-command-palette {
@@ -2522,7 +2448,7 @@ input.mq-hslider-input::-webkit-slider-runnable-track {
     var(--mq-glass-bg) var(--mq-vol, 0%), var(--mq-glass-bg) 100%);
   box-shadow: var(--mq-shadow-inner-glow);
 }
-inputinput.mq-hslider-input:focus-visible::-webkit-slider-runnable-track {
+input.mq-hslider-input:focus-visible::-webkit-slider-runnable-track {
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--mq-accent) 30%, transparent),
     var(--mq-shadow-inner-glow);
@@ -2682,14 +2608,8 @@ canvas {
    comes from ONE system per element: Framer whileTap on motion
    controls, CSS :active backgrounds on rows/plain buttons. */
 
-/* 4. Smooth view transitions */
-@keyframes mq-view-enter {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.mq-view-enter {
-  animation: mq-view-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
+/* 4. Smooth view transitions — single v68 definition at the bottom of this
+   file (see "View enter (v68 tuning)"). */
 
 /* 5. Pulse animation for live indicators */
 @keyframes mq-pulse-live {
@@ -2844,8 +2764,11 @@ a:focus-visible {
   /* No hover effects on touch: cancel stuck hover transforms only —
      NEVER blank row content (title/artist/actions) when :hover sticks
      after a tap. Tailwind v4 hover variants are already gated by
-     @media (hover: hover), so they never fire on touch devices. */
-  .group:hover * {
+     @media (hover: hover), so they never fire on touch devices.
+     EXCEPTION: .mq-cover-eq — its bars are transform-animated keyframes
+     (coverEq0-3); the !important blanket would freeze them mid-bar
+     whenever :hover sticks after a tap. */
+  .group:hover *:not(.mq-cover-eq) {
     transform: none !important;
   }
   /* Touch tablets (>=640px): hover-revealed actions have sm:opacity-0,
@@ -3703,9 +3626,10 @@ a:focus-visible {
    ═════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Surface ladder — three quiet steps above the page background */
-  --mq-surface-1: var(--mq-bg, #151517);
-  --mq-surface-2: var(--mq-card, #1b1b1e);
+  /* Surface ladder — SINGLE SOURCE: src/styles/design-tokens.css defines
+     --mq-surface-0..4 (theme-reactive, set after globals in the bundle).
+     The local surface-1/2 duplicates here were removed: same specificity,
+     bundle-order-dependent winner = unstable elevation ladder. */
   /* Radius scale — one card radius, one artwork radius, one pill */
   --mq-r-card: 12px;
   --mq-r-card-lg: 16px;
@@ -4065,7 +3989,7 @@ a:focus-visible {
   max-width: none;
   width: 100%;
   max-height: 72vh;
-  border-radius: 16px 16px 0 0;
+  border-radius: 20px 20px 0 0;
   padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
   z-index: 10001;
   animation: mq-sheet-up 0.22s cubic-bezier(0.32, 0.72, 0, 1);
@@ -4171,6 +4095,9 @@ a:focus-visible {
    States are data-attributes so CSS is the single source of truth. ── */
 .mq-hover-row {
   transition: background-color 0.15s ease;
+  /* Rounded hover surface — matches .mq-row (10px). Was square, which read
+     as a rough/blocky rectangle against every other rounded row system. */
+  border-radius: 10px;
 }
 .mq-hover-row:hover {
   background: color-mix(in srgb, var(--mq-text) 4%, transparent);

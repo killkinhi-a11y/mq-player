@@ -14,6 +14,7 @@ import { LiquidGlassToggle } from "@/components/ui/liquid-glass-toggle";
 import { formatDuration, type Track } from "@/lib/musicApi";
 import ContextMenu from "./ContextMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
+import { hoverProps } from "@/lib/hoverCapability";
 
 const USERNAME_RULES = "Буквы, цифры, _ и -. 2-20 символов.";
 
@@ -491,7 +492,7 @@ const ProfileView = React.memo(function ProfileView() {
             {/* Larger avatar with edit overlay */}
             <motion.div
               className="relative group"
-              whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} }
+              whileHover={hoverProps({ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" } })}
             >
               <div
                 className="w-28 h-28 rounded-full overflow-hidden flex items-center justify-center"
@@ -556,7 +557,7 @@ const ProfileView = React.memo(function ProfileView() {
                   </h2>
                   <button
                     onClick={() => { setEditName(username || ""); setIsEditingName(true); }}
-                    className="p-1.5 rounded-lg transition-colors hover:bg-white/5"
+                    className="p-1.5 rounded-lg transition-colors hover:bg-[var(--mq-overlay-hover)]"
                     style={{ color: "var(--mq-accent)" }}
                     title="Изменить имя"
                   >
@@ -1251,7 +1252,7 @@ const ProfileView = React.memo(function ProfileView() {
 
           {/* Settings link */}
           <motion.button
-            whileHover={{ scale: 1.01, transition: { duration: 0.12, ease: "easeOut" }} }
+            whileHover={hoverProps({ scale: 1.01, transition: { duration: 0.12, ease: "easeOut" } })}
 
             onClick={() => setView("settings")}
             className="w-full px-4 py-3 flex items-center gap-3 text-left transition-colors"
@@ -1272,7 +1273,7 @@ const ProfileView = React.memo(function ProfileView() {
           {/* Admin panel — server-gated surface (/admin re-checks DB role) */}
           {userRole === "admin" && (
             <motion.button
-              whileHover={{ scale: 1.01, transition: { duration: 0.12, ease: "easeOut" }} }
+              whileHover={hoverProps({ scale: 1.01, transition: { duration: 0.12, ease: "easeOut" } })}
 
               onClick={() => window.open("/admin", "_self")}
               className="w-full px-4 py-3 flex items-center gap-3 text-left transition-colors"
@@ -1293,7 +1294,7 @@ const ProfileView = React.memo(function ProfileView() {
 
           {/* Logout — cleaner design */}
           <motion.button
-            whileHover={{ scale: 1.01, transition: { duration: 0.12, ease: "easeOut" }} }
+            whileHover={hoverProps({ scale: 1.01, transition: { duration: 0.12, ease: "easeOut" } })}
 
             onClick={() => setShowLogoutConfirm(true)}
             className="w-full px-4 py-3.5 flex items-center gap-3 text-left"

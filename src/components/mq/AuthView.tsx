@@ -1121,10 +1121,10 @@ export default function AuthView() {
         {/* ─── Email: Login ─── */}
         {authStep === "login" && (
           <motion.div key="login"
-            initial={{ opacity: 0, y: 30, filter: 'blur(8px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, y: -20, filter: 'blur(4px)' }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="w-full max-w-md relative z-10">
             <div className="rounded-2xl p-6 lg:p-8"
               style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
@@ -1138,7 +1138,7 @@ export default function AuthView() {
                 className="flex flex-col items-center text-center mb-6"
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.2, duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}>
+                transition={{ delay: 0.15, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
                 <motion.div
                   className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
                   style={{ backgroundColor: "rgba(224,49,49,0.12)" }}
@@ -1251,10 +1251,10 @@ export default function AuthView() {
         {/* ─── Email: Registration ─── */}
         {authStep === "register" && (
           <motion.div key="register"
-            initial={{ opacity: 0, y: 30, filter: 'blur(8px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, y: -20, filter: 'blur(4px)' }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="w-full max-w-md relative z-10">
             <div className="rounded-2xl p-6 lg:p-8"
               style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
@@ -1268,7 +1268,7 @@ export default function AuthView() {
                 className="flex flex-col items-center text-center mb-6"
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.2, duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}>
+                transition={{ delay: 0.15, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
                 <motion.div
                   className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
                   style={{ backgroundColor: "rgba(224,49,49,0.12)" }}>
@@ -1380,10 +1380,10 @@ export default function AuthView() {
         {/* ─── Email: Confirm code ─── */}
         {authStep === "confirm" && (
           <motion.div key="confirm"
-            initial={{ opacity: 0, y: 30, filter: 'blur(8px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, y: -20, filter: 'blur(4px)' }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="w-full max-w-md relative z-10">
             <div className="rounded-2xl p-6 lg:p-8"
               style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
@@ -1397,7 +1397,7 @@ export default function AuthView() {
                 className="flex flex-col items-center text-center mb-6"
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.2, duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}>
+                transition={{ delay: 0.15, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
                 <motion.div
                   className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
                   style={{ backgroundColor: "rgba(224,49,49,0.12)" }}>
@@ -1463,10 +1463,10 @@ export default function AuthView() {
         {/* ─── Email: Forgot password ─── */}
         {authStep === "forgot-password" && (
           <motion.div key="forgot-password"
-            initial={{ opacity: 0, y: 30, filter: 'blur(8px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, y: -20, filter: 'blur(4px)' }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="w-full max-w-md relative z-10">
             <div className="rounded-2xl p-6 lg:p-8"
               style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
@@ -1482,7 +1482,7 @@ export default function AuthView() {
                 className="flex flex-col items-center text-center mb-6"
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.2, duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}>
+                transition={{ delay: 0.15, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
                 <motion.div
                   className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
                   style={{ backgroundColor: "rgba(224,49,49,0.12)" }}>
@@ -1597,10 +1597,10 @@ export default function AuthView() {
         {/* ─── Telegram: New User Registration (bot-code flow) ─── */}
         {authStep === "telegram-register" && (
           <motion.div key="telegram-register"
-            initial={{ opacity: 0, y: 30, filter: 'blur(8px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, y: -20, filter: 'blur(4px)' }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="w-full max-w-md relative z-10">
             <div className="rounded-2xl p-6 lg:p-8"
               style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
@@ -1716,10 +1716,10 @@ export default function AuthView() {
         {/* ─── Telegram Widget: New User Registration (official Login Widget) ─── */}
         {authStep === "telegram-widget-register" && (
           <motion.div key="telegram-widget-register"
-            initial={{ opacity: 0, y: 30, filter: 'blur(8px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, y: -20, filter: 'blur(4px)' }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="w-full max-w-md relative z-10">
             <div className="rounded-2xl p-6 lg:p-8"
               style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
@@ -1829,10 +1829,10 @@ export default function AuthView() {
         {/* ─── Telegram: Link to existing account (password required) ─── */}
         {authStep === "telegram-link" && (
           <motion.div key="telegram-link"
-            initial={{ opacity: 0, y: 30, filter: 'blur(8px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, y: -20, filter: 'blur(4px)' }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="w-full max-w-md relative z-10">
             <div className="rounded-2xl p-6 lg:p-8"
               style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>

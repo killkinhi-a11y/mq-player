@@ -11,6 +11,7 @@ import {
   Heart, MessageCircle, Clock, Eye, Sparkles, Image as ImageIcon,
   Music2, Trash2, Send, User
 } from "lucide-react";
+import { hoverProps } from "@/lib/hoverCapability";
 
 interface Story {
   id: string;
@@ -226,7 +227,7 @@ export default function StoriesView() {
           <h1 className="text-2xl font-bold" style={{ color: "var(--mq-text)" }}>Истории</h1>
         </div>
         <motion.button
-          whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+          whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
 
           onClick={() => setShowCreateModal(true)}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
@@ -318,7 +319,7 @@ export default function StoriesView() {
             transition={{ delay: i * 0.06 }}
             /* §HOVER: own gesture transitions — entrance delay (i*0.06)
                never leaks into hover/tap. */
-            whileHover={{ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } }}
+            whileHover={hoverProps({ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } })}
 
             onClick={() => setViewingIndex(i)}
             className="w-full flex items-center gap-4 p-4 rounded-xl text-left cursor-pointer"
@@ -505,7 +506,7 @@ export default function StoriesView() {
                     </div>
                     <div className="flex items-center gap-2">
                       <motion.button
-                        whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+                        whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
 
                         onClick={(e) => { e.stopPropagation(); handlePlayTrack(viewingStory); }}
                         className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium"
@@ -641,7 +642,7 @@ export default function StoriesView() {
               {/* Post button */}
               <div className="p-4" style={{ borderTop: "1px solid var(--mq-border)" }}>
                 <motion.button
-                  whileHover={{ scale: 1.02, transition: { duration: 0.12, ease: "easeOut" }} }
+                  whileHover={hoverProps({ scale: 1.02, transition: { duration: 0.12, ease: "easeOut" } })}
 
                   onClick={createStory}
                   disabled={!newStoryText.trim()}

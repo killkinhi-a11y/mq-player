@@ -91,7 +91,7 @@ export const ShareSheet = memo(function ShareSheet({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
           className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4"
-          style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
+          style={{ backgroundColor: "var(--mq-overlay-scrim)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
           onClick={onClose}
         >
           <motion.div
@@ -99,7 +99,7 @@ export const ShareSheet = memo(function ShareSheet({
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.92, y: 24, opacity: 0 }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="w-full max-w-sm rounded-3xl overflow-hidden"
+            className="w-full max-w-sm rounded-[20px] overflow-hidden"
             style={{
               backgroundColor: "var(--mq-card)",
               border: "1px solid var(--mq-border-thin)",

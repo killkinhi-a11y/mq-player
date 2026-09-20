@@ -9,6 +9,7 @@ import {
   Users, Clock, Sparkles, Headphones, Wifi, WifiOff, Send, Radio,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { hoverProps } from "@/lib/hoverCapability";
 
 interface FriendUser {
   id: string;
@@ -390,7 +391,7 @@ export default function FriendsView() {
           </div>
         </div>
         <motion.button
-          whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } }}
+          whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
 
           onClick={() => { setShowAddDialog(true); setSearchQuery(""); setFriendRequestStatus({}); }}
           className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-medium cursor-pointer"
@@ -658,7 +659,7 @@ export default function FriendsView() {
             Найдите друзей по имени пользователя, чтобы делиться музыкой и общаться
           </p>
           <motion.button
-            whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } }}
+            whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
 
             onClick={() => { setShowAddDialog(true); setSearchQuery(""); }}
             className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-medium cursor-pointer"
@@ -841,7 +842,7 @@ function FriendCard({
       initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04 }}
-      whileHover={{ y: -1, transition: { duration: 0.15, ease: "easeOut" } }}
+      whileHover={hoverProps({ y: -1, transition: { duration: 0.15, ease: "easeOut" } })}
       /* §F: framer owns transform + box-shadow here; no CSS transition on
          those props (was transition-all → double animation + stagger delay
          leak from the entrance transition). */
@@ -881,7 +882,7 @@ function FriendCard({
         {/* Listen Along button — only when online and a track is playing */}
         {isOnline && currentTrack && (
           <motion.button
-            whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } }}
+            whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
 
             onClick={onListenAlong}
             disabled={listenAlongLoading}
@@ -903,7 +904,7 @@ function FriendCard({
         )}
         {/* Message button */}
         <motion.button
-          whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+          whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
 
           onClick={onMessage}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer min-h-[40px] transition-colors"

@@ -46,7 +46,7 @@ function UpdateBannerBase() {
             fixed z-[110] w-[calc(100vw-2rem)] max-w-[380px]
             sm:w-[380px] sm:right-4 sm:top-[64px] sm:left-auto
             left-4 top-[calc(env(safe-area-inset-top)+8px)]
-            rounded-xl p-4
+            rounded-[var(--mq-r-card-lg)] p-4
           "
           style={{
             backgroundColor: "var(--mq-surface-3, #242424)",
@@ -93,7 +93,7 @@ function UpdateBannerBase() {
                   type="button"
                   onClick={applyUpdate}
                   className="mq-update-apply h-11 min-w-[128px] rounded-lg px-4 text-sm font-semibold
-                             transition-transform duration-100"
+                             transition-colors duration-150 hover:brightness-110 active:brightness-95"
                   style={{
                     backgroundColor: "var(--mq-accent)",
                     color: "var(--mq-text-on-accent, #fff)",
@@ -105,7 +105,7 @@ function UpdateBannerBase() {
                 <button
                   type="button"
                   onClick={dismiss}
-                  className="h-11 rounded-lg px-4 text-sm font-medium transition-colors duration-150"
+                  className="h-11 rounded-lg px-4 text-sm font-medium transition-colors duration-150 hover:bg-[var(--mq-overlay-hover)]"
                   style={{
                     color: "var(--mq-text-muted)",
                     border: "1px solid var(--mq-border-subtle, rgba(255,255,255,0.08))",

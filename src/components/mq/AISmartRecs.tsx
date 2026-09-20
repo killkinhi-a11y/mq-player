@@ -14,6 +14,7 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import ContextMenu from "./ContextMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
+import { hoverProps } from "@/lib/hoverCapability";
 
 // ── Mood/activity presets for quick AI recs ──
 const MOOD_PRESETS = [
@@ -217,7 +218,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
             return (
               <motion.button
                 key={preset.id}
-                whileHover={{ scale: 1.04, transition: { duration: 0.12, ease: "easeOut" }} }
+                whileHover={hoverProps({ scale: 1.04, transition: { duration: 0.12, ease: "easeOut" } })}
 
                 onClick={() => handlePresetClick(preset.id)}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium cursor-pointer transition-colors"
@@ -286,7 +287,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
           return (
             <motion.button
               key={preset.id}
-              whileHover={{ scale: 1.04, transition: { duration: 0.12, ease: "easeOut" }} }
+              whileHover={hoverProps({ scale: 1.04, transition: { duration: 0.12, ease: "easeOut" } })}
 
               onClick={() => handlePresetClick(preset.id)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap cursor-pointer transition-colors flex-shrink-0"

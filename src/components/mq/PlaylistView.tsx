@@ -14,6 +14,7 @@ import { EmptyState } from "./EmptyState";
 import ContextMenu from "./ContextMenu";
 import PlaylistActionsMenu from "./PlaylistActionsMenu";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
+import { hoverProps } from "@/lib/hoverCapability";
 
 // ─── helpers ──────────────────────────────────────────────────────────────
 
@@ -643,7 +644,7 @@ export default function PlaylistView() {
               <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
                 <motion.button
 
-                  whileHover={{ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } }}
+                  whileHover={hoverProps({ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } })}
                   onClick={() => isPlPlaying ? togglePlay() : handlePlayAll(pl)}
                   disabled={pl.tracks.length === 0}
                   className="flex items-center justify-center gap-2 flex-1 sm:flex-none sm:min-w-[150px] px-5 sm:px-6 py-3 rounded-full font-bold text-sm"
@@ -660,7 +661,7 @@ export default function PlaylistView() {
                 </motion.button>
                 <motion.button
 
-                  whileHover={{ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } }}
+                  whileHover={hoverProps({ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } })}
                   onClick={() => handleShufflePlay(pl)}
                   disabled={pl.tracks.length === 0}
                   className="flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-5 py-3 rounded-full font-semibold text-sm"
@@ -816,7 +817,7 @@ export default function PlaylistView() {
         <div className="flex items-center gap-2">
           <motion.button
 
-            whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} }
+            whileHover={hoverProps({ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" } })}
             onClick={() => setShowCreate(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm"
             style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
@@ -826,7 +827,7 @@ export default function PlaylistView() {
           </motion.button>
           <motion.button
 
-            whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} }
+            whileHover={hoverProps({ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" } })}
             onClick={() => setShowImport(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium"
             style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border-thin)" }}
@@ -1295,7 +1296,7 @@ function PlaylistTile({
          so the entrance stagger delay (index*0.04, up to 0.4s) can NEVER
          leak into the hover/tap response (the "second effect appears with
          delay" bug). Framer owns transform; CSS owns colors. */
-      whileHover={{ y: -3, transition: { duration: 0.15, ease: "easeOut" } }}
+      whileHover={hoverProps({ y: -3, transition: { duration: 0.15, ease: "easeOut" } })}
 
       onClick={onOpen}
       onKeyDown={(e) => {
@@ -1352,7 +1353,7 @@ function PlaylistTile({
         {pl.tracks.length > 0 && (
           <motion.button
             initial={{ opacity: 0, scale: 0.8 }}
-            whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+            whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
 
             onClick={onPlay}
             className="absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity duration-300"
@@ -1466,7 +1467,7 @@ function MenuItem({ icon: Icon, label, onClick, danger }: { icon: React.Componen
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-white/5"
+      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--mq-overlay-hover)]"
       style={{ color: danger ? "#ef4444" : "var(--mq-text)" }}
     >
       <Icon className="w-3.5 h-3.5" />
