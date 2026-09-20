@@ -4542,3 +4542,100 @@ Stage Summary:
   speculative rewrites, web parity preserved by design (skip-list above).
 - Device QA: NOT PROVEN (owner tests from the RC link; site stays 2.3.4
   until acceptance — promotion on order, same policy as 2.3.4).
+---
+Task ID: release-235-stable
+Agent: main (Super Z)
+Task: Final product release — Android 2.3.5 STABLE promotion + website
+update card + Android animation pass + web visual/animation pass +
+production deploy + smoke (spec: FINAL PRODUCT RELEASE, 19 sections)
+
+Work Log:
+- AUDIT: 3 parallel Explore agents — web visual (13 areas, token census),
+  web animations (13 surfaces, duration/easing inventory), Android
+  animations (13 surfaces, library-default specs verified from sources).
+- ANDROID 2.3.5 STABLE:
+  * Animation pass (audit-driven, no rewrite): dock tab indicator slides
+    between slots (BoxWithConstraints + animateDpAsState, was teleporting);
+    Library sub-tab underline slides identically; MiniPlayer appears with
+    expandVertically+fade 220ms (was instant 63dp dock jump); EQ bars gated
+    on actual isPlaying in Library/Search/FullPlayer-queue (Home parity);
+    Search skeletons alpha-pulse 700ms (was static); FullPlayer slide
+    spring400 -> tween 320ms FastOutSlowIn; artwork drag spring-back
+    (Animatable, snapTo cancels release-spring via mutatorMutex); progress
+    bar glides between 500ms ticks (snap on >5% jumps = seeks); context
+    menu playlists sub-page slides via AnimatedContent; Settings theme grid
+    animateContentSize 240ms; 4 square ripples clipped (FullPlayer heart,
+    Search refresh, Settings toggle row + download row).
+  * versionCode 11 -> 12, versionName 2.3.5.
+  * Toolchain rebuilt (sandbox re-sync wiped SDK again; script idempotent).
+  * Gate: compileDebugKotlin OK; testDebugUnitTest 157 GREEN (stub port
+    8717 = ParityStub harness — port 9 was wrong, live default also wrong
+    for mocked tests); assembleRelease + lintVitalRelease OK; AGP output
+    already zipaligned (my extra zipalign broke v2 — used gradle artifact
+    directly); apksigner verify OK, cert SHA-1 703fb1fd UNCHANGED;
+    14 parity screenshots regenerated, VLM review home/library/settings
+    PASS (indicator centered, underline correct, no breakage).
+  * Published android-v2.3.5 STABLE (prerelease=False, latest=true):
+    APK 4 256 127 B, SHA-256 d93f20dfef7987962b179c4536d505ceef6bed982608455526e7de083db9e3a3,
+    digest round-trip verified; releases/latest -> android-v2.3.5;
+    android-v2.3.5-rc release+tag DELETED (old build-11 APK would confuse);
+    releases/latest/download/MQPlayer.apk e2e = 200 + sha match.
+- WEB UPDATE CARD:
+  * src/lib/androidRelease.ts — single source: version 2.3.5, human
+    «Что нового» (7 bullets, jargon-checked by test), permanent APK URL.
+  * SettingsView: new AndroidUpdateCard (version + дата + badge + 3-bullet
+    summary + unfold + accent «Скачать APK») above the platform grid.
+  * /api/app-version serves 2.3.5 via shared module (no VERSION env in
+    Vercel — code default applies). Regression test extended (URL contract,
+    shared module, no-jargon).
+- WEB VISUAL (P0/P1 first):
+  * P0 .mq-hover-row rounded 10px (Favorites/History square hover).
+  * inputinput typo (volume slider focus ring dead CSS) fixed.
+  * Messenger container undefined --mq-container -> --mq-container-wide.
+  * Scrims unified to var(--mq-overlay-scrim) (6 spots incl Messenger x3).
+  * Duplicate --mq-surface-1/2 tokens removed (design-tokens wins = prod).
+  * .mq-view-enter x3 -> single v68 def; mq-stagger/mq-shimmer/mq-card-
+    float/mq-spring-enter dups + dead hooks (useTilt3D/useMagnetic) +
+    dead PlaylistCard.tsx deleted (~400 lines CSS/TSX).
+  * Touch kill rule spares .mq-cover-eq (bars froze mid-bar on tap).
+  * Mobile lyrics aligned to desktop (accent bar, 700/400, no scale/
+    transition-all); «ON/OFF»->«ВКЛ/ВЫКЛ»; spatial toggle thumb tokenized.
+  * Artist hero buttons unified (no scale-hover, glass tokens, dramatic
+    shadow token); Messenger context menu cohesion (error token, 40px rows,
+    card radius); sheet radii unified 20px; UpdateBanner 16px + button
+    hover; Search/Library radii+status colors tokenized; play buttons get
+    subtle hover (brightness); badges 99+; NavBar badge token; MobileDock
+    stroke parity; token sweeps (#fff/#ef4444/white-5).
+- WEB ANIMATIONS:
+  * hoverCapability.ts: canHover + hoverProps() — ALL 56 whileHover objects
+    gated (no touch flash); card lifts -4 -> -2; MainView staggers capped.
+  * FullTrackView drag re-render storm removed (per-frame setState ->
+    framer drag owns y); FTV-mobile: exit slide-down 200ms + artwork
+    entrance per track (mqFtArtIn wired); AuthView 7 blur steps -> 0.3s
+    premium fade; Library tab content mode=wait -> instant mount;
+    LyricsView active line scale (no fontSize reflow); HistoryView EQ ->
+    SMIL NowPlayingEqualizer; MqCat RAF pauses on hidden tab.
+- QUALITY GATE (web): tsc clean; vitest 388/388 GREEN; eslint no new
+  issues (pre-existing react-hooks noise unchanged); next build clean.
+- PRODUCTION: commits 799e4b7a (android) + 04d55c1d (web) + d6115ed5
+  (chore) pushed; deploy mq-build-d6115ed5 live 22:44Z. Smoke: / 307,
+  /play 200, /api/app-version=2.3.5, version.json=d6115ed5, /.well-known/
+  assetlinks.json 200 (cert D3:D7:ED:0B present; NOTE: /assetlinks.json
+  root path was never the contract — smoke script bug, not a regression),
+  no old version strings in shell, APK e2e 200 + sha, 63 chunk refs 3/3
+  sampled 200, robots/sitemap 200.
+- LIVE BROWSER QA (agent-browser 390x844, demo mode): home renders, dock
+  + mini player intact; Settings -> Ещё -> update card VERIFIED: version
+  2.3.5 + badge + Что нового summary + EXPAND WORKS + Скачать APK href =
+  releases/latest/download/MQPlayer.apk; console clean (debug-level
+  CobaltTurnstile note only); VLM review of card PASS.
+
+Stage Summary:
+- 2.3.5 STABLE live on GitHub (latest) + site serves it end-to-end (URL,
+  version API, update card all read the one shared module).
+- versionCode 12 APK, signature unchanged (703fb1fd), SHA d93f20df…
+- Web: ~60 audit-driven fixes across visual+animation, all token-based,
+  zero rewrites; update card human-language verified on production.
+- RC for 2.3.5 deleted (never visible to users again).
+- Owner step remains: install 2.3.5 APK on a real device (animations are
+  interaction-level; screenshots can't prove motion feel).
