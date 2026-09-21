@@ -4639,3 +4639,134 @@ Stage Summary:
 - RC for 2.3.5 deleted (never visible to users again).
 - Owner step remains: install 2.3.5 APK on a real device (animations are
   interaction-level; screenshots can't prove motion feel).
+---
+Task ID: liquid-lyrics-qr
+Agent: main (Super Z)
+Task: MQ PLAYER WEB — Full Player liquid/typography lyrics rework + real
+scannable Share QR codes (spec: LIQUID TYPOGRAPHY + SHARE QR, 25 sections)
+
+Work Log:
+- RESEARCH: 2 parallel Explore agents — lyrics system (lrclib client fetch,
+  line-level LRC only, NO word timing anywhere; LyricsView shared desktop,
+  mobile had own inline SyncedLyrics; store progress throttled ~1 Hz;
+  registerProgressRAC built but unwired) + share system (ShareSheet QR was
+  a FAKE decorative hash pattern that admitted "NOT a real QR"; no QR lib;
+  /artist/{name} + /playlist/{id} share URLs 404; canonical Android
+  DeepLinkParser URLs exist; assetlinks.json verifies /track + /play).
+- DEPS: qrcode.react@4.2.0 (runtime), jsqr + pngjs (devDeps, scan tests).
+- LYRICS (new src/components/mq/LiquidLyrics.tsx + liquid-lyrics.css):
+  * Water-fill typography: active line = per-word spans; ::before overlay
+    per word carries the water (gradient clipped to glyphs via
+    background-clip:text, masked by the waterline var --wf); deep→accent→
+    bright-surface gradient rides the fill level (background-size tracks
+    waterline + 0.6em, pinned bottom); sheen sweep + ±0.09em bob via ONE
+    CSS keyframe (paint-only); just-sung line keeps full water fading out
+    over the line transition.
+  * Sync = REAL playback: single rAF loop reads playback-ROUTED
+    currentPlaybackPosition() (WASM-aware) and writes ONE custom property
+    (--ll-fill 0..100) on the active line element; per-word levels derive
+    in pure CSS from per-word windows (--wa/--w-inv, reciprocal to avoid
+    CSS division). Word cascade is a deterministic distribution of real
+    line progress (sanctioned — no invented audio timing; lrclib is
+    line-level only).
+  * React re-renders ONLY on line change (~seconds); zero per-frame tree
+    work; loop pauses on document.hidden; bob gated mid-fill.
+  * Line transitions: color/opacity/transform .5s premium ease (never
+    font-size); previous lines recede, future dim by distance.
+  * Auto-scroll: active line to ~30% from top; 2.2s interaction pause;
+    tap-to-seek now RESUMES follow immediately (tap is navigation, not
+    scroll — found + fixed during QA).
+  * Seek = instant line+fill snap (no from-0 replay); pause freezes
+    musical progress (±0.8 decorative bob only); track change: loop
+    resyncs via linesChanged flag — no after-ghost, no stale water.
+  * Reduced motion (media + store reduceMotion → .mq-reduce-motion):
+    sheen animation killed (animName none verified in-browser), writer
+    STEPS ~4 Hz — honest progress without fluid animation (verified:
+    fill 16.85 → 37.34 while animations dead).
+  * A11y: base text is the REAL text (pseudo layers are AT-invisible);
+    aria-current on active line; focus ring on lines.
+- LYRICS INTEGRATION: LyricsView keeps its props/retry-event contract,
+  SyncedLyrics branch → LiquidLyrics (+variant panel|full + duration);
+  desktop inline panel (max-h 340) + wide aside (flex fill via h-full
+  under the shared tab wrapper — flex-1 there was a no-op block child,
+  found via computed-style chain probe: scrollHeight==clientHeight 2744)
+  + mobile full-screen panel now renders the SAME shared component
+  (local SyncedLyrics deleted); dead SyncedLyrics in FullTrackView
+  deleted (-88 lines).
+- SHARE (QR):
+  * ShareSheet rewritten around qrcode.react QRCodeSVG: level H,
+    marginSize 4 (spec quiet zone), #0d0d0f on #ffffff (~19:1), white
+    rounded pad + subtle accent ring, center artwork chip 42/200 (~21%
+    linear, solid white bg, onError hides), content preview row
+    (artwork+title+artist), copy link, PNG download via hidden 512px
+    logo-less QRCodeCanvas (no SVG-serialize taint), native share;
+    long-title regression contract preserved (min-w-0/truncate/shrink-0/
+    "Поделиться" — test green).
+  * lib/share-urls.ts — canonical builders (Android DeepLinkParser
+    mirror): track /track/{scTrackId} (NULL for demo/local — honest
+    "Нет публичной ссылки" sheet state, no fake QR), artist
+    /play?artist=, playlist /play?pl=.
+  * Store slice shareSheet/openShareSheet/closeShareSheet (non-persisted)
+    + ONE ShareSheet mounted in AppShell (GlobalShareSheet) — desktop
+    player, MOBILE player chip, PlayerBar menu, ContextMenu (19 mount
+    sites), ArtistActionsMenu (FIXED /artist 404), PlaylistActionsMenu
+    (FIXED /playlist 404), ArtistDetailView, PlaylistView all open the
+    one dialog with canonical URLs.
+  * image-proxy allowlist: cover *.sndcdn.com (a1 avatar/artwork hosts
+    were 400ing — verified fixed on prod: 200 image/png).
+  * Stale mq-player.vercel.app defaults → mq1.vercel.app (layout
+    canonical, sitemap, robots); NEXT_PUBLIC_APP_URL created in Vercel
+    env (production+preview) so builds bake the canonical origin.
+- TESTS: 411/411 green (was 388) — share-urls contract (canonical
+  formats, null gating, encoding), liquid sync math (findActiveIdx,
+  lineFill incl. last-line/duration/degenerate spans, wordWindows
+  cascade/overlap/span guards), and camera-equivalent QR decode:
+  qrcode.react matrix (production params) rasterized + decoded by jsQR —
+  track/artist/playlist round-trip + quiet-zone proof + 21% center-art
+  occlusion survival (ECC H). tsc clean; eslint: 0 new issues (7
+  pre-existing react-hooks errors untouched); next build clean.
+- QA (agent-browser, prod-mode local build + PRODUCTION):
+  * Env hurdles solved: sandbox reaps background processes between tool
+    calls → per-call server lifecycle (scripts/qa-lib.sh); Turbopack dev
+    OOM-panics on this box → next start against a production build;
+    workerd/miniflare dev-init crash → MQ_DISABLE_CF_DEV=1 opt-out added
+    to next.config.ts (default behavior unchanged); OOM during build ←
+    12 orphan chrome procs — killed.
+  * Desktop 1440×900: lyrics fetch (52 lines), live fill 17-25% probed,
+    pixel-verified red water band in the active line (intensifies with
+    forced fill=100), VLM confirms rising water + left-to-right word
+    cascade (zoomed crop + mobile + prod reviews); seek tap line 12
+    (1:32) → instant active+fill 12.77+scrollY 395 (auto-follow);
+    pause → fill frozen (20.68→20.93 = bob only); next track → clean
+    reset (new song, new sync, no stale water); 0 console errors.
+  * Mobile 390×844: same shared LiquidLyrics live (fill 25.97), no
+    horizontal overflow; 412×915: sheet+QR+no overflow.
+  * Share: desktop player sheet, mobile chip sheet, context-menu sheet —
+    all QR svg 45×45, canonical URL; jsQR DECODED the real screenshots:
+    desktop, context, mobile-390, mobile-412, PRODUCTION — all
+    "https://mq1.vercel.app/track/115417954" (5/5 camera-equivalent
+    scans). QR target resolves: /api/tracks/share returns the right
+    track; /track/[id] page 200. No-lyrics state (local upload track):
+    empty state + retry ✓. No-public-link state: honest message, QR
+    hidden ✓. VLM share-sheet review 8/10 (clean QR, quiet zone, art
+    chip safe, preview row, buttons).
+- PRODUCTION: commit 4db64384 pushed (after rebase over duplicate
+  worklog commit d5ecaa7b/64afa8fb — same tree, different hash from a
+  prior session); deploy READY; version.json = mq-build-4db64384 v79.
+  Smoke: / 307, /play 200, /api/app-version 200 (2.3.5),
+  /.well-known/assetlinks.json 200, prod chunk 200, a1-artwork proxy 200.
+  PROD E2E: demo → search → play → lyrics LIVE on prod (fill 19.27) →
+  share sheet → QR decoded from the prod screenshot. 0 console errors.
+
+Stage Summary:
+- Liquid lyrics shipped: real-playback-synced water-fill typography on
+  desktop + mobile, perf-clean (one var write per frame, paint-only
+  decoration, reduced-motion compliant), seek/pause/track-change contracts
+  verified live (local + production).
+- Share QR shipped: REAL scannable codes (ECC H + quiet zone + 21% art
+  chip), canonical URLs everywhere (web = Android = QR), two broken URL
+  families fixed, honest no-link state, one global sheet for every
+  surface. Camera-equivalent scans 5/5 including production.
+- Owner steps remaining: real phone camera scan (Track/Artist/Playlist
+  QRs) and App Link open with the app installed; reduced-motion + real
+  device lyric feel (screenshots can't prove motion).
