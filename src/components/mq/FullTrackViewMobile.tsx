@@ -10,6 +10,8 @@ import { toast } from "@/hooks/use-toast";
 import { Play, Pause, SkipBack, SkipForward, ChevronDown, ChevronUp, Heart, Shuffle, Repeat, Repeat1, Music, ListMusic, Share2, Loader2, Mic2, ThumbsDown, History, X, MoreHorizontal, Volume2, Timer, Gauge, AirVent, ListPlus, Sliders } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
+import { LyricsView, type LyricLine } from "./LyricsView";
+import { shareTrackUrl } from "@/lib/share-urls";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — MOBILE (2026-09 redesign)
@@ -36,45 +38,9 @@ import { TrackMoreButton } from "./ui/TrackMoreButton";
 // 7. Open animation translateY 250ms only.
 // ═════════════════════════════════════════════════════════════════════════
 
-interface SyncedLine { time: number; text: string; }
-
-function SyncedLyrics({ lines, onSeek }: { lines: SyncedLine[]; onSeek: (t: number) => void }) {
-  const activeRef = useRef<HTMLButtonElement | null>(null);
-  const progress = useAppStore((s) => s.progress);
-  const activeIdx = (() => {
-    let idx = -1;
-    for (let i = 0; i < lines.length; i++) { if (lines[i].time <= progress) idx = i; }
-    return idx;
-  })();
-  useEffect(() => {
-    activeRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [activeIdx]);
-  return (
-    <div className="text-base leading-relaxed max-h-full overflow-y-auto px-2 py-2 space-y-1 scroll-smooth">
-      {lines.map((l, i) => (
-        <button
-          key={i}
-          ref={i === activeIdx ? activeRef : null}
-          onClick={() => onSeek(l.time)}
-          className="block w-full text-left px-3 py-2 rounded-xl transition-colors duration-300 cursor-pointer"
-          style={{
-            color: i === activeIdx ? "var(--mq-text)" : "var(--mq-text-muted)",
-            opacity: i === activeIdx ? 1 : 0.62,
-            fontWeight: i === activeIdx ? 700 : 400,
-            fontSize: i === activeIdx ? "1.05rem" : "0.95rem",
-            background: i === activeIdx
-              ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)"
-              : "transparent",
-            border: "none",
-            borderLeft: i === activeIdx ? "3px solid var(--mq-accent)" : "3px solid transparent",
-          }}
-        >
-          {l.text}
-        </button>
-      ))}
-    </div>
-  );
-}
+// v78: the local inline SyncedLyrics is gone — mobile renders the SAME
+// shared LyricsView/LiquidLyrics as desktop (one visual language, §18),
+// full variant. LyricLine type is imported above.
 
 function EscapeHandler({ active, onEscape }: { active: boolean; onEscape: () => void }) {
   useEffect(() => {
@@ -130,7 +96,7 @@ function FullTrackViewMobileInner() {
 
   const [panel, setPanel] = useState<"queue" | "lyrics" | "history" | null>(null);
   const [trackMenu, setTrackMenu] = useState<{ track: Track; x: number; y: number } | null>(null);
-  const [lyrics, setLyrics] = useState<SyncedLine[]>([]);
+  const [lyrics, setLyrics] = useState<LyricLine[]>([]);
   const [plainLyrics, setPlainLyrics] = useState("");
   const [lyricsLoading, setLyricsLoading] = useState(false);
   const [lyricsError, setLyricsError] = useState<string | null>(null);
@@ -293,12 +259,18 @@ function FullTrackViewMobileInner() {
 
   const handleLike = useCallback(() => { if (currentTrack) toggleLike(currentTrack.id, currentTrack); }, [currentTrack, toggleLike]);
   const handleDislike = useCallback(() => { if (currentTrack) { toggleDislike(currentTrack.id, currentTrack); /* toggleDislike already calls nextTrack() internally */ } }, [currentTrack, toggleDislike]);
-  const handleShare = useCallback(async () => {
+  const openShareSheet = useAppStore((s) => s.openShareSheet);
+  const handleShare = useCallback(() => {
     if (!currentTrack) return;
-    const url = `${window.location.origin}/track/${currentTrack.scTrackId || currentTrack.id}`;
-    if (navigator.share) { try { await navigator.share({ title: currentTrack.title, url }); } catch {} }
-    else if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast({ title: "Ссылка скопирована" }));
-  }, [currentTrack, toast]);
+    // v78: opens the global QR share sheet (canonical URL; demo/local
+    // tracks honestly report "no public link" instead of a dead /track/id)
+    openShareSheet({
+      url: shareTrackUrl(currentTrack),
+      title: currentTrack.title,
+      subtitle: currentTrack.artist,
+      cover: currentTrack.cover,
+    });
+  }, [currentTrack, openShareSheet]);
   const handleArtist = useCallback(() => { if (currentTrack?.artist) { setSelectedArtist({ name: currentTrack.artist }); setOpen(false); } }, [currentTrack, setSelectedArtist, setOpen]);
 
   // Speed/sleep/spatial handlers for More sheet
@@ -720,11 +692,25 @@ function FullTrackViewMobileInner() {
               <p className="text-base font-semibold" style={{ color: "var(--mq-text)" }}>{panel === "lyrics" ? "Текст песни" : panel === "queue" ? "Очередь" : "Недавно играло"}</p>
               <button onClick={() => setPanel(null)} aria-label="Закрыть" className="mq-ft-btn" style={iconBtn}><X className="w-5 h-5" style={{ color: "var(--mq-text)" }} /></button>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 pb-4">
-              {panel === "lyrics" && (lyricsLoading ? <div className="flex items-center gap-2 py-6 justify-center"><Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} /><span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Поиск...</span></div>
-                : lyrics.length ? <SyncedLyrics lines={lyrics} onSeek={seekToTime} />
-                : plainLyrics ? <div className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "var(--mq-text-muted)" }}>{plainLyrics}</div>
-                : <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>{lyricsError || "Текст не найден"}</p>)}
+            {/* v78: lyrics branch = flex fill (LiquidLyrics scrolls itself);
+                queue/history keep the outer scrolling container */}
+            <div className={panel === "lyrics" ? "flex-1 min-h-0 flex flex-col px-4 pb-4" : "flex-1 overflow-y-auto px-4 pb-4"}>
+              {/* live position read at render — LiquidLyrics' rAF loop is
+                  the real time source; this only seeds the first paint
+                  without adding a ~1 Hz store re-render to the player */}
+              {panel === "lyrics" && (
+                <LyricsView
+                  lines={lyrics}
+                  plainText={plainLyrics}
+                  currentTime={currentPlaybackPosition()}
+                  isLoading={lyricsLoading}
+                  error={lyricsError}
+                  onSeek={seekToTime}
+                  cover={currentTrack?.cover}
+                  duration={duration}
+                  variant="full"
+                />
+              )}
               {panel === "queue" && (upcoming.length ? upcoming.map((t, i) => (
                 <div key={t.id + i} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playTrack?.(t, queue); setPanel(null); } }} onClick={() => { playTrack?.(t, queue); setPanel(null); }} className="mq-ft-btn w-full flex items-center gap-3 p-2 rounded-xl text-left" style={{ border: "none", cursor: "pointer", background: "transparent" }}>
                   <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">{t.cover ? <img src={t.cover} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: "var(--mq-accent)" }} />}</div>

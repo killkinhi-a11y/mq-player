@@ -9,6 +9,7 @@ import {
 import { useAppStore, type FavoriteArtist } from "@/store/useAppStore";
 import { type Track, formatDuration, formatTrackDuration } from "@/lib/musicApi";
 import { useToast } from "@/hooks/use-toast";
+import { shareArtistUrl } from "@/lib/share-urls";
 import { extractColors, type DominantColors } from "@/hooks/useDominantColor";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import ContextMenu from "./ContextMenu";
@@ -205,11 +206,15 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
     }
   }, [isFav, favoriteArtists, artist.name, info, tracks.length, removeFavoriteArtist, addFavoriteArtist, toast]);
 
-  const handleShare = useCallback(async () => {
-    const url = `${window.location.origin}/play?artist=${encodeURIComponent(artist.name)}`;
-    if (navigator.share) { try { await navigator.share({ title: artist.name, url }); } catch {} }
-    else if (navigator.clipboard) { navigator.clipboard.writeText(url).then(() => toast({ title: "Ссылка скопирована" })); }
-  }, [artist.name, toast]);
+  const handleShare = useCallback(() => {
+    // v78: global QR share sheet with the canonical artist URL
+    useAppStore.getState().openShareSheet({
+      url: shareArtistUrl(artist.name),
+      title: artist.name,
+      subtitle: "Артист в MQ",
+      cover: info?.avatar || artist.avatar,
+    });
+  }, [artist.name, artist.avatar, info]);
 
   const openSimilar = useCallback((a: SimilarArtist) => {
     scrollTopRef.current?.scrollIntoView({ behavior: "auto", block: "start" });

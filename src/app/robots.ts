@@ -6,7 +6,7 @@ import type { MetadataRoute } from "next";
  * Allows all crawlers to index all routes, points to sitemap.
  */
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://mq-player.vercel.app";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://mq1.vercel.app";
 
   return {
     rules: [

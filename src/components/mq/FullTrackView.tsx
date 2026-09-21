@@ -19,8 +19,8 @@ import { toast } from "@/hooks/use-toast";
 import VolumeSlider from "@/components/ui/volume-slider";
 import { fetchLyrics } from "@/lib/lyrics-client";
 import { LyricsView, type LyricLine } from "./LyricsView";
+import { shareTrackUrl } from "@/lib/share-urls";
 import { AudioVisualizer } from "./AudioVisualizer";
-import { ShareSheet } from "./ShareSheet";
 import { waveReasonText } from "./MainView";
 import MenuCore, { MenuHeader, type MenuElement } from "./ui/MenuCore";
 import { TextSwap } from "./ui/TextSwap";
@@ -30,94 +30,6 @@ import { TrackMoreButton } from "./ui/TrackMoreButton";
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — full-screen premium player
 // ═════════════════════════════════════════════════════════════════════════
-
-interface SyncedLyricLine {
-  time: number;
-  text: string;
-}
-
-// ── Synced lyrics renderer ──────────────────────────────────────────────
-function SyncedLyrics({
-  lines,
-  currentTime,
-  onSeek,
-}: {
-  lines: SyncedLyricLine[];
-  currentTime: number;
-  onSeek: (t: number) => void;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const lineRefs = useRef<(HTMLButtonElement | null)[]>([]);
-
-  const activeIdx = useMemo(() => {
-    if (lines.length === 0) return -1;
-    let idx = -1;
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].time <= currentTime) idx = i;
-      else break;
-    }
-    return idx;
-  }, [lines, currentTime]);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    const lineEl = lineRefs.current[activeIdx];
-    if (!container || !lineEl) return;
-    const cTop = container.scrollTop;
-    const cBot = cTop + container.clientHeight;
-    const lTop = lineEl.offsetTop;
-    const lBot = lTop + lineEl.offsetHeight;
-    if (lTop < cTop + 40 || lBot > cBot - 40) {
-      container.scrollTo({
-        top: lTop - container.clientHeight / 2 + lineEl.offsetHeight / 2,
-        behavior: "smooth",
-      });
-    }
-  }, [activeIdx]);
-
-  if (lines.length === 0) {
-    return (
-      <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>
-        Текст не найден для этого трека
-      </p>
-    );
-  }
-
-  return (
-    <div
-      ref={containerRef}
-      className="text-base leading-relaxed max-h-[280px] overflow-y-auto px-2 py-2 space-y-1 scroll-smooth"
-      style={{
-        scrollbarWidth: "thin",
-        maskImage: "linear-gradient(180deg, transparent 0%, #000 12%, #000 88%, transparent 100%)",
-        WebkitMaskImage: "linear-gradient(180deg, transparent 0%, #000 12%, #000 88%, transparent 100%)",
-      }}
-    >
-      {lines.map((line, i) => {
-        const isActive = i === activeIdx;
-        const isPast = i < activeIdx;
-        return (
-          <button
-            key={i}
-            ref={(el) => { lineRefs.current[i] = el; }}
-            onClick={() => onSeek(line.time)}
-            className="block w-full text-left px-2 py-1.5 rounded-lg transition-colors duration-150 cursor-pointer"
-            style={{
-              color: isActive ? "var(--mq-text)" : isPast ? "color-mix(in srgb, var(--mq-text-muted) 50%, transparent)" : "var(--mq-text-muted)",
-              fontWeight: isActive ? 600 : 400,
-              fontSize: isActive ? "1.05rem" : "0.95rem",
-              transform: isActive ? "scale(1.0)" : "scale(0.98)",
-              opacity: isActive ? 1 : isPast ? 0.55 : 0.7,
-              background: isActive ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)" : "transparent",
-            }}
-          >
-            {line.text || "♪"}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 // ── Heart particle burst on like ── REMOVED in Phase 2B (decorative).
 // Toast + heart state change is sufficient feedback for a like action.
@@ -205,7 +117,6 @@ export default function FullTrackView() {
   const [moreMenu, setMoreMenu] = useState<{ x: number; y: number } | null>(null);
   const [showDoubleTapHint, setShowDoubleTapHint] = useState(true);
   const [showVisualizer, setShowVisualizer] = useState(false);
-  const [showShareSheet, setShowShareSheet] = useState(false);
   const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
   const [showVolumePopup, setShowVolumePopup] = useState(false);
   const [lastTapTime, setLastTapTime] = useState(0);
@@ -333,10 +244,17 @@ export default function FullTrackView() {
     }
   }, [currentTrack, toggleDislike]);
 
+  const openShareSheet = useAppStore((s) => s.openShareSheet);
+
   const handleShare = useCallback(() => {
     if (!currentTrack) return;
-    setShowShareSheet(true);
-  }, [currentTrack]);
+    openShareSheet({
+      url: shareTrackUrl(currentTrack),
+      title: currentTrack.title,
+      subtitle: currentTrack.artist,
+      cover: currentTrack.cover,
+    });
+  }, [currentTrack, openShareSheet]);
 
   const handleArtistClick = useCallback(() => {
     if (currentTrack?.artist) {
@@ -835,7 +753,7 @@ export default function FullTrackView() {
               label: "Поделиться",
               onSelect: () => {
                 setMoreMenu(null);
-                setShowShareSheet(true);
+                handleShare();
               },
             },
             {
@@ -1088,6 +1006,7 @@ export default function FullTrackView() {
                 error={lyricsError}
                 onSeek={seekToTime}
                 cover={currentTrack?.cover}
+                duration={duration}
               />
             )}
           </motion.div>
@@ -1639,7 +1558,11 @@ export default function FullTrackView() {
                         )}
 
                         {panelTab === "lyrics" && (
-                          <div className="px-2 py-3">
+                          /* h-full (not flex-1): this div is a BLOCK child of
+                             the shared overflow-y-auto tab wrapper — fill its
+                             height so LiquidLyrics' own .ll-scroll becomes the
+                             scroller (auto-scroll targets it). */
+                          <div className="h-full min-h-0 flex flex-col px-2 py-3">
                             {lyricsLoading ? (
                               <div className="flex items-center gap-2 py-8 justify-center">
                                 <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} />
@@ -1654,6 +1577,8 @@ export default function FullTrackView() {
                                 error={lyricsError}
                                 onSeek={seekToTime}
                                 cover={currentTrack?.cover}
+                                duration={duration}
+                                variant="full"
                               />
                             )}
                           </div>
@@ -1719,14 +1644,6 @@ export default function FullTrackView() {
         } } : { kind: "default" }}
       />
     )}
-    <ShareSheet
-      isOpen={showShareSheet}
-      onClose={() => setShowShareSheet(false)}
-      url={typeof window !== "undefined" && currentTrack ? `${window.location.origin}/track/${currentTrack.scTrackId || currentTrack.id}` : ""}
-      title={currentTrack?.title || ""}
-      subtitle={currentTrack?.artist}
-      cover={currentTrack?.cover}
-    />
     </>
   );
 }

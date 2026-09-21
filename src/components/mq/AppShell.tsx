@@ -81,6 +81,7 @@ function ViewSkeleton() {
 // ── Shell components (lazy, not switched often) ──
 const MqCat = dynamic(() => import("@/components/mq/MqCat"), { ssr: false });
 const PlayerBar = dynamic(() => import("@/components/mq/PlayerBar"), { ssr: false });
+const ShareSheet = dynamic(() => import("@/components/mq/ShareSheet").then((m) => m.ShareSheet), { ssr: false });
 const FullTrackView = dynamic(() => import("@/components/mq/FullTrackView"), { ssr: false });
 const FullTrackViewMobile = dynamic(() => import("@/components/mq/FullTrackViewMobile"), { ssr: false });
 const KeyboardShortcutsHelp = dynamic(() => import("@/components/mq/KeyboardShortcutsHelp").then(m => ({ default: m.KeyboardShortcutsHelp })), { ssr: false });
@@ -120,6 +121,23 @@ const VISITED_VIEW_COMPONENTS: { id: string; Component: React.ComponentType }[] 
   { id: "profile", Component: ProfileView },
 ];
 const VISITED_VIEW_IDS = new Set(VISITED_VIEW_COMPONENTS.map(v => v.id));
+
+/** Global share sheet — store-driven, mounted once. Every share surface
+ *  (player, menus, rows) opens this ONE dialog with a canonical URL. */
+function GlobalShareSheet() {
+  const shareSheet = useAppStore((s) => s.shareSheet);
+  const closeShareSheet = useAppStore((s) => s.closeShareSheet);
+  return (
+    <ShareSheet
+      isOpen={!!shareSheet}
+      onClose={closeShareSheet}
+      url={shareSheet?.url ?? null}
+      title={shareSheet?.title ?? ""}
+      subtitle={shareSheet?.subtitle}
+      cover={shareSheet?.cover}
+    />
+  );
+}
 
 export default function AppShell() {
   // ── Optimized selectors: only subscribe to what this component needs ──
@@ -779,6 +797,9 @@ export default function AppShell() {
       {/* PlayerBar (desktop only — mobile uses MobileDock which combines player + nav) */}
       <Suspense fallback={null}><PlayerBar /></Suspense>
       <Suspense fallback={null}>{isMobile ? <FullTrackViewMobile /> : <FullTrackView />}</Suspense>
+      {/* Global share sheet — every share surface opens this ONE dialog
+          (QR + copy link + native share, canonical URLs from lib/share-urls) */}
+      <GlobalShareSheet />
       <Suspense fallback={null}><EqualizerView show={isEqOpen} onClose={() => setEqOpen(false)} /></Suspense>
       <Suspense fallback={null}><KeyboardShortcutsHelp /></Suspense>
       <Suspense fallback={null}>{showNav && <CommandPalette />}</Suspense>

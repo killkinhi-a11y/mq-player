@@ -6,7 +6,7 @@ import type { MetadataRoute } from "next";
  * Lists all public routes for search engine indexing.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://mq-player.vercel.app";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://mq1.vercel.app";
   const now = new Date();
 
   // Static public routes

@@ -384,6 +384,12 @@ interface AppState {
   requestShowLyrics: () => void;
   clearShowLyricsRequest: () => void;
 
+  // ── Share sheet (global, QR-powered) ──
+  /** null = closed. url null = no public link (demo/local content). */
+  shareSheet: { url: string | null; title: string; subtitle?: string; cover?: string } | null;
+  openShareSheet: (payload: { url: string | null; title: string; subtitle?: string; cover?: string }) => void;
+  closeShareSheet: () => void;
+
   // Playlist actions
   createPlaylist: (name: string, description?: string) => void;
   deletePlaylist: (playlistId: string) => void;
@@ -635,6 +641,7 @@ const initialState = {
   similarTracksLoading: false,
   showSimilarRequested: false,
   showLyricsRequested: false,
+  shareSheet: null,
   playlists: [] as UserPlaylist[],
   selectedPlaylistId: null as string | null,
 
@@ -1904,6 +1911,10 @@ export const useAppStore = create<AppState>()(
       requestShowLyrics: () => set({ showLyricsRequested: true, isFullTrackViewOpen: true, showSimilarRequested: false }),
       clearShowLyricsRequest: () => set({ showLyricsRequested: false }),
 
+      // ── Share sheet (global, QR-powered) ──
+      openShareSheet: (payload) => set({ shareSheet: payload }),
+      closeShareSheet: () => set({ shareSheet: null }),
+
       // ── Playlist actions ──
       createPlaylist: (name, description = "") => {
         const id = `pl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -2885,6 +2896,7 @@ export const useAppStore = create<AppState>()(
           publicPlaylistsLoading, recommendedPlaylistsLoading, publicPlaylistsTotal,
           isSyncing, syncError, supportUnreadCount,
           isFullTrackViewOpen, isEqOpen, notifPanelOpen, notificationCount,
+          shareSheet,
           sleepTimerActive, sleepTimerRemaining, sleepTimerEndTime,
           miniPlayerHidden,
           playbackState, isBuffering, isDragging,

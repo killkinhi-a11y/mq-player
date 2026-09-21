@@ -5,6 +5,7 @@ import {
   Play, Shuffle, Pencil, Camera, Share2, Trash2, Pin, PinOff, ListPlus, ListMusic, Music2,
 } from "lucide-react";
 import { useAppStore, type UserPlaylist } from "@/store/useAppStore";
+import { sharePlaylistUrl } from "@/lib/share-urls";
 import MenuCore, { MenuHeader, type MenuElement } from "./ui/MenuCore";
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -84,17 +85,16 @@ export default function PlaylistActionsMenu({
     onClose();
   }, [playlist, onClose]);
 
-  const share = useCallback(async () => {
-    const url = shareUrl ?? `${window.location.origin}/playlist/${playlist.id}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: playlist.name, url });
-      } catch {
-        /* dismissed */
-      }
-    } else {
-      await navigator.clipboard.writeText(url).catch(() => {});
-    }
+  const share = useCallback(() => {
+    // v78: canonical playlist URL (/play?pl=… — /playlist/{id} 404'd) via
+    // the builder unless the caller passes an explicit shareUrl, opened in
+    // the global QR share sheet.
+    useAppStore.getState().openShareSheet({
+      url: shareUrl ?? sharePlaylistUrl(playlist.id),
+      title: playlist.name,
+      subtitle: `Плейлист · ${playlist.tracks.length} треков`,
+      cover: playlist.cover,
+    });
     onClose();
   }, [playlist, onClose, shareUrl]);
 

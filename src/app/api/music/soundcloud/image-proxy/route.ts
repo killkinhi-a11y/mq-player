@@ -22,7 +22,10 @@ async function handler(request: NextRequest) {
     return NextResponse.json({ error: "missing url parameter" }, { status: 400 });
   }
 
-  // Only allow SoundCloud CDN URLs (strict allowlist to prevent subdomain bypass)
+  // Only allow SoundCloud CDN URLs (strict allowlist to prevent subdomain bypass).
+  // v78: artwork/avatar URLs arrive on multiple sndcdn.com subdomains (i1-i4
+  // images, a1+ avatars/artworks) — allow *.sndcdn.com (still scoped to
+  // SoundCloud's own CDN domain; no open-proxy surface).
   const SC_IMAGE_DOMAINS = [
     "i1.sndcdn.com", "i2.sndcdn.com", "i3.sndcdn.com", "i4.sndcdn.com",
     "cf-media.sndcdn.com", "api-media.sndcdn.com",
@@ -30,7 +33,7 @@ async function handler(request: NextRequest) {
   try {
     const parsed = new URL(imageUrl);
     const h = parsed.hostname;
-    const isAllowed = SC_IMAGE_DOMAINS.some(d => h === d || h.endsWith("." + d));
+    const isAllowed = h.endsWith(".sndcdn.com") || SC_IMAGE_DOMAINS.some(d => h === d || h.endsWith("." + d));
     if (!isAllowed) {
       return NextResponse.json({ error: "only SoundCloud CDN URLs are allowed" }, { status: 400 });
     }

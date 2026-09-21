@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { type Track, formatDuration } from "@/lib/musicApi";
+import { shareTrackUrl } from "@/lib/share-urls";
 import { getAudioElement } from "@/lib/audioEngine";
 import MenuCore, { backLabelSpec, MenuHeader, type MenuElement } from "./ui/MenuCore";
 
@@ -75,7 +76,6 @@ export default function ContextMenu({
   const removeFavoriteArtist = useAppStore((s) => s.removeFavoriteArtist);
 
   const [page, setPage] = useState<"root" | "playlists">("root");
-  const [shareFeedback, setShareFeedback] = useState(false);
 
   const isLiked = isTrackLiked(track.id);
   const isDisliked = isTrackDisliked(track.id);
@@ -131,27 +131,16 @@ export default function ContextMenu({
     onClose();
   }, [isSubscribed, favoriteArtists, track, addFavoriteArtist, removeFavoriteArtist, onClose]);
 
-  const handleShare = useCallback(async () => {
-    const shareUrl = `${window.location.origin}/track/${track.scTrackId}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: `${track.title} — ${track.artist}`, url: shareUrl });
-      } catch {
-        /* user dismissed */
-      }
-      onClose();
-    } else {
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        setShareFeedback(true);
-        setTimeout(() => {
-          setShareFeedback(false);
-          onClose();
-        }, 1400);
-      } catch {
-        onClose();
-      }
-    }
+  const handleShare = useCallback(() => {
+    // v78: open the global QR share sheet (QR + copy + native share) with
+    // the canonical track URL. Share item is already gated on scTrackId.
+    useAppStore.getState().openShareSheet({
+      url: shareTrackUrl(track),
+      title: track.title,
+      subtitle: track.artist,
+      cover: track.cover,
+    });
+    onClose();
   }, [track, onClose]);
 
   const handleDownload = useCallback(async () => {
@@ -270,8 +259,7 @@ export default function ContextMenu({
               type: "item" as const,
               id: "share",
               icon: Share2,
-              label: shareFeedback ? "Ссылка скопирована" : "Поделиться",
-              active: shareFeedback,
+              label: "Поделиться",
               onSelect: handleShare,
             },
           ]
@@ -349,7 +337,7 @@ export default function ContextMenu({
     }
     return els;
   }, [
-    page, playlists, track, isLiked, isDisliked, isSubscribed, shareFeedback,
+    page, playlists, track, isLiked, isDisliked, isSubscribed,
     handlePlay, handleAddToQueue, handleSimilar, handleGoToArtist,
     handleToggleSubscribe, handleShare, handleDownload, handleQuickCreateAndAdd,
     toggleLike, toggleDislike, context, onClose,

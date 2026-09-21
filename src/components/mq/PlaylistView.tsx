@@ -10,6 +10,7 @@ import {
   Camera, Shuffle, Pin, MoreVertical, Music, Share2, MoreHorizontal, Pause,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { sharePlaylistUrl } from "@/lib/share-urls";
 import { EmptyState } from "./EmptyState";
 import ContextMenu from "./ContextMenu";
 import PlaylistActionsMenu from "./PlaylistActionsMenu";
@@ -722,8 +723,13 @@ export default function PlaylistView() {
                 onRenameStart={() => handleStartRename(pl)}
                 onCoverUpload={() => coverInputRef.current?.click()}
                 onShare={() => {
-                  navigator.clipboard?.writeText(`${window.location.origin}/play?pl=${pl.id}`).catch(() => {});
-                  toast({ title: "Ссылка скопирована", description: "Ссылка на плейлист в буфере обмена" });
+                  // v78: global QR share sheet with the canonical playlist URL
+                  useAppStore.getState().openShareSheet({
+                    url: sharePlaylistUrl(pl.id),
+                    title: pl.name,
+                    subtitle: `Плейлист · ${pl.tracks.length} треков`,
+                    cover: pl.cover,
+                  });
                 }}
                 onDelete={() => handleDelete(pl)}
               />
@@ -1401,7 +1407,12 @@ function PlaylistTile({
               onRenameStart={onRenameStart}
               onCoverUpload={() => fileInputRef.current?.click()}
               onShare={() => {
-                navigator.clipboard?.writeText(`${window.location.origin}/play?pl=${pl.id}`).catch(() => {});
+                useAppStore.getState().openShareSheet({
+                  url: sharePlaylistUrl(pl.id),
+                  title: pl.name,
+                  subtitle: `Плейлист · ${pl.tracks.length} треков`,
+                  cover: pl.cover,
+                });
               }}
               onDelete={onDelete}
             />

@@ -16,6 +16,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
 import { hapticLike, hapticDislike, hapticSkip, hapticPlay } from "@/lib/haptics";
 import { useToast } from "@/hooks/use-toast";
+import { shareTrackUrl } from "@/lib/share-urls";
 import QueueView from "./QueueView";
 import { ProgressBar } from "./ProgressBar";
 import { TextSwap } from "./ui/TextSwap";
@@ -208,17 +209,17 @@ export default function PlayerBar() {
     setMoreMenu(null);
   }, [currentTrack, toggleDislike, toast]);
 
-  const handleShare = useCallback(async () => {
+  const handleShare = useCallback(() => {
     if (!currentTrack) return;
-    const url = `${window.location.origin}/track/${currentTrack.scTrackId || currentTrack.id}`;
-    if (navigator.share) {
-      try { await navigator.share({ title: currentTrack.title, url }); } catch {}
-    } else if (navigator.clipboard) {
-      navigator.clipboard.writeText(url);
-      toast({ title: "Ссылка скопирована", duration: 2000 });
-    }
     setMoreMenu(null);
-  }, [currentTrack, toast]);
+    // v78: global QR share sheet, canonical URL (null = honest no-link state)
+    useAppStore.getState().openShareSheet({
+      url: shareTrackUrl(currentTrack),
+      title: currentTrack.title,
+      subtitle: currentTrack.artist,
+      cover: currentTrack.cover,
+    });
+  }, [currentTrack]);
 
   const openFullPlayer = useCallback(() => {
     if (currentTrack) setFullTrackViewOpen(true);
