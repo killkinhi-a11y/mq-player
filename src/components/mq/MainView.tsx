@@ -615,15 +615,20 @@ function MainView() {
       {/* ════════════════════════════════════════════════════════════════ */}
       {/* NEW / TRENDING — numbered chart rows (new): real trending + */}
       {/* Apple/Spotify chart data, presented as a ranked list. */}
+      {/* W01 fix: ranks are GLOBAL across the flattened list (1..10) — */}
+      {/* per-category ranks (1-5, 1-5) read as duplicated placeholder */}
+      {/* numbers ("12345 / 12345") in the two-column grid. */}
       {/* ════════════════════════════════════════════════════════════════ */}
       {chartCategories.length > 0 && (
         <Section title="Новое и в тренде" icon={Flame} action={<span className="mq-t-meta mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>обновляется каждый час</span>}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-1.5">
-            {chartCategories.flatMap((cat) =>
-              cat.tracks.slice(0, 5).map((track, i) => (
+            {chartCategories
+              .flatMap((cat) => cat.tracks.slice(0, 5).map((track, i) => ({ cat, track, i })))
+              .slice(0, 10)
+              .map(({ cat, track, i }, globalIdx) => (
                 <ChartRow
                   key={cat.id + "_" + track.id + "_" + i}
-                  rank={i + 1}
+                  rank={globalIdx + 1}
                   track={track}
                   isCurrent={currentTrack?.id === track.id}
                   isPlaying={isPlaying && currentTrack?.id === track.id}
@@ -631,8 +636,7 @@ function MainView() {
                   onArtistClick={() => handleNavigateToArtist(track.artist)}
                   onMore={(e) => openTrackMenu(track, e)}
                 />
-              ))
-            ).slice(0, 10)}
+              ))}
           </div>
         </Section>
       )}
@@ -829,10 +833,13 @@ function MainView() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* CURATED PLAYLISTS (below the fold) */}
+      {/* RECOMMENDED PLAYLISTS (below the fold) — built from the user's */}
+      {/* real taste signal (top genres/artists + liked tracks) by the */}
+      {/* curated API. W01: honest personalized framing instead of the */}
+      {/* fake "editorial" voice. */}
       {/* ════════════════════════════════════════════════════════════════ */}
       {curatedPlaylists.length > 0 && (
-        <Section title="Подборки редакции" icon={Sparkles}>
+        <Section title="Рекомендованные плейлисты" icon={Sparkles}>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {curatedPlaylists.slice(0, 8).map((pl, i) => (
               <CuratedPlaylistCard
@@ -887,7 +894,7 @@ function MainView() {
           header={
             <MenuHeader
               title={homeMenu.playlist.name}
-              subtitle={`${homeMenu.playlist.tracks.length} треков · подборка редакции`}
+              subtitle={`${homeMenu.playlist.tracks.length} треков · подобрано по вашему вкусу`}
               fallbackIcon={ListMusic}
             />
           }
@@ -2138,6 +2145,7 @@ function CuratedPlaylistCard({
       onClick={onPlay}
       className="text-left cursor-pointer group rounded-2xl overflow-hidden w-full"
       style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)", boxShadow: "var(--mq-shadow-premium-md)" }}
+      aria-label={`Рекомендованный плейлист: ${pl.name}`}
     >
       <div className="relative aspect-square overflow-hidden">
         <PlaylistArtwork playlistId={pl.id} size={200} rounded="rounded-none" className="!w-full !h-full group-hover:scale-105 transition-transform duration-500" />

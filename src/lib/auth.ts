@@ -71,6 +71,30 @@ export const SESSION_COOKIE_OPTIONS = {
 };
 
 /**
+ * Read + verify the session directly from a NextRequest's cookie header.
+ *
+ * Unlike getSession() (next/headers — request-store scoped), this works in
+ * ANY context that already holds the request: route handlers reading THEIR
+ * OWN req (the OAuth callbacks — the browser lands there via top-level
+ * navigation, so the cookie travels on the request), and unit tests.
+ * Same verification chain (verifyToken); null when absent/invalid.
+ */
+export async function getSessionFromRequest(
+  req: Request
+): Promise<SessionPayload | null> {
+  const cookieHeader = req.headers.get("cookie");
+  if (!cookieHeader) return null;
+  const match = cookieHeader
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(SESSION_COOKIE_OPTIONS.name + "="));
+  if (!match) return null;
+  const token = decodeURIComponent(match.slice(SESSION_COOKIE_OPTIONS.name.length + 1));
+  if (!token) return null;
+  return verifyToken(token);
+}
+
+/**
  * Set session cookie on a NextResponse.
  * Convenience helper for login/register/confirm routes.
  */

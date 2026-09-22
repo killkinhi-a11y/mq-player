@@ -5141,3 +5141,122 @@ Stage Summary:
   scoped + capsule radius fix. QA-скриншоты: download/qa/web-rollback/
   (15 шт: home×5 разрешений, minicap, fullplayer, qr-share, search,
   library, settings×2, context-menu, mobile, desktop-shell-forced).
+
+---
+Task ID: w01-w13-personalization
+Agent: main (Super Z)
+Task: W01–W13 — довести MQ Player до премиального продукта поверх rollback
+baseline (6f0fbd91): персонализация на реальных данных, search suggestions,
+history >200, skeletons, Full Player polish, account linking. НЕ переписывать
+проект; context menu / desktop / Android / web rollback — не трогать.
+
+Work Log:
+- AUDIT (STEP 1): baseline подтверждён — HEAD 435d6918, tree clean, тесты
+  411/411. Прочитаны MainView (2180), SearchView (1325), HistoryView (783),
+  QueueView (1177), FullTrackView (1668), LiquidLyrics/LyricsView, SettingsView,
+  AuthView, store (3357), auth API chain (google route/callback/native,
+  telegram-widget callback/register, providers), Prisma User/AuthIdentity,
+  /api/sync (history = JSON blob, лимита на сервере НЕТ — 200 был клиентским
+  cap), desktop-mode.ts, GoogleAuthFlow.kt (Android Credential Manager —
+  полный аудит цепочки: providers → nonce → 2-pass → native → session).
+- НАЙДЕН «12345»-паттерн (W01 2.2): «Новое и в тренде» flatMap по категориям
+  рендерил per-category ранги 1–5 ДВАЖДЫ (две колонки = 12345/12345 на
+  VLM-скриншоте). FIX: глобальный индекс 1–10. DOM-проверка: №1…№10 ✓.
+- W01 2.3: «Подборки редакции» → «Рекомендованные плейлисты» (секция +
+  subtitle меню «подобрано по вашему вкусу» + aria-label). Данные уже
+  реальные (curated API по вкусу).
+- W01 2.4: NavBar (web) scroll-interaction — компакт-состояние после 24px
+  скролла (padding 6→4px, margin 10→8px, чуть сильнее тень), rAF-throttled
+  passive listener, paint-only свойства, reduceMotion → без transition.
+  Sticky/fixed поведение не тронуто (fixed-элемент, контент не сдвигается).
+- W01 2.1/2.5: аудит — иконки уже lucide (AI-look нет), волны в track card
+  уже нет, «Похожие треки» уже в ContextMenu → НЕ тронуто (W10: context
+  menu полностью сохранён).
+- W02: suggestions переписаны на РЕАЛЬНЫЕ источники — новая чистая либа
+  lib/search-suggestions.ts (buildSuggestions: search history + listening
+  history + favorite/recent artists + user playlists + genre catalog;
+  empty query → полезные recents при фокусе; query → substring-матчи +
+  direct-search row; dedupe; cap 10). Keyboard nav: ↓/↑ (wrap), Enter,
+  Escape; aria-selected; hover синхронен с курсором. Дом-проверка live:
+  6 options, стрелки двигают active, Escape закрывает (после exit-анимации).
+  Прежние статичные POPULAR_ARTISTS удалены.
+- W03: MAX_HISTORY 200→1000 (5 мест в store через MAX_HISTORY_ENTRIES),
+  HistoryView — инкрементальный рендер: PAGE_SIZE 50, IntersectionObserver
+  sentinel (rootMargin 600px) + кнопка «Показать ещё» + end-of-history
+  state («Вся история — N»); windowing вынесен в чистый lib/history-window.ts
+  (windowGroups). Reset окна — в onChange (без effect).
+- W04: LibraryView Suspense fallback — таб-aware скелетоны (rows для
+  favorites/history, card-grid для playlists) вместо одиночного спиннера.
+- W06: Full Player micro-polish — artist font-medium + tracking[0.01em],
+  meta row tabular-nums. Cover transition уже есть (keyed motion remount),
+  LiquidTitle/TextSwap/visualizer (реальный AnalyserNode) не тронуты.
+- W08: PlayerBar уже чистый (capsule, без wave states) — не тронуто.
+- W09: dnd reorder/remove/clear уже реализованы — добавлены STORE-тесты
+  (moveInQueue 4 сценария queueIndex-математики, remove, moveInUpNext,
+  removeFromUpNext, clearUpNext).
+- W13 BACKEND: link-mode для Google (/api/auth/google?link=1 → cookie
+  mq_oauth_link → callback: сессия обязательна (getSessionFromRequest —
+  новый helper в lib/auth.ts, читает cookie из самого NextRequest), конфликт
+  identity/email у ДРУГОГО аккаунта → linkError=google_taken БЕЗ слияния,
+  clean link → AuthIdentity для session user, idempotent; login-flow не
+  изменён) + Telegram (widget callback ?link=1: те же правила + legacy
+  telegramChatId конфликт-чек + backfill) + GET /api/auth/link/providers
+  (статус привязок, без provider user ids). Desktop handoff не тронут.
+- W13 FRONTEND: AccountLinkingCard.tsx в Settings→Аккаунт («Подключённые
+  сервисы»: Google/Telegram ряды со статусом, официальный Telegram Login
+  Widget в link-режиме, Google через системный браузер на desktop,
+  конфликт-баннеры google_taken/telegram_taken/no_session; скрыт в demo;
+  URL-параметры linkSuccess/linkError читаются один раз в lazy useState,
+  history.replaceState чистит URL без setState). 12/12 тестов линкинга
+  (конфликты, idempotency, 401, отсутствие merge).
+- W12: Android Google auth — ПОЛНЫЙ код-аудит цепочки (уже реализовано в
+  предыдущей сессии, включая NoCredentialException fallback-fix):
+  AuthRepository (providers→nonce с SecureCookieJar→CredentialManager
+  2-pass→native POST с parse errorBody) корректен; /api/auth/providers
+  отдаёт ТОЛЬКО публичный client id (secret не течёт). Внешний конфиг
+  задокументирован (Google Cloud Console — см. Stage Summary). Device QA =
+  BLOCKED (нет Android runtime в sandbox).
+- W11: Settings mobile уже mobile-first (VLM 8/10: chips, 44px targets,
+  0 overflow) — подтверждено на 390/393/411.
+- LINT-FIX: все НОВЫЕ ошибки устранены (SearchView reset-in-effect →
+  onChange+clamp; let-reassign в render → иммутабельный showGroupFlags;
+  HistoryView reset → onChange; LibraryView targetTab sync → официальный
+  adjust-state-during-render; AccountLinkingCard → lazy useState + async
+  continuations). Остаток = pre-existing (SearchView 149/236, HistoryView
+  43/85, FullTrackView 482/515 — те же, что в baseline).
+- Тесты: 411 → 447 (+36: search-suggestions 10, history-window 6,
+  queue-ops 8, account-linking 12; 1 обновлён store-extended MAX_HISTORY
+  200→1000). tsc clean (кроме pre-existing skills/). Web prod build PASS
+  (✓ 27.1s, 102/102 static). Desktop frontend build PASS (tsc+vite 8.9s).
+- QA (dev server, demo-режим, agent-browser + z-ai vision):
+  * Чарт-ранги №1–№10 ✓ (DOM), «Рекомендованные плейлисты» ✓ (DOM+VLM).
+  * Suggestions: dropdown на фокусе/вводе ✓, direct+history+genre ✓,
+    стрелки/Escape ✓, search результаты 72 трека рендерятся ✓.
+  * Responsive-матрица 7 разрешений (390×844/393×852/411×844/768×1024/
+    1280×800/1440×900/1920×1080) × 4 экрана (home/search/library/settings):
+    overflowX = 0 ВСЕ (28/28).
+  * Full Player + Queue: композиция/типографика/секции — VLM ок; capsule
+    плеер присутствует; History empty state честный.
+  * WEB/DESKTOP изоляция: web-загрузка → sidebar=false, #mq-navbar=false,
+    data-mq-desktop=null ✓; линк-карта скрыта в demo ✓.
+  * Скриншоты: download/qa/w01-13/ (31 шт + matrix/ 28).
+
+Stage Summary:
+- W01 ✓ (ранги, переименование, scroll-interaction) · W02 ✓ (реальные
+  suggestions + keyboard nav) · W03 ✓ (1000 + инкрементальный рендер)
+- W04 ✓ (таб-aware skeletons) · W06 ✓ (типографика micro-polish; движение
+  не переписано) · W07 уже было реализовано (аудит: rAF по real playback
+  position, pause/seek/rate через audio.currentTime, manual-scroll pause
+  2.2s, полный текст, empty state) — не тронуто · W08 уже чистый ·
+  W09 ✓ store-тесты (UI был готов) · W10 context menu НЕ тронут («Похожие
+  треки» уже был) · W11 подтверждён · W12 аудит + external-config список ·
+  W13 ✓ полный (backend + UI + тесты)
+- Тесты 447/447, web build PASS, desktop frontend build PASS.
+- Windows runtime QA = BLOCKED (Linux sandbox, как раньше). Android device
+  QA = BLOCKED (нет эмулятора/устройства; код-аудит цепочки Google auth
+  пройден полностью).
+- ВНЕШНЯЯ НАСТРОЙКА (W12/W13, обязательна для прод-работы Google-входа на
+  Android): Google Cloud Console → тот же проект, что web client id:
+  (1) OAuth client типа "Android" с package name com.mq1.player и SHA-1
+  release-keystore; (2)Credential Manager требует это для выдачи id_token
+  с aud=web client id. Для W13 ничего внешнего не нужно (те же провайдеры).

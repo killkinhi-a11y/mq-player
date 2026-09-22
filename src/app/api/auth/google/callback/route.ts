@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { setSessionCookie } from "@/lib/auth";
+import { setSessionCookie, getSessionFromRequest } from "@/lib/auth";
 import { resolveGoogleLogin } from "@/lib/google-auth";
 import { signDesktopHandoffToken } from "@/lib/desktop-handoff";
+import { database } from "@/lib/database";
 import {
   verifyOAuthState,
   generateOAuthState,
@@ -74,6 +75,58 @@ export async function GET(req: NextRequest) {
     // 3. Verify the id_token cryptographically
     const identity = await verifyGoogleIdToken(exchange.id_token, correlationId);
     if (!identity || !identity.sub) return fail("google_token_invalid");
+
+    // ── W13: ACCOUNT LINKING mode ──────────────────────────────────────────
+    // Started from Settings with ?link=1. The verified Google identity is
+    // attached to the CURRENT session user — no login resolution, no
+    // account switching, no auto-merge. Conflicts (identity already owned
+    // by another account, or its email belongs to another account) redirect
+    // with linkError and nothing is written. The session cookie stays as-is.
+    const isLinkFlow = req.cookies.get("mq_oauth_link")?.value === "1";
+    if (isLinkFlow) {
+      const clearLink = (res: NextResponse) => {
+        res.cookies.delete("mq_oauth_link");
+        return res;
+      };
+      const session = await getSessionFromRequest(req);
+      if (!session) {
+        return clearLink(
+          NextResponse.redirect(new URL("/play?linkError=no_session", origin))
+        );
+      }
+
+      // Conflict: Google identity already attached to ANOTHER account
+      const existingIdentity = await database.findAuthIdentity("google", identity.sub);
+      if (existingIdentity && existingIdentity.userId !== session.userId) {
+        return clearLink(
+          NextResponse.redirect(new URL("/play?linkError=google_taken", origin))
+        );
+      }
+      // Conflict: verified Google email belongs to ANOTHER account
+      // (in link mode we never silently take over an email-owned account)
+      if (identity.email && identity.emailVerified) {
+        const emailOwner = await database.findUserByEmail(identity.email);
+        if (emailOwner && emailOwner.id !== session.userId) {
+          return clearLink(
+            NextResponse.redirect(new URL("/play?linkError=google_taken", origin))
+          );
+        }
+      }
+
+      if (!existingIdentity) {
+        await database.createAuthIdentity({
+          userId: session.userId,
+          provider: "google",
+          providerUserId: identity.sub,
+          providerEmail: identity.email,
+          providerUsername: null,
+        });
+      }
+
+      return clearLink(
+        NextResponse.redirect(new URL("/play?linkSuccess=google", origin))
+      );
+    }
 
     // 4. Shared account resolution (identical chain for native logins)
     const result = await resolveGoogleLogin(identity);

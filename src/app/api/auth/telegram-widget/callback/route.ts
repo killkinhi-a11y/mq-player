@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { database } from "@/lib/database";
-import { setSessionCookie } from "@/lib/auth";
+import { setSessionCookie, getSessionFromRequest } from "@/lib/auth";
 import { ensureOwnerAdminRole } from "@/lib/admin-grant";
 import { verifyTelegramLoginHash } from "@/lib/telegram";
 import { signPendingIdentity, getRequestOrigin } from "@/lib/oauth";
@@ -14,7 +14,14 @@ import { signPendingIdentity, getRequestOrigin } from "@/lib/oauth";
  * is trusted until the hash verifies server-side against our bot token
  * (official Telegram algorithm — see lib/telegram.ts).
  *
- * Account resolution:
+ * ?link=1 — W13 ACCOUNT LINKING mode. Requires an ALREADY authenticated
+ * session (never creates one). The verified Telegram identity is attached
+ * to the session user; conflicts (identity already owned by ANOTHER
+ * account — AuthIdentity or legacy telegramChatId) redirect with
+ * linkError=telegram_taken and NOTHING is merged. Idempotent when the
+ * identity already belongs to the session user.
+ *
+ * Account resolution (login mode):
  *   a. AuthIdentity(telegram, id) exists       → login (profile refresh)
  *   b. legacy User.telegramChatId == id        → login + backfill identity
  *   c. new Telegram user                       → short-lived server-signed
@@ -45,6 +52,51 @@ export async function GET(req: NextRequest) {
       if (maintenanceFlag?.enabled) return fail("maintenance");
     } catch {
       // Flag read failed — don't block auth
+    }
+
+    // ── W13: link mode — attach this Telegram to the CURRENT session user ──
+    if (req.nextUrl.searchParams.get("link") === "1") {
+      const linkFail = (code: string) =>
+        NextResponse.redirect(new URL(`/play?linkError=${code}`, origin));
+      const linkOk = () =>
+        NextResponse.redirect(new URL(`/play?linkSuccess=telegram`, origin));
+
+      const session = await getSessionFromRequest(req);
+      if (!session) return linkFail("no_session");
+
+      // Conflict 1: identity row owned by another account
+      const identity = await database.findAuthIdentity("telegram", providerUserId);
+      if (identity && identity.userId !== session.userId) {
+        return linkFail("telegram_taken");
+      }
+      // Conflict 2: legacy telegramChatId owned by another account
+      const legacyOwner = await database.findUserByTelegramChatId(providerUserId);
+      if (legacyOwner && legacyOwner.id !== session.userId) {
+        return linkFail("telegram_taken");
+      }
+
+      if (!identity) {
+        await database.createAuthIdentity({
+          userId: session.userId,
+          provider: "telegram",
+          providerUserId,
+          providerEmail: null,
+          providerUsername: payload.username ?? null,
+        });
+      }
+
+      // Backfill the legacy columns + fill avatar only if empty
+      const me = await database.findUserById(session.userId);
+      const updates: Record<string, unknown> = {};
+      if (me && !me.telegramChatId) updates.telegramChatId = providerUserId;
+      if (me && payload.username && payload.username !== me.telegramUsername) {
+        updates.telegramUsername = payload.username;
+      }
+      if (me && !me.avatar && payload.photo_url) updates.avatar = payload.photo_url;
+      if (me && Object.keys(updates).length > 0) {
+        await database.updateUser(session.userId, updates);
+      }
+      return linkOk();
     }
 
     // a. Linked via AuthIdentity

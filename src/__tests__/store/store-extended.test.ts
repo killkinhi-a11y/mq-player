@@ -433,16 +433,19 @@ describe("Store Persistence", () => {
 // ── Store Quota Management Tests ───────────────────────────────────────────────
 
 describe("Store Quota Management", () => {
-  it("should trim history when it exceeds MAX_HISTORY (200)", () => {
+  it("should trim history when it exceeds MAX_HISTORY (1000) — W03 raised cap", () => {
     // We test this by checking that the localStorage adapter trims
-    // The store's quota-managed storage should trim history > 200
+    // The store's quota-managed storage should trim history > 1000
+    // (W03: the client-side cap was raised 200 → 1000 so History can show
+    // more than 200 plays; the backend stores a blob with no row limit.)
     // We'll verify by checking the persisted data
     const track = {
       id: "t1", title: "T1", artist: "A1", album: "AL1", cover: "",
       duration: 100, genre: "pop", scTrackId: 1, source: "soundcloud" as const, audioUrl: "",
     };
 
-    // Add more than 200 history entries
+    // Add 210 entries — UNDER the 1000 cap, so persisted history keeps them
+    // all (the old 200 cap would have trimmed; the raise is the feature).
     for (let i = 0; i < 210; i++) {
       useAppStore.getState().addToHistory({ ...track, id: `t-${i}` });
     }
@@ -451,7 +454,8 @@ describe("Store Quota Management", () => {
     const stored = localStorage.getItem("mq-store-v8");
     if (stored) {
       const parsed = JSON.parse(stored);
-      expect(parsed.state.history.length).toBeLessThanOrEqual(200);
+      expect(parsed.state.history.length).toBeLessThanOrEqual(1000);
+      expect(parsed.state.history.length).toBeGreaterThanOrEqual(210);
     }
   });
 

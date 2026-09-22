@@ -13,10 +13,15 @@ import { useLongPress } from "@/hooks/useLongPress";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  buildSuggestions,
+  type SuggestionItem,
+  type SuggestionSourceTrack,
+} from "@/lib/search-suggestions";
+import {
   Search, X, SlidersHorizontal, Play, Upload, Clock, Trash2, CheckCircle2,
   AlertCircle, Loader2, Headphones, TrendingUp, ChevronRight, Music, Sparkles,
   RefreshCw, Flame, Zap, Mic, Disc, Heart, Piano, Radio, RotateCcw, ListMusic,
-  Hash, ArrowRight, MoreHorizontal
+  Hash, ArrowRight, MoreHorizontal, User
 } from "lucide-react";
 
 const SEARCH_HISTORY_KEY = "mq-search-history";
@@ -27,17 +32,9 @@ const TRENDING_SEARCHES = [
   "Поп", "Рок", "Хип-хоп", "Электроника", "Инди", "R&B", "Джаз",
 ];
 
-// ── Genre to Russian label mapping ──
-const genreLabels: Record<string, string> = {
-  "Pop": "Поп",
-  "Rock": "Рок",
-  "Electronic": "Электроника",
-  "Hip-Hop": "Хип-хоп",
-  "Jazz": "Джаз",
-  "Classical": "Классика",
-  "R&B": "R&B",
-  "Indie": "Инди",
-};
+// ── Genre to Russian label mapping ── (moved to lib/search-suggestions —
+// GENRE_LABELS is the single source; re-exported here for the genre chips)
+import { GENRE_LABELS as genreLabels } from "@/lib/search-suggestions";
 
 // ── Genre icons mapping ──
 const genreIcons: Record<string, React.ReactNode> = {
@@ -339,6 +336,117 @@ export default function SearchView() {
   const activeLoading = selectedGenre ? isGenreLoading : isLoading;
   const activeHasSearched = selectedGenre || hasSearched;
 
+  // ── W02: REAL suggestion sources (local data — instant, no API per keypress).
+  // Everything shown in the dropdown comes from the user's actual state:
+  // search history, listening history, favorite/recent artists, playlists,
+  // the genre catalog. No invented "popular" lists. The list itself is
+  // built by the pure, tested builder in lib/search-suggestions.ts.
+  const storeHistory = useAppStore((s) => s.history);
+  const favoriteArtists = useAppStore((s) => s.favoriteArtists);
+  const userPlaylists = useAppStore((s) => s.playlists);
+  const storePlayTrack = useAppStore((s) => s.playTrack);
+  const storeSetSelectedArtist = useAppStore((s) => s.setSelectedArtist);
+  const storeSetSelectedPlaylistId = useAppStore((s) => s.setSelectedPlaylistId);
+
+  const suggestionTracks = useMemo<Track[]>(
+    () => (Array.isArray(storeHistory) ? storeHistory : []).slice(0, 12).map((h) => h?.track).filter(Boolean),
+    [storeHistory]
+  );
+  const suggestionArtists = useMemo(() => {
+    const map = new Map<string, { name: string; avatar?: string; count: number }>();
+    for (const a of favoriteArtists || []) {
+      if (a?.username) map.set(a.username.toLowerCase(), { name: a.username, avatar: a.avatar, count: 99 });
+    }
+    for (const h of (Array.isArray(storeHistory) ? storeHistory : []).slice(0, 50)) {
+      const name = h?.track?.artist;
+      if (!name) continue;
+      const key = name.toLowerCase();
+      const entry = map.get(key);
+      if (entry) { if (entry.count < 99) entry.count += 1; }
+      else map.set(key, { name, avatar: h.track.cover, count: 1 });
+    }
+    return [...map.values()].sort((a, b) => b.count - a.count).slice(0, 10);
+  }, [storeHistory, favoriteArtists]);
+
+  const suggestionItems = useMemo<SuggestionItem[]>(() => {
+    return buildSuggestions({
+      query: searchQuery,
+      searchHistory,
+      recentTracks: suggestionTracks.map((t) => ({
+        id: t.id, title: t.title, artist: t.artist, cover: t.cover,
+      })),
+      artists: suggestionArtists,
+      playlists: (userPlaylists || []).map((p) => ({
+        id: p.id, name: p.name, trackCount: p.tracks?.length ?? 0,
+      })),
+    });
+  }, [searchQuery, searchHistory, suggestionTracks, suggestionArtists, userPlaylists]);
+
+  // Keyboard navigation over the suggestion list (-1 = none active; the
+  // direct-search row for a non-empty query is index 0 when no matches).
+  // Reset happens in the input onChange (no cascading-render effect); the
+  // index is CLAMPED against the current list length at use time so a
+  // stale selection can never go out of bounds.
+  const [suggestionActive, setSuggestionActive] = useState(-1);
+  const activeSuggestionIdx = Math.min(suggestionActive, suggestionItems.length - 1);
+
+  const executeSuggestion = useCallback((item: SuggestionItem) => {
+    setShowSuggestions(false);
+    switch (item.kind) {
+      case "search":
+        setSearchQuery(item.label);
+        searchInputRef.current?.focus();
+        break;
+      case "track":
+        if (item.track) {
+          // Play the FULL track object from the listening history (the
+          // suggestion carries the slim source; the queue needs real
+          // playback fields — match by id).
+          const full = suggestionTracks.find((t) => t.id === item.track!.id);
+          if (full) {
+            const queue = (suggestionTracks.length ? suggestionTracks : [full]) as Track[];
+            storePlayTrack(full, queue);
+          }
+        }
+        break;
+      case "artist":
+        storeSetSelectedArtist({ name: item.label, avatar: item.cover });
+        break;
+      case "playlist":
+        if (item.playlistId) {
+          storeSetSelectedPlaylistId(item.playlistId);
+          setView("playlists");
+        }
+        break;
+      case "genre":
+        if (item.genre) {
+          setSelectedGenre(item.genre);
+          setSearchQuery("");
+        }
+        break;
+    }
+  }, [suggestionTracks, storePlayTrack, storeSetSelectedArtist, storeSetSelectedPlaylistId, setSearchQuery, setSelectedGenre, setView]);
+
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestionItems.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSuggestionActive((i) => (i + 1) % suggestionItems.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSuggestionActive((i) => (i <= 0 ? suggestionItems.length - 1 : i - 1));
+    } else if (e.key === "Enter") {
+      if (activeSuggestionIdx >= 0 && suggestionItems[activeSuggestionIdx]) {
+        e.preventDefault();
+        executeSuggestion(suggestionItems[activeSuggestionIdx]);
+      }
+      // -1 → default: let the debounced search handle the raw query
+    } else if (e.key === "Escape") {
+      setShowSuggestions(false);
+      setSuggestionActive(-1);
+    }
+  }, [showSuggestions, suggestionItems, activeSuggestionIdx, executeSuggestion]);
+
   // ── Filter + sort tracks (functional, not cosmetic) ──
   // filterDuration: short (<2min), medium (2-5min), long (>5min)
   // sortBy: relevance (API order), duration (asc), title (alphabetical)
@@ -470,11 +578,14 @@ export default function SearchView() {
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
-              // Reset hasSearched so suggestions show again while typing
+              // Reset hasSearched so suggestions show again while typing;
+              // fresh query → fresh keyboard cursor (no cascading effect).
               setHasSearched(false);
+              setSuggestionActive(-1);
               // Show suggestions immediately when there's a query
               if (e.target.value.trim()) setShowSuggestions(true);
             }}
+            onKeyDown={handleSearchKeyDown}
             onFocus={() => {
               setIsFocused(true);
               // Cancel any pending hide timer, show suggestions if there's a query
@@ -482,7 +593,8 @@ export default function SearchView() {
                 clearTimeout(suggestionsHideTimer.current);
                 suggestionsHideTimer.current = null;
               }
-              if (searchQuery.trim()) setShowSuggestions(true);
+              // W02: show REAL recents on focus even with an empty query
+              setShowSuggestions(true);
             }}
             onBlur={() => {
               setIsFocused(false);
@@ -598,14 +710,14 @@ export default function SearchView() {
         </div>
       </motion.div>
 
-      {/* ── Search suggestions — autocomplete-style dropdown ──
-          Показывается когда есть query и showSuggestions=true.
-          showSuggestions управляется onFocus/onBlur с задержкой скрытия
-          чтобы клик по suggestion успел сработать. Раньше использовалось
-          !hasSearched — но после 300ms debounce hasSearched становилось
-          true и suggestions пропадали (мигание). */}
+      {/* ── Search suggestions — autocomplete-style dropdown (W02) ──
+          REAL sources only: search history, listening history tracks,
+          favorite/recent artists, user playlists, genre catalog, plus the
+          direct-search row for the current query. Shown on focus (useful
+          recents even with an empty query) and while typing (matches).
+          Keyboard: ↓/↑ move, Enter selects, Esc closes (input handler). */}
       <AnimatePresence>
-        {searchQuery.trim() && showSuggestions && !hasSearched && (
+        {showSuggestions && !selectedGenre && suggestionItems.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -615,16 +727,15 @@ export default function SearchView() {
           >
             <SearchSuggestions
               query={searchQuery.trim()}
-              searchHistory={searchHistory}
-              onSelect={(term) => {
-                // Cancel hide timer, set query, keep suggestions visible
+              items={suggestionItems}
+              activeIndex={activeSuggestionIdx}
+              onHover={setSuggestionActive}
+              onSelect={(item) => {
                 if (suggestionsHideTimer.current) {
                   clearTimeout(suggestionsHideTimer.current);
                   suggestionsHideTimer.current = null;
                 }
-                setSearchQuery(term);
-                setShowSuggestions(false);
-                searchInputRef.current?.focus();
+                executeSuggestion(item);
               }}
             />
           </motion.div>
@@ -1192,49 +1303,49 @@ const SearchTrackRow = memo(function SearchTrackRow({
 });
 
 // ═════════════════════════════════════════════════════════════════════════
-// SEARCH SUGGESTIONS — autocomplete-style dropdown
-// Показывает подсказки пока пользователь печатает:
-// 1. Match из recent searches (если query частично совпадает)
-// 2. Trending searches (если query частично совпадает)
-// 3. Popular artists/genres (всегда как подсказки)
-// UX Core #6 (Забывание без подсказок): подсказки помогают пользователю
-// вспомнить что он искал, и снижают когнитивную нагрузку.
+// SEARCH SUGGESTIONS — autocomplete-style dropdown (W02, real data)
+//
+// The list is computed by the PARENT from real user state (search history,
+// listening history, favorite artists, playlists, genres) — this component
+// only RENDERS it. Rows are grouped visually by kind, keyboard-active row
+// is highlighted (aria-activedescendant), mouse hover syncs the keyboard
+// cursor. No invented "popular" entries, no fake numbers.
 // ═════════════════════════════════════════════════════════════════════════
 
-const POPULAR_ARTISTS = [
-  "Mac DeMarco", "Tame Impala", "Arctic Monkeys", "The Weeknd",
-  "Billie Eilish", "Kendrick Lamar", "Frank Ocean", "Tyler, The Creator",
-];
+const SUGGESTION_ICONS: Record<SuggestionItem["icon"], React.ReactNode> = {
+  search: <Clock className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />,
+  track: <Play className="w-3.5 h-3.5 flex-shrink-0 ml-0.5" style={{ color: "var(--mq-text-muted)" }} fill="currentColor" />,
+  artist: <User className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />,
+  playlist: <ListMusic className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />,
+  genre: <Radio className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />,
+};
+
+const SUGGESTION_GROUP_LABEL: Partial<Record<SuggestionItem["kind"], string>> = {
+  search: "Недавние запросы",
+  track: "Треки",
+  artist: "Артисты",
+  playlist: "Плейлисты",
+  genre: "Жанры",
+};
 
 function SearchSuggestions({
   query,
-  searchHistory,
+  items,
+  activeIndex,
+  onHover,
   onSelect,
 }: {
   query: string;
-  searchHistory: string[];
-  onSelect: (term: string) => void;
+  items: SuggestionItem[];
+  activeIndex: number;
+  onHover: (index: number) => void;
+  onSelect: (item: SuggestionItem) => void;
 }) {
-  const queryLower = query.toLowerCase();
-
-  // 1. Match из recent searches
-  const historyMatches = searchHistory
-    .filter(h => h.toLowerCase().includes(queryLower) && h.toLowerCase() !== queryLower)
-    .slice(0, 3);
-
-  // 2. Match из trending
-  const trendingMatches = TRENDING_SEARCHES
-    .filter(t => t.toLowerCase().includes(queryLower) && t.toLowerCase() !== queryLower)
-    .slice(0, 3);
-
-  // 3. Match из popular artists
-  const artistMatches = POPULAR_ARTISTS
-    .filter(a => a.toLowerCase().includes(queryLower) && a.toLowerCase() !== queryLower)
-    .slice(0, 3);
-
-  // 4. "Search for X" — прямой поиск текущего query
-  const hasSuggestions = historyMatches.length > 0 || trendingMatches.length > 0 || artistMatches.length > 0;
-
+  // Group-boundary flags computed immutably BEFORE the render loop (the
+  // react-compiler rule forbids reassigning a let across map iterations).
+  const showGroupFlags = items.map(
+    (item, i) => i === 0 || items[i - 1].kind !== item.kind
+  );
   return (
     <div
       className="mt-1 rounded-[var(--mq-r-card)] overflow-hidden"
@@ -1244,79 +1355,78 @@ function SearchSuggestions({
         boxShadow: "var(--mq-elev-dialog)",
       }}
     >
-      {/* Direct search for current query */}
-      <button
-        onClick={() => onSelect(query)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
-      >
-        <Search className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
-        <span className="text-sm" style={{ color: "var(--mq-text)" }}>
-          Искать <span className="font-semibold" style={{ color: "var(--mq-accent)" }}>«{query}»</span>
-        </span>
-      </button>
-
-      {/* History matches */}
-      {historyMatches.length > 0 && (
-        <div className="border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
-          <p className="px-4 pt-2 pb-1 mq-t-meta-2 font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
-            Недавно искали
-          </p>
-          {historyMatches.map((term) => (
-            <button
-              key={`hist-${term}`}
-              onClick={() => onSelect(term)}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
-            >
-              <Clock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
-              <span className="text-sm truncate" style={{ color: "var(--mq-text)" }}>{term}</span>
-            </button>
-          ))}
-        </div>
+      {/* Direct search for the current query — always first when typing */}
+      {query && (
+        <button
+          id="mq-suggest-direct"
+          role="option"
+          aria-selected={activeIndex === -1}
+          onMouseEnter={() => onHover(-1)}
+          onClick={() => onSelect({ kind: "search", label: query, icon: "search" })}
+          className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
+        >
+          <Search className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
+          <span className="text-sm" style={{ color: "var(--mq-text)" }}>
+            Искать <span className="font-semibold" style={{ color: "var(--mq-accent)" }}>«{query}»</span>
+          </span>
+          <kbd className="ml-auto mq-t-meta-2 px-1.5 py-0.5 rounded border" style={{ borderColor: "var(--mq-border-thin)", color: "var(--mq-text-muted)" }}>Enter</kbd>
+        </button>
       )}
 
-      {/* Trending matches */}
-      {trendingMatches.length > 0 && (
-        <div className="border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
-          <p className="px-4 pt-2 pb-1 mq-t-meta-2 font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
-            Популярное
-          </p>
-          {trendingMatches.map((term) => (
-            <button
-              key={`trend-${term}`}
-              onClick={() => onSelect(term)}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
-            >
-              <TrendingUp className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
-              <span className="text-sm truncate" style={{ color: "var(--mq-text)" }}>{term}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Real suggestion rows grouped by kind */}
+      <div role="listbox" aria-label="Поисковые подсказки">
+        {items.map((item, i) => {
+          const showGroup = showGroupFlags[i];
+          const isActive = i === activeIndex;
+          return (
+            <div key={item.kind + ":" + item.label}>
+              {showGroup && (
+                <p
+                  className="px-4 pt-2 pb-1 mq-t-meta-2 font-semibold uppercase tracking-wider border-t"
+                  style={{ color: "var(--mq-text-muted)", borderColor: "var(--mq-border-hairline)" }}
+                >
+                  {SUGGESTION_GROUP_LABEL[item.kind]}
+                </p>
+              )}
+              <button
+                id={`mq-suggest-${i}`}
+                role="option"
+                aria-selected={isActive}
+                onMouseEnter={() => onHover(i)}
+                onClick={() => onSelect(item)}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                style={isActive ? { backgroundColor: "var(--mq-overlay-hover)" } : undefined}
+              >
+                {item.cover ? (
+                  <img src={item.cover} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" loading="lazy" />
+                ) : (
+                  <span className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)" }}>
+                    {SUGGESTION_ICONS[item.icon]}
+                  </span>
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm truncate" style={{ color: "var(--mq-text)" }}>{item.label}</span>
+                  {item.sub && (
+                    <span className="block mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)" }}>{item.sub}</span>
+                  )}
+                </span>
+                {item.kind === "track" && (
+                  <span className="mq-t-meta-2 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>Слушать</span>
+                )}
+                {item.kind === "artist" && (
+                  <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
+                )}
+              </button>
+            </div>
+          );
+        })}
+      </div>
 
-      {/* Artist matches */}
-      {artistMatches.length > 0 && (
-        <div className="border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
-          <p className="px-4 pt-2 pb-1 mq-t-meta-2 font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
-            Артисты
-          </p>
-          {artistMatches.map((artist) => (
-            <button
-              key={`art-${artist}`}
-              onClick={() => onSelect(artist)}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
-            >
-              <Mic className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
-              <span className="text-sm truncate" style={{ color: "var(--mq-text)" }}>{artist}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* If no suggestions — show hint */}
-      {!hasSuggestions && (
-        <div className="border-t px-4 py-3" style={{ borderColor: "var(--mq-border-hairline)" }}>
+      {/* Empty state — no real matches: honest hint, no fake suggestions */}
+      {items.length === 0 && !query && (
+        <div className="px-4 py-3">
           <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-            Нажмите Enter для поиска «{query}»
+            Начните вводить запрос — подсказки появятся из вашей истории
           </p>
         </div>
       )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { type Track } from "@/lib/musicApi";
@@ -14,6 +14,12 @@ import {
 import ContextMenu from "./ContextMenu";
 import { useTrackContextMenu } from "@/hooks/useTrackContextMenu";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
+import { windowGroups, HISTORY_PAGE_SIZE } from "@/lib/history-window";
+
+// W03: incremental render window — first rows mount immediately, more
+// append on sentinel/scroll. The windowing math lives in the pure, tested
+// helper (lib/history-window.ts); PAGE_SIZE mirrors it here.
+const PAGE_SIZE = HISTORY_PAGE_SIZE;
 
 export default function HistoryView() {
   const history = useAppStore((s) => s.history);
@@ -190,6 +196,46 @@ export default function HistoryView() {
     return groups.filter(g => g.items.length > 0);
   }, [filteredHistory]);
 
+  // ── W03: incremental rendering (client-side pagination) ────────────────
+  // History can now hold up to 1000 entries (store cap raised from 200);
+  // rendering them all at once would mount 1000 motion.divs. Render the
+  // first PAGE_SIZE entries, then append a page when the sentinel scrolls
+  // into view (or via the explicit button). Group headers/counts stay
+  // computed over the FULL filtered list (they describe the day, not the
+  // window); only the rendered item rows are windowed.
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  // Filter change resets the window in the input's onChange (event-driven,
+  // no cascading-render effect).
+  const handleHistorySearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    setVisibleCount(PAGE_SIZE);
+  }, []);
+  const loadMore = useCallback(() => {
+    setVisibleCount((c) => c + PAGE_SIZE);
+  }, []);
+  const hasMore = filteredHistory.length > visibleCount;
+
+  const visibleGrouped = useMemo(
+    () => windowGroups(grouped, visibleCount),
+    [grouped, visibleCount]
+  );
+
+  // Sentinel — auto-append when the end of the rendered window nears the
+  // viewport. One observer, no scroll listeners.
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !hasMore) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) loadMore();
+      },
+      { rootMargin: "600px 0px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, loadMore, visibleCount]);
+
   const formatListeningTime = (hours: number, minutes: number): string => {
     if (hours > 0) return `${hours} ч ${minutes} мин`;
     return `${minutes} мин`;
@@ -316,7 +362,7 @@ export default function HistoryView() {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => handleHistorySearchChange(e.target.value)}
               placeholder="Поиск по истории (название, артист, жанр)..."
               className="w-full pl-10 pr-10 py-2.5 rounded-xl text-sm font-medium outline-none transition-all duration-200"
               style={{
@@ -476,7 +522,7 @@ export default function HistoryView() {
       {/* ── Track list ── */}
       {history.length > 0 && (searchQuery ? filteredHistory.length > 0 : true) ? (
         <div className="space-y-1">
-          {grouped.map((group, gi) => {
+          {visibleGrouped.map((group, gi) => {
             const GroupIcon = group.icon;
             return (
               <ScrollReveal key={group.label} direction="up" delay={gi * 0.08}>
@@ -672,6 +718,46 @@ export default function HistoryView() {
               </ScrollReveal>
             );
           })}
+
+          {/* ── W03: load-more sentinel / end-of-history state ── */}
+          {hasMore ? (
+            <div ref={sentinelRef} className="flex flex-col items-center gap-2 py-4">
+              <button
+                onClick={loadMore}
+                className="px-4 py-2 rounded-full text-xs font-semibold transition-colors"
+                style={{
+                  backgroundColor: "var(--mq-card)",
+                  border: "1px solid var(--mq-border-thin)",
+                  color: "var(--mq-text)",
+                }}
+              >
+                Показать ещё · {visibleCount} из {filteredHistory.length}
+              </button>
+              {/* Quiet shimmer rows while the next window mounts (instant for
+                  local data; visible only when frames are pending). */}
+              <div className="w-full space-y-1 opacity-40" aria-hidden>
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+                    <div className="w-10 h-10 rounded-lg mq-shimmer flex-shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3 w-2/5 rounded mq-shimmer" />
+                      <div className="h-2.5 w-1/4 rounded mq-shimmer" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            filteredHistory.length > PAGE_SIZE && (
+              <div className="flex items-center justify-center gap-2 py-4" aria-label="Конец истории">
+                <div className="h-px w-10" style={{ backgroundColor: "var(--mq-border-thin)" }} />
+                <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
+                  Вся история — {filteredHistory.length} {filteredHistory.length === 1 ? "прослушивание" : filteredHistory.length < 5 ? "прослушивания" : "прослушиваний"}
+                </span>
+                <div className="h-px w-10" style={{ backgroundColor: "var(--mq-border-thin)" }} />
+              </div>
+            )
+          )}
         </div>
       ) : !searchQuery ? (
         /* ── Empty state ── */

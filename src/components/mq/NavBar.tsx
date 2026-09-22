@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import {
   Home, Search, MessageCircle, Settings, User, Bell, Shield,
@@ -36,6 +36,36 @@ const NavBar = React.memo(function NavBar() {
   const notificationCount = useAppStore((s) => s.notificationCount);
   const notifPanelOpen = useAppStore((s) => s.notifPanelOpen);
   const userRole = useAppStore((s) => s.userRole);
+  const reduceMotion = useAppStore((s) => s.reduceMotion);
+
+  // ── W01 scroll interaction (subtle, paint-only) ──────────────────────
+  // After 24px of scroll the rail gets slightly denser (padding, top
+  // margin, a touch more shadow) — an "attentive" compact state that
+  // returns to the roomy default at the top. The element is position:
+  // fixed, so these changes never shift page content; the properties are
+  // paint-only (no transform/blur per frame, no layout thrash — one
+  // rAF-throttled passive listener). prefers-reduced-motion / store
+  // reduceMotion keeps the visual state but drops the transition.
+  const [scrolled, setScrolled] = useState(false);
+  const scrollRafRef = useRef(0);
+  useEffect(() => {
+    const threshold = 24;
+    let pending = false;
+    const onScroll = () => {
+      if (pending) return;
+      pending = true;
+      scrollRafRef.current = requestAnimationFrame(() => {
+        pending = false;
+        setScrolled(window.scrollY > threshold);
+      });
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
+    };
+  }, []);
 
   const messengerBadge = Object.values(unreadCounts).reduce((sum, c) => sum + (c || 0), 0);
   const settingsBadge = supportUnreadCount;
@@ -82,15 +112,26 @@ const NavBar = React.memo(function NavBar() {
     <header
       className="hidden lg:flex fixed top-0 left-0 right-0 z-50 items-center justify-between"
       role="banner"
+      data-scrolled={scrolled || undefined}
       style={{
-        margin: "10px 16px 0",
+        margin: scrolled ? "8px 16px 0" : "10px 16px 0",
         right: "auto",
         width: "calc(100% - 32px)",
         borderRadius: "var(--mq-r-card-lg)",
         background: "var(--mq-surface-1)",
         border: "1px solid var(--mq-edge)",
-        boxShadow: "0 1px 2px rgba(0,0,0,0.25)",
-        padding: compactMode ? "5px 8px" : "6px 10px",
+        boxShadow: scrolled
+          ? "0 4px 18px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25)"
+          : "0 1px 2px rgba(0,0,0,0.25)",
+        padding: compactMode
+          ? "4px 8px"
+          : scrolled
+            ? "4px 10px"
+            : "6px 10px",
+        // Paint-only micro-transition; reduced motion → instant.
+        transition: reduceMotion
+          ? "none"
+          : "padding 0.22s ease, margin 0.22s ease, box-shadow 0.22s ease",
       }}
     >
       {/* ── Brand (left) ── */}

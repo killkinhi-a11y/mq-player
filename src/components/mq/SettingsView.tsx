@@ -26,6 +26,7 @@ import {
 } from "@/lib/androidRelease";
 import { hoverProps } from "@/lib/hoverCapability";
 import { WEB_RELEASE_NOTES } from "@/lib/releaseNotes";
+import AccountLinkingCard from "./AccountLinkingCard";
 
 // v72: hotkeys reference for the About tab — the exact bindings
 // useKeyboardShortcuts listens to (mirrors KeyboardShortcutsHelp SHORTCUTS).
@@ -691,6 +692,10 @@ export default function SettingsView() {
                 </button>
               </div>
             </Card>
+
+            {/* W13: connected providers — Google/Telegram linking for the
+                signed-in account (hidden in demo mode inside the card). */}
+            <AccountLinkingCard />
 
             <Card>
               <CardTitle icon={Cloud} title="Приватность и данные" />

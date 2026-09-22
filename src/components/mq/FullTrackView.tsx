@@ -626,9 +626,12 @@ export default function FullTrackView() {
         />
         <button
           onClick={handleArtistClick}
-          className={`w-full min-w-0 truncate hover:underline ${isMobile ? "" : "text-left"}`}
+          className={`w-full min-w-0 truncate hover:underline font-medium tracking-[0.01em] ${isMobile ? "" : "text-left"}`}
           style={{ color: "var(--mq-text-muted)" }}
         >
+          {/* W06 typography: artist sits BETWEEN the display title and the
+              meta row — medium weight + a hair of tracking reads musical,
+              subordinate to the title but clearly above the metadata. */}
           <TextSwap
             text={currentTrack.artist}
             swapKey={currentTrack.id}
@@ -642,7 +645,7 @@ export default function FullTrackView() {
             {currentTrack.album}
           </p>
         )}
-        <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 mq-t-meta-2 ${isMobile ? "justify-center" : ""}`} style={{ color: "var(--mq-text-muted)" }}>
+        <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 mq-t-meta-2 tabular-nums ${isMobile ? "justify-center" : ""}`} style={{ color: "var(--mq-text-muted)" }}>
           {duration > 0 && (
             <span className="flex items-center gap-1 shrink-0"><Clock className="w-3 h-3" />{formatDuration(duration)}</span>
           )}

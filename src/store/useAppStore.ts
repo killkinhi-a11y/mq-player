@@ -801,9 +801,18 @@ function estimateTrackEnergy(track: Track): number {
   return 0.5;
 }
 
+// ── History size policy (W03) ──────────────────────────────────────────
+// Backend (/api/sync) stores history as a JSON blob with NO server-side
+// limit (only a 2MB total payload cap); the 200-entry cap that users hit
+// was purely client-side. Entries are slim tracks (~350B each), so 1000
+// entries ≈ 350KB — comfortably inside the 4MB localStorage guard and the
+// 2MB sync payload. The quota adapter's emergency trim stays as the
+// last-resort protection.
+const MAX_HISTORY_ENTRIES = 1000;
+
 // ── Storage adapter with quota management ──
 function createQuotaManagedStorage(): StateStorage {
-  const MAX_HISTORY = 200;
+  const MAX_HISTORY = MAX_HISTORY_ENTRIES;
   const MAX_LIKED_TRACKS = 100;
   const MAX_DISLIKED_TRACKS = 50;
   const MAX_MESSAGES = 500;
@@ -2255,11 +2264,11 @@ export const useAppStore = create<AppState>()(
           if (existing) {
             const filtered = hist.filter((h) => h.track.id !== track.id);
             return {
-              history: [{ track, playedAt: Date.now(), playCount: (existing.playCount || 0) + 1 }, ...filtered].slice(0, 200),
+              history: [{ track, playedAt: Date.now(), playCount: (existing.playCount || 0) + 1 }, ...filtered].slice(0, MAX_HISTORY_ENTRIES),
             };
           }
           return {
-            history: [{ track, playedAt: Date.now(), playCount: 1 }, ...hist].slice(0, 200),
+            history: [{ track, playedAt: Date.now(), playCount: 1 }, ...hist].slice(0, MAX_HISTORY_ENTRIES),
           };
         });
         // Debounced sync to server
@@ -2606,7 +2615,7 @@ export const useAppStore = create<AppState>()(
             const newFromServer = data.history.filter(
               (e: any) => e?.track?.id && !localIds.has(e.track.id)
             );
-            updates.history = [...newFromServer, ...localHistory].slice(0, 200);
+            updates.history = [...newFromServer, ...localHistory].slice(0, MAX_HISTORY_ENTRIES);
           }
 
           // Merge playlists: take server version if newer (by track count for local playlists without timestamps)
@@ -2871,7 +2880,7 @@ export const useAppStore = create<AppState>()(
         } as Track);
 
         // ── Size caps to prevent localStorage overflow (~5MB limit) ──
-        const MAX_HISTORY = 200;
+        const MAX_HISTORY = MAX_HISTORY_ENTRIES;
         const MAX_LIKED = 100;
         const MAX_DISLIKED = 50;
         const MAX_PLAYLIST_TRACKS = 200;

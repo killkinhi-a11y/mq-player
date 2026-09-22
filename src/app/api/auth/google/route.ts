@@ -30,6 +30,20 @@ export async function GET(req: NextRequest) {
     maxAge: OAUTH_STATE_MAX_AGE,
     path: "/",
   });
+  // W13 ACCOUNT LINKING marker: an authenticated user started this flow
+  // from Settings ("Подключить Google"). The callback then links the
+  // verified Google identity to the SESSION user instead of resolving a
+  // login. Same lifetime as the state cookie; requires the session to
+  // still be valid when the callback lands.
+  if (req.nextUrl.searchParams.get("link") === "1") {
+    response.cookies.set("mq_oauth_link", "1", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: OAUTH_STATE_MAX_AGE,
+      path: "/",
+    });
+  }
   // Desktop handoff marker: the MQ Player Windows app started this flow in
   // the SYSTEM browser (webview OAuth is blocked by Google). The callback
   // reads it back and routes the finish through /desktop-auth instead of

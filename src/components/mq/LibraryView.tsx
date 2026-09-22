@@ -14,6 +14,50 @@ const HistoryView = lazy(() => import("./HistoryView"));
 type LibraryTab = "favorites" | "playlists" | "history";
 type SortMode = "recent" | "title" | "artist";
 
+// ── W04: layout-matched skeletons ──────────────────────────────────────────
+// One big spinner communicates nothing and flashes layout shift when the
+// chunk lands. Each tab gets a skeleton that mirrors its REAL layout so the
+// swap is seam-free: favorites/history → track-row list; playlists → the
+// square-card grid. mq-shimmer keeps it cheap (single paint animation).
+function LibrarySkeleton({ tab }: { tab: LibraryTab }) {
+  if (tab === "playlists") {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4" aria-hidden>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}>
+            <div className="aspect-square mq-shimmer" />
+            <div className="p-3 space-y-1.5">
+              <div className="h-3 w-3/4 rounded mq-shimmer" />
+              <div className="h-2.5 w-1/3 rounded mq-shimmer" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  // favorites + history — rows with a leading group header
+  return (
+    <div className="space-y-1" aria-hidden>
+      <div className="flex items-center gap-2 py-2.5">
+        <div className="h-3.5 w-24 rounded mq-shimmer" />
+        <div className="h-4 w-8 rounded-full mq-shimmer" />
+      </div>
+      <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}>
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+            <div className="w-10 h-10 rounded-lg mq-shimmer flex-shrink-0" />
+            <div className="flex-1 space-y-1.5">
+              <div className="h-3 rounded mq-shimmer" style={{ width: `${55 + ((i * 13) % 30)}%` }} />
+              <div className="h-2.5 w-1/4 rounded mq-shimmer" />
+            </div>
+            <div className="h-2.5 w-10 rounded mq-shimmer flex-shrink-0" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const LibraryView = React.memo(function LibraryView() {
   const compactMode = useAppStore((s) => s.compactMode);
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
@@ -33,10 +77,14 @@ const LibraryView = React.memo(function LibraryView() {
     currentView === "history" ? "history" :
     "favorites";
   const [activeTab, setActiveTab] = useState<LibraryTab>(targetTab);
-
-  useEffect(() => {
+  // Official "adjust state during render" pattern (react.dev): when the
+  // derived target tab changes, sync state DURING render — no effect, no
+  // cascading-render lint, no extra frame.
+  const [lastTargetTab, setLastTargetTab] = useState<LibraryTab>(targetTab);
+  if (lastTargetTab !== targetTab) {
+    setLastTargetTab(targetTab);
     setActiveTab(targetTab);
-  }, [targetTab]);
+  }
 
   // Clear search when switching tabs
   useEffect(() => {
@@ -175,14 +223,16 @@ const LibraryView = React.memo(function LibraryView() {
 
       {/* Tab content — instant mount + fade (Settings pattern). The old
           mode="wait" held the OLD tab 150ms before the new one could mount:
-          300ms dead time on every sub-tab switch. */}
+          300ms dead time on every sub-tab switch. W04: the Suspense fallback
+          is a layout-matched skeleton per tab (rows / card grid), not a
+          lone spinner — no layout shift when the chunk lands. */}
       <motion.div
         key={activeTab}
         initial={animationsEnabled ? { opacity: 0, y: 8 } : undefined}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
       >
-          <Suspense fallback={<div className="flex items-center justify-center py-8"><div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: "var(--mq-accent, #e03131)", borderTopColor: "transparent" }} /></div>}>
+          <Suspense fallback={<LibrarySkeleton tab={activeTab} />}>
             {activeTab === "favorites" && <FavoritesView />}
             {activeTab === "playlists" && <PlaylistView />}
             {activeTab === "history" && <HistoryView />}
