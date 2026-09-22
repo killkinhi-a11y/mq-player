@@ -5029,3 +5029,33 @@ Stage Summary:
   Telegram auth already work against CURRENT prod); (3) keep
   ~/.mq-desktop-signing/desktop.key (updater signing) — lost key =
   no future auto-updates.
+
+---
+Task ID: desktop-client-win (release verify)
+Agent: main (Super Z)
+Task: Production verification + post-deploy fixes.
+
+Work Log:
+- Vercel GIT-INTEGRATION auto-deploys main (the ci.yml Production Deploy
+  job fails on a missing VERCEL_TOKEN secret, but Vercel's native
+  integration deploys anyway — confirmed: prod version.json tracks every
+  push). No operator token was needed after all.
+- FOUND+FIXED post-deploy: /desktop-auth 500 — my lint refactor read
+  window.location.search in a lazy useState initializer during
+  PRERENDER. Fix: typeof window guard (server renders the safe
+  fallback; client corrects on hydration). Verified 200 live.
+- Lint regression fix: isDesktopApp declaration moved above first use
+  (TDZ rule); desktop-auth refactored to lazy-init code (0 new eslint
+  errors — 2 pre-existing setState-in-effect in AuthView remain,
+  unchanged from 6f0fbd91 where CI lint already failed).
+- PRODUCTION SMOKE (a51c9aed): / 307, /play 200, /desktop-auth 200
+  (+?c= renders "Вход в MQ Player"), /api/auth/providers 200 with
+  desktopHandoff:true + google/telegramBot/email all true,
+  /api/app-version 200, /track/171347962 200, assetlinks 200.
+- Web suite 411/411 green; desktop tsc clean; artifacts unchanged
+  (installer content unaffected by the web page fix).
+
+Stage Summary:
+- desktop-v1.0.0 release complete + production web live with the Google
+  desktop handoff. Vercel git-integration identified as the actual
+  deploy channel (CI job failure is a pre-existing repo-secret gap).
