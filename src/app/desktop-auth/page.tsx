@@ -15,8 +15,15 @@ import { useEffect, useState, useCallback } from "react";
 type Phase = "exchanging" | "ready" | "done" | "failed" | "no-app";
 
 export default function DesktopAuthPage() {
-  const [phase, setPhase] = useState<Phase>("exchanging");
-  const [message, setMessage] = useState("");
+  // The code is read ONCE at first render (lazy initializer — the URL never
+  // changes for this page's lifetime; no sync setState in effect needed).
+  const [code] = useState<string | null>(() =>
+    new URLSearchParams(window.location.search).get("c")
+  );
+  const [phase, setPhase] = useState<Phase>(code ? "exchanging" : "failed");
+  const [message, setMessage] = useState(
+    code ? "" : "Ссылка недействительна — войдите заново."
+  );
   const [token, setToken] = useState<string | null>(null);
 
   const handoffToApp = useCallback((jwt: string) => {
@@ -29,12 +36,7 @@ export default function DesktopAuthPage() {
   }, []);
 
   useEffect(() => {
-    const code = new URLSearchParams(window.location.search).get("c");
-    if (!code) {
-      setPhase("failed");
-      setMessage("Ссылка недействительна — войдите заново.");
-      return;
-    }
+    if (!code) return;
     let cancelled = false;
     (async () => {
       try {
@@ -68,7 +70,7 @@ export default function DesktopAuthPage() {
     return () => {
       cancelled = true;
     };
-  }, [handoffToApp]);
+  }, [code, handoffToApp]);
 
   return (
     <main

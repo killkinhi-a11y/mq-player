@@ -143,6 +143,13 @@ export default function AuthView() {
   const [providers, setProviders] = useState<AuthProviders | null>(null);
   const [googleRedirecting, setGoogleRedirecting] = useState(false);
 
+  // Desktop (Windows app) detection — must be declared BEFORE the effects
+  // below that reference it (widget injection skips on desktop; the shell
+  // installs window.__MQ_DESKTOP__ before the app boots).
+  const isDesktopApp =
+    typeof window !== "undefined" &&
+    !!(window as unknown as { __MQ_DESKTOP__?: unknown }).__MQ_DESKTOP__;
+
   // ─── Post-OAuth redirect state (URL params) ─────────────────────────
   const [restoringSession, setRestoringSession] = useState(false);
   const [redirectError, setRedirectError] = useState("");
@@ -444,10 +451,6 @@ export default function AuthView() {
   // installs window.__MQ_DESKTOP_OPEN_URL__ before the app boots; it opens
   // the SYSTEM browser with the desktop marker (?desktop=1). The callback
   // then finishes through /desktop-auth → mq://auth → the app's cookie jar.
-  const isDesktopApp =
-    typeof window !== "undefined" &&
-    !!(window as unknown as { __MQ_DESKTOP__?: unknown }).__MQ_DESKTOP__;
-
   const handleGoogleLogin = () => {
     if (!providers?.google || googleRedirecting) return;
     if (isDesktopApp) {
