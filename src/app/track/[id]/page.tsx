@@ -413,8 +413,23 @@ export default function ShareTrackPage() {
             </div>
           </div>
 
-          {/* CTA button */}
-          <div className="text-center">
+          {/* CTA buttons — v72: hand-off into the app at THIS exact track
+              (/play?track= deep link, resolved by AppShell → playTrack +
+              Full Player), plus the original generic entry. */}
+          <div className="text-center flex flex-col items-center gap-3">
+            <a
+              href={`/play?track=${encodeURIComponent(String(track?.scTrackId || id))}`}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
+              style={{
+                background: "#e03131",
+                color: "#fff",
+                boxShadow: "0 6px 24px rgba(224,49,49,0.35)",
+                fontFamily: "var(--mq-font-primary)",
+              }}
+            >
+              Открыть в MQ Player
+              <ExternalLink className="w-4 h-4" />
+            </a>
             <a
               href="/play"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium transition-all hover:brightness-110"

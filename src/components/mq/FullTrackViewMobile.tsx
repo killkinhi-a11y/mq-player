@@ -7,6 +7,7 @@ import { seekPlayback, currentPlaybackPosition } from "@/lib/wasm-audio";
 import { formatDuration } from "@/lib/musicApi";
 import type { Track } from "@/lib/musicApi";
 import { toast } from "@/hooks/use-toast";
+import { shareTrackUrl, openInAppTrackUrl } from "@/lib/share";
 import { Play, Pause, SkipBack, SkipForward, ChevronDown, ChevronUp, Heart, Shuffle, Repeat, Repeat1, Music, ListMusic, Share2, Loader2, Mic2, ThumbsDown, History, X, MoreHorizontal, Volume2, Timer, Gauge, AirVent, ListPlus, Sliders } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
@@ -293,12 +294,19 @@ function FullTrackViewMobileInner() {
 
   const handleLike = useCallback(() => { if (currentTrack) toggleLike(currentTrack.id, currentTrack); }, [currentTrack, toggleLike]);
   const handleDislike = useCallback(() => { if (currentTrack) { toggleDislike(currentTrack.id, currentTrack); /* toggleDislike already calls nextTrack() internally */ } }, [currentTrack, toggleDislike]);
-  const handleShare = useCallback(async () => {
+  // v72: share → the GLOBAL share sheet (AppShell) — same real-QR system
+  // on mobile and desktop.
+  const openShareSheet = useAppStore((s) => s.openShareSheet);
+  const handleShare = useCallback(() => {
     if (!currentTrack) return;
-    const url = `${window.location.origin}/track/${currentTrack.scTrackId || currentTrack.id}`;
-    if (navigator.share) { try { await navigator.share({ title: currentTrack.title, url }); } catch {} }
-    else if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast({ title: "Ссылка скопирована" }));
-  }, [currentTrack, toast]);
+    openShareSheet({
+      url: shareTrackUrl(currentTrack),
+      title: currentTrack.title,
+      subtitle: currentTrack.artist,
+      cover: currentTrack.cover,
+      openInAppUrl: currentTrack.scTrackId ? openInAppTrackUrl(currentTrack) : undefined,
+    });
+  }, [currentTrack, openShareSheet]);
   const handleArtist = useCallback(() => { if (currentTrack?.artist) { setSelectedArtist({ name: currentTrack.artist }); setOpen(false); } }, [currentTrack, setSelectedArtist, setOpen]);
 
   // Speed/sleep/spatial handlers for More sheet

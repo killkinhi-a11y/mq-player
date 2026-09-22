@@ -4209,6 +4209,8 @@ a:focus-visible {
    No lift, no glow, no pulse, no tilt. Same geometry as .mq-row so
    lists and cards feel like ONE system. */
 
+/* v72 desktop redesign: soft capsule hover — rounded (never square),
+   artwork gently lifts, all under the existing token system. */
 .mq-card-track {
   position: relative;
   display: flex;
@@ -4222,7 +4224,8 @@ a:focus-visible {
   overflow: hidden;
   background: transparent;
   border: 1px solid transparent;
-  transition: background-color 0.18s ease, border-color 0.18s ease;
+  border-radius: var(--mq-radius-lg);
+  transition: background-color 0.2s var(--mq-spring-smooth), border-color 0.2s var(--mq-spring-smooth);
   text-align: left;
 }
 
@@ -4233,6 +4236,17 @@ a:focus-visible {
 
 .mq-card-track:active {
   background: var(--mq-surface-2);
+}
+
+/* Artwork breathing on hover — soft scale, spring-eased, never jumpy */
+@media (hover: hover) and (min-width: 1024px) {
+  .mq-card-track .mq-art {
+    transition: transform 0.35s var(--mq-spring-smooth), box-shadow 0.35s var(--mq-spring-smooth);
+  }
+  .mq-card-track:hover .mq-art {
+    transform: scale(1.045);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  }
 }
 
 .mq-card-track[data-active="true"] {
@@ -4479,4 +4493,475 @@ a:focus-visible {
   .mq-art img {
     transition: none !important;
   }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   v72 DESKTOP GLASS APP SHELL — sidebar · top bar · floating player ·
+   ambient backdrop · liquid title. All geometry reads from design tokens
+   (--mq-sidebar-w, --mq-topbar-h, --mq-blur-*, --mq-radius-*). Mobile is
+   untouched: everything below is either lg-gated or passive background.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* ── Ambient runtime colors: registered so they can TRANSITION (2.6s).
+      Supporting engines cross-fade the whole backdrop smoothly when the
+      track changes; others switch instantly (graceful degradation). ── */
+@property --mq-ambient-1 { syntax: "<color>"; inherits: true; initial-value: transparent; }
+@property --mq-ambient-2 { syntax: "<color>"; inherits: true; initial-value: transparent; }
+@property --mq-ambient-3 { syntax: "<color>"; inherits: true; initial-value: transparent; }
+html {
+  transition:
+    --mq-ambient-1 2.6s ease,
+    --mq-ambient-2 2.6s ease,
+    --mq-ambient-3 2.6s ease;
+}
+
+/* Ambient backdrop layers — fixed, non-interactive, zero blur filters.
+   z-index:-1 — above the body canvas background, below ALL app content.
+   NEVER raise this above content: views own their stacking (sticky headers,
+   fixed toolbars) and must not be trapped under an app-level layer. */
+.mq-ambient-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.mq-ambient-base {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 90% at 50% 0%,
+      color-mix(in srgb, var(--mq-text) 2.5%, transparent) 0%,
+      transparent 60%),
+    var(--mq-bg);
+}
+.mq-ambient-blobs {
+  position: absolute;
+  inset: -22%;
+  background:
+    radial-gradient(42% 55% at 18% 14%,
+      color-mix(in srgb, var(--mq-ambient-1) 24%, transparent) 0%, transparent 70%),
+    radial-gradient(50% 62% at 86% 20%,
+      color-mix(in srgb, var(--mq-ambient-2) 18%, transparent) 0%, transparent 72%),
+    radial-gradient(46% 52% at 58% 90%,
+      color-mix(in srgb, var(--mq-ambient-3) 15%, transparent) 0%, transparent 70%);
+  animation: mq-ambient-drift 90s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.mq-ambient-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.045;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+}
+.mq-ambient-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(125% 105% at 50% 42%, transparent 55%, rgba(0, 0, 0, 0.3) 100%);
+}
+@keyframes mq-ambient-drift {
+  from { transform: translate3d(-1.5%, -1%, 0) rotate(-0.6deg); }
+  to   { transform: translate3d(1.5%, 1.2%, 0) rotate(0.6deg); }
+}
+/* Mobile: calmer intensity, no drift */
+@media (max-width: 767px) {
+  .mq-ambient-blobs { opacity: 0.65; animation: none; }
+  .mq-ambient-grain { opacity: 0.03; }
+  .mq-ambient-vignette { background: radial-gradient(130% 110% at 50% 42%, transparent 60%, rgba(0, 0, 0, 0.22) 100%); }
+}
+
+/* ── Sidebar (desktop ≥1024) — compact vertical rail ── */
+.mq-sidebar {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  width: var(--mq-sidebar-w);
+  display: flex;
+  flex-direction: column;
+  gap: var(--mq-space-1);
+  padding: var(--mq-space-4) var(--mq-space-3) var(--mq-space-3);
+  background: var(--mq-glass);
+  backdrop-filter: var(--mq-blur-md);
+  -webkit-backdrop-filter: var(--mq-blur-md);
+  border-right: 1px solid var(--mq-glass-border);
+}
+.mq-sidebar[data-compact] { width: var(--mq-sidebar-w-compact); }
+
+/* Mobile/tablet (<1024): the rail NEVER renders — MobileDock owns nav. */
+@media (max-width: 1023px) {
+  .mq-sidebar { display: none !important; }
+}
+
+.mq-side-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 14px;
+  margin: 0 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-bottom: 1px solid var(--mq-border-subtle);
+}
+.mq-sidebar[data-compact] .mq-side-brand { justify-content: center; padding-left: 0; padding-right: 0; }
+.mq-side-logo {
+  display: flex;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--mq-text) 6%, transparent);
+  box-shadow: var(--mq-shadow-inner-glow);
+}
+.mq-side-logo img { width: 100%; height: 100%; object-fit: contain; }
+.mq-side-wordmark {
+  font-size: 18px;
+  font-weight: 300;
+  letter-spacing: 0.18em;
+  color: var(--mq-text);
+  font-family: var(--mq-font-primary);
+}
+.mq-sidebar[data-compact] .mq-side-wordmark { display: none; }
+
+.mq-side-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mq-side-sep {
+  height: 1px;
+  margin: 8px 12px;
+  background: var(--mq-border-subtle);
+}
+.mq-side-flex { flex: 1; }
+
+/* Capsule item — hover: opacity + translateX + soft tint (never a square) */
+.mq-side-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--mq-radius-lg);
+  background: transparent;
+  color: var(--mq-text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  opacity: 0.72;
+  transition:
+    opacity var(--mq-duration-fast) var(--mq-spring-smooth),
+    background-color var(--mq-duration-fast) var(--mq-spring-smooth),
+    border-color var(--mq-duration-fast) var(--mq-spring-smooth),
+    transform var(--mq-duration-fast) var(--mq-spring-smooth),
+    color var(--mq-duration-fast) var(--mq-spring-smooth),
+    box-shadow var(--mq-duration-normal) var(--mq-spring-smooth);
+}
+.mq-side-item-icon { width: 19px; height: 19px; flex-shrink: 0; }
+.mq-side-item-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mq-sidebar[data-compact] .mq-side-item { justify-content: center; padding: 0; }
+.mq-sidebar[data-compact] .mq-side-item-label { display: none; }
+
+.mq-side-item:hover {
+  opacity: 0.95;
+  color: var(--mq-text);
+  background: var(--mq-glass-bg-hover);
+  transform: translateX(2px);
+}
+.mq-side-item:active { transform: translateX(2px) scale(0.985); }
+.mq-side-item[data-active] {
+  opacity: 1;
+  color: var(--mq-text);
+  background: color-mix(in srgb, var(--mq-accent) 13%, transparent);
+  border-color: color-mix(in srgb, var(--mq-accent) 26%, transparent);
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--mq-accent) 12%, transparent);
+}
+.mq-side-item[data-active] .mq-side-item-icon { color: var(--mq-accent); }
+.mq-side-item:focus-visible {
+  outline: 2px solid var(--mq-accent);
+  outline-offset: 2px;
+}
+
+.mq-side-badge {
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--mq-radius-full);
+  background: var(--mq-accent);
+  color: var(--mq-text-on-accent);
+  font-size: 10px;
+  font-weight: 700;
+}
+.mq-sidebar[data-compact] .mq-side-badge {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  margin-left: 0;
+  min-width: 14px;
+  height: 14px;
+  font-size: 9px;
+}
+
+/* Now-playing chip at the rail bottom */
+.mq-side-now {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 2px 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--mq-border-subtle);
+  border-radius: var(--mq-radius-lg);
+  background: var(--mq-glass-bg);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--mq-duration-fast) var(--mq-spring-smooth),
+              border-color var(--mq-duration-fast) var(--mq-spring-smooth);
+}
+.mq-side-now:hover { background: var(--mq-glass-bg-hover); border-color: var(--mq-glass-border-hover); }
+.mq-side-now-cover {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--mq-surface-2);
+}
+.mq-side-now-cover img { width: 100%; height: 100%; object-fit: cover; }
+.mq-side-now-fallback { width: 16px; height: 16px; color: var(--mq-text-muted); }
+.mq-side-now-cover:has(.mq-side-now-fallback) { display: flex; align-items: center; justify-content: center; }
+.mq-side-now-meta { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+.mq-side-now-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mq-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mq-side-now-artist { font-size: 10.5px; color: var(--mq-text-muted); }
+.mq-side-now-eq {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.mq-side-now-eq i {
+  width: 3px;
+  border-radius: 2px;
+  background: var(--mq-accent);
+  animation: mqSideEq 1.1s ease-in-out infinite;
+}
+.mq-side-now-eq i:nth-child(1) { height: 7px; animation-delay: -0.55s; }
+.mq-side-now-eq i:nth-child(2) { height: 12px; animation-delay: -0.3s; }
+.mq-side-now-eq i:nth-child(3) { height: 9px; animation-delay: -0.15s; }
+.mq-side-now-eq[data-playing] i { animation-play-state: running; }
+.mq-side-now-eq:not([data-playing]) i { animation-play-state: paused; opacity: 0.45; }
+@keyframes mqSideEq {
+  0%, 100% { transform: scaleY(0.55); }
+  50% { transform: scaleY(1); }
+}
+
+/* ── Top bar (desktop ≥1024) — light, transparent, unobtrusive ── */
+.mq-topbar-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 12px 0 14px;
+  border: 1px solid var(--mq-border-subtle);
+  border-radius: var(--mq-radius-full);
+  background: color-mix(in srgb, var(--mq-bg) 45%, transparent);
+  backdrop-filter: var(--mq-blur-sm);
+  -webkit-backdrop-filter: var(--mq-blur-sm);
+  color: var(--mq-text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  max-width: 250px;
+  transition: border-color var(--mq-duration-fast) var(--mq-spring-smooth),
+              background-color var(--mq-duration-fast) var(--mq-spring-smooth),
+              color var(--mq-duration-fast) var(--mq-spring-smooth),
+              transform var(--mq-duration-fast) var(--mq-spring-smooth);
+}
+.mq-topbar-search:hover {
+  color: var(--mq-text);
+  border-color: var(--mq-glass-border-hover);
+  background: color-mix(in srgb, var(--mq-bg) 65%, transparent);
+  transform: translateY(-1px);
+}
+.mq-topbar-search[data-active] {
+  color: var(--mq-text);
+  border-color: color-mix(in srgb, var(--mq-accent) 32%, transparent);
+}
+.mq-topbar-search-label { flex: 1; text-align: left; }
+.mq-topbar-kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--mq-border-subtle);
+  background: var(--mq-glass-bg);
+  color: var(--mq-text-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+.mq-topbar-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid transparent;
+  border-radius: var(--mq-radius-full);
+  background: transparent;
+  color: var(--mq-text-muted);
+  cursor: pointer;
+  transition: background-color var(--mq-duration-fast) var(--mq-spring-smooth),
+              color var(--mq-duration-fast) var(--mq-spring-smooth),
+              border-color var(--mq-duration-fast) var(--mq-spring-smooth),
+              transform var(--mq-duration-fast) var(--mq-spring-smooth);
+}
+.mq-topbar-icon:hover {
+  color: var(--mq-text);
+  background: var(--mq-glass-bg-hover);
+  transform: translateY(-1px);
+}
+.mq-topbar-icon[data-active] {
+  color: var(--mq-accent);
+  background: color-mix(in srgb, var(--mq-accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--mq-accent) 25%, transparent);
+}
+.mq-topbar-badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--mq-radius-full);
+  background: var(--mq-accent);
+  color: var(--mq-text-on-accent);
+  font-size: 9.5px;
+  font-weight: 700;
+}
+.mq-topbar-profile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 10px 0 5px;
+  border: 1px solid transparent;
+  border-radius: var(--mq-radius-full);
+  background: transparent;
+  cursor: pointer;
+  transition: background-color var(--mq-duration-fast) var(--mq-spring-smooth),
+              border-color var(--mq-duration-fast) var(--mq-spring-smooth);
+}
+.mq-topbar-profile:hover { background: var(--mq-glass-bg-hover); }
+.mq-topbar-profile[data-active] {
+  background: color-mix(in srgb, var(--mq-accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--mq-accent) 25%, transparent);
+}
+.mq-topbar-profile img { box-shadow: 0 0 0 1px var(--mq-edge-strong); }
+.mq-topbar-profile[data-active] img { box-shadow: 0 0 0 2px var(--mq-accent); }
+.mq-topbar-profile-name {
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--mq-text);
+}
+
+/* ── Floating player clearance (desktop): capsule height + float margin ── */
+@media (min-width: 1024px) {
+  .mq-has-player { padding-bottom: calc(72px + var(--mq-player-float-m) + 44px); }
+}
+
+/* ── Liquid title (Full Player, task §10) ── */
+.mq-liquid {
+  position: relative;
+  display: block;
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+.mq-liquid-base {
+  display: block;
+  color: var(--mq-text);
+  opacity: 0.94;
+}
+.mq-liquid-flow {
+  position: absolute;
+  inset: 0;
+  display: block;
+  color: transparent;
+  background-image: linear-gradient(100deg,
+    transparent 0%,
+    transparent 34%,
+    color-mix(in srgb, var(--mq-text) 14%, transparent) 44%,
+    color-mix(in srgb, var(--mq-text) 68%, var(--mq-accent)) 50%,
+    color-mix(in srgb, var(--mq-text) 14%, transparent) 56%,
+    transparent 66%,
+    transparent 100%);
+  background-size: 240% 100%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  opacity: 0.75;
+  pointer-events: none;
+  transition: opacity 1.2s ease;
+}
+/* Ripple refraction only while motion is allowed */
+.mq-liquid[data-motion] .mq-liquid-flow {
+  filter: url(#mq-liquid-filter);
+}
+.mq-liquid:not([data-motion]) .mq-liquid-flow {
+  /* Static fallback: park the band at a clearly visible spot */
+  background-position: 42% 0;
+  opacity: 0.5;
+}
+/* Paused → the water falls asleep (opacity settles, nothing resets) */
+.mq-liquid:not([data-playing]) .mq-liquid-flow { opacity: 0.4; }
+.mq-liquid-svg {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* ── Desktop hero polish: artist hero image breathing zoom ── */
+@media (min-width: 1024px) and (hover: hover) {
+  .mq-hero-zoom img { transition: transform 6s var(--mq-spring-smooth); }
+  .mq-hero-zoom:hover img { transform: scale(1.035); }
+}
+
+/* ── v72 reduced-motion guards for the new systems ── */
+@media (prefers-reduced-motion: reduce) {
+  .mq-ambient-blobs { animation: none !important; }
+  html { transition: none !important; }
+  .mq-side-now-eq i { animation: none !important; }
+  .mq-side-item, .mq-side-item:hover, .mq-topbar-search, .mq-topbar-icon,
+  .mq-side-now, .mq-hero-zoom img, .mq-liquid-flow { transition: none !important; transform: none !important; }
+  .mq-liquid[data-motion] .mq-liquid-flow { filter: none !important; }
+  .mq-topbar-search:hover, .mq-topbar-icon:hover { transform: none !important; }
 }

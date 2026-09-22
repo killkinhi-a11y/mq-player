@@ -19,14 +19,17 @@
  * prefers-reduced-motion.
  */
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { RefreshCw, X } from "lucide-react";
+import { RefreshCw, X, ChevronDown, Sparkles } from "lucide-react";
 import { useUpdateManager } from "@/hooks/useUpdateManager";
+import { WEB_RELEASE_NOTES, WEB_RELEASE_NOTES_DETAIL } from "@/lib/releaseNotes";
 
 function UpdateBannerBase() {
   const { state, info, error, applyUpdate, dismiss } = useUpdateManager();
   const prefersReducedMotion = useReducedMotion();
+  // v72 (task §20): human-language «Что нового» panel — no commit jargon.
+  const [notesOpen, setNotesOpen] = useState(false);
 
   const visible = state === "available" || state === "updating" || state === "failed" || state === "updated";
 
@@ -114,7 +117,88 @@ function UpdateBannerBase() {
                 >
                   Позже
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setNotesOpen((v) => !v)}
+                  aria-expanded={notesOpen}
+                  className="flex h-11 items-center gap-1 rounded-lg px-3 text-sm font-medium transition-colors duration-150 hover:bg-[var(--mq-overlay-hover)]"
+                  style={{ color: "var(--mq-text-muted)" }}
+                  aria-label="Что нового в этой версии"
+                >
+                  Что нового
+                  <ChevronDown
+                    className="w-4 h-4 transition-transform duration-200"
+                    style={{ transform: notesOpen ? "rotate(180deg)" : "none" }}
+                    aria-hidden
+                  />
+                </button>
               </div>
+
+              {/* «Что нового» — human bullets (task §20: no "v2.3.4 — 17 commits
+                  for users"). Technical details stay behind «Подробнее». */}
+              <AnimatePresence initial={false}>
+                {notesOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <div
+                      className="rounded-lg p-3"
+                      style={{
+                        backgroundColor: "var(--mq-surface-1, #0e0e0e)",
+                        border: "1px solid var(--mq-border-subtle, rgba(255,255,255,0.08))",
+                      }}
+                    >
+                      <p
+                        className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide"
+                        style={{ color: "var(--mq-text)" }}
+                      >
+                        <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} aria-hidden />
+                        Что нового в MQ Player
+                      </p>
+                      <ul className="flex flex-col gap-1.5">
+                        {WEB_RELEASE_NOTES.map((n) => (
+                          <li
+                            key={n.text}
+                            className="flex items-start gap-2 text-[13px] leading-snug"
+                            style={{ color: "var(--mq-text-muted)" }}
+                          >
+                            <span
+                              className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                              style={{
+                                backgroundColor: "color-mix(in srgb, var(--mq-accent) 16%, transparent)",
+                                color: "var(--mq-accent)",
+                              }}
+                              aria-hidden
+                            >
+                              ✓
+                            </span>
+                            {n.text}
+                          </li>
+                        ))}
+                      </ul>
+                      <details className="mt-2">
+                        <summary
+                          className="cursor-pointer text-xs font-medium select-none"
+                          style={{ color: "var(--mq-text-muted)" }}
+                        >
+                          Подробнее
+                        </summary>
+                        <ul className="mt-1.5 flex flex-col gap-1">
+                          {WEB_RELEASE_NOTES_DETAIL.map((d) => (
+                            <li key={d} className="text-[12px] leading-snug" style={{ color: "var(--mq-text-muted)" }}>
+                              · {d}
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )}
 
@@ -202,8 +286,8 @@ function UpdateBannerBase() {
                 <p className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>
                   Обновлено
                 </p>
-                <p className="mq-t-num mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
-                  {info ? `v${info.version} · ${info.buildId?.replace("mq-build-", "")}` : "MQ обновлён"}
+                <p className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
+                  Вы на самой свежей версии — приятного прослушивания
                 </p>
               </div>
             </div>

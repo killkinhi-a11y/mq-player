@@ -12,6 +12,7 @@ import {
 import { getAudioElement } from "@/lib/audioEngine";
 import { seekPlayback } from "@/lib/wasm-audio";
 import { formatDuration } from "@/lib/musicApi";
+import { shareTrackUrl, openInAppTrackUrl } from "@/lib/share";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
 import { hapticLike, hapticDislike, hapticSkip, hapticPlay } from "@/lib/haptics";
@@ -23,21 +24,18 @@ import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import MenuCore, { MenuHeader } from "./ui/MenuCore";
 
 // ═════════════════════════════════════════════════════════════════════════
-// PLAYER BAR — desktop mini player (Phase 2B redesign)
+// PLAYER BAR — desktop floating glass capsule (v72 desktop redesign).
 //
-// Design goals — "music control surface, not a toolbar":
+// Design — "a physical control surface hovering over the app":
 // NOW PLAYING → LEFT: artwork + track identity (click → full player)
 // PLAYBACK → CENTER: shuffle / prev / play / next / repeat + progress
 // SECONDARY → RIGHT: like, wave, volume, queue, more (⋯)
 // ADVANCED → More menu: EQ, dislike, share — NOT on the play level
 //
-// Removed in Phase 2B (visual noise):
-// - ambient cover glow layer inside the bar
-// - 40px backdrop blur + inner glow shadow → 16px blur + 1 top border
-// - floating glass pill → docked full-width surface
-// - magnetic play button, LikeBurst heart particles
-// - infinite pulsing dots on wave/EQ buttons → static accent state
-// - scale hover on every button → CSS hover tint only
+// Playback contracts UNCHANGED: same store actions, same ProgressBar
+// memoized callbacks, same RAF progress channel. Only the container
+// geometry changed (docked full-width bar → floating capsule with 20px
+// clearance from the viewport edge).
 // ═════════════════════════════════════════════════════════════════════════
 
 export default function PlayerBar() {
@@ -208,17 +206,20 @@ export default function PlayerBar() {
     setMoreMenu(null);
   }, [currentTrack, toggleDislike, toast]);
 
-  const handleShare = useCallback(async () => {
+  // v72: share → the GLOBAL share sheet (AppShell) — real QR + copy +
+  // native + in-app deep link.
+  const openShareSheet = useAppStore((s) => s.openShareSheet);
+  const handleShare = useCallback(() => {
     if (!currentTrack) return;
-    const url = `${window.location.origin}/track/${currentTrack.scTrackId || currentTrack.id}`;
-    if (navigator.share) {
-      try { await navigator.share({ title: currentTrack.title, url }); } catch {}
-    } else if (navigator.clipboard) {
-      navigator.clipboard.writeText(url);
-      toast({ title: "Ссылка скопирована", duration: 2000 });
-    }
+    openShareSheet({
+      url: shareTrackUrl(currentTrack),
+      title: currentTrack.title,
+      subtitle: currentTrack.artist,
+      cover: currentTrack.cover,
+      openInAppUrl: currentTrack.scTrackId ? openInAppTrackUrl(currentTrack) : undefined,
+    });
     setMoreMenu(null);
-  }, [currentTrack, toast]);
+  }, [currentTrack, openShareSheet]);
 
   const openFullPlayer = useCallback(() => {
     if (currentTrack) setFullTrackViewOpen(true);
@@ -264,18 +265,29 @@ export default function PlayerBar() {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 100, opacity: 0 }}
         transition={{ type: "spring", stiffness: 350, damping: 30 }}
-        className="fixed z-[55] left-0 right-0 bottom-0"
+        className="fixed z-[55] left-0 right-0 flex justify-center pointer-events-none"
+        style={{
+          bottom: "var(--mq-player-float-m)",
+          paddingLeft: "max(16px, var(--mq-shell-gap))",
+          paddingRight: "max(16px, var(--mq-shell-gap))",
+        }}
       >
-        {/* Docked control surface — solid player background, one hairline
-            top border, single elevation shadow. No glass pill, no glow. */}
+        {/* Floating glass capsule — a physical object hovering over the
+            interface (v72 desktop redesign): detached from the viewport
+            edge, 24px radius, frosted surface, one soft shadow. The wrapper
+            stays pointer-transparent; only the capsule is interactive. */}
         <div
+          className="mq-player-capsule pointer-events-auto"
           style={{
-            backgroundColor: "var(--mq-player-bg, var(--mq-surface-1))",
-            borderTop: "1px solid var(--mq-edge-strong)",
-            boxShadow: "var(--mq-elev-bar)",
+            width: "min(920px, 100%)",
+            backgroundColor: "var(--mq-glass-strong)",
+            backdropFilter: "var(--mq-blur-md)",
+            WebkitBackdropFilter: "var(--mq-blur-md)",
+            border: "1px solid var(--mq-glass-border)",
+            boxShadow: "var(--mq-shadow-glass), inset 0 1px 0 rgba(255,255,255,0.07)",
           }}
         >
-          <div className="relative flex items-center gap-4 px-4 py-2">
+          <div className="relative flex items-center gap-4 px-5 py-2.5">
             {/* ═══ LEFT: Cover + info (NOW PLAYING) ═══ */}
             <button
               onClick={openFullPlayer}

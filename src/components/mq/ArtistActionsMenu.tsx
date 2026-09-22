@@ -5,6 +5,7 @@ import {
   User, Heart, Share2, Copy, Music2, UserCheck,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { shareArtistUrl } from "@/lib/share";
 import MenuCore, { MenuHeader, type MenuElement } from "./ui/MenuCore";
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -39,7 +40,6 @@ export default function ArtistActionsMenu({ artist, x, y, onClose, side = "below
   const favoriteArtists = useAppStore((s) => s.favoriteArtists);
   const addFavoriteArtist = useAppStore((s) => s.addFavoriteArtist);
   const removeFavoriteArtist = useAppStore((s) => s.removeFavoriteArtist);
-  const [copied, setCopied] = useState(false);
 
   const isFollowed = useMemo(
     () => favoriteArtists.some((a) => a.username.toLowerCase() === artist.name.toLowerCase()),
@@ -76,28 +76,18 @@ export default function ArtistActionsMenu({ artist, x, y, onClose, side = "below
     onClose();
   }, [favoriteArtists, artist, addFavoriteArtist, removeFavoriteArtist, onClose]);
 
-  const shareArtist = useCallback(async () => {
-    const url = `${window.location.origin}/artist/${encodeURIComponent(artist.name)}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: artist.name, url });
-      } catch {
-        /* dismissed */
-      }
-      onClose();
-    } else {
-      try {
-        await navigator.clipboard.writeText(url);
-        setCopied(true);
-        setTimeout(() => {
-          setCopied(false);
-          onClose();
-        }, 1400);
-      } catch {
-        onClose();
-      }
-    }
-  }, [artist, onClose]);
+  // v72: artist share → the GLOBAL share sheet (AppShell) on the CANONICAL
+  // deep link /play?artist=… (the old /artist/{name} format 404'd — fixed).
+  const openShareSheet = useAppStore((s) => s.openShareSheet);
+  const shareArtist = useCallback(() => {
+    openShareSheet({
+      url: shareArtistUrl(artist.name),
+      title: artist.name,
+      subtitle: artist.trackCount ? `Артист · ${artist.trackCount} треков` : "Артист",
+      cover: artist.avatar,
+    });
+    onClose();
+  }, [openShareSheet, artist, onClose]);
 
   const elements: MenuElement[] = useMemo(
     () => [
@@ -115,8 +105,7 @@ export default function ArtistActionsMenu({ artist, x, y, onClose, side = "below
         type: "item",
         id: "share",
         icon: Share2,
-        label: copied ? "Ссылка скопирована" : "Поделиться артистом",
-        active: copied,
+        label: "Поделиться артистом",
         onSelect: shareArtist,
       },
       {
@@ -130,7 +119,7 @@ export default function ArtistActionsMenu({ artist, x, y, onClose, side = "below
         },
       },
     ],
-    [openArtist, isFollowed, toggleFollow, copied, shareArtist, artist.name, onClose]
+    [openArtist, isFollowed, toggleFollow, shareArtist, artist.name, onClose]
   );
 
   return (

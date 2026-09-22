@@ -176,6 +176,34 @@
   --mq-ambient-size: 400px;
   --mq-ambient-blur: 60px;
 
+  /* ═══ Desktop Glass App-Shell System (v72 desktop redesign) ═══
+     Canonical token set required by the desktop visual system. These are
+     ALIASES derived from the active theme — one visual system, no values
+     scattered across components. Runtime ambient colors are set by
+     AmbientBackground on <html> as --mq-ambient-1/2/3. */
+  --mq-surface-elevated: var(--mq-surface-3);          /* floating cards, popovers */
+  --mq-text-secondary: var(--mq-text-muted);
+  --mq-glass: color-mix(in srgb, var(--mq-card) 62%, transparent); /* app-shell panes */
+  --mq-glass-strong: color-mix(in srgb, var(--mq-card) 78%, transparent); /* player capsule */
+  --mq-blur-sm: blur(8px) saturate(120%);
+  --mq-blur-md: var(--mq-glass-blur);                  /* blur(16px) saturate(140%) */
+  --mq-blur-lg: var(--mq-glass-blur-heavy);            /* blur(24px) saturate(150%) */
+  --mq-shadow: var(--mq-shadow-float);                 /* canonical floating shadow */
+  --mq-shadow-glass: 0 12px 40px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25);
+
+  /* Sidebar / shell geometry (desktop only, ≥1024px) */
+  --mq-sidebar-w: 248px;
+  --mq-sidebar-w-compact: 78px;
+  --mq-topbar-h: 60px;
+  --mq-shell-gap: 16px;         /* gap between app frame and viewport edge */
+  --mq-player-float-m: 20px;    /* floating player distance from bottom edge */
+
+  /* Runtime ambient palette — overwritten by AmbientBackground (JS) */
+  --mq-ambient-1: transparent;
+  --mq-ambient-2: transparent;
+  --mq-ambient-3: transparent;
+
+
   /* Tip 5 (Opacity hierarchy from video) — Material Design style emphasis.
      Instead of using --mq-text-muted for everything secondary, apply opacity
      directly to --mq-text for predictable hierarchy:

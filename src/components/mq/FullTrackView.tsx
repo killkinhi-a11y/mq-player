@@ -11,6 +11,7 @@ import {
   History, Sparkles, X, ListPlus, Plus, Sliders, MoreHorizontal,
 } from "lucide-react";
 import { getAudioElement } from "@/lib/audioEngine";
+import { shareTrackUrl, openInAppTrackUrl } from "@/lib/share";
 import { seekPlayback, currentPlaybackPosition, isWasmActive } from "@/lib/wasm-audio";
 import { formatDuration } from "@/lib/musicApi";
 import type { Track } from "@/lib/musicApi";
@@ -20,10 +21,10 @@ import VolumeSlider from "@/components/ui/volume-slider";
 import { fetchLyrics } from "@/lib/lyrics-client";
 import { LyricsView, type LyricLine } from "./LyricsView";
 import { AudioVisualizer } from "./AudioVisualizer";
-import { ShareSheet } from "./ShareSheet";
 import { waveReasonText } from "./MainView";
 import MenuCore, { MenuHeader, type MenuElement } from "./ui/MenuCore";
 import { TextSwap } from "./ui/TextSwap";
+import LiquidTitle from "./LiquidTitle";
 import ContextMenu from "./ContextMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
 
@@ -132,6 +133,9 @@ export default function FullTrackView() {
   const isPlaying = useAppStore((s) => s.isPlaying);
   const progress = useAppStore((s) => s.progress);
   const duration = useAppStore((s) => s.duration);
+  // v72: liquid title motion kill-switch (respects user setting + OS)
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const reduceMotion = useAppStore((s) => s.reduceMotion);
   const volume = useAppStore((s) => s.volume);
   const shuffle = useAppStore((s) => s.shuffle);
   const repeat = useAppStore((s) => s.repeat);
@@ -205,7 +209,6 @@ export default function FullTrackView() {
   const [moreMenu, setMoreMenu] = useState<{ x: number; y: number } | null>(null);
   const [showDoubleTapHint, setShowDoubleTapHint] = useState(true);
   const [showVisualizer, setShowVisualizer] = useState(false);
-  const [showShareSheet, setShowShareSheet] = useState(false);
   const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
   const [showVolumePopup, setShowVolumePopup] = useState(false);
   const [lastTapTime, setLastTapTime] = useState(0);
@@ -333,10 +336,18 @@ export default function FullTrackView() {
     }
   }, [currentTrack, toggleDislike]);
 
+  // v72: share → the GLOBAL share sheet (AppShell)
+  const openShareSheet = useAppStore((s) => s.openShareSheet);
   const handleShare = useCallback(() => {
     if (!currentTrack) return;
-    setShowShareSheet(true);
-  }, [currentTrack]);
+    openShareSheet({
+      url: shareTrackUrl(currentTrack),
+      title: currentTrack.title,
+      subtitle: currentTrack.artist,
+      cover: currentTrack.cover,
+      openInAppUrl: currentTrack.scTrackId ? openInAppTrackUrl(currentTrack) : undefined,
+    });
+  }, [currentTrack, openShareSheet]);
 
   const handleArtistClick = useCallback(() => {
     if (currentTrack?.artist) {
@@ -690,14 +701,17 @@ export default function FullTrackView() {
     <>
       {/* Track info */}
       <div className={`w-full ${isMobile ? "text-center" : "text-left"} mb-4`}>
-        <TextSwap
+        {/* Liquid title — the music flows through the letters like water:
+            sweep synced to real playback progress, eases while playing,
+            falls asleep on pause, static under reduced motion (task §10). */}
+        <LiquidTitle
+          key={currentTrack.id}
           text={currentTrack.title}
           swapKey={currentTrack.id}
-          distance={8}
-          duration={0.3}
-          multiline
-          className="mq-text-display text-xl sm:text-2xl lg:text-4xl mb-1.5 leading-tight w-full"
-          style={{ color: "var(--mq-text)" }}
+          playing={isPlaying}
+          progressFraction={duration > 0 ? Math.min(1, Math.max(0, progress / duration)) : 0}
+          motionEnabled={animationsEnabled && !reduceMotion}
+          className="mq-text-display text-xl sm:text-2xl lg:text-4xl mb-1.5 leading-tight"
         />
         <button
           onClick={handleArtistClick}
@@ -835,7 +849,7 @@ export default function FullTrackView() {
               label: "Поделиться",
               onSelect: () => {
                 setMoreMenu(null);
-                setShowShareSheet(true);
+                handleShare();
               },
             },
             {
@@ -1335,7 +1349,19 @@ export default function FullTrackView() {
         >
           {/* Blurred cover background — the single ambient layer that makes
               the full player feel like the album. Phase 2B: blur 40→28px,
-              opacity 0.25→0.2, accent tint removed (neutral, calmer). */}
+              opacity 0.25→0.2, accent tint removed (neutral, calmer).
+              v72: + artwork-derived ambient wash (--mq-ambient-*, published
+              globally by AmbientBackground — same palette as the app shell). */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            aria-hidden="true"
+            style={{
+              background:
+                "radial-gradient(75% 55% at 18% 8%, color-mix(in srgb, var(--mq-ambient-1) 30%, transparent) 0%, transparent 62%)," +
+                "radial-gradient(65% 55% at 88% 92%, color-mix(in srgb, var(--mq-ambient-2) 24%, transparent) 0%, transparent 66%)",
+              transition: "background 2.6s ease",
+            }}
+          />
           {currentTrack.cover && (
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
               <img
@@ -1719,14 +1745,6 @@ export default function FullTrackView() {
         } } : { kind: "default" }}
       />
     )}
-    <ShareSheet
-      isOpen={showShareSheet}
-      onClose={() => setShowShareSheet(false)}
-      url={typeof window !== "undefined" && currentTrack ? `${window.location.origin}/track/${currentTrack.scTrackId || currentTrack.id}` : ""}
-      title={currentTrack?.title || ""}
-      subtitle={currentTrack?.artist}
-      cover={currentTrack?.cover}
-    />
     </>
   );
 }

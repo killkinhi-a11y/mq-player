@@ -52,6 +52,16 @@ export type ViewType = "auth" | "main" | "search" | "messenger" | "settings" | "
 
 export type Mood = "chill" | "bassy" | "melodic" | "dark" | "upbeat" | "romantic" | "aggressive" | "dreamy";
 
+/** v72: global share-sheet payload — mirrors ShareSheet props. */
+export interface ShareSheetState {
+  isOpen: boolean;
+  url: string;
+  title: string;
+  subtitle?: string;
+  cover?: string;
+  openInAppUrl?: string;
+}
+
 export interface FavoriteArtist {
   id: number;
   username: string;
@@ -199,6 +209,15 @@ interface AppState {
 
   // Full-screen track view
   isFullTrackViewOpen: boolean;
+
+  // v72: GLOBAL share sheet (QR) — one surface for every share surface
+  // (context menus, players, artist/playlist views). Mounted once in
+  // AppShell; menus call openShareSheet() and close themselves — a sheet
+  // nested inside a menu would unmount with the menu AND the opaque menu
+  // surface (kept open) would sit on top of the dialog.
+  shareSheet: ShareSheetState;
+  openShareSheet: (data: Omit<ShareSheetState, "isOpen">) => void;
+  closeShareSheet: () => void;
 
   // Equalizer modal
   isEqOpen: boolean;
@@ -622,6 +641,7 @@ const initialState = {
   notificationCount: 0 as number,
   notifPanelOpen: false as boolean,
   isFullTrackViewOpen: false,
+  shareSheet: { isOpen: false, url: "", title: "" } as ShareSheetState,
   isEqOpen: false as boolean,
   shortcutsHelpOpen: false as boolean,
   likedTrackIds: [] as string[],
@@ -1683,6 +1703,8 @@ export const useAppStore = create<AppState>()(
       setIsLoading: (loading) => set({ isLoading: loading }),
 
       setFullTrackViewOpen: (open) => set({ isFullTrackViewOpen: open }),
+      openShareSheet: (data) => set({ shareSheet: { ...data, isOpen: true } }),
+      closeShareSheet: () => set((s) => ({ shareSheet: { ...s.shareSheet, isOpen: false } })),
 
       setEqOpen: (open) => set({ isEqOpen: open }),
 
@@ -3060,7 +3082,7 @@ export const useAppStore = create<AppState>()(
           "selectedGroupId", "selectedArtist", "typingUsers",
           "_authGeneration", "_hasHydrated", "_playLock",
           "spatialAudioEnabled", "spatialMood", "spatialAutoDetect",
-          "miniPlayerHidden", "isFullTrackViewOpen", "isEqOpen",
+          "miniPlayerHidden", "isFullTrackViewOpen", "isEqOpen", "shareSheet",
           "publicPlaylistsLoading", "recommendedPlaylistsLoading",
           "publicPlaylistsPage", "publicPlaylistsTotal",
           "publicPlaylistsSearch", "publicPlaylistsSort",

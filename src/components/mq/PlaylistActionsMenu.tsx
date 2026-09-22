@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Play, Shuffle, Pencil, Camera, Share2, Trash2, Pin, PinOff, ListPlus, ListMusic, Music2,
 } from "lucide-react";
 import { useAppStore, type UserPlaylist } from "@/store/useAppStore";
+import { sharePlaylistUrl } from "@/lib/share";
 import MenuCore, { MenuHeader, type MenuElement } from "./ui/MenuCore";
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -84,19 +85,19 @@ export default function PlaylistActionsMenu({
     onClose();
   }, [playlist, onClose]);
 
-  const share = useCallback(async () => {
-    const url = shareUrl ?? `${window.location.origin}/playlist/${playlist.id}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: playlist.name, url });
-      } catch {
-        /* dismissed */
-      }
-    } else {
-      await navigator.clipboard.writeText(url).catch(() => {});
-    }
+  // v72: playlist share → the GLOBAL share sheet (AppShell) on the CANONICAL
+  // deep link /play?pl=… (the old default /playlist/{id} 404'd — fixed for
+  // every caller that doesn't pass an explicit shareUrl).
+  const openShareSheet = useAppStore((s) => s.openShareSheet);
+  const share = useCallback(() => {
+    openShareSheet({
+      url: shareUrl ?? sharePlaylistUrl(playlist.id),
+      title: playlist.name,
+      subtitle: `Плейлист · ${playlist.tracks.length} треков`,
+      cover: playlist.cover || undefined,
+    });
     onClose();
-  }, [playlist, onClose, shareUrl]);
+  }, [openShareSheet, playlist, shareUrl, onClose]);
 
   const elements: MenuElement[] = useMemo(() => {
     const els: MenuElement[] = [

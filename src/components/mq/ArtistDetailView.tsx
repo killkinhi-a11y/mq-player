@@ -10,6 +10,7 @@ import { useAppStore, type FavoriteArtist } from "@/store/useAppStore";
 import { type Track, formatDuration, formatTrackDuration } from "@/lib/musicApi";
 import { useToast } from "@/hooks/use-toast";
 import { extractColors, type DominantColors } from "@/hooks/useDominantColor";
+import { shareArtistUrl } from "@/lib/share";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import ContextMenu from "./ContextMenu";
 import ArtistActionsMenu, { type ArtistMenuTarget } from "./ArtistActionsMenu";
@@ -205,11 +206,16 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
     }
   }, [isFav, favoriteArtists, artist.name, info, tracks.length, removeFavoriteArtist, addFavoriteArtist, toast]);
 
-  const handleShare = useCallback(async () => {
-    const url = `${window.location.origin}/play?artist=${encodeURIComponent(artist.name)}`;
-    if (navigator.share) { try { await navigator.share({ title: artist.name, url }); } catch {} }
-    else if (navigator.clipboard) { navigator.clipboard.writeText(url).then(() => toast({ title: "Ссылка скопирована" })); }
-  }, [artist.name, toast]);
+  // v72: artist share → the GLOBAL share sheet (AppShell)
+  const openShareSheet = useAppStore((s) => s.openShareSheet);
+  const handleShare = useCallback(() => {
+    openShareSheet({
+      url: shareArtistUrl(artist.name),
+      title: artist.name,
+      subtitle: info.followers ? `Артист · ${fmtNum(info.followers)} слушателей` : "Артист",
+      cover: info.avatar,
+    });
+  }, [openShareSheet, artist.name, info]);
 
   const openSimilar = useCallback((a: SimilarArtist) => {
     scrollTopRef.current?.scrollIntoView({ behavior: "auto", block: "start" });
@@ -227,7 +233,7 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
 
       {/* ════ Sticky mini-header (appears after hero; below the floating navbar on desktop) ════ */}
       <div
-        className="fixed left-0 right-0 z-40 top-0 lg:top-[72px] transition-all duration-300 border-b"
+        className="fixed left-0 right-0 lg:left-[var(--mq-sidebar-w)] z-40 top-0 lg:top-[var(--mq-topbar-h)] transition-all duration-300 border-b"
         style={{
           background: heroGone ? "color-mix(in srgb, var(--mq-bg) 88%, transparent)" : "transparent",
           borderColor: heroGone ? "var(--mq-edge)" : "transparent",
@@ -320,7 +326,7 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
 
         {/* ── Desktop hero: wide editorial composition ── */}
         <div className="hidden lg:flex relative items-end gap-8 px-10 pb-8 pt-24" style={{ minHeight: 380 }}>
-          <div className="mq-art shrink-0" style={{ width: 288, height: 288, borderRadius: 22, boxShadow: "0 24px 60px rgba(0,0,0,0.55)" }}>
+          <div className="mq-art shrink-0 mq-hero-zoom" style={{ width: 288, height: 288, borderRadius: 22, boxShadow: "0 24px 60px rgba(0,0,0,0.55)", overflow: "hidden" }}>
             {info.avatar ? (
               <img src={info.avatar} alt={artist.name} />
             ) : (

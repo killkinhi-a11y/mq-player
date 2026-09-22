@@ -8,6 +8,7 @@ import {
 import { useAppStore } from "@/store/useAppStore";
 import { type Track, formatDuration } from "@/lib/musicApi";
 import { getAudioElement } from "@/lib/audioEngine";
+import { shareTrackUrl, openInAppTrackUrl } from "@/lib/share";
 import MenuCore, { backLabelSpec, MenuHeader, type MenuElement } from "./ui/MenuCore";
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -131,28 +132,22 @@ export default function ContextMenu({
     onClose();
   }, [isSubscribed, favoriteArtists, track, addFavoriteArtist, removeFavoriteArtist, onClose]);
 
-  const handleShare = useCallback(async () => {
-    const shareUrl = `${window.location.origin}/track/${track.scTrackId}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: `${track.title} — ${track.artist}`, url: shareUrl });
-      } catch {
-        /* user dismissed */
-      }
-      onClose();
-    } else {
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        setShareFeedback(true);
-        setTimeout(() => {
-          setShareFeedback(false);
-          onClose();
-        }, 1400);
-      } catch {
-        onClose();
-      }
-    }
-  }, [track, onClose]);
+  // v72: share opens the ShareSheet — REAL QR (decoder-verified), copy,
+  // native share, PNG export and the in-app deep-link hand-off. The old
+  // inline navigator.share is kept as the sheet's own mechanism.
+  // v72: share routes to the GLOBAL share sheet (AppShell) — the menu can
+  // close itself safely; no nested sheet, no keepOpen stacking conflicts.
+  const openShareSheet = useAppStore((s) => s.openShareSheet);
+  const handleShare = useCallback(() => {
+    openShareSheet({
+      url: shareTrackUrl(track),
+      title: track.title,
+      subtitle: track.artist,
+      cover: track.cover,
+      openInAppUrl: track.scTrackId ? openInAppTrackUrl(track) : undefined,
+    });
+    onClose();
+  }, [openShareSheet, track, onClose]);
 
   const handleDownload = useCallback(async () => {
     const audio = getAudioElement();

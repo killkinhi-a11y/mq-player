@@ -80,6 +80,9 @@ function ViewSkeleton() {
 
 // ── Shell components (lazy, not switched often) ──
 const MqCat = dynamic(() => import("@/components/mq/MqCat"), { ssr: false });
+// v72 desktop redesign: left navigation rail + living ambient backdrop
+const Sidebar = dynamic(() => import("@/components/mq/Sidebar"), { ssr: false });
+const AmbientBackground = dynamic(() => import("@/components/mq/AmbientBackground"), { ssr: false });
 const PlayerBar = dynamic(() => import("@/components/mq/PlayerBar"), { ssr: false });
 const FullTrackView = dynamic(() => import("@/components/mq/FullTrackView"), { ssr: false });
 const FullTrackViewMobile = dynamic(() => import("@/components/mq/FullTrackViewMobile"), { ssr: false });
@@ -97,6 +100,7 @@ const AudioDebugPanel = dynamic(() => import("@/components/mq/AudioDebugPanel"),
 
 // P2-#300/#310: Error boundary per view — catches React errors without crashing the whole app
 import { ViewErrorBoundary } from "@/components/mq/ViewErrorBoundary";
+import { ShareSheet } from "@/components/mq/ShareSheet";
 import { ViewTransition } from "@/components/mq/ViewTransition";
 import { useAudioEngine } from "@/components/mq/useAudioEngine";
 import { useMediaSession } from "@/components/mq/useMediaSession";
@@ -142,6 +146,8 @@ export default function AppShell() {
   const currentTrack = useAppStore((s) => s.currentTrack);
   const isFullTrackViewOpen = useAppStore((s) => s.isFullTrackViewOpen);
   const isEqOpen = useAppStore((s) => s.isEqOpen);
+  const shareSheet = useAppStore((s) => s.shareSheet);
+  const closeShareSheet = useAppStore((s) => s.closeShareSheet);
   const setEqOpen = useAppStore((s) => s.setEqOpen);
   const catEnabled = useAppStore((s) => s.catEnabled);
   const isPlaying = useAppStore((s) => s.isPlaying);
@@ -265,11 +271,14 @@ export default function AppShell() {
   }, []);
 
 
-  // ── F11 deep-link params: ?pl= / ?artist= ───────────────────────────────
-  // The web app itself shares these URLs (PlaylistView shareUrl) and the
-  // native Android app shares the same https links. /play is the SPA shell,
-  // so the params select the content after load. Playlist resolution uses
-  // the same /api/playlists/[id] route as the mobile app (public or own).
+  // ── F11 deep-link params: ?pl= / ?artist= / ?track= ────────────────────
+  // The web app itself shares these URLs (share.ts canonical builders) and
+  // the native Android app shares the same https links. /play is the SPA
+  // shell, so the params select the content after load. Playlist resolution
+  // uses the same /api/playlists/[id] route as the mobile app (public or
+  // own). ?track= (v72 QR share loop) resolves via the public share API
+  // (/api/tracks/share — the same route /track/[id] uses), plays the track
+  // and opens the full player.
   //
   // Parse ONCE at mount; APPLY after the store rehydrated AND the user is
   // authenticated (otherwise the async zustand rehydrate clobbers the
@@ -278,12 +287,12 @@ export default function AppShell() {
   // Parse DURING FIRST RENDER (not in an effect): the history-sync effect
   // below runs replaceState("/play") on mount, which would wipe the query
   // string before an effect-declared parser could read it.
-  const pendingLinkRef = useRef<{ pl: string | null; artist: string | null; consumed: boolean } | null>(
+  const pendingLinkRef = useRef<{ pl: string | null; artist: string | null; track: string | null; consumed: boolean } | null>(
     typeof window === "undefined" || typeof URLSearchParams === "undefined"
       ? null
       : (() => {
           const params = new URLSearchParams(window.location.search);
-          return { pl: params.get("pl"), artist: params.get("artist"), consumed: false };
+          return { pl: params.get("pl"), artist: params.get("artist"), track: params.get("track"), consumed: false };
         })()
   );
   const linkHydrated = useAppStore((s) => s._hasHydrated);
@@ -292,7 +301,7 @@ export default function AppShell() {
     const pending = pendingLinkRef.current;
     if (!pending || pending.consumed) return;
     if (!linkHydrated || !linkAuthenticated) return; // wait for auth restore
-    if (pending.pl === null && pending.artist === null) return;
+    if (pending.pl === null && pending.artist === null && pending.track === null) return;
     pending.consumed = true;
     // Clean the URL so refresh / back doesn't re-trigger navigation
     window.history.replaceState(null, "", window.location.pathname);
@@ -309,6 +318,40 @@ export default function AppShell() {
             selectedPlaylistId: p.id,
             currentView: "playlists",
           }));
+        })
+        .catch(() => { /* deep link is best-effort; app loads normally */ });
+    } else if (pending.track) {
+      // v72 QR loop: /play?track=<id> — resolve via the public share API and
+      // start playback immediately (same normalization as /track/[id]).
+      fetch(`/api/tracks/share?scTrackId=${encodeURIComponent(pending.track)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          // API returns the track object at the top level (same shape as
+          // /track/[id] consumes); accept a wrapped {track} too, defensively.
+          const t = data?.track ?? data;
+          if (!t || !t.title) return;
+          const track = {
+            id: t.id ?? `sc_${t.scTrackId}`,
+            title: t.title ?? "Unknown",
+            artist: t.artist ?? "",
+            album: t.album ?? "",
+            cover: t.cover ?? t.image ?? "",
+            duration: t.duration ?? 0,
+            genre: t.genre ?? "",
+            audioUrl: t.audioUrl ?? t.streamUrl ?? "",
+            previewUrl: t.previewUrl ?? "",
+            source: t.source ?? "soundcloud",
+            scTrackId: t.scTrackId ?? null,
+          } as const;
+          const st = useAppStore.getState();
+          st.playTrack(track as Parameters<typeof st.playTrack>[0]);
+          // Open the full player slightly deferred: a concurrent login
+          // choreography (e.g. demo-mode setState, auth redirect) can close
+          // overlays in the same tick — 400ms lets it settle first.
+          setTimeout(() => {
+            const now = useAppStore.getState();
+            if (now.currentTrack?.id === track.id) now.setFullTrackViewOpen(true);
+          }, 400);
         })
         .catch(() => { /* deep link is best-effort; app loads normally */ });
     }
@@ -670,9 +713,6 @@ export default function AppShell() {
     >
     <div
       className={`min-h-[100dvh] ${showMiniPlayerSpacer ? 'mq-has-player' : ''}`}
-      style={{
-        backgroundColor: "var(--mq-bg)",
-      }}
     >
       {/* web-accessibility rule: skip-to-content link for keyboard users.
           Visually hidden until focused, then jumps to #main-content. */}
@@ -686,6 +726,13 @@ export default function AppShell() {
       >
         Перейти к содержимому
       </a>
+      {/* Living ambient backdrop — artwork-reactive gradients + grain +
+          vignette, painted from the dominant colors of the current track.
+          z-index:-1 (see .mq-ambient-bg): above the body canvas background,
+          below ALL app content — views keep natural stacking (their fixed
+          headers must never be trapped under a main-level stacking context). */}
+      <AmbientBackground />
+
       <MaintenanceBanner />
       <OfflineBanner />
       {/* Phase M: deployment update banner — user-controlled, never interrupts playback */}
@@ -693,16 +740,20 @@ export default function AppShell() {
       {/* Audio engine telemetry — dev or ?audio-debug=1 (diagnostic surface) */}
       <Suspense fallback={null}><AudioDebugPanel /></Suspense>
 
-      <Suspense fallback={
-        <nav className="hidden lg:flex fixed top-0 left-0 right-0 z-50 items-center border-b"
-          style={{ height: 56, backgroundColor: "var(--mq-surface, #161616)", borderColor: "var(--mq-border, #222)" }}>
-          <div className="w-7 h-7 rounded-lg ml-4" style={{ backgroundColor: "var(--mq-accent, #e03131)" }} />
-        </nav>
-      }>
+      {/* Desktop shell (≥1024): Sidebar owns navigation; NavBar becomes a
+          light top bar (search shortcut + actions) INSIDE the content area. */}
+      <Suspense fallback={null}>
+        {showNav && !hideUiForFullscreen && <Sidebar />}
+      </Suspense>
+      <Suspense fallback={null}>
         {showNav && !hideUiForFullscreen && <NavBar />}
       </Suspense>
 
-      <main id="main-content" className={showNav && !hideUiForFullscreen ? "lg:pt-16" : ""} data-view={currentView}>
+      <main
+        id="main-content"
+        className={showNav && !hideUiForFullscreen ? "lg:pt-[var(--mq-topbar-h)] lg:pl-[var(--mq-sidebar-w)]" : ""}
+        data-view={currentView}
+      >
         {/* ── Active view rendering ──
             P2-#300/#310/#185 FIX: Only render the ACTIVE view, not all visited views.
             Previous pattern mounted ALL visited views simultaneously (display:none),
@@ -790,6 +841,17 @@ export default function AppShell() {
       {/* Desktop: separate nav bar (PlayerBar already rendered above) */}
       <Suspense fallback={null}>{isAuthenticated && <NotificationPanel isOpen={notifPanelOpen} onClose={() => setNotifPanelOpen(false)} />}</Suspense>
       <Suspense fallback={null}>{isAuthenticated && <OnboardingTour />}</Suspense>
+      {/* v72: THE global share sheet (real QR) — every share surface routes
+          here via store.openShareSheet(); one instance, one stacking layer. */}
+      <ShareSheet
+        isOpen={shareSheet.isOpen}
+        onClose={closeShareSheet}
+        url={shareSheet.url}
+        title={shareSheet.title}
+        subtitle={shareSheet.subtitle}
+        cover={shareSheet.cover}
+        openInAppUrl={shareSheet.openInAppUrl}
+      />
     </div>
     </MotionConfig>
   );

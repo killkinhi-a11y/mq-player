@@ -6,11 +6,11 @@ import { themes } from "@/lib/themes";
 import { APP_URL } from "@/lib/config";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  User, Palette, Headphones, Bell, MoreHorizontal,
+  User, Palette, Headphones, Bell,
   Volume2, Moon, Type, Minimize2, Sparkles, Zap,
   RefreshCw, Cloud, Trash2, LogOut, Download, Upload,
   Smartphone, Monitor, Apple, Info, ChevronRight, ChevronDown, X, Check, Loader2,
-  AlertTriangle, Sliders, Gauge, Terminal, Cpu,
+  AlertTriangle, Sliders, Gauge, Terminal, Cpu, Keyboard as KeyboardIcon,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import VolumeSlider from "@/components/ui/volume-slider";
@@ -25,17 +25,36 @@ import {
   ANDROID_WHATS_NEW,
 } from "@/lib/androidRelease";
 import { hoverProps } from "@/lib/hoverCapability";
+import { WEB_RELEASE_NOTES } from "@/lib/releaseNotes";
+
+// v72: hotkeys reference for the About tab — the exact bindings
+// useKeyboardShortcuts listens to (mirrors KeyboardShortcutsHelp SHORTCUTS).
+const SETTINGS_SHORTCUTS: { keys: string[]; action: string }[] = [
+  { keys: ["Space"], action: "Играть / пауза" },
+  { keys: ["→"], action: "Перемотать вперёд на 10 сек" },
+  { keys: ["←"], action: "Перемотать назад на 10 сек" },
+  { keys: ["↑"], action: "Громче на 5" },
+  { keys: ["↓"], action: "Тише на 5" },
+  { keys: ["M"], action: "Без звука / вернуть звук" },
+  { keys: ["N"], action: "Следующий трек" },
+  { keys: ["P"], action: "Предыдущий трек" },
+  { keys: ["L"], action: "Лайк текущего трека" },
+  { keys: ["F"], action: "Полноэкранный вид трека" },
+  { keys: ["Esc"], action: "Закрыть полноэкранный вид" },
+  { keys: ["?"], action: "Показать справку" },
+];
 
 // ─── Tab ──────────────────────────────────────────────────────────────────
 
-type Tab = "account" | "appearance" | "playback" | "notifications" | "more";
+type Tab = "account" | "appearance" | "playback" | "notifications" | "downloads" | "about";
 
 const TABS: { id: Tab; label: string; labelShort: string; icon: React.ElementType }[] = [
   { id: "account", label: "Аккаунт", labelShort: "Профиль", icon: User },
   { id: "appearance", label: "Оформление", labelShort: "Тема", icon: Palette },
   { id: "playback", label: "Звук", labelShort: "Звук", icon: Headphones },
   { id: "notifications", label: "Уведомления", labelShort: "Уведом.", icon: Bell },
-  { id: "more", label: "Ещё", labelShort: "Ещё", icon: MoreHorizontal },
+  { id: "downloads", label: "Загрузки", labelShort: "Файлы", icon: Download },
+  { id: "about", label: "О программе", labelShort: "Ещё", icon: Info },
 ];
 
 // ─── Card ─────────────────────────────────────────────────────────────────
@@ -399,8 +418,10 @@ export default function SettingsView() {
   // ── Tab state ──
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     try {
-      const stored = localStorage.getItem("mq-settings-tab") as Tab | null;
-      if (stored && ["account", "appearance", "playback", "notifications", "more"].includes(stored)) return stored;
+      const stored = localStorage.getItem("mq-settings-tab");
+      // v72: legacy "more" tab maps to "about"; new ids pass through.
+      if (stored === "more") return "about";
+      if (stored && ["account", "appearance", "playback", "notifications", "downloads", "about"].includes(stored)) return stored as Tab;
     } catch {}
     return "account";
   });
@@ -659,7 +680,7 @@ export default function SettingsView() {
             </Card>
 
             <Card>
-              <CardTitle icon={Cloud} title="Данные" />
+              <CardTitle icon={Cloud} title="Приватность и данные" />
               <SettingRow icon={RefreshCw} label="Синхронизация" subtitle={lastSyncAt ? `Последняя: ${new Date(lastSyncAt).toLocaleString("ru-RU")}` : "Не синхронизировано"}
                 onClick={handleSync} rightElement={isSyncing ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} /> : undefined} />
               <SettingRow icon={Download} label="Экспорт данных" subtitle="Сохранить избранное и плейлисты в JSON" onClick={handleExportData} />
@@ -939,31 +960,9 @@ export default function SettingsView() {
           </motion.div>
         )}
 
-        {/* ════ MORE ════ */}
-        {activeTab === "more" && (
+        {/* ════ DOWNLOADS (v72: desktop-app category — APK + desktop builds + cache) ════ */}
+        {activeTab === "downloads" && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="space-y-4">
-            {/* Phase M #14/#16: honest audio-system + deployment diagnostics.
-                IA fix: moved from the "Звук" tab — system diagnostics are not
-                an audio setting (PART E 3.8). */}
-            <SystemDiagnosticsCard />
-
-            <Card>
-              <CardTitle icon={Info} title="О приложении" />
-              <SettingRow icon={Info} label="Версия" value={typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_VERSION ? `v${process.env.NEXT_PUBLIC_APP_VERSION}` : "v1.3.0"} />
-              <SettingRow icon={Cloud} label="Сервер" value={APP_URL.replace("https://", "")} />
-            </Card>
-
-            <Card>
-              <CardTitle icon={Sparkles} title="Контент" />
-              <SettingToggle icon={Sparkles} label="ИИ-подборки" subtitle="Рекомендации на главной" value={!aiRecsHidden} onCheckedChange={(v) => setAiRecsHidden(!v)} />
-            </Card>
-
-            <Card>
-              <CardTitle icon={Sparkles} title="Дополнительно" />
-              <SettingToggle icon={Sparkles} label="MqCat" subtitle="Котик на экране" value={catEnabled} onCheckedChange={setCatEnabled} />
-              <SettingRow icon={Trash2} label="Очистить кэш" subtitle="Закэшированные треки и изображения" onClick={handleClearCache} danger />
-            </Card>
-
             <Card>
               <CardTitle icon={Download} title="Приложение для Android" />
               <AndroidUpdateCard />
@@ -1013,6 +1012,88 @@ export default function SettingsView() {
                   </a>
                 </div>
               </div>
+            </Card>
+
+            <Card>
+              <CardTitle icon={Sparkles} title="Хранилище" />
+              <SettingRow icon={Trash2} label="Очистить кэш" subtitle="Закэшированные треки и изображения" onClick={handleClearCache} danger />
+            </Card>
+          </motion.div>
+        )}
+
+        {/* ════ ABOUT (v72: version + human release notes + hotkeys + extras) ════ */}
+        {activeTab === "about" && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="space-y-4">
+            {/* Phase M #14/#16: honest audio-system + deployment diagnostics.
+                IA fix: moved from the "Звук" tab — system diagnostics are not
+                an audio setting (PART E 3.8). */}
+            <SystemDiagnosticsCard />
+
+            <Card>
+              <CardTitle icon={Info} title="О приложении" />
+              <SettingRow icon={Info} label="Версия" value={typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_VERSION ? `v${process.env.NEXT_PUBLIC_APP_VERSION}` : "v1.3.0"} />
+              <SettingRow icon={Cloud} label="Сервер" value={APP_URL.replace("https://", "")} />
+            </Card>
+
+            {/* v72 (task §20): the same human «Что нового» the update banner
+                shows — always reachable, not only right after a deploy. */}
+            <Card>
+              <CardTitle icon={Sparkles} title="Что нового" />
+              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
+                <ul className="flex flex-col gap-2">
+                  {WEB_RELEASE_NOTES.map((n) => (
+                    <li key={n.text} className="flex items-start gap-2 text-[13px] leading-snug" style={{ color: "var(--mq-text-muted)" }}>
+                      <span
+                        className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                        style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 16%, transparent)", color: "var(--mq-accent)" }}
+                        aria-hidden
+                      >
+                        ✓
+                      </span>
+                      {n.text}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Card>
+
+            {/* v72 (task §18): keyboard shortcuts reference — the same real
+                bindings useKeyboardShortcuts listens to (no fake list). */}
+            <Card>
+              <CardTitle icon={KeyboardIcon} title="Горячие клавиши" />
+              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
+                  {SETTINGS_SHORTCUTS.map((s) => (
+                    <div key={s.action} className="flex items-center justify-between gap-3 py-0.5">
+                      <span className="text-[13px] min-w-0 truncate" style={{ color: "var(--mq-text-muted)" }}>{s.action}</span>
+                      <span className="flex items-center gap-1 flex-shrink-0">
+                        {s.keys.map((k) => (
+                          <kbd
+                            key={k}
+                            className="px-1.5 py-0.5 rounded font-mono mq-t-meta-2"
+                            style={{ backgroundColor: "var(--mq-surface-1)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)" }}
+                          >
+                            {k}
+                          </kbd>
+                        ))}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
+                  Нажмите <span className="font-mono">?</span> в приложении, чтобы открыть справку целиком
+                </p>
+              </div>
+            </Card>
+
+            <Card>
+              <CardTitle icon={Sparkles} title="Контент" />
+              <SettingToggle icon={Sparkles} label="ИИ-подборки" subtitle="Рекомендации на главной" value={!aiRecsHidden} onCheckedChange={(v) => setAiRecsHidden(!v)} />
+            </Card>
+
+            <Card>
+              <CardTitle icon={Sparkles} title="Дополнительно" />
+              <SettingToggle icon={Sparkles} label="MqCat" subtitle="Котик на экране" value={catEnabled} onCheckedChange={setCatEnabled} />
             </Card>
           </motion.div>
         )}

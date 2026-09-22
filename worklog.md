@@ -4639,3 +4639,102 @@ Stage Summary:
 - RC for 2.3.5 deleted (never visible to users again).
 - Owner step remains: install 2.3.5 APK on a real device (animations are
   interaction-level; screenshots can't prove motion feel).
+
+---
+Task ID: desktop-redesign-24 (in progress)
+Agent: main (Super Z)
+Task: MQ Player desktop UI redesign from visual reference — glassmorphism
+desktop-app shell, sidebar, floating player, ambient background, liquid title,
+real QR share system, settings categories, human update notes (spec §1–§24).
+
+Work Log (so far):
+- REFERENCE: VLM analysis of the uploaded reference (composition, glass,
+  palette, capsule player, depth layers).
+- AUDIT: 2 parallel Explore agents (architecture + functional contracts).
+  Key facts: SPA at /play (zustand views), NavBar=desktop top bar,
+  PlayerBar=desktop-only (mobile=MobileDock), glass blur capped 16/24px,
+  useDominantColor existed but only ArtistDetailView used it, ShareSheet QR
+  was a FAKE hash pattern, 2 dead share URL formats (/playlist/{id},
+  /artist/{name}), source-contract tests (long-title + apk-url) constrain
+  several files.
+- DESIGN SYSTEM: design-tokens.css — added canonical tokens (--mq-glass,
+  --mq-glass-strong, --mq-blur-sm/md/lg, --mq-surface-elevated,
+  --mq-text-secondary, --mq-shadow, --mq-shadow-glass, --mq-sidebar-w,
+  --mq-topbar-h, --mq-player-float-m, --mq-ambient-1/2/3 runtime vars).
+- NEW COMPONENTS:
+  * AmbientBackground.tsx — artwork-reactive backdrop: dominant colors →
+    CSS vars on <html> → 3 radial gradients + grain + vignette; @property
+    registration gives 2.6s cross-fade; zero blur filters (GPU budget);
+    z-index:-1 (root-cause fix after an initial z-0 attempt trapped view
+    headers in a main stacking context — see fixes below).
+  * Sidebar.tsx — desktop left rail (≥1024): canonical /logo.svg MQ mark,
+    capsule items (Home/Search/Library/Playlists/Chats + Profile/Settings),
+    accent glow active state, translateX hover, unread badges, compactMode
+    → 78px icon rail, now-playing chip at bottom (opens full player).
+  * LiquidTitle.tsx — full-player title "water through letters": 3 layers
+    (base text, progress-synced gradient band via rAF eased toward real
+    playback position, SMIL feTurbulence+feDisplacementMap ripple paused
+    with playback via svg.pauseAnimations). Reduced-motion → static.
+- SHELL: AppShell — mounts Sidebar + AmbientBackground; main gets
+  lg:pt-[--mq-topbar-h] + lg:pl-[--mq-sidebar-w]; deep links extended with
+  ?track= (QR loop; resolves via /api/tracks/share — API returns track at
+  TOP level, handled; deferred 400ms full-player open beats login
+  choreography race).
+- NavBar — rewritten as LIGHT desktop top bar: transparent, search pill
+  (⌘K contract intact), bell/admin/settings/profile; nav moved to Sidebar.
+- PlayerBar — docked full-width bar → FLOATING GLASS CAPSULE (bottom 20px,
+  min(920px,100%), 24px radius, --mq-glass-strong + --mq-blur-md, soft
+  shadow). Internals/playback contracts untouched.
+- FULL PLAYER: LiquidTitle replaces title TextSwap; ambient wash layer
+  (--mq-ambient-*) added beside blurred cover.
+- ARTIST: hero artwork hover-zoom (mq-hero-zoom), sticky mini-header
+  geometry fixed for sidebar (lg:left-[--mq-sidebar-w]).
+- SEARCH: sticky header lg:top-[--mq-topbar-h] (transparent topbar made
+  old top-0 stick visibly overlap).
+- TRACK ROWS: .mq-card-track → radius-lg capsule hover + artwork scale.
+- QR SYSTEM: vendored Nayuki qrcodegen (MIT, authoritative source from
+  GitHub) + src/lib/qr.ts (matrix, crispEdges SVG w/ quiet zone 4, canvas
+  PNG export). src/lib/share.ts — ONE canonical URL builder (track
+  /track/{id}, playlist /play?pl=, artist /play?artist=) — fixed both dead
+  formats. ShareSheet rewritten: REAL QR (artwork BESIDE code, never
+  overlay), copy, PNG download, native share, "Открыть в MQ Player".
+  Share surfaces wired: ContextMenu (all 15 call sites at once), PlayerBar,
+  FullTrackView, ArtistActionsMenu, PlaylistActionsMenu, ArtistDetailView.
+- /track/[id] page: prominent "Открыть в MQ Player" CTA → /play?track=.
+- SETTINGS: tabs → Аккаунт/Оформление/Звук/Уведомления/Загрузки/О программе
+  (legacy "more" maps to about); About = version + human "Что нового" +
+  hotkeys reference (real bindings); Downloads = APK card (test contract
+  preserved) + platforms + cache; account "Данные" → "Приватность и данные".
+- UPDATE PANEL: UpdateBanner — expandable "Что нового" (7 human bullets
+  from src/lib/releaseNotes.ts, tech details behind «Подробнее»); "updated"
+  state no longer prints build hashes.
+- TESTS: qr.test.ts (12) — structural (finder/timing patterns, version
+  formula) + REAL jsQR decode round-trip (all canonical URL shapes,
+  cyrillic, ECL high, scratch tolerance) — jsQR dist vendored to
+  scripts/qr-verify/ (Apache-2.0, documented). Full suite 400/400 GREEN.
+- LIVE QA (prod build + agent-browser 1440×900):
+  * Shell: sidebar capsule nav ✓, light topbar ✓, floating capsule with
+    margins ✓, ambient reacting to artwork (warm palette rgb(59,44,20)) ✓,
+    VLM: "premium native app feel", 8/10.
+  * Liquid title: band visible through letters ✓, advances with playback
+    (18.12%→19.48% over 4s) ✓. Initial bug found+fixed: 240% bg-size put
+    the band off-text at progress extremes → progress now maps to 8–92%.
+  * QR: on-screen dialog QR DECODED by OpenCV from a raw screenshot
+    (http://localhost:3000/track/2322323018) — real scannability proof;
+    scripts/qr-verify/decode_screenshot.py added to the QA harness.
+  * Deep-link loop: QR URL → /track page → "Открыть в MQ Player" →
+    /play?track= → (demo login) → track PLAYS + full player opens with
+    liquid title ✓.
+  * Settings: 6 tabs render, About shows checkmark "Что нового" ✓.
+  * Artist page: 8.5/10, no layout issues.
+  * FOUND+FIXED critical stacking bug: `relative z-[1]` on <main> trapped
+    fixed headers (artist sticky header unclickable under sidebar);
+    fix = ambient z-index:-1 + NO stacking context on main (root div bg
+    removed — body already paints var(--mq-bg)).
+  * Dev-server forensics: Fast-Refresh loops + stale-chunk 500s were
+    environment noise (leftover next-server on port); prod build is truth.
+
+Stage Summary (mid-task):
+- Shell/liquid/QR/share/settings implemented; 400/400 tests green; tsc clean.
+- Remaining: final screenshot matrix (1920/390, search/library/messenger/
+  context menu), mobile regression pass, eslint, build, deploy, smoke.
