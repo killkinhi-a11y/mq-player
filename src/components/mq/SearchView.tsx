@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { useAppStore } from "@/store/useAppStore";
+import { isDesktopApp } from "@/lib/desktop-mode";
 import { motion, AnimatePresence } from "framer-motion";
 import { genresList, type Track, formatDuration } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
@@ -451,10 +452,13 @@ export default function SearchView() {
       {/* ── Search bar ── */}
       {/* v72 mobile: field takes the FULL width; Фильтры/Загрузить move to
           a compact 40px action row underneath (lg+ keeps the one-row layout).
-          Focus = neutral elevation (accent border read as an error state). */}
+          Focus = neutral elevation (accent border read as an error state).
+          WEB/DESKTOP SPLIT: only the desktop shell (TopBar inside the content
+          area) needs the --mq-topbar-h sticky offset; web sticks at top-0
+          right under the NavBar card, as before the v72 desktop redesign. */}
       <motion.div initial={animationsEnabled ? { opacity: 0, y: -8 } : undefined} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-        className="sticky top-0 lg:top-[var(--mq-topbar-h)] z-20 -mx-3 sm:-mx-4 lg:-mx-5 px-3 sm:px-4 lg:px-5 py-2.5"
+        className={"sticky top-0 z-20 -mx-3 sm:-mx-4 lg:-mx-5 px-3 sm:px-4 lg:px-5 py-2.5" + (isDesktopApp() ? " lg:top-[var(--mq-topbar-h)]" : "")}
         style={{ backgroundColor: "var(--mq-bg)" }}>
         <div className="flex gap-2">
         <div className="flex-1 relative">

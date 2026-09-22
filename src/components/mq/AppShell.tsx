@@ -10,6 +10,7 @@ import { useListenSessionSync } from "@/hooks/useListenSessionSync";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAndroidPermissions } from "@/hooks/use-android-permissions";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { isDesktopApp } from "@/lib/desktop-mode";
 import dynamic from "next/dynamic";
 import CobaltTurnstile from "@/components/mq/CobaltTurnstile";
 import { OfflineBanner } from "@/components/mq/OfflineBanner";
@@ -80,9 +81,13 @@ function ViewSkeleton() {
 
 // ── Shell components (lazy, not switched often) ──
 const MqCat = dynamic(() => import("@/components/mq/MqCat"), { ssr: false });
-// v72 desktop redesign: left navigation rail + living ambient backdrop
+// WEB/DESKTOP SPLIT: left navigation rail + living ambient backdrop + top
+// bar belong to the DESKTOP shell only (isDesktopApp()). The web app keeps
+// the classic NavBar card + flat --mq-bg background from before the v72
+// desktop redesign (web UI rollback — desktop must not change the web look).
 const Sidebar = dynamic(() => import("@/components/mq/Sidebar"), { ssr: false });
 const AmbientBackground = dynamic(() => import("@/components/mq/AmbientBackground"), { ssr: false });
+const TopBar = dynamic(() => import("@/components/mq/TopBar"), { ssr: false });
 const PlayerBar = dynamic(() => import("@/components/mq/PlayerBar"), { ssr: false });
 const ShareSheet = dynamic(() => import("@/components/mq/ShareSheet").then((m) => m.ShareSheet), { ssr: false });
 const FullTrackView = dynamic(() => import("@/components/mq/FullTrackView"), { ssr: false });
@@ -722,6 +727,12 @@ export default function AppShell() {
   //    transition to ~zero — "Анимации интерфейса" is now honest.
   const motionReduced = reduceMotion || !animationsEnabled;
 
+  // ── WEB/DESKTOP SHELL SPLIT (web UI rollback) ──────────────────────────
+  // Desktop (Tauri) installs window.__MQ_DESKTOP__ BEFORE the app tree
+  // loads, so the first render already knows the mode — no flash, no
+  // effect dance. Web (Next.js SSR + browser): always false → classic UI.
+  const desktopShell = isDesktopApp();
+
   return (
     <MotionConfig
       reducedMotion={motionReduced ? "always" : "user"}
@@ -729,6 +740,9 @@ export default function AppShell() {
     >
     <div
       className={`min-h-[100dvh] ${showMiniPlayerSpacer ? 'mq-has-player' : ''}`}
+      style={{
+        backgroundColor: "var(--mq-bg)",
+      }}
     >
       {/* web-accessibility rule: skip-to-content link for keyboard users.
           Visually hidden until focused, then jumps to #main-content. */}
@@ -742,12 +756,9 @@ export default function AppShell() {
       >
         Перейти к содержимому
       </a>
-      {/* Living ambient backdrop — artwork-reactive gradients + grain +
-          vignette, painted from the dominant colors of the current track.
-          z-index:-1 (see .mq-ambient-bg): above the body canvas background,
-          below ALL app content — views keep natural stacking (their fixed
-          headers must never be trapped under a main-level stacking context). */}
-      <AmbientBackground />
+      {/* WEB/DESKTOP SPLIT: the living ambient backdrop is desktop-only —
+          the web app keeps its classic flat --mq-bg background. */}
+      {desktopShell && <AmbientBackground />}
 
       <MaintenanceBanner />
       <OfflineBanner />
@@ -756,18 +767,32 @@ export default function AppShell() {
       {/* Audio engine telemetry — dev or ?audio-debug=1 (diagnostic surface) */}
       <Suspense fallback={null}><AudioDebugPanel /></Suspense>
 
-      {/* Desktop shell (≥1024): Sidebar owns navigation; NavBar becomes a
-          light top bar (search shortcut + actions) INSIDE the content area. */}
+      {/* WEB/DESKTOP SPLIT (web UI rollback):
+          DESKTOP shell (≥1024): Sidebar owns navigation + light TopBar
+          (search shortcut + actions) INSIDE the content area.
+          WEB: the classic NavBar card (brand + segmented tabs + actions),
+          exactly as before the v72 desktop redesign. */}
       <Suspense fallback={null}>
-        {showNav && !hideUiForFullscreen && <Sidebar />}
+        {desktopShell && showNav && !hideUiForFullscreen && <Sidebar />}
       </Suspense>
-      <Suspense fallback={null}>
-        {showNav && !hideUiForFullscreen && <NavBar />}
-      </Suspense>
+      {desktopShell ? (
+        <Suspense fallback={null}>
+          {showNav && !hideUiForFullscreen && <TopBar />}
+        </Suspense>
+      ) : (
+        <Suspense fallback={
+          <nav className="hidden lg:flex fixed top-0 left-0 right-0 z-50 items-center border-b"
+            style={{ height: 56, backgroundColor: "var(--mq-surface, #161616)", borderColor: "var(--mq-border, #222)" }}>
+            <div className="w-7 h-7 rounded-lg ml-4" style={{ backgroundColor: "var(--mq-accent, #e03131)" }} />
+          </nav>
+        }>
+          {showNav && !hideUiForFullscreen && <NavBar />}
+        </Suspense>
+      )}
 
       <main
         id="main-content"
-        className={showNav && !hideUiForFullscreen ? "lg:pt-[var(--mq-topbar-h)] lg:pl-[var(--mq-sidebar-w)]" : ""}
+        className={showNav && !hideUiForFullscreen ? (desktopShell ? "lg:pt-[var(--mq-topbar-h)] lg:pl-[var(--mq-sidebar-w)]" : "lg:pt-16") : ""}
         data-view={currentView}
       >
         {/* ── Active view rendering ──

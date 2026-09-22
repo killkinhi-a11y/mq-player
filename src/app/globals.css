@@ -4209,8 +4209,6 @@ a:focus-visible {
    No lift, no glow, no pulse, no tilt. Same geometry as .mq-row so
    lists and cards feel like ONE system. */
 
-/* v72 desktop redesign: soft capsule hover — rounded (never square),
-   artwork gently lifts, all under the existing token system. */
 .mq-card-track {
   position: relative;
   display: flex;
@@ -4224,8 +4222,7 @@ a:focus-visible {
   overflow: hidden;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--mq-radius-lg);
-  transition: background-color 0.2s var(--mq-spring-smooth), border-color 0.2s var(--mq-spring-smooth);
+  transition: background-color 0.18s ease, border-color 0.18s ease;
   text-align: left;
 }
 
@@ -4238,12 +4235,19 @@ a:focus-visible {
   background: var(--mq-surface-2);
 }
 
-/* Artwork breathing on hover — soft scale, spring-eased, never jumpy */
+/* WEB/DESKTOP SPLIT (web UI rollback): the v72 soft capsule hover
+   (rounded corners + artwork breathing) is a DESKTOP-shell polish —
+   scoped to html[data-mq-desktop]. The web app keeps the classic flat
+   cards from before the desktop redesign. */
+html[data-mq-desktop] .mq-card-track {
+  border-radius: var(--mq-radius-lg);
+  transition: background-color 0.2s var(--mq-spring-smooth), border-color 0.2s var(--mq-spring-smooth);
+}
 @media (hover: hover) and (min-width: 1024px) {
-  .mq-card-track .mq-art {
+  html[data-mq-desktop] .mq-card-track .mq-art {
     transition: transform 0.35s var(--mq-spring-smooth), box-shadow 0.35s var(--mq-spring-smooth);
   }
-  .mq-card-track:hover .mq-art {
+  html[data-mq-desktop] .mq-card-track:hover .mq-art {
     transform: scale(1.045);
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
   }
@@ -4500,15 +4504,22 @@ a:focus-visible {
    ambient backdrop · liquid title. All geometry reads from design tokens
    (--mq-sidebar-w, --mq-topbar-h, --mq-blur-*, --mq-radius-*). Mobile is
    untouched: everything below is either lg-gated or passive background.
+   WEB/DESKTOP SPLIT: the shell components (Sidebar, AmbientBackground,
+   TopBar) only mount inside the desktop app (isDesktopApp()), so on the
+   web these rules are inert. SHARED surfaces that stay in both modes:
+   the floating player capsule, the liquid title, and the ≥1024px
+   .mq-has-player clearance for the capsule.
    ═════════════════════════════════════════════════════════════════════════ */
 
 /* ── Ambient runtime colors: registered so they can TRANSITION (2.6s).
       Supporting engines cross-fade the whole backdrop smoothly when the
-      track changes; others switch instantly (graceful degradation). ── */
+      track changes; others switch instantly (graceful degradation).
+      Scoped to the desktop shell — on web the tokens stay transparent
+      (AmbientBackground never mounts there). ── */
 @property --mq-ambient-1 { syntax: "<color>"; inherits: true; initial-value: transparent; }
 @property --mq-ambient-2 { syntax: "<color>"; inherits: true; initial-value: transparent; }
 @property --mq-ambient-3 { syntax: "<color>"; inherits: true; initial-value: transparent; }
-html {
+html[data-mq-desktop] {
   transition:
     --mq-ambient-1 2.6s ease,
     --mq-ambient-2 2.6s ease,
@@ -4891,6 +4902,16 @@ html {
   font-size: 12.5px;
   font-weight: 500;
   color: var(--mq-text);
+}
+
+/* ── Floating player capsule (SHARED surface: BOTH web and desktop keep
+      the rounded mini-player — task §4). Geometry per the v72 capsule
+      spec: 24px radius, frosted glass, one soft shadow, floated with a
+      --mq-player-float-m clearance. (Found+fixed during the web rollback
+      QA: the class shipped without its radius rule — the capsule rendered
+      as a hard rectangle in BOTH modes.) ── */
+.mq-player-capsule {
+  border-radius: 24px;
 }
 
 /* ── Floating player clearance (desktop): capsule height + float margin ── */
