@@ -179,7 +179,9 @@ const withSentry = withSentryConfig(nextConfig, sentryWebpackOptions);
 
 export default withAnalyzer(withSentry);
 
-// Only init Cloudflare workerd during local dev (not during Vercel/CI builds — workerd needs GLIBC_2.35)
-if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+// Only init Cloudflare workerd during local dev (not during Vercel/CI builds — workerd needs GLIBC_2.35).
+// MQ_DISABLE_CF_DEV=1 opts out (sandboxes where workerd's sqlite crashes
+// and the unhandled rejection kills `next dev` entirely).
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL && !process.env.MQ_DISABLE_CF_DEV) {
   import('@opennextjs/cloudflare').then(m => m.initOpenNextCloudflareForDev());
 }

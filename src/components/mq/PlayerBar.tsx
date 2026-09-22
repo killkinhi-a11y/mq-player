@@ -12,11 +12,11 @@ import {
 import { getAudioElement } from "@/lib/audioEngine";
 import { seekPlayback } from "@/lib/wasm-audio";
 import { formatDuration } from "@/lib/musicApi";
-import { shareTrackUrl, openInAppTrackUrl } from "@/lib/share";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
 import { hapticLike, hapticDislike, hapticSkip, hapticPlay } from "@/lib/haptics";
 import { useToast } from "@/hooks/use-toast";
+import { shareTrackUrl, openInAppTrackUrl } from "@/lib/share-urls";
 import QueueView from "./QueueView";
 import { ProgressBar } from "./ProgressBar";
 import { TextSwap } from "./ui/TextSwap";
@@ -206,20 +206,19 @@ export default function PlayerBar() {
     setMoreMenu(null);
   }, [currentTrack, toggleDislike, toast]);
 
-  // v72: share → the GLOBAL share sheet (AppShell) — real QR + copy +
-  // native + in-app deep link.
-  const openShareSheet = useAppStore((s) => s.openShareSheet);
   const handleShare = useCallback(() => {
     if (!currentTrack) return;
-    openShareSheet({
+    setMoreMenu(null);
+    // v78/v72: global QR share sheet, canonical URL (null = honest no-link
+    // state) + the in-app deep-link hand-off for the QR loop.
+    useAppStore.getState().openShareSheet({
       url: shareTrackUrl(currentTrack),
       title: currentTrack.title,
       subtitle: currentTrack.artist,
       cover: currentTrack.cover,
-      openInAppUrl: currentTrack.scTrackId ? openInAppTrackUrl(currentTrack) : undefined,
+      openInAppUrl: openInAppTrackUrl(currentTrack) || undefined,
     });
-    setMoreMenu(null);
-  }, [currentTrack, openShareSheet]);
+  }, [currentTrack]);
 
   const openFullPlayer = useCallback(() => {
     if (currentTrack) setFullTrackViewOpen(true);

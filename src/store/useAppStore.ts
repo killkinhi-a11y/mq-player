@@ -52,15 +52,6 @@ export type ViewType = "auth" | "main" | "search" | "messenger" | "settings" | "
 
 export type Mood = "chill" | "bassy" | "melodic" | "dark" | "upbeat" | "romantic" | "aggressive" | "dreamy";
 
-/** v72: global share-sheet payload — mirrors ShareSheet props. */
-export interface ShareSheetState {
-  isOpen: boolean;
-  url: string;
-  title: string;
-  subtitle?: string;
-  cover?: string;
-  openInAppUrl?: string;
-}
 
 export interface FavoriteArtist {
   id: number;
@@ -209,15 +200,6 @@ interface AppState {
 
   // Full-screen track view
   isFullTrackViewOpen: boolean;
-
-  // v72: GLOBAL share sheet (QR) — one surface for every share surface
-  // (context menus, players, artist/playlist views). Mounted once in
-  // AppShell; menus call openShareSheet() and close themselves — a sheet
-  // nested inside a menu would unmount with the menu AND the opaque menu
-  // surface (kept open) would sit on top of the dialog.
-  shareSheet: ShareSheetState;
-  openShareSheet: (data: Omit<ShareSheetState, "isOpen">) => void;
-  closeShareSheet: () => void;
 
   // Equalizer modal
   isEqOpen: boolean;
@@ -402,6 +384,12 @@ interface AppState {
   clearShowSimilarRequest: () => void;
   requestShowLyrics: () => void;
   clearShowLyricsRequest: () => void;
+
+  // ── Share sheet (global, QR-powered) ──
+  /** null = closed. url null = no public link (demo/local content). */
+  shareSheet: { url: string | null; title: string; subtitle?: string; cover?: string; openInAppUrl?: string } | null;
+  openShareSheet: (payload: { url: string | null; title: string; subtitle?: string; cover?: string; openInAppUrl?: string }) => void;
+  closeShareSheet: () => void;
 
   // Playlist actions
   createPlaylist: (name: string, description?: string) => void;
@@ -641,7 +629,6 @@ const initialState = {
   notificationCount: 0 as number,
   notifPanelOpen: false as boolean,
   isFullTrackViewOpen: false,
-  shareSheet: { isOpen: false, url: "", title: "" } as ShareSheetState,
   isEqOpen: false as boolean,
   shortcutsHelpOpen: false as boolean,
   likedTrackIds: [] as string[],
@@ -655,6 +642,7 @@ const initialState = {
   similarTracksLoading: false,
   showSimilarRequested: false,
   showLyricsRequested: false,
+  shareSheet: null,
   playlists: [] as UserPlaylist[],
   selectedPlaylistId: null as string | null,
 
@@ -1703,8 +1691,6 @@ export const useAppStore = create<AppState>()(
       setIsLoading: (loading) => set({ isLoading: loading }),
 
       setFullTrackViewOpen: (open) => set({ isFullTrackViewOpen: open }),
-      openShareSheet: (data) => set({ shareSheet: { ...data, isOpen: true } }),
-      closeShareSheet: () => set((s) => ({ shareSheet: { ...s.shareSheet, isOpen: false } })),
 
       setEqOpen: (open) => set({ isEqOpen: open }),
 
@@ -1925,6 +1911,10 @@ export const useAppStore = create<AppState>()(
       clearShowSimilarRequest: () => set({ showSimilarRequested: false }),
       requestShowLyrics: () => set({ showLyricsRequested: true, isFullTrackViewOpen: true, showSimilarRequested: false }),
       clearShowLyricsRequest: () => set({ showLyricsRequested: false }),
+
+      // ── Share sheet (global, QR-powered) ──
+      openShareSheet: (payload) => set({ shareSheet: payload }),
+      closeShareSheet: () => set({ shareSheet: null }),
 
       // ── Playlist actions ──
       createPlaylist: (name, description = "") => {
@@ -2907,6 +2897,7 @@ export const useAppStore = create<AppState>()(
           publicPlaylistsLoading, recommendedPlaylistsLoading, publicPlaylistsTotal,
           isSyncing, syncError, supportUnreadCount,
           isFullTrackViewOpen, isEqOpen, notifPanelOpen, notificationCount,
+          shareSheet,
           sleepTimerActive, sleepTimerRemaining, sleepTimerEndTime,
           miniPlayerHidden,
           playbackState, isBuffering, isDragging,

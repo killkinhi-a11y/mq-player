@@ -7,8 +7,8 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { type Track, formatDuration } from "@/lib/musicApi";
+import { shareTrackUrl } from "@/lib/share-urls";
 import { getAudioElement } from "@/lib/audioEngine";
-import { shareTrackUrl, openInAppTrackUrl } from "@/lib/share";
 import MenuCore, { backLabelSpec, MenuHeader, type MenuElement } from "./ui/MenuCore";
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -76,7 +76,6 @@ export default function ContextMenu({
   const removeFavoriteArtist = useAppStore((s) => s.removeFavoriteArtist);
 
   const [page, setPage] = useState<"root" | "playlists">("root");
-  const [shareFeedback, setShareFeedback] = useState(false);
 
   const isLiked = isTrackLiked(track.id);
   const isDisliked = isTrackDisliked(track.id);
@@ -132,22 +131,17 @@ export default function ContextMenu({
     onClose();
   }, [isSubscribed, favoriteArtists, track, addFavoriteArtist, removeFavoriteArtist, onClose]);
 
-  // v72: share opens the ShareSheet — REAL QR (decoder-verified), copy,
-  // native share, PNG export and the in-app deep-link hand-off. The old
-  // inline navigator.share is kept as the sheet's own mechanism.
-  // v72: share routes to the GLOBAL share sheet (AppShell) — the menu can
-  // close itself safely; no nested sheet, no keepOpen stacking conflicts.
-  const openShareSheet = useAppStore((s) => s.openShareSheet);
   const handleShare = useCallback(() => {
-    openShareSheet({
+    // v78: open the global QR share sheet (QR + copy + native share) with
+    // the canonical track URL. Share item is already gated on scTrackId.
+    useAppStore.getState().openShareSheet({
       url: shareTrackUrl(track),
       title: track.title,
       subtitle: track.artist,
       cover: track.cover,
-      openInAppUrl: track.scTrackId ? openInAppTrackUrl(track) : undefined,
     });
     onClose();
-  }, [openShareSheet, track, onClose]);
+  }, [track, onClose]);
 
   const handleDownload = useCallback(async () => {
     const audio = getAudioElement();
@@ -265,8 +259,7 @@ export default function ContextMenu({
               type: "item" as const,
               id: "share",
               icon: Share2,
-              label: shareFeedback ? "Ссылка скопирована" : "Поделиться",
-              active: shareFeedback,
+              label: "Поделиться",
               onSelect: handleShare,
             },
           ]
@@ -344,7 +337,7 @@ export default function ContextMenu({
     }
     return els;
   }, [
-    page, playlists, track, isLiked, isDisliked, isSubscribed, shareFeedback,
+    page, playlists, track, isLiked, isDisliked, isSubscribed,
     handlePlay, handleAddToQueue, handleSimilar, handleGoToArtist,
     handleToggleSubscribe, handleShare, handleDownload, handleQuickCreateAndAdd,
     toggleLike, toggleDislike, context, onClose,

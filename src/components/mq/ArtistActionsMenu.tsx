@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import {
   User, Heart, Share2, Copy, Music2, UserCheck,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-import { shareArtistUrl } from "@/lib/share";
+import { shareArtistUrl } from "@/lib/share-urls";
 import MenuCore, { MenuHeader, type MenuElement } from "./ui/MenuCore";
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -76,18 +76,18 @@ export default function ArtistActionsMenu({ artist, x, y, onClose, side = "below
     onClose();
   }, [favoriteArtists, artist, addFavoriteArtist, removeFavoriteArtist, onClose]);
 
-  // v72: artist share → the GLOBAL share sheet (AppShell) on the CANONICAL
-  // deep link /play?artist=… (the old /artist/{name} format 404'd — fixed).
-  const openShareSheet = useAppStore((s) => s.openShareSheet);
   const shareArtist = useCallback(() => {
-    openShareSheet({
+    // v78: canonical artist URL (/play?artist=… — the route that actually
+    // resolves on web AND as an Android App Link; /artist/{name} 404'd)
+    // + global QR share sheet.
+    useAppStore.getState().openShareSheet({
       url: shareArtistUrl(artist.name),
       title: artist.name,
-      subtitle: artist.trackCount ? `Артист · ${artist.trackCount} треков` : "Артист",
+      subtitle: "Артист в MQ",
       cover: artist.avatar,
     });
     onClose();
-  }, [openShareSheet, artist, onClose]);
+  }, [artist, onClose]);
 
   const elements: MenuElement[] = useMemo(
     () => [

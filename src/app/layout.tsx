@@ -78,7 +78,7 @@ export const metadata: Metadata = {
   },
   // rupert-seo-optimizer: canonical URL
   alternates: {
-    canonical: process.env.NEXT_PUBLIC_APP_URL || "https://mq-player.vercel.app",
+    canonical: process.env.NEXT_PUBLIC_APP_URL || "https://mq1.vercel.app",
   },
   robots: {
     index: true,

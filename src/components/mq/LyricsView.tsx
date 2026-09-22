@@ -1,27 +1,23 @@
 "use client";
 
-import { useRef, useMemo, useEffect, useState, useCallback, memo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { formatDuration } from "@/lib/musicApi";
+import { useState, useCallback, useEffect, memo } from "react";
+import { LiquidLyrics } from "./LiquidLyrics";
+import type { LiquidLyricsProps } from "./LiquidLyrics";
 
 /**
- * LyricsView — premium synced lyrics component for MQ Player.
+ * LyricsView — premium synced lyrics container for MQ Player.
  *
- * Features:
- * - Karaoke-style active line with glow + scale animation
- * - Tap-to-seek: tapping any line seeks the track to that timestamp
- * - Auto-scroll with smooth centering (active line stays centered)
- * - Fade mask at top/bottom for cinematic depth
- * - Past lines fade out, future lines dim — focus on "now"
- * - Plain text fallback when synced lyrics unavailable
- * - Loading skeleton + error state
+ * v78: the synced view is now LiquidLyrics — MQ's signature
+ * water-fill typography. The active line's glyphs fill with liquid in
+ * sync with real playback progress (line-level timing from lrclib;
+ * the per-word cascade is a deterministic distribution of that real
+ * line progress — no invented timing). See LiquidLyrics.tsx.
  *
- * Design system:
- * - Accent: var(--mq-accent) = #e03131
- * - Text: var(--mq-text) = #f0f0f0
- * - Muted: var(--mq-text-muted) = #9a9a9a
- * - Card: var(--mq-card) = #1a1a1a
- * - Bg: var(--mq-bg) = #0e0e0e
+ * Contract preserved from previous versions:
+ * - Props: lines / plainText / currentTime / isLoading / error / onSeek / cover
+ * - Retry dispatches the "mq-lyrics-retry" window event (parents listen)
+ * - Plain (unsynced) lyrics render as readable text — never a fake sync
+ * - Loading skeleton + empty state with retry
  */
 
 export interface LyricLine {
@@ -37,162 +33,13 @@ interface LyricsViewProps {
   error: string | null;
   onSeek: (time: number) => void;
   cover?: string;
+  /** Track duration — bounds the last line's fill window. */
+  duration?: number;
+  /** panel = desktop inline card, full = wide aside / mobile overlay. */
+  variant?: LiquidLyricsProps["variant"];
 }
 
-// v69: canonical formatter (guards + h:mm:ss) replaces the local copy.
-const formatTime = (s: number): string => formatDuration(s);
-
-// ─── Synced lyrics with karaoke effect ─────────────────────────────────────
-
-function SyncedLyrics({ lines, currentTime, onSeek }: {
-  lines: LyricLine[];
-  currentTime: number;
-  onSeek: (t: number) => void;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const lineRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
-  const isUserInteracting = useRef(false);
-  const interactionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Find active line index — binary search for O(log n)
-  const activeIdx = useMemo(() => {
-    if (lines.length === 0) return -1;
-    let lo = 0, hi = lines.length - 1, result = -1;
-    while (lo <= hi) {
-      const mid = (lo + hi) >> 1;
-      if (lines[mid].time <= currentTime) { result = mid; lo = mid + 1; }
-      else hi = mid - 1;
-    }
-    return result;
-  }, [lines, currentTime]);
-
-  // Auto-scroll: ALWAYS keep active line visible (unless user is interacting)
-  useEffect(() => {
-    const container = containerRef.current;
-    const lineEl = lineRefs.current[activeIdx];
-    if (!container || !lineEl || activeIdx < 0) return;
-
-    // Don't scroll if user is interacting (tapping/scrolling)
-    if (isUserInteracting.current) return;
-
-    const lTop = lineEl.offsetTop;
-    // Position active line at ~20% from top of container
-    const targetScroll = lTop - container.clientHeight * 0.2;
-
-    container.scrollTo({
-      top: Math.max(0, targetScroll),
-      behavior: "smooth",
-    });
-  }, [activeIdx]);
-
-  // User interaction handlers — pause auto-scroll for 2s after interaction
-  const handleInteractionStart = useCallback(() => {
-    isUserInteracting.current = true;
-    if (interactionTimer.current) clearTimeout(interactionTimer.current);
-  }, []);
-
-  const handleInteractionEnd = useCallback(() => {
-    if (interactionTimer.current) clearTimeout(interactionTimer.current);
-    // Resume auto-scroll after 2 seconds of no interaction
-    interactionTimer.current = setTimeout(() => {
-      isUserInteracting.current = false;
-    }, 2000);
-  }, []);
-
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (interactionTimer.current) clearTimeout(interactionTimer.current);
-    };
-  }, []);
-
-  if (lines.length === 0) return null;
-
-  return (
-    <div
-      ref={containerRef}
-      className="text-base leading-relaxed max-h-[320px] overflow-y-auto px-2 py-4 space-y-0.5 scroll-smooth"
-      style={{
-        scrollbarWidth: "none",
-        maskImage: "linear-gradient(180deg, transparent 0%, #000 15%, #000 85%, transparent 100%)",
-        WebkitMaskImage: "linear-gradient(180deg, transparent 0%, #000 15%, #000 85%, transparent 100%)",
-      }}
-      onTouchStart={handleInteractionStart}
-      onTouchEnd={handleInteractionEnd}
-      onMouseDown={handleInteractionStart}
-      onMouseUp={handleInteractionEnd}
-    >
-      {lines.map((line, i) => {
-        const isActive = i === activeIdx;
-        const isPast = i < activeIdx;
-        const isHovered = hoveredIdx === i;
-
-        // If no active line yet (activeIdx = -1, e.g. track just started),
-        // highlight the first line as a fallback
-        const isEffectivelyActive = isActive || (activeIdx === -1 && i === 0);
-
-        // Distance-based opacity — closer to active = more visible
-        const distance = Math.abs(i - (activeIdx >= 0 ? activeIdx : 0));
-        const opacity = isEffectivelyActive ? 1 : isPast ? Math.max(0.25, 0.5 - distance * 0.08) : Math.max(0.2, 0.55 - distance * 0.06);
-
-        return (
-          <motion.button
-            key={i}
-            ref={(el) => { lineRefs.current[i] = el; }}
-            onClick={() => onSeek(line.time)}
-            onHoverStart={() => setHoveredIdx(i)}
-            onHoverEnd={() => setHoveredIdx(null)}
-            className="block w-full text-left px-3 py-2 rounded-xl cursor-pointer transition-colors"
-            animate={{
-              // Scale (not fontSize) carries the active-line size change —
-              // font-size swaps reflowed the whole lyrics column on every
-              // line change during playback. 0.95 -> 1.158 keeps the exact
-              // old ratio (0.95rem vs 1.1rem) without any layout thrash.
-              scale: isEffectivelyActive ? 1.158 : 0.95,
-              opacity: isHovered ? Math.max(opacity, 0.85) : opacity,
-            }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            style={{
-              color: isEffectivelyActive ? "var(--mq-text)" : "var(--mq-text-muted)",
-              fontWeight: isEffectivelyActive ? 700 : 400,
-              fontSize: "1rem",
-              background: isEffectivelyActive
-                ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)"
-                : "transparent",
-              borderLeft: isEffectivelyActive ? "3px solid var(--mq-accent)" : "3px solid transparent",
-            }}
-          >
-            {/* Phase 2B: active line emphasis = weight + size + accent bar.
-                Removed glow shadow + text glow — emphasis through hierarchy. */}
-            <span style={{
-              transition: "color 0.3s ease",
-            }}>
-              {line.text || "♪"}
-            </span>
-
-            {/* Hover timestamp indicator */}
-            <AnimatePresence>
-              {isHovered && !isEffectivelyActive && (
-                <motion.span
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -8 }}
-                  className="ml-2 mq-t-num align-middle"
-                  style={{ color: "var(--mq-accent)" }}
-                >
-                  → {formatTime(line.time)}
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </motion.button>
-        );
-      })}
-    </div>
-  );
-}
-
-// ─── Plain text lyrics (no sync) ───────────────────────────────────────────
+// ─── Plain text lyrics (no sync — never a fake sync) ────────────────────────
 
 function PlainLyrics({ text }: { text: string }) {
   return (
@@ -229,7 +76,16 @@ function LyricsSkeleton() {
 
 // ─── Main component ────────────────────────────────────────────────────────
 
-function LyricsViewBase({ lines, plainText, currentTime, isLoading, error, onSeek }: LyricsViewProps) {
+function LyricsViewBase({
+  lines,
+  plainText,
+  currentTime,
+  isLoading,
+  error,
+  onSeek,
+  duration,
+  variant,
+}: LyricsViewProps) {
   const hasSynced = lines.length > 0;
   const hasPlain = plainText.length > 0;
   const [retryCount, setRetryCount] = useState(0);
@@ -247,9 +103,9 @@ function LyricsViewBase({ lines, plainText, currentTime, isLoading, error, onSee
   }, [retryCount]);
 
   return (
-    <div className="w-full">
+    <div className={variant === "full" ? "w-full flex flex-col flex-1 min-h-0" : "w-full"}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3" style={variant === "full" ? { flexShrink: 0 } : undefined}>
         <p className="mq-text-eyebrow mq-t-badge uppercase tracking-widest flex items-center gap-1.5">
           <span style={{ color: "var(--mq-accent)" }}>♪</span>
           Текст песни
@@ -271,7 +127,13 @@ function LyricsViewBase({ lines, plainText, currentTime, isLoading, error, onSee
       {isLoading ? (
         <LyricsSkeleton />
       ) : hasSynced ? (
-        <SyncedLyrics lines={lines} currentTime={currentTime} onSeek={onSeek} />
+        <LiquidLyrics
+          lines={lines}
+          currentTime={currentTime}
+          onSeek={onSeek}
+          duration={duration}
+          variant={variant}
+        />
       ) : hasPlain ? (
         <PlainLyrics text={plainText} />
       ) : (

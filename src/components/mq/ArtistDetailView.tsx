@@ -9,8 +9,8 @@ import {
 import { useAppStore, type FavoriteArtist } from "@/store/useAppStore";
 import { type Track, formatDuration, formatTrackDuration } from "@/lib/musicApi";
 import { useToast } from "@/hooks/use-toast";
+import { shareArtistUrl } from "@/lib/share-urls";
 import { extractColors, type DominantColors } from "@/hooks/useDominantColor";
-import { shareArtistUrl } from "@/lib/share";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import ContextMenu from "./ContextMenu";
 import ArtistActionsMenu, { type ArtistMenuTarget } from "./ArtistActionsMenu";
@@ -206,16 +206,16 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
     }
   }, [isFav, favoriteArtists, artist.name, info, tracks.length, removeFavoriteArtist, addFavoriteArtist, toast]);
 
-  // v72: artist share → the GLOBAL share sheet (AppShell)
-  const openShareSheet = useAppStore((s) => s.openShareSheet);
+  // v78/v72: artist share → the GLOBAL QR share sheet (AppShell) — canonical
+  // artist URL, honest no-link state, rich subtitle from real metadata.
   const handleShare = useCallback(() => {
-    openShareSheet({
+    useAppStore.getState().openShareSheet({
       url: shareArtistUrl(artist.name),
       title: artist.name,
-      subtitle: info.followers ? `Артист · ${fmtNum(info.followers)} слушателей` : "Артист",
-      cover: info.avatar,
+      subtitle: info.followers ? `Артист · ${fmtNum(info.followers)} слушателей` : "Артист в MQ",
+      cover: info.avatar || artist.avatar,
     });
-  }, [openShareSheet, artist.name, info]);
+  }, [artist.name, artist.avatar, info]);
 
   const openSimilar = useCallback((a: SimilarArtist) => {
     scrollTopRef.current?.scrollIntoView({ behavior: "auto", block: "start" });

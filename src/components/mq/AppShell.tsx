@@ -84,6 +84,7 @@ const MqCat = dynamic(() => import("@/components/mq/MqCat"), { ssr: false });
 const Sidebar = dynamic(() => import("@/components/mq/Sidebar"), { ssr: false });
 const AmbientBackground = dynamic(() => import("@/components/mq/AmbientBackground"), { ssr: false });
 const PlayerBar = dynamic(() => import("@/components/mq/PlayerBar"), { ssr: false });
+const ShareSheet = dynamic(() => import("@/components/mq/ShareSheet").then((m) => m.ShareSheet), { ssr: false });
 const FullTrackView = dynamic(() => import("@/components/mq/FullTrackView"), { ssr: false });
 const FullTrackViewMobile = dynamic(() => import("@/components/mq/FullTrackViewMobile"), { ssr: false });
 const KeyboardShortcutsHelp = dynamic(() => import("@/components/mq/KeyboardShortcutsHelp").then(m => ({ default: m.KeyboardShortcutsHelp })), { ssr: false });
@@ -100,7 +101,6 @@ const AudioDebugPanel = dynamic(() => import("@/components/mq/AudioDebugPanel"),
 
 // P2-#300/#310: Error boundary per view — catches React errors without crashing the whole app
 import { ViewErrorBoundary } from "@/components/mq/ViewErrorBoundary";
-import { ShareSheet } from "@/components/mq/ShareSheet";
 import { ViewTransition } from "@/components/mq/ViewTransition";
 import { useAudioEngine } from "@/components/mq/useAudioEngine";
 import { useMediaSession } from "@/components/mq/useMediaSession";
@@ -125,6 +125,24 @@ const VISITED_VIEW_COMPONENTS: { id: string; Component: React.ComponentType }[] 
 ];
 const VISITED_VIEW_IDS = new Set(VISITED_VIEW_COMPONENTS.map(v => v.id));
 
+/** Global share sheet — store-driven, mounted once. Every share surface
+ *  (player, menus, rows) opens this ONE dialog with a canonical URL. */
+function GlobalShareSheet() {
+  const shareSheet = useAppStore((s) => s.shareSheet);
+  const closeShareSheet = useAppStore((s) => s.closeShareSheet);
+  return (
+    <ShareSheet
+      isOpen={!!shareSheet}
+      onClose={closeShareSheet}
+      url={shareSheet?.url ?? null}
+      title={shareSheet?.title ?? ""}
+      subtitle={shareSheet?.subtitle}
+      cover={shareSheet?.cover}
+      openInAppUrl={shareSheet?.openInAppUrl ?? undefined}
+    />
+  );
+}
+
 export default function AppShell() {
   // ── Optimized selectors: only subscribe to what this component needs ──
   const currentView = useAppStore((s) => s.currentView);
@@ -146,8 +164,6 @@ export default function AppShell() {
   const currentTrack = useAppStore((s) => s.currentTrack);
   const isFullTrackViewOpen = useAppStore((s) => s.isFullTrackViewOpen);
   const isEqOpen = useAppStore((s) => s.isEqOpen);
-  const shareSheet = useAppStore((s) => s.shareSheet);
-  const closeShareSheet = useAppStore((s) => s.closeShareSheet);
   const setEqOpen = useAppStore((s) => s.setEqOpen);
   const catEnabled = useAppStore((s) => s.catEnabled);
   const isPlaying = useAppStore((s) => s.isPlaying);
@@ -830,6 +846,9 @@ export default function AppShell() {
       {/* PlayerBar (desktop only — mobile uses MobileDock which combines player + nav) */}
       <Suspense fallback={null}><PlayerBar /></Suspense>
       <Suspense fallback={null}>{isMobile ? <FullTrackViewMobile /> : <FullTrackView />}</Suspense>
+      {/* Global share sheet — every share surface opens this ONE dialog
+          (QR + copy link + native share, canonical URLs from lib/share-urls) */}
+      <GlobalShareSheet />
       <Suspense fallback={null}><EqualizerView show={isEqOpen} onClose={() => setEqOpen(false)} /></Suspense>
       <Suspense fallback={null}><KeyboardShortcutsHelp /></Suspense>
       <Suspense fallback={null}>{showNav && <CommandPalette />}</Suspense>
@@ -841,17 +860,6 @@ export default function AppShell() {
       {/* Desktop: separate nav bar (PlayerBar already rendered above) */}
       <Suspense fallback={null}>{isAuthenticated && <NotificationPanel isOpen={notifPanelOpen} onClose={() => setNotifPanelOpen(false)} />}</Suspense>
       <Suspense fallback={null}>{isAuthenticated && <OnboardingTour />}</Suspense>
-      {/* v72: THE global share sheet (real QR) — every share surface routes
-          here via store.openShareSheet(); one instance, one stacking layer. */}
-      <ShareSheet
-        isOpen={shareSheet.isOpen}
-        onClose={closeShareSheet}
-        url={shareSheet.url}
-        title={shareSheet.title}
-        subtitle={shareSheet.subtitle}
-        cover={shareSheet.cover}
-        openInAppUrl={shareSheet.openInAppUrl}
-      />
     </div>
     </MotionConfig>
   );

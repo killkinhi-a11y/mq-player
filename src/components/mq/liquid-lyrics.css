@@ -1,0 +1,254 @@
+/* ══════════════════════════════════════════════════════════════════════
+   MQ LIQUID LYRICS — water-fill typography (v78)
+
+   The signature lyrics effect: the active line is filled with "water"
+   that rises through the glyphs in sync with real playback progress.
+
+   PERFORMANCE CONTRACT (one-writer rule, no layout, no filters):
+   - JS (rAF) writes ONE custom property — --ll-fill (0..100 number) —
+     on the ACTIVE line element only. Nothing else updates per frame.
+   - Per-word water levels derive in pure CSS from --ll-fill via each
+     word's precomputed window (--wa start, --w-inv reciprocal span).
+   - All decorative motion (sheen sweep, water bob) animates
+     background-position only — paint-only, compositor-friendly.
+   - transform / opacity / color carry line transitions (never font-size).
+   - prefers-reduced-motion + .mq-reduce-motion: sheen/bob die via the
+     global 0.01ms rule; the JS writer steps instead of animating (see
+     LiquidLyrics.tsx) so progress stays honest without fluid motion.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.ll-scroll {
+  --ll-size: 15px;
+  position: relative;
+  overflow-y: auto;
+  max-height: 340px;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding: 2.6em 2px 46%;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  mask-image: linear-gradient(180deg, transparent 0, #000 8%, #000 86%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 8%, #000 86%, transparent 100%);
+}
+.ll-scroll::-webkit-scrollbar { display: none; }
+
+/* Full-height variant (wide-aside + mobile panel) — bigger stage.
+   Needs a constrained flex-column ancestor (see mount sites). */
+.ll-full {
+  --ll-size: 16.5px;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+
+/* ── Lines ─────────────────────────────────────────────────────────── */
+
+.ll-line {
+  display: block;
+  width: 100%;
+  appearance: none;
+  background: transparent;
+  border: none;
+  margin: 0 0 0.12em;
+  padding: 0.4em 0.55em;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  font-size: var(--ll-size);
+  line-height: 1.52;
+  font-weight: 600;
+  letter-spacing: 0.004em;
+  color: color-mix(in srgb, var(--mq-text) 42%, transparent);
+  transform-origin: left center;
+  transform: scale(0.985);
+  transition:
+    color 0.5s var(--ease-premium),
+    opacity 0.5s var(--ease-premium),
+    transform 0.5s var(--ease-premium);
+}
+
+.ll-line:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 55%, transparent);
+  border-radius: 12px;
+}
+
+/* Already-sung lines recede */
+.ll-line[data-past] {
+  color: color-mix(in srgb, var(--mq-text) 27%, transparent);
+}
+
+/* The current line: dominant typography + liquid fill */
+.ll-line.ll-on {
+  color: color-mix(in srgb, var(--mq-text) 72%, var(--mq-bg));
+  font-weight: 800;
+  transform: scale(1.12);
+  padding-left: 0.65em;
+}
+
+/* Just-sung line: keeps its (fully filled) water while it fades out */
+.ll-line[data-after] {
+  color: color-mix(in srgb, var(--mq-text) 34%, transparent);
+  transform: scale(0.985);
+}
+
+/* Hover affordance — desktop pointers only, non-active lines only */
+@media (hover: hover) and (pointer: fine) {
+  .ll-line:not(.ll-on):hover {
+    color: color-mix(in srgb, var(--mq-text) 66%, transparent);
+  }
+  .ll-line:not(.ll-on)::after {
+    content: "→ " attr(data-t);
+    margin-left: 0.6em;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    vertical-align: 0.12em;
+    color: var(--mq-accent);
+    opacity: 0;
+    transition: opacity 0.18s ease;
+  }
+  .ll-line:not(.ll-on):hover::after { opacity: 0.9; }
+}
+
+/* ── Liquid words ──────────────────────────────────────────────────── */
+/*
+   Base word text is the REAL text (screen readers read it); ::before is
+   the water layer — an identical glyph copy, transparent fill, gradient
+   clipped to the glyphs, then masked by the waterline var --wf.
+   --wfn: 0..100 word fill · --wf: same as % · --wa: window start (0..100
+   line-progress space) · --w-inv: reciprocal of the window span.
+*/
+
+.ll-w {
+  --wfn: clamp(0, (var(--ll-fill, 0) - var(--wa, 0)) * var(--w-inv, 1), 100);
+  --wf: calc(var(--wfn) * 1%);
+  position: relative;
+  display: inline-block;
+}
+
+.ll-line.ll-on .ll-w::before {
+  content: attr(data-w);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+
+  /* L1: slow specular sheen sweeping across · L2: the water body —
+     deep at the bottom, accent mid, bright meniscus at the surface.
+     L2's height tracks the waterline (+0.6em overshoot) and is pinned
+     to the bottom, so the glowing surface rides the fill level. */
+  background-image:
+    linear-gradient(
+      115deg,
+      transparent 40%,
+      rgba(255, 255, 255, 0.1) 46.5%,
+      rgba(255, 255, 255, 0.22) 50%,
+      rgba(255, 255, 255, 0.1) 53.5%,
+      transparent 60%
+    ),
+    linear-gradient(
+      to top,
+      color-mix(in srgb, var(--mq-accent) 56%, #050505) 0%,
+      color-mix(in srgb, var(--mq-accent) 82%, #000) 24%,
+      var(--mq-accent) 56%,
+      color-mix(in srgb, var(--mq-accent) 52%, #fff) 87%,
+      color-mix(in srgb, var(--mq-accent) 32%, #fff) 100%
+    );
+  background-size:
+    240% 100%,
+    100% calc(var(--wf) + 0.6em);
+  background-position:
+    -40% 0,
+    0 100%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+
+  /* Waterline mask — soft meniscus above the level, solid below */
+  -webkit-mask-image: linear-gradient(
+    to top,
+    #000 0,
+    #000 var(--wf),
+    rgba(0, 0, 0, 0.55) calc(var(--wf) + 0.05em),
+    transparent calc(var(--wf) + 0.17em)
+  );
+  mask-image: linear-gradient(
+    to top,
+    #000 0,
+    #000 var(--wf),
+    rgba(0, 0, 0, 0.55) calc(var(--wf) + 0.05em),
+    transparent calc(var(--wf) + 0.17em)
+  );
+
+  /* Water appears softly as each word's window opens */
+  opacity: clamp(0, var(--wfn) * 5, 1);
+
+  /* Sheen sweep + a ±0.1em vertical bob of the water body — paint-only */
+  animation: ll-sheen 5.8s var(--ease-in-out, ease-in-out) infinite;
+}
+
+/* Just-sung line: static full water, fading out over the line transition */
+.ll-line[data-after] .ll-w::before {
+  content: attr(data-w);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--mq-accent) 56%, #050505) 0%,
+    var(--mq-accent) 60%,
+    color-mix(in srgb, var(--mq-accent) 45%, #fff) 100%
+  );
+  background-size: 100% calc(var(--wf) + 0.6em);
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-mask-image: linear-gradient(to top, #000 0, #000 var(--wf), transparent calc(var(--wf) + 0.1em));
+  mask-image: linear-gradient(to top, #000 0, #000 var(--wf), transparent calc(var(--wf) + 0.1em));
+  animation: none;
+  opacity: 0;
+  transition: opacity 0.6s var(--ease-premium);
+}
+
+@keyframes ll-sheen {
+  0%,
+  100% {
+    background-position:
+      -40% 0,
+      0 calc(100% + 0.09em);
+  }
+  50% {
+    background-position:
+      140% 0,
+      0 calc(100% - 0.09em);
+  }
+}
+
+/* ── Responsive ────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .ll-scroll { --ll-size: 15.5px; }
+  .ll-full { --ll-size: 17px; }
+  .ll-line.ll-on { transform: scale(1.14); }
+  .ll-scroll { padding: 2.2em 2px 42%; }
+}
+
+@media (min-width: 1600px) {
+  .ll-full { --ll-size: 18px; }
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────── */
+/* Global rules already clamp animation/transition to 0.01ms for both
+   .mq-reduce-motion and prefers-reduced-motion. Liquid extras: kill the
+   sheen outright and let the JS writer step the fill (see component) —
+   progress remains visible, no fluid animation. */
+@media (prefers-reduced-motion: reduce) {
+  .ll-line.ll-on .ll-w::before { animation: none; }
+}
+.mq-reduce-motion .ll-line.ll-on .ll-w::before { animation: none; }
