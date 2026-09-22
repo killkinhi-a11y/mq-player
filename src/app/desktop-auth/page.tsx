@@ -17,8 +17,14 @@ type Phase = "exchanging" | "ready" | "done" | "failed" | "no-app";
 export default function DesktopAuthPage() {
   // The code is read ONCE at first render (lazy initializer — the URL never
   // changes for this page's lifetime; no sync setState in effect needed).
+  // Window guard: this page is prerendered on the server where there is no
+  // URL to read — the server renders the safe fallback and the client
+  // corrects instantly on hydration (the page is always entered via a
+  // redirect with ?c= in practice).
   const [code] = useState<string | null>(() =>
-    new URLSearchParams(window.location.search).get("c")
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("c")
+      : null
   );
   const [phase, setPhase] = useState<Phase>(code ? "exchanging" : "failed");
   const [message, setMessage] = useState(
