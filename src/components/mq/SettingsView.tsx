@@ -9,7 +9,7 @@ import {
   User, Palette, Headphones, Bell,
   Volume2, Moon, Type, Minimize2, Sparkles, Zap,
   RefreshCw, Cloud, Trash2, LogOut, Download, Upload,
-  Smartphone, Monitor, Apple, Info, ChevronRight, ChevronDown, X, Check, Loader2,
+  Smartphone, Monitor, Apple, Info, ChevronRight, ChevronDown, X, Check, Loader2, Music2,
   AlertTriangle, Sliders, Gauge, Terminal, Cpu, Keyboard as KeyboardIcon,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
@@ -434,6 +434,19 @@ export default function SettingsView() {
 
   // ── Push ──
   const [pushEnabled, setPushEnabled] = useState(false);
+
+  // Desktop (Windows app) — hidden on web. Drives the Rust-side track-change
+  // toast gate (§26); the integration layer reads the same localStorage key.
+  const isDesktopApp =
+    typeof window !== "undefined" &&
+    !!(window as unknown as { __MQ_DESKTOP__?: unknown }).__MQ_DESKTOP__;
+  const [desktopTrackNotifications, setDesktopTrackNotifications] = useState(() => {
+    try {
+      return (typeof window !== "undefined" && localStorage.getItem("mq-desktop-notifications")) !== "off";
+    } catch {
+      return true;
+    }
+  });
   const [pushLoading, setPushLoading] = useState(false);
 
   useEffect(() => {
@@ -956,6 +969,23 @@ export default function SettingsView() {
                 </div>
               )}
             </Card>
+
+            {/* Desktop-only (§26): Windows track-change toasts. Hidden on web. */}
+            {isDesktopApp && (
+              <Card>
+                <CardTitle icon={Bell} title="Windows-уведомления" />
+                <SettingToggle
+                  icon={Music2}
+                  label="Уведомления о треках"
+                  subtitle="Показывать Windows-уведомление при смене трека (когда окно в фоне)"
+                  value={desktopTrackNotifications}
+                  onCheckedChange={(v) => {
+                    try { localStorage.setItem("mq-desktop-notifications", v ? "on" : "off"); } catch {}
+                    setDesktopTrackNotifications(v);
+                  }}
+                />
+              </Card>
+            )}
 
           </motion.div>
         )}

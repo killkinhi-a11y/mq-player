@@ -4949,3 +4949,83 @@ Stage Summary (build phase):
   additive), browser-mode visual QA matrix, functional contract tests,
   GitHub release desktop-v1.0.0, website download page update, honest
   real-Windows-QA handoff notes.
+
+---
+Task ID: desktop-client-win (final)
+Agent: main (Super Z)
+Task: MQ Player Windows client — QA + fixes + production release (spec §40-51).
+
+Work Log:
+- CRITICAL FIX FOUND IN QA: Tailwind v4 (@tailwindcss/vite) did NOT scan
+  the shared ../src tree (outside the desktop project root) — only a
+  handful of utilities generated; layout classes (inset-0/p-4/items-*)
+  were silently missing. Symptom: ShareSheet dialog rendered at document
+  bottom (y=20437) instead of the viewport. Fix: desktop/src/tailwind-
+  desktop.css entry with explicit @source "../../src/**/*.{ts,tsx}" +
+  globals.css import. Verified via CSSOM (all target utilities present)
+  + dialog rect [0,0,1440,900].
+- Second runtime fix: npm peer auto-install recreated react/react-dom
+  inside desktop/node_modules → dual React ("Invalid hook call").
+  Fix: .npmrc legacy-peer-deps=true + full reinstall + vite
+  resolve.dedupe (react resolves from the ROOT node_modules — one copy).
+- BROWSER-MODE QA (vite dev + mqDevProxy → production API, 1440×900):
+  login clean → demo → home shell (sidebar+navbar+floating capsule
+  bottom:20px verified geometrically) → search/library/playlists/
+  chats/settings → track PLAYED (slider position advancing 3→49s)
+  → full player (1440px immersive artwork) → artist page (real data:
+  DEVILMAN, 199 tracks) → context menu (10 items: Воспроизвести/В
+  очередь/В плейлист/Похожие/Лайк/Не нравится/К артисту/Подписаться/
+  Поделиться/Копировать название) → SHARE QR SHEET opened in-viewport:
+  **QR DECODED by jsQR from the screenshot →
+  https://mq1.vercel.app/track/171347962** (camera-equivalent proof,
+  scripts/qr-verify/decode_qa_qr.mjs + decode_desktop_qa.py added).
+- RESOLUTIONS: 1280×720 + 1440×900 + 1920×1080 — no horizontal overflow
+  (scrollWidth==innerWidth), 0 page errors, 0 console errors (only the
+  known Cobalt Turnstile retry warnings, same as web).
+- Google desktop handoff implemented (additive backend): /api/auth/
+  google?desktop=1 sets mq_oauth_desktop marker; callback → stateless
+  120s aud-scoped handoff JWT → /desktop-auth page → POST
+  /api/auth/desktop-handoff → session token → mq://auth#<jwt> → app
+  cookie jar; session cookie STILL set for the browser tab; providers
+  endpoint now reports desktopHandoff:true (feature detection, no fake
+  UI). AuthView (shared) branches via window.__MQ_DESKTOP_OPEN_URL__
+  seam (no tauri imports in web code); Telegram widget hidden on
+  desktop (bot-code flow is the desktop path); external links + t.me
+  open in system browser (capture-phase handler); sendBeacon patched
+  (logout clears the Rust jar too).
+- Settings: desktop-only "Windows-уведомления" toggle (§26) — track
+  toasts ON/OFF, reads/writes mq-desktop-notifications (same key the
+  integration layer gates on). Web hidden (isDesktopApp guard).
+- FINAL ARTIFACTS (rebuilt with all fixes, incl. settings toggle):
+  MQ Player_1.0.0_x64-setup.exe 10.96 MB
+    SHA-256 a36849ea7629824d51a20d8dc0abbacca32823b493c0ff1d63a77a9ed5392eb4
+  MQ Player.exe 20.37 MB (portable binary)
+    SHA-256 38e2a794c6b1a0b3f83b77220f1893a3e315553848c2af73ab11b0cc84e20977
+  .sig (minisign updater signature) refreshed in desktop/updates/
+  latest.json (raw.githubusercontent endpoint, live 200).
+- RELEASE: GitHub desktop-v1.0.0 published (make_latest=FALSE →
+  releases/latest stays android-v2.3.5, APK permalink preserved);
+  assets uploaded + SHA round-trip verified; scripts/publish-desktop-
+  100.py + republish-desktop-assets.py (REST + PAT from origin remote,
+  same pattern as publish-235-stable). All URLs verified 200:
+  setup.exe, MQPlayer.apk (latest), updater latest.json.
+- WEB: 411/411 tests green + tsc clean after backend additions;
+  SettingsView Windows button now points to the real installer
+  (desktop-v1.0.0, version+size shown); NavBar got id=mq-navbar
+  (desktop titlebar geometry); committed 5de3c071 + settings follow-up
+  → pushed to main.
+
+Stage Summary:
+- Windows client v1.0.0 SHIPPED as installable NSIS Setup.exe + portable
+  exe + auto-update channel. UI = the full redesigned web shell (same
+  components, one source of truth), Rust shell adds proxy/SMTC/tray/
+  deep-links/updater. QR + playback + all views verified in browser-mode
+  QA against the production API.
+- Owner steps (honest): (1) real Windows install QA on a Windows 10/11
+  machine — installer/tray/SMTC/media keys/deep links/background
+  playback (sandbox is Linux; screenshots can't prove Windows shell
+  behavior); (2) web deploy needs the operator Vercel token — the
+  Google desktop handoff + Windows button go live after deploy (email +
+  Telegram auth already work against CURRENT prod); (3) keep
+  ~/.mq-desktop-signing/desktop.key (updater signing) — lost key =
+  no future auto-updates.

@@ -1,2 +1,2 @@
-137c11c7488b0d890b2373c6b6e728ca0a73cb5875d424912e0d0a626399fc74  download/desktop/MQ Player.exe
-70509956d81c8273800518ab63848bada7bc33e51dc283512079cf7b3dc7ea40  download/desktop/MQ Player_1.0.0_x64-setup.exe
+38e2a794c6b1a0b3f83b77220f1893a3e315553848c2af73ab11b0cc84e20977  download/desktop/MQ Player.exe
+a36849ea7629824d51a20d8dc0abbacca32823b493c0ff1d63a77a9ed5392eb4  download/desktop/MQ Player_1.0.0_x64-setup.exe
