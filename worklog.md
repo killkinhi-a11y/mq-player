@@ -5260,3 +5260,48 @@ Stage Summary:
   (1) OAuth client типа "Android" с package name com.mq1.player и SHA-1
   release-keystore; (2)Credential Manager требует это для выдачи id_token
   с aud=web client id. Для W13 ничего внешнего не нужно (те же провайдеры).
+
+---
+Task ID: w01-w13-deploy
+Agent: main (Super Z)
+Task: Production deploy W01–W13 (коммит 5bad44a0) на mq1.vercel.app.
+
+Work Log:
+- PRE-DEPLOY GATES (на точном коммите 5bad44a0, дерево чистое): тесты
+  447/447 (42s); tsc чистый (только 2 pre-existing в skills/); web
+  production build PASS. Артефакты сборки (version.json v79/
+  mq-build-5bad44a0, next-env.d.ts dev-path) восстановлены — push атомарный.
+- DEPLOY: push 435d6918..5bad44a0 → origin/main; Vercel git-integration
+  auto-deploy LIVE через 70s: mq-build-5bad44a0, version 79 (seed 78+1 —
+  устоявшийся паттерн; детект обновлений UpdateBanner идёт по buildId,
+  версия — косметика). CI VERCEL_TOKEN-джоба по-прежнему красная —
+  известный pre-existing пробел репо-секрета, деплоит native-интеграция.
+- PRODUCTION SMOKE (curl): / 307→/play; /play 200; /desktop-auth 200;
+  /api/app-version 200 (2.3.5 + APK URL); /api/auth/providers 200
+  (google/telegramWidget/telegramBot/email/desktopHandoff = true);
+  НОВЫЙ W13 /api/auth/link/providers → 401 {"error":"Unauthorized"}
+  (роут живой, корректно закрыт сессией — без сессии статус не течёт);
+  /track/171347962 200; assetlinks 200; version.json cache-control
+  no-store (контракт UpdateManager цел).
+- PROD QA (agent-browser, demo-режим, 1440×900):
+  * Rollback-оболочка цела: sidebar=false, #mq-navbar=false,
+    data-mq-desktop=null, overflowX=0 — web остался классическим.
+  * W01: «Рекомендованные плейлисты» live; чарт-ранги aria-label №1…№10
+    глобальные (дублей 12345/12345 нет); классические табы навбара на месте.
+  * W02: подсказки live — ввод «рок» → dropdown «Искать "рок"» + жанр
+    «Рок»; ArrowDown двигает aria-selected; Escape закрывает. У свежего
+    demo-юзера история/артисты/плейлисты честно пусты (real-data принцип).
+  * Playback E2E: поиск jazz → Воспроизвести → «Ambient Dreams» играет,
+    прогресс 0:13→0:19; capsule mini-player с border-radius 24px на месте.
+  * 0 page errors; консоль чистая (только известные Turnstile-варнинги).
+  * Скриншоты: download/qa/w01-13/prod-{home-top,home-ranks,suggestions,
+    playback}-1440x900.png.
+
+Stage Summary:
+- W01–W13 LIVE на https://mq1.vercel.app (mq-build-5bad44a0, v79).
+  Прод = rollback-baseline + все фичи W01–W13, проверено живым QA
+  (shell-изоляция, персонализация, подсказки, playback, capsule).
+- Канал деплоя подтверждён: push в main → Vercel auto-deploy (~70s),
+  ручной токен не нужен.
+- Worklog-коммит ниже вызовет ещё один тривиальный редеплой
+  (mq-build-<sha>, только docs) — ожидаемо и безвредно.
