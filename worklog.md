@@ -5059,3 +5059,85 @@ Stage Summary:
 - desktop-v1.0.0 release complete + production web live with the Google
   desktop handoff. Vercel git-integration identified as the actual
   deploy channel (CI job failure is a pre-existing repo-secret gap).
+
+---
+Task ID: web-ui-rollback
+Agent: main (Super Z)
+Task: Regression fix — вернуть классический WEB UI (до v72 glass redesign), сохранив desktop-клиент отдельным продуктом. Desktop-стилизация больше НЕ меняет внешний вид web.
+
+Work Log:
+- AUDIT GIT HISTORY: GOOD WEB COMMIT = 6f0fbd91 (последний корректный WEB UI,
+  дерево src/ идентично 4db64384 — liquid lyrics + QR уже внутри).
+  Redesign = 3b4494ec (glass app-shell), desktop = 5de3c071..f77f1eef.
+  Diff 6f0fbd91..HEAD категоризирован: A=desktop (SAVE), B=web-redesign
+  (REVERT), C=functional (SAVE), D=unrelated. Backup-ветка
+  backup-pre-web-rollback создана до изменений.
+- РАЗДЕЛЕНИЕ WEB/DESKTOP: новый src/lib/desktop-mode.ts (isDesktopApp() по
+  window.__MQ_DESKTOP__ — Tauri boot ставит флаг ДО загрузки app tree,
+  поэтому первый рендер уже знает режим, без мигания; web/Next.js SSR =
+  всегда false). Desktop также помечает html[data-mq-desktop=true].
+- NavBar.tsx: восстановлен БАЙТ-В-БАЙТ из 6f0fbd91 (карточка: brand mq +
+  сегментированные табы Главная/Поиск/Библиотека/Чаты + bell/admin/settings/
+  profile; margin 10px 16px 0, radius карточки, БЕЗ id=mq-navbar). v72
+  прозрачный topbar перенесён в НОВЫЙ TopBar.tsx — desktop-only, сохраняет
+  id="mq-navbar" (хук геометрии titlebar в desktop/src/desktop.css).
+- AppShell.tsx: Sidebar + AmbientBackground монтируются ТОЛЬКО при
+  desktopShell; web = плоский backgroundColor var(--mq-bg) + main
+  lg:pt-16 (старый офсет); desktop = lg:pt-[var(--mq-topbar-h)] +
+  lg:pl-[var(--mq-sidebar-w)]. NavBar Suspense-fallback старый (56px
+  skeleton). Функциональное сохранено: ?track= deep link, openInAppUrl.
+- ArtistDetailView.tsx: sticky mini-header web = lg:top-[72px] без left-
+  offset (старое), desktop = sidebar-aware; hero zoom (mq-hero-zoom) —
+  только desktop. Share-подзаголовок со слушателями сохранён.
+- SearchView.tsx: sticky search web = top-0 (старое), desktop =
+  lg:top-[var(--mq-topbar-h)].
+- globals.css: .mq-card-track вернул классический плоский стиль
+  (transition 0.18s ease, без border-radius) — v72 capsule hover polish
+  (radius + artwork lift) заскоплен под html[data-mq-desktop]; html
+  ambient transition заскоплен под html[data-mq-desktop]. Секции
+  sidebar/topbar/ambient CSS остаются (инертны в web — компоненты не
+  монтируются). design-tokens.css не тронут (токены инертны).
+- НАЙДЕН+ПОЧИНЕН БАГ: .mq-player-capsule существовал БЕЗ CSS-правила с
+  самого v72 (3b4494ec) — capsule рендерился ПРЯМОУГОЛЬНИКОМ в обоих
+  режимах. Добавлено border-radius:24px (shared web+desktop) — «rounded
+  mini-player» из §4 теперь реально закруглённый.
+- WEB QA (prod build + agent-browser, demo-режим):
+  * Структура (eval): sidebar=false, ambient=false, #mq-navbar=false,
+    data-mq-desktop=null, titlebar=false, navbarCard=true (margin
+    10px 16px 0, radius 16px), overflowX=0.
+  * Матрица 1920/1440/1280/768×1024/390×844 с играющим треком:
+    overflowX=0 ВСЕ; capsule на десктопах (floating 20px, centered,
+    radius 24px); 390 = navbar скрыт, MobileDock fixed bottom ✓.
+  * VLM (home-1440x900): карточка-navbar с табами ✓, сайдбара нет ✓,
+    capsule плеер внизу ✓, плоский тёмный фон ✓, titlebar нет ✓.
+  * Full Player: LiquidTitle работает («Comfy Jazz»). QR share sheet:
+    canvas 512px, РЕАЛЬНО декодирован OpenCV из скриншота →
+    http://localhost:3000/track/1522404298. Search sticky top-0 ✓.
+    Settings About: «Что нового» + горячие клавиши ✓; Downloads:
+    Windows → desktop-v1.0.0 реальный installer URL ✓. Context menu:
+    8+ пунктов ✓. Playback: трек играет, прогресс идёт ✓.
+- DESKTOP QA: vite+tsc build зелёный (до и после capsule-фикса);
+  browser-mode (без флага) = классический WEB UI (правильный split);
+  форсированный window.__MQ_DESKTOP__ + data-mq-desktop → sidebar +
+  #mq-navbar topbar + ambient монтируются, VLM 4/4 «Да». Windows
+  runtime QA = BLOCKED (Linux sandbox, Rust toolchain отсутствует) —
+  честно: поведение установленного .exe на реальной Windows не
+  проверялось; архитектура/сборка фронтенда проверены.
+- Тесты: 411/411 green; tsc clean (2 pre-existing ошибки только в
+  skills/, не в приложении); lint: 0 новых ошибок (4 pre-existing
+  setState-in-effect в нетронутых эффектах ArtistDetailView/SearchView
+  существовали и в 6f0fbd91). Secret scan чист. Android не тронут
+  (git status: только src/ файлы + 2 новых).
+
+Stage Summary:
+- WEB = классический проверенный интерфейс (6f0fbd91) + сохранённые
+  новые функции: rounded floating mini-player (теперь реально 24px),
+  What's New, QR share, LiquidTitle, Windows download button.
+- DESKTOP = прежний v72 glass shell (sidebar+topbar+ambient+titlebar),
+  теперь строго scoped через isDesktopApp()/data-mq-desktop — web-вид
+  больше не зависит от desktop-разработки.
+- Коммит ccd28350 (7 файлов, +465/−99): NavBar restore, TopBar.tsx,
+  desktop-mode.ts, AppShell/ArtistDetail/SearchView условные, globals
+  scoped + capsule radius fix. QA-скриншоты: download/qa/web-rollback/
+  (15 шт: home×5 разрешений, minicap, fullplayer, qr-share, search,
+  library, settings×2, context-menu, mobile, desktop-shell-forced).
