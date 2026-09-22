@@ -1,0 +1,170 @@
+/*
+ * Desktop-only CSS — runs on TOP of the web design system (globals.css).
+ * Everything here is scoped to html[data-mq-desktop] so the same shared
+ * components render untouched on the web.
+ */
+
+:root {
+  --mq-titlebar-h: 40px;
+}
+
+html[data-mq-desktop] {
+  /* Content consumers of --mq-topbar-h (AppShell padding, sticky headers)
+     must clear BOTH rows: titlebar (40px) + NavBar (60px). */
+  --mq-topbar-h: 100px;
+  overflow: hidden; /* the window is the scroll container boundary */
+}
+
+/* NavBar itself stays 60px tall, tucked UNDER the titlebar row
+   (inline height uses --mq-topbar-h → pinned with !important). */
+html[data-mq-desktop] #mq-navbar {
+  top: var(--mq-titlebar-h);
+  height: 60px !important;
+}
+
+/* ── Custom titlebar ──────────────────────────────────────────────────── */
+.mq-titlebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--mq-titlebar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 8px 0 16px;
+  z-index: 100;
+  background: color-mix(in srgb, var(--mq-bg, #0e0e0e) 72%, transparent);
+  backdrop-filter: blur(var(--mq-blur-md, 16px));
+  -webkit-backdrop-filter: blur(var(--mq-blur-md, 16px));
+  border-bottom: 1px solid color-mix(in srgb, var(--mq-border, #26262e) 70%, transparent);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.mq-titlebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--mq-text, #f2f2f4);
+  pointer-events: none;
+  min-width: 0;
+}
+
+.mq-titlebar-brand img {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.mq-titlebar-drag {
+  flex: 1;
+  height: 100%;
+  -webkit-app-region: drag;
+}
+
+.mq-titlebar-actions {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+}
+
+.mq-titlebar-btn {
+  width: 46px;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mq-text-muted, #9a9aa3);
+  border: 0;
+  background: transparent;
+  cursor: default;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.mq-titlebar-btn:hover {
+  background: color-mix(in srgb, var(--mq-text, #fff) 9%, transparent);
+  color: var(--mq-text, #fff);
+}
+
+.mq-titlebar-btn:active {
+  background: color-mix(in srgb, var(--mq-text, #fff) 14%, transparent);
+}
+
+/* Windows convention: close hover = red */
+.mq-titlebar-btn.mq-titlebar-close:hover {
+  background: #e81123;
+  color: #fff;
+}
+.mq-titlebar-btn.mq-titlebar-close:active {
+  background: #c50f1f;
+  color: #fff;
+}
+
+/* ── Desktop update dialog (auto-update §31-32) ──────────────────────── */
+.mq-desktop-update {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 8, 10, 0.55);
+  backdrop-filter: blur(8px);
+}
+
+.mq-desktop-update-card {
+  width: min(440px, calc(100vw - 48px));
+  border-radius: var(--mq-radius-xl, 24px);
+  background: var(--mq-glass, rgba(20, 20, 26, 0.82));
+  backdrop-filter: blur(var(--mq-blur-lg, 24px));
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  padding: 24px;
+  color: var(--mq-text, #f2f2f4);
+}
+
+.mq-desktop-update-card h3 {
+  margin: 0 0 4px;
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.mq-desktop-update-card .version {
+  color: var(--mq-text-muted, #9a9aa3);
+  font-size: 12.5px;
+  margin-bottom: 16px;
+}
+
+.mq-desktop-update-card ul {
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 9px;
+}
+
+.mq-desktop-update-card li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--mq-text-secondary, #c9c9d1);
+}
+
+.mq-desktop-update-card li svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--mq-accent, #e03131);
+}
+
+/* Text selection feels native-app in chrome rows */
+html[data-mq-desktop] .mq-titlebar,
+html[data-mq-desktop] .mq-titlebar * {
+  cursor: default;
+}

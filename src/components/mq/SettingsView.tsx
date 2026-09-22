@@ -973,10 +973,11 @@ export default function SettingsView() {
               <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <a
-                    href="https://github.com/killkinhi-a11y/mq-player/releases/download/v1.0.1/MQ-Player-Setup.zip" target="_blank" rel="noopener noreferrer"
-                    className="mq-dl-link flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer">
+                    href="https://github.com/killkinhi-a11y/mq-player/releases/download/desktop-v1.0.0/MQ.Player_1.0.0_x64-setup.exe" target="_blank" rel="noopener noreferrer"
+                    className="mq-dl-link flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer relative">
                     <Monitor className="w-5 h-5" style={{ color: "#3b82f6" }} />
                     <span className="mq-t-meta-2 font-semibold" style={{ color: "var(--mq-text)" }}>Windows</span>
+                    <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)", fontSize: "10.5px" }}>MQ Player 1.0.0 · 11 МБ</span>
                   </a>
                   <a
                     href="https://github.com/killkinhi-a11y/mq-player/releases" target="_blank" rel="noopener noreferrer"

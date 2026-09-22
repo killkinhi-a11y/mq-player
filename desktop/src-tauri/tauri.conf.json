@@ -1,0 +1,79 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MQ Player",
+  "version": "1.0.0",
+  "identifier": "com.mq1.player.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "MQ Player",
+        "label": "main",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1280,
+        "minHeight": 720,
+        "resizable": true,
+        "center": true,
+        "decorations": false,
+        "transparent": false,
+        "theme": "Dark",
+        "dragDropEnabled": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "createUpdaterArtifacts": true,
+    "icon": [
+      "icons/icon.ico",
+      "icons/32x32.png",
+      "icons/128x128.png"
+    ],
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "headerImage": null,
+        "sidebarImage": null,
+        "languages": [
+          "Russian",
+          "English"
+        ],
+        "displayLanguageSelector": false,
+        "installMode": "currentUser",
+        "compression": "lzma"
+      },
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      }
+    },
+    "shortDescription": "MQ Player \u2014 \u043c\u0443\u0437\u044b\u043a\u0430\u043b\u044c\u043d\u044b\u0439 \u043f\u043b\u0435\u0435\u0440",
+    "longDescription": "MQ Player \u0434\u043b\u044f Windows \u2014 premium desktop-\u043a\u043b\u0438\u0435\u043d\u0442 \u043c\u0443\u0437\u044b\u043a\u0430\u043b\u044c\u043d\u043e\u0433\u043e \u043f\u043b\u0435\u0435\u0440\u0430 MQ: \u0431\u0438\u0431\u043b\u0438\u043e\u0442\u0435\u043a\u0430, \u043f\u043e\u0438\u0441\u043a, \u043f\u043b\u0435\u0439\u043b\u0438\u0441\u0442\u044b, \u0447\u0430\u0442\u044b, EQ, \u0442\u0435\u043a\u0441\u0442\u044b \u043f\u0435\u0441\u0435\u043d \u0438 QR-\u043f\u043e\u0434\u0435\u043b\u0438\u0442\u044c\u0441\u044f."
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://raw.githubusercontent.com/killkinhi-a11y/mq-player/main/desktop/updates/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEMzN0JFOUU5OUUzNDM5NzIKUldSeU9UU2U2ZWw3dzI4VzJUdXlzSk4rNW5nd0Zrclprbm5iQWRVRWwxdWwzVWVmWmVIYXlMN04K"
+    },
+    "deep-link": {
+      "desktop": {
+        "schemes": [
+          "mq"
+        ]
+      }
+    }
+  }
+}

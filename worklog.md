@@ -4868,3 +4868,84 @@ Stage Summary:
 - Owner steps remaining: real phone camera scan (Track/Artist/Playlist
   QRs) and App Link open with the app installed; reduced-motion + real
   device lyric feel (screenshots can't prove motion).
+---
+Task ID: desktop-client-win (in progress)
+Agent: main (Super Z)
+Task: MQ Player — полноценный Windows desktop client (не webview сайта, не
+PWA): MQ Player.exe + MQ Player Setup.exe, native integrations, installer,
+auto-update, production release (spec §1-51).
+
+Work Log (build phase):
+- ENV: no rust/nsis on box; installed rustup 1.98.1 + x86_64-pc-windows-msvc
+  target + cargo-xwin 0.23.1 (MSVC CRT/SDK 2m15s download) + tauri-cli
+  2.11.5 (npm prebuilt). No sudo → Debian .deb extraction for clang-19/
+  llvm-19/lld-19 (dpkg -x, no root), clang-cl symlink to clang (argv0
+  driver mode), everything under ~/clang-root. Disk managed aggressively
+  (cleaned debug artifacts, npm cache; 6GB total box).
+- RUNTIME DECISION: Tauri 2 (user priority; SMTC Windows media controls
+  needs native Rust — Electron has NO SMTC story; 11MB installer vs ~85MB;
+  audio-engine/ is Rust already). Electron rejected with cause documented.
+- UI REUSE (zero duplication): desktop/ is a Vite app that aliases "@" to
+  the WEB ../src — the whole redesigned /play shell (AppShell, all views,
+  zustand store, design tokens, LiquidTitle, LiquidLyrics, ShareSheet QR)
+  renders in the desktop bundle unchanged. Shims: next/dynamic → lazy/
+  Suspense (28 call sites), next/image → <img> (1 site), fetch+EventSource
+  patch → localhost proxy. React/@types resolve from ROOT node_modules
+  (single copy — dual-copies break cross-file types). tsconfig mirrors web
+  (noImplicitAny:false) + styled-jsx attr augmentation d.ts.
+- NETWORK: Rust axum localhost proxy (127.0.0.1:rand port, per-session
+  token; header x-mq-desktop or ?_mqt= for EventSource) → production API.
+  Attaches session cookie jar (persisted DPAPI-CryptProtectData-encrypted
+  in app_config_dir/mq-session.bin), browser UA/Origin/Referer, captures
+  Set-Cookie (login/logout work unchanged), CORS for tauri origin, Range/
+  206 passthrough for <audio>, streamed SSE. /version.json intercepted to
+  desktop identity (web UpdateBanner stays silent; desktop has its own
+  updater). Auth that works TODAY against prod: Email login/register +
+  Telegram bot-code flow — no backend change needed.
+- RUST SHELL: main/lib/proxy/smtc. Commands: desktop_info (proxy url+token
+  + version), auth_store_token (mq://auth handoff), smtc_update. Plugins:
+  single-instance, window-state, notification, deep-link (mq://), opener,
+  process (relaunch), updater. Tray: Play-Pause/Next/Previous/Open/Quit +
+  double-click restore. Close→hide-to-tray (music keeps playing §23).
+  SMTC (souvlaki 0.8.2, dedicated thread, CoInitializeEx MTA): metadata
+  (title/artist/album/cover via image-proxy URL), Playing/Paused/Stopped,
+  timeline position+end, buttons play/pause/toggle/next/previous/seek±10s/
+  set-position → 'smtc://event' → SAME zustand actions as on-screen player
+  (one playback truth §37). Hardware media keys ride SMTC on Windows.
+- DESKTOP CHROME: custom glass titlebar (drag region, min/max/close,
+  maximized state tracking), html[data-mq-desktop] CSS: --mq-topbar-h→
+  100px, #mq-navbar top→40px (NavBar id added — 1-line additive web change).
+  index.html: pre-paint theme script (same contract as web), boot splash
+  with MQ mark. Integration.tsx: SMTC 1Hz sync + system buttons, mq://
+  deep links (track/artist/playlist/play?params/auth — mirrors AppShell
+  semantics exactly), background-only track-change notifications
+  (mq-desktop-notifications localStorage toggle), auto-updater glass
+  dialog with human-language "Что нового" bullets + progress + Позже/
+  Обновить (no hashes §31-32).
+- CROSS-COMPLETE: cargo xwin env → exported (scripts/win-env.sh), ring
+  C/asm compiles via clang-cl + stdalign.h stub (modern SDK dropped it —
+  placed in xwin CRT cache). reqwest→native-tls (schannel; ring stays via
+  updater's reqwest 0.13+rustls — needed clang anyway). appindicator
+  host-check bypassed with stub pkg-config + .so (linux bundler path only
+  — target is nsis). NSIS: Debian nsis 3.11 + nsis-common extracted
+  (dpkg -x), ~/bin/makensis wrapper sets NSISDIR (bundler on Linux runs
+  native makensis from PATH — verified in bundler source).
+- ARTIFACTS (1.0.0, versionCode n/a — new product line):
+  * MQ Player_1.0.0_x64-setup.exe — 10.96 MB PE32 Nullsoft Installer,
+    x64, WebView2 embedBootstrapper, RU/EN languages, currentUser install.
+  * MQ Player.exe — 20.37 MB PE32+ GUI (the app binary, portable).
+  * MQ Player_1.0.0_x64-setup.exe.sig — minisign updater signature.
+  * Icons: generated from canonical resources/icon.png via `tauri icon`
+    (32/128/ico — SAME MQ mark everywhere: taskbar/tray/installer §39).
+  * Updater keys: minisign keypair, private at ~/.mq-desktop-signing/
+    (OUTSIDE repo, never committed §42), public embedded in tauri.conf.
+
+Stage Summary (build phase):
+- Windows cross-compile pipeline PROVEN end-to-end on this Linux box:
+  vite build → tsc clean → cargo xwin check clean → tauri build PASS →
+  real Setup.exe + .sig produced. Full web UI compiles into desktop bundle
+  (DesktopApp chunk 1.1MB gzip 337KB + lazy view chunks).
+- Remaining: updater latest.json, google desktop handoff backend (small
+  additive), browser-mode visual QA matrix, functional contract tests,
+  GitHub release desktop-v1.0.0, website download page update, honest
+  real-Windows-QA handoff notes.

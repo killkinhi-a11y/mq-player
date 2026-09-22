@@ -30,5 +30,18 @@ export async function GET(req: NextRequest) {
     maxAge: OAUTH_STATE_MAX_AGE,
     path: "/",
   });
+  // Desktop handoff marker: the MQ Player Windows app started this flow in
+  // the SYSTEM browser (webview OAuth is blocked by Google). The callback
+  // reads it back and routes the finish through /desktop-auth instead of
+  // the web /play redirect. Same lifetime as the state cookie.
+  if (req.nextUrl.searchParams.get("desktop") === "1") {
+    response.cookies.set("mq_oauth_desktop", "1", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: OAUTH_STATE_MAX_AGE,
+      path: "/",
+    });
+  }
   return response;
 }

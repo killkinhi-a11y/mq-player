@@ -74,6 +74,7 @@ const NavBar = React.memo(function NavBar() {
 
   return (
     <header
+      id="mq-navbar"
       className="hidden lg:flex fixed top-0 right-0 z-40 items-center justify-between pointer-events-none"
       role="banner"
       style={{

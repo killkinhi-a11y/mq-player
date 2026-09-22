@@ -1,0 +1,17 @@
+/*
+ * Tailwind v4 desktop entry — adds EXPLICIT @source roots.
+ *
+ * The web build (Next + @tailwindcss/postcss) auto-scans the repo src/,
+ * but the @tailwindcss/vite plugin's auto-detection only covers the
+ * desktop/ project root — the shared ../src tree (aliased as @/) sits
+ * OUTSIDE it and its utility candidates were never scanned (only a
+ * handful of utilities generated; layout classes like inset-0/p-4 were
+ * silently missing — found during QA when the ShareSheet dialog
+ * rendered at document-bottom instead of the viewport).
+ *
+ * @source paths are relative to THIS file: ../../src = the web src tree.
+ */
+@source "../../src/**/*.{ts,tsx}";
+@source "../**/*.{ts,tsx}";
+@source "../index.html";
+@import "../../src/app/globals.css";

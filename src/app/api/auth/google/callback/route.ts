@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { setSessionCookie } from "@/lib/auth";
 import { resolveGoogleLogin } from "@/lib/google-auth";
+import { signDesktopHandoffToken } from "@/lib/desktop-handoff";
 import {
   verifyOAuthState,
   generateOAuthState,
@@ -91,8 +92,25 @@ export async function GET(req: NextRequest) {
         (result.created ? "&created=1" : ""),
       origin
     );
+    // Desktop handoff (Windows app opened this flow in the system browser):
+    // finish through /desktop-auth, which exchanges a one-time code for the
+    // session token and passes it to the installed app via mq://. The
+    // session cookie is STILL set (this browser tab stays logged in too).
+    const isDesktopFlow = req.cookies.get("mq_oauth_desktop")?.value === "1";
+    if (isDesktopFlow) {
+      const handoffToken = await signDesktopHandoffToken({
+        userId: result.sessionPayload.userId,
+        username: result.sessionPayload.username,
+        email: result.sessionPayload.email,
+        role: result.sessionPayload.role,
+      });
+      redirectUrl.pathname = "/desktop-auth";
+      redirectUrl.search = `?c=${encodeURIComponent(handoffToken)}`;
+    }
+    const response = NextResponse.redirect(redirectUrl);
+    if (isDesktopFlow) response.cookies.delete("mq_oauth_desktop");
     return clearState(
-      await setSessionCookie(NextResponse.redirect(redirectUrl), result.sessionPayload)
+      await setSessionCookie(response, result.sessionPayload)
     );
   } catch (error) {
     console.error("Google callback error:", error);

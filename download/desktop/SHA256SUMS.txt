@@ -1,0 +1,2 @@
+137c11c7488b0d890b2373c6b6e728ca0a73cb5875d424912e0d0a626399fc74  download/desktop/MQ Player.exe
+70509956d81c8273800518ab63848bada7bc33e51dc283512079cf7b3dc7ea40  download/desktop/MQ Player_1.0.0_x64-setup.exe

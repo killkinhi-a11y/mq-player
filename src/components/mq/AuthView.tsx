@@ -300,9 +300,14 @@ export default function AuthView() {
   }, []);
 
   // ─── Official Telegram Login Widget script injection ────────────────
+  // Desktop: the widget's data-auth-url callback must land on the real
+  // site origin — inside the app webview it would point at tauri.localhost
+  // and the hash verification could never complete. The bot-code flow
+  // (t.me → 6-digit code) is the desktop path and stays fully available.
   const tgWidgetContainerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (authStep !== "telegram") return;
+    if (isDesktopApp) return;
     if (!providers?.telegramWidget || !providers.telegramBotName) return;
     if (typeof window === "undefined") return;
     const container = tgWidgetContainerRef.current;
@@ -435,8 +440,27 @@ export default function AuthView() {
   }, [checkUsernameAvailability]);
 
   // ─── Google OAuth (full-page redirect — mobile + popup-blocker safe) ─
+  // Desktop (Windows app): webview OAuth is blocked by Google — the shell
+  // installs window.__MQ_DESKTOP_OPEN_URL__ before the app boots; it opens
+  // the SYSTEM browser with the desktop marker (?desktop=1). The callback
+  // then finishes through /desktop-auth → mq://auth → the app's cookie jar.
+  const isDesktopApp =
+    typeof window !== "undefined" &&
+    !!(window as unknown as { __MQ_DESKTOP__?: unknown }).__MQ_DESKTOP__;
+
   const handleGoogleLogin = () => {
     if (!providers?.google || googleRedirecting) return;
+    if (isDesktopApp) {
+      const openExternal = (window as unknown as {
+        __MQ_DESKTOP_OPEN_URL__?: (url: string) => void;
+      }).__MQ_DESKTOP_OPEN_URL__;
+      if (openExternal) {
+        setGoogleRedirecting(true);
+        openExternal("https://mq1.vercel.app/api/auth/google?desktop=1");
+        setTimeout(() => setGoogleRedirecting(false), 2000);
+        return;
+      }
+    }
     setGoogleRedirecting(true);
     window.location.href = "/api/auth/google";
   };
@@ -945,8 +969,10 @@ export default function AuthView() {
                 )}
               </motion.button>
 
-              {/* Continue with Telegram — official Login Widget */}
-              {providers?.telegramWidget && (
+              {/* Continue with Telegram — official Login Widget.
+                  Desktop uses the bot-code flow below (widget callback
+                  can't reach the app origin). */}
+              {providers?.telegramWidget && !isDesktopApp && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}

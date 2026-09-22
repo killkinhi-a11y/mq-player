@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": false,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noImplicitAny": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "types": ["vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../src/*"],
+      "next/dynamic": ["./src/shims/next-dynamic.tsx"],
+      "next/image": ["./src/shims/next-image.tsx"]
+    }
+  },
+  "include": ["src", "../src/components", "../src/hooks", "../src/lib", "../src/store", "../src/styles", "vite.config.ts"],
+  "exclude": ["../src/lib/auth.ts", "../src/lib/database.ts", "../src/lib/db.ts", "../src/lib/get-session.ts", "../src/lib/google-auth.ts", "../src/lib/oauth.ts", "../src/lib/rate-limit.ts", "../src/lib/turso.ts", "../src/lib/withAuth.ts", "../src/components/admin"]
+}

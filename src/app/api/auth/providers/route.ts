@@ -30,6 +30,12 @@ export async function GET() {
       telegramBotName: botName || null,
       email: true, // email+password login always available
       emailDelivery: isEmailConfigured(), // whether codes/emails actually send
+      // Desktop client (Windows): Google login is handed off through the
+      // system browser via /api/auth/google?desktop=1 → /desktop-auth →
+      // mq://auth (webview OAuth is blocked by Google). Lets the desktop
+      // app pick the right Google flow and stay honest when the server
+      // predates this capability.
+      desktopHandoff: true,
     });
   } catch {
     return NextResponse.json(
