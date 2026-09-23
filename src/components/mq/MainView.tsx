@@ -7,7 +7,7 @@ import {
   Play, Pause, Music, Heart, Clock, ListMusic, ListPlus, MessageCircle,
   Plus, Sparkles, Waves, User, Flame,
   SkipForward, SkipBack, ThumbsDown, TrendingUp, Compass, RotateCcw,
-  MoreHorizontal, X, Shuffle,
+  MoreHorizontal, X, Shuffle, ArrowUpRight,
 } from "lucide-react";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
 import { useFriendsListening } from "@/hooks/useFriendsListening";
@@ -745,40 +745,34 @@ function MainView() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* PLAYLISTS — editorial hero + strip row (Pinterest-ref adaptation):
-          image-led cards, asymmetric hierarchy, vertical strip titles.
-          Same actions as before: open / play / context menu. */}
+      {/* PLAYLISTS — reference-faithful editorial composition. The        */}
+      {/* reference is a LAYOUT BLUEPRINT (percentages measured off the    */}
+      {/* original): centered headline block, one expanded near-square     */}
+      {/* card + extreme 1:4.8 vertical strips in a single 73.4%-wide      */}
+      {/* row, full-bleed monochrome artwork band below. Same actions as   */}
+      {/* before: open / play / context menu / create.                     */}
       {/* ════════════════════════════════════════════════════════════════ */}
-      <Section
-        title="Плейлисты"
-        icon={ListMusic}
-        action={
-          playlists.length > 0 ? (
-            <button onClick={() => setView("playlists")} className="mq-t-label text-xs" style={{ color: "var(--mq-accent)" }}>
-              Все
-            </button>
-          ) : undefined
-        }
-      >
-        {playlists.length > 0 ? (
-          <UserPlaylistsEditorial
-            playlists={playlists}
-            currentTrackId={currentTrack?.id}
-            isPlaying={isPlaying}
-            animationsEnabled={animationsEnabled}
-            onOpen={(pl) => {
-              setTimeout(() => useAppStore.getState().setSelectedPlaylistId(pl.id), 0);
-              setView("playlists");
-            }}
-            onPlay={(pl) => {
-              if (pl.tracks.length === 0) return;
-              if (currentTrack?.id === pl.tracks[0].id) { togglePlay(); return; }
-              playTrack(pl.tracks[0], [...pl.tracks], pl.id);
-            }}
-            onMore={openPlaylistMenu}
-            onCreate={() => setView("playlists")}
-          />
-        ) : (
+      {playlists.length > 0 ? (
+        <UserPlaylistsEditorial
+          playlists={playlists}
+          currentTrackId={currentTrack?.id}
+          isPlaying={isPlaying}
+          animationsEnabled={animationsEnabled}
+          onOpen={(pl) => {
+            setTimeout(() => useAppStore.getState().setSelectedPlaylistId(pl.id), 0);
+            setView("playlists");
+          }}
+          onPlay={(pl) => {
+            if (pl.tracks.length === 0) return;
+            if (currentTrack?.id === pl.tracks[0].id) { togglePlay(); return; }
+            playTrack(pl.tracks[0], [...pl.tracks], pl.id);
+          }}
+          onMore={openPlaylistMenu}
+          onCreate={() => setView("playlists")}
+          onAll={() => setView("playlists")}
+        />
+      ) : (
+        <Section title="Плейлисты" icon={ListMusic}>
           <button
             onClick={() => setView("playlists")}
             className="w-full rounded-2xl p-5 flex items-center gap-4 transition-all hover:bg-[var(--mq-overlay-hover)] text-left"
@@ -806,8 +800,8 @@ function MainView() {
               </div>
             )}
           </button>
-        )}
-      </Section>
+        </Section>
+      )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
       {/* FAVORITE ARTISTS (below the fold) */}
@@ -1799,6 +1793,7 @@ function UserPlaylistsEditorial({
   onPlay,
   onMore,
   onCreate,
+  onAll,
 }: {
   playlists: UserPlaylist[];
   currentTrackId?: string;
@@ -1808,60 +1803,165 @@ function UserPlaylistsEditorial({
   onPlay: (pl: UserPlaylist) => void;
   onMore: (pl: UserPlaylist, e: React.MouseEvent) => void;
   onCreate: () => void;
+  onAll: () => void;
 }) {
   const isMobile = useIsMobile();
   const hero = playlists[0];
-  const strips = playlists.slice(1, 9); // hero + up to 8 strips
+  // Desktop row mirrors the reference cap (1 expanded + 6 strips); the
+  // mobile h-scroll can carry a couple more.
+  const strips = playlists.slice(1, isMobile ? 9 : 7);
+  const showCreate = strips.length < (isMobile ? 8 : 6);
   const isPlayingPl = (pl: UserPlaylist) =>
     !!currentTrackId && isPlaying && pl.tracks.some((t) => t.id === currentTrackId);
 
-  return (
-    <div className="flex flex-col gap-3 sm:gap-4">
-      <PlaylistHeroCard
-        playlist={hero}
-        isPlayingThis={isPlayingPl(hero)}
-        onOpen={() => onOpen(hero)}
-        onPlay={() => onPlay(hero)}
-        onMore={(e) => onMore(hero, e)}
-        animationsEnabled={animationsEnabled}
-      />
-      {/* Desktop: uniform strip grid; mobile: horizontal scroll row — the
-          composition is rebuilt per breakpoint, not just scaled down. */}
-      {isMobile ? (
-        <HScroll className="flex gap-3 overflow-x-auto scrollbar-none -mx-3 px-3 pb-1">
-          {strips.map((pl, i) => (
-            <PlaylistStripCard
-              key={pl.id}
-              playlist={pl}
-              index={i}
-              isPlayingThis={isPlayingPl(pl)}
-              onOpen={() => onOpen(pl)}
-              onPlay={() => onPlay(pl)}
-              onMore={(e) => onMore(pl, e)}
-              animationsEnabled={animationsEnabled}
-              className="w-[124px] shrink-0"
-            />
-          ))}
-          {strips.length < 8 && <CreatePlaylistTile onClick={onCreate} className="w-[124px] shrink-0" />}
-        </HScroll>
-      ) : (
-        <div className="grid grid-cols-4 gap-3">
-          {strips.map((pl, i) => (
-            <PlaylistStripCard
-              key={pl.id}
-              playlist={pl}
-              index={i}
-              isPlayingThis={isPlayingPl(pl)}
-              onOpen={() => onOpen(pl)}
-              onPlay={() => onPlay(pl)}
-              onMore={(e) => onMore(pl, e)}
-              animationsEnabled={animationsEnabled}
-            />
-          ))}
-          {strips.length < 8 && <CreatePlaylistTile onClick={onCreate} />}
-        </div>
-      )}
+  // Headline subtext — REAL aggregate data, never invented copy.
+  const totalTracks = playlists.reduce((n, p) => n + p.tracks.length, 0);
+  const sub = `${playlists.length} ${pluralRu(playlists.length, "плейлист", "плейлиста", "плейлистов")} · ${totalTracks} ${pluralRu(totalTracks, "трек", "трека", "треков")}`;
+
+  const expandedCard = (
+    <PlaylistExpandedCard
+      playlist={hero}
+      isPlayingThis={isPlayingPl(hero)}
+      onOpen={() => onOpen(hero)}
+      onPlay={() => onPlay(hero)}
+      onMore={(e) => onMore(hero, e)}
+      animationsEnabled={animationsEnabled}
+      compact={isMobile}
+      className={isMobile ? "w-full" : "h-full"}
+      style={isMobile ? { width: "100%", aspectRatio: "0.9" } : undefined}
+    />
+  );
+
+  const headlineBlock = (
+    <div className={isMobile ? "text-center pt-1 pb-5" : "absolute text-center"}
+      style={isMobile ? undefined : { top: "11.8%", left: "50%", transform: "translateX(-50%)", width: "min(60%, 560px)" }}
+    >
+      <h2
+        className="mq-text-headline font-bold tracking-tight"
+        style={{ color: "var(--mq-text)", fontSize: isMobile ? 24 : "clamp(24px, 2.6vw, 38px)" }}
+      >
+        Плейлисты
+      </h2>
+      <p className={isMobile ? "mt-1.5 text-xs" : "mt-2 text-[13px]"}
+        style={{ color: "color-mix(in srgb, var(--mq-text) 62%, transparent)" }}
+      >
+        {sub}
+      </p>
+      <button
+        type="button"
+        onClick={onAll}
+        className="mt-2 mq-t-label text-xs transition-colors hover:underline underline-offset-4 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)]"
+        style={{ color: "var(--mq-text-muted)" }}
+      >
+        Все плейлисты →
+      </button>
     </div>
+  );
+
+  if (isMobile) {
+    // No ScrollReveal here: it clips (overflow:hidden) and self-skips under
+    // 640px anyway; the cards carry their own entrance motion.
+    return (
+      <section aria-label="Плейлисты" className="relative" style={{ overflowX: "clip" }}>
+        {/* Headline — centered (reference) */}
+        {headlineBlock}
+        {/* Expanded card — reference Card 1, aspect 0.9 */}
+        {expandedCard}
+        {/* Strips — same height as the expanded card (one shared card
+            line, as in the reference), scrolling horizontally */}
+        <HScroll className="mt-3.5 flex gap-3 overflow-x-auto scrollbar-none -mx-3.5 px-3.5">
+          {strips.map((pl, i) => (
+            <PlaylistStripCard
+              key={pl.id}
+              playlist={pl}
+              index={i}
+              isPlayingThis={isPlayingPl(pl)}
+              onOpen={() => onOpen(pl)}
+              onPlay={() => onPlay(pl)}
+              onMore={(e) => onMore(pl, e)}
+              animationsEnabled={animationsEnabled}
+              className="shrink-0"
+              style={{ width: "23.04%", aspectRatio: "0.2074" }}
+            />
+          ))}
+          {showCreate && (
+            <CreatePlaylistStrip onClick={onCreate} className="shrink-0" style={{ width: "23.04%", aspectRatio: "0.2074" }} />
+          )}
+        </HScroll>
+        {/* Artwork band — full-bleed, slim (reference bottom strip) */}
+        <div className="relative mt-5" style={{ height: 110, marginInline: "calc(50% - 50vw)" }}>
+          <CoversLightBand playlists={playlists} />
+        </div>
+      </section>
+    );
+  }
+
+  // Desktop: the breakout <section> sits OUTSIDE ScrollReveal — the reveal
+  // wrapper clips (overflow:hidden + contain:paint) and would cut the
+  // negative-margin breakout back to the 640px column.
+  return (
+    <section
+      aria-label="Плейлисты"
+      className="relative"
+      style={{
+        // Break out of the 640px home column up to the main area's width
+        // (viewport minus sidebar; −8px/side safety for the scrollbar),
+        // clamped so it never exceeds what actually fits → overflowX = 0.
+        marginInline: "calc(-1 * min(420px, max(0px, (100vw - var(--mq-sidebar-w, 248px) - 640px) / 2 - 8px)))",
+        overflowX: "clip",
+      }}
+    >
+      <ScrollReveal direction="up" delay={0.05}>
+        {/* Canvas — aspect-locked to the reference (1702:1219), capped to
+            stay within one comfortable look */}
+        <div
+          className="relative mx-auto"
+          style={{ width: "min(100%, calc(76vh * 1.3962), 1280px)", aspectRatio: "1702 / 1219" }}
+        >
+          {/* Headline — centered block at y 11.8→21% (reference) */}
+          {headlineBlock}
+
+          {/* Card row — x 13.1→86.5%, y 29.9→72.6% (reference). Rhythm:
+              expanded 37.3% of the row, first gap 2.2%, strips 8.6%, strip
+              gaps 1.2% — every card shares one top and one bottom line. */}
+          <div className="absolute" style={{ left: "13.1%", right: "13.5%", top: "29.9%", height: "42.7%" }}>
+            <div
+              className="grid h-full"
+              style={{ gridTemplateColumns: `37.3% 2.2% repeat(${strips.length + (showCreate ? 1 : 0)}, 8.6% 1.2%)` }}
+            >
+              {expandedCard}
+              <div aria-hidden="true" />
+              {[
+                ...strips.map((pl) => ({ pl })),
+                ...(showCreate ? [{ pl: null as UserPlaylist | null }] : []),
+              ].flatMap((it, i) => {
+                const card = it.pl ? (
+                  <PlaylistStripCard
+                    key={"s" + i}
+                    playlist={it.pl}
+                    index={i}
+                    isPlayingThis={isPlayingPl(it.pl)}
+                    onOpen={() => onOpen(it.pl!)}
+                    onPlay={() => onPlay(it.pl!)}
+                    onMore={(e) => onMore(it.pl!, e)}
+                    animationsEnabled={animationsEnabled}
+                    className="h-full"
+                  />
+                ) : (
+                  <CreatePlaylistStrip key={"c" + i} onClick={onCreate} className="h-full" />
+                );
+                return [card, <div key={"g" + i} aria-hidden="true" />];
+              })}
+            </div>
+          </div>
+        </div>
+        {/* Artwork band — full-bleed at the section's bottom 23.3% (reference);
+            absolute against the <section>, so it spans the whole breakout */}
+        <div aria-hidden="true" className="absolute inset-x-0 bottom-0 overflow-hidden" style={{ height: "23.3%" }}>
+          <CoversLightBand playlists={playlists} />
+        </div>
+      </ScrollReveal>
+    </section>
   );
 }
 
@@ -1887,17 +1987,72 @@ function playlistDurationLabel(tracks: Track[]): string {
   return m ? `${h} ч ${m} мин` : `${h} ч`;
 }
 
-// ─── HERO — one dominant image-led card for the first playlist ────────────
-// Reference language: the cover IS the card, title + meta sit on a
-// left-weighted scrim, and the CTA is a pill with a circular icon + label.
+// ─── COVERS LIGHT BAND — the reference's bottom artwork, built from the ──
+// playlists' REAL covers: melted into one monochrome silver field with a
+// fade-in top edge. Full-bleed; brightest center-left (reference).
 
-function PlaylistHeroCard({
+function CoversLightBand({ playlists }: { playlists: UserPlaylist[] }) {
+  const covers = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const pl of playlists) {
+      for (const c of playlistCoverSources(pl)) {
+        if (!seen.has(c)) { seen.add(c); out.push(c); }
+        if (out.length >= 9) return out;
+      }
+    }
+    return out;
+  }, [playlists]);
+  return (
+    <div aria-hidden="true" className="absolute inset-0 overflow-hidden">
+      {covers.length > 0 ? (
+        <div className="absolute inset-0 flex">
+          {covers.map((c, i) => (
+            <img
+              key={i}
+              src={c}
+              alt=""
+              loading="lazy"
+              className="h-full flex-1 min-w-0 object-cover"
+              style={{ filter: "grayscale(0.88) brightness(0.9) contrast(1.06)", opacity: 0.55, transform: "scale(1.35)" }}
+            />
+          ))}
+        </div>
+      ) : (
+        <div
+          className="absolute inset-0"
+          style={{ background: "linear-gradient(100deg, transparent 0%, rgba(148,163,184,0.10) 30%, rgba(226,232,240,0.16) 50%, rgba(148,163,184,0.08) 70%, transparent 100%)" }}
+        />
+      )}
+      {/* Melt into one silver field + fade the top edge in (reference) */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: "linear-gradient(180deg, var(--mq-bg) 0%, color-mix(in srgb, var(--mq-bg) 55%, transparent) 26%, color-mix(in srgb, var(--mq-bg) 18%, transparent) 55%, color-mix(in srgb, var(--mq-bg) 62%, transparent) 100%)",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+        }}
+      />
+      <div className="absolute inset-0" style={{ background: "radial-gradient(56% 130% at 38% 102%, rgba(226,232,240,0.16), transparent 62%)" }} />
+    </div>
+  );
+}
+
+// ─── EXPANDED CARD — reference Card 1: vertical title at the left edge,
+// an EMPTY middle (negative space is part of the design), then a short
+// description + circle-icon CTA, and a silver-washed preview of the real
+// cover bleeding to the card's bottom edge (21% of its height).
+
+function PlaylistExpandedCard({
   playlist: pl,
   isPlayingThis,
   onOpen,
   onPlay,
   onMore,
   animationsEnabled,
+  compact = false,
+  className = "",
+  style,
 }: {
   playlist: UserPlaylist;
   isPlayingThis: boolean;
@@ -1905,106 +2060,113 @@ function PlaylistHeroCard({
   onPlay: () => void;
   onMore: (e: React.MouseEvent) => void;
   animationsEnabled: boolean;
+  compact?: boolean;
+  className?: string;
+  style?: React.CSSProperties;
 }) {
   const covers = playlistCoverSources(pl);
-  const mosaic = covers.length >= 4;
   const duration = playlistDurationLabel(pl.tracks);
   const trackWord = pluralRu(pl.tracks.length, "трек", "трека", "треков");
+  const first = pl.tracks.find((t) => t);
+  const desc =
+    pl.tracks.length > 0
+      ? `${pl.tracks.length} ${trackWord}${duration ? ` · ${duration}` : ""}${first ? ` · ${first.artist || first.title}` : ""}`
+      : "Пока пусто — добавьте треки, и подборка оживёт";
+  const pad = compact ? "6.5%" : "7.5%";
   return (
     <motion.div
       role="button"
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
-      initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
+      initial={animationsEnabled ? { opacity: 0, y: 14 } : undefined}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={hoverProps({ y: -2, transition: { duration: 0.15, ease: "easeOut" } })}
-      whileTap={{ scale: 0.995 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      whileTap={{ scale: 0.99 }}
       onClick={onOpen}
       aria-label={`Плейлист: ${pl.name}${pl.tracks.length ? `, ${pl.tracks.length} ${trackWord}` : ""}`}
-      className="group relative w-full overflow-hidden text-left cursor-pointer rounded-2xl outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)] aspect-[16/10] sm:aspect-[2.35/1]"
+      className={`group relative overflow-hidden text-left cursor-pointer rounded-xl outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)] ${className}`}
       style={{
-        backgroundColor: "var(--mq-card)",
         border: `1px solid ${isPlayingThis ? "color-mix(in srgb, var(--mq-accent) 45%, transparent)" : "var(--mq-border-hairline)"}`,
-        boxShadow: "var(--mq-shadow-premium-md)",
+        backgroundColor: "color-mix(in srgb, var(--mq-card) 55%, transparent)",
+        ...style,
       }}
     >
-      {/* Cover — full-bleed photo / 2×2 collage of real track covers / quiet gradient */}
-      <div className="absolute inset-0 transition-transform duration-700 ease-out group-hover:scale-[1.03]">
-        {mosaic ? (
-          <div className="grid grid-cols-2 grid-rows-2 w-full h-full">
-            {covers.slice(0, 4).map((c, i) => (
-              <img key={i} src={c} alt="" loading="lazy" className="w-full h-full object-cover" />
-            ))}
-          </div>
-        ) : covers.length > 0 ? (
-          <img src={covers[0]} alt="" loading="lazy" className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center" style={{ background: `linear-gradient(120deg, ${hashHue(pl.name, 0)}, ${hashHue(pl.name, 1)})` }}>
-            <ListMusic className="w-8 h-8 text-white/30" />
-          </div>
-        )}
-      </div>
-      {/* Scrims — left-weighted for the text block + a bottom belt */}
-      <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(90deg, rgba(0,0,0,0.74) 0%, rgba(0,0,0,0.42) 36%, rgba(0,0,0,0.06) 66%, rgba(0,0,0,0) 100%)" }} />
-      <div className="absolute inset-x-0 bottom-0 h-2/3 pointer-events-none bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+      {/* Atmosphere — faint downward gradient (reference card surface) */}
+      <div aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--mq-text) 3.5%, transparent), transparent 45%)" }} />
 
-      {/* Playing badge */}
-      {isPlayingThis && (
-        <div
-          className="absolute top-3 left-3 px-2 py-0.5 rounded-full backdrop-blur-md flex items-center gap-1.5"
-          style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "var(--mq-accent)", border: "1px solid var(--mq-border-accent)" }}
-        >
-          <NowPlayingEqualizer size="xs" variant="overlay" />
-          <span className="mq-t-badge">Играет</span>
-        </div>
-      )}
-
-      {/* More — top-right */}
-      <div
-        className="absolute top-2 right-2 rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
-        style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
-        onClick={(e) => e.stopPropagation()}
+      {/* Vertical title — at the left edge, reading bottom-up (reference) */}
+      <p
+        title={pl.name}
+        className={`absolute font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180 ${compact ? "text-sm" : "text-[15px]"}`}
+        style={{ left: pad, top: "7%", height: "40%", color: "var(--mq-text)" }}
       >
-        <TrackMoreButton onOpen={onMore} size="sm" label={`Действия: ${pl.name}`} className="!text-white" />
-      </div>
+        {pl.name}
+      </p>
 
-      {/* Text block */}
-      <div className="absolute inset-y-0 left-0 flex flex-col justify-end p-4 sm:p-5" style={{ maxWidth: "72%" }}>
-        <p
-          className="text-base sm:text-lg font-semibold text-white leading-tight line-clamp-2"
-          style={{ textShadow: "0 1px 12px rgba(0,0,0,0.55)" }}
-          title={pl.name}
-        >
-          {pl.name}
-        </p>
-        <p className="mt-1 text-[11px] sm:text-xs text-white/70" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>
-          {pl.tracks.length > 0
-            ? `${pl.tracks.length} ${trackWord}${duration ? ` · ${duration}` : ""}`
-            : "Пока пусто"}
+      {/* (the card's middle stays deliberately EMPTY — reference) */}
+
+      {/* Bottom stack: description + circle-icon CTA (reference) */}
+      <div className="absolute" style={{ left: pad, right: pad, bottom: "calc(21% + 7%)" }}>
+        <p className={`line-clamp-2 ${compact ? "text-xs" : "text-[13px]"} leading-relaxed`} style={{ color: "color-mix(in srgb, var(--mq-text) 74%, transparent)" }}>
+          {desc}
         </p>
         {pl.tracks.length > 0 && (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onPlay(); }}
-            className="mt-2.5 sm:mt-3 self-start inline-flex items-center gap-2 h-8 pl-1.5 pr-3.5 rounded-full text-xs font-semibold text-white transition-transform active:scale-95 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/80"
-            style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 6px 20px color-mix(in srgb, var(--mq-accent) 32%, transparent)" }}
             aria-label={isPlayingThis ? `Пауза — ${pl.name}` : `Слушать — ${pl.name}`}
+            className={`mt-3 inline-flex items-center gap-2 font-semibold transition-transform active:scale-95 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)] ${compact ? "text-xs" : "text-[13px]"}`}
+            style={{ color: "var(--mq-text)" }}
           >
-            <span className="w-[22px] h-[22px] rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.18)" }}>
+            <span
+              className={`${compact ? "w-[20px] h-[20px]" : "w-[22px] h-[22px]"} rounded-full flex items-center justify-center`}
+              style={{ border: "1px solid color-mix(in srgb, var(--mq-text) 55%, transparent)" }}
+            >
               {isPlayingThis
                 ? <Pause className="w-3 h-3" fill="currentColor" />
-                : <Play className="w-3 h-3 ml-px" fill="currentColor" />}
+                : <ArrowUpRight className="w-3 h-3" />}
             </span>
             {isPlayingThis ? "Пауза" : "Слушать"}
           </button>
         )}
       </div>
+
+      {/* Preview band — the real cover, silver-washed, bleeding to the
+          card's bottom edge (reference light preview, 21% of card height) */}
+      <div aria-hidden="true" className="absolute inset-x-0 bottom-0 overflow-hidden" style={{ height: "21%" }}>
+        {covers.length > 0 ? (
+          <img
+            src={covers[0]}
+            alt=""
+            loading="lazy"
+            className="w-full h-full object-cover"
+            style={{ filter: "grayscale(0.72) brightness(1.12) contrast(0.95)" }}
+          />
+        ) : (
+          <div
+            className="w-full h-full"
+            style={{ background: `linear-gradient(100deg, ${hashHue(pl.name, 0)}, ${hashHue(pl.name, 1)})`, filter: "grayscale(0.6) brightness(1.05)" }}
+          />
+        )}
+        <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--mq-bg) 55%, transparent) 0%, color-mix(in srgb, #ffffff 5%, transparent) 55%, color-mix(in srgb, #ffffff 12%, transparent) 100%)" }} />
+      </div>
+
+      {/* More — top-right (existing playlist actions) */}
+      <div
+        className="absolute top-2 right-2 z-10 rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+        style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <TrackMoreButton onOpen={onMore} size="sm" label={`Действия: ${pl.name}`} className="!text-white" />
+      </div>
     </motion.div>
   );
 }
 
-// ─── STRIP — narrow vertical card, reference's signature: rotated title ───
+// ─── STRIP — the reference's signature extreme card (≈1:4.8): flat dark
+// surface, one vertical title centered near the top, one small line-icon
+// centered at the bottom. Covers do NOT tile the card at rest (the row
+// reads typographic); the real artwork only whispers in on hover.
 
 function PlaylistStripCard({
   playlist: pl,
@@ -2015,6 +2177,7 @@ function PlaylistStripCard({
   onMore,
   animationsEnabled,
   className = "",
+  style,
 }: {
   playlist: UserPlaylist;
   index: number;
@@ -2024,6 +2187,7 @@ function PlaylistStripCard({
   onMore: (e: React.MouseEvent) => void;
   animationsEnabled: boolean;
   className?: string;
+  style?: React.CSSProperties;
 }) {
   const covers = playlistCoverSources(pl);
   return (
@@ -2031,65 +2195,51 @@ function PlaylistStripCard({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
-      initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
+      initial={animationsEnabled ? { opacity: 0, y: 14 } : undefined}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(0.05 + index * 0.04, 0.4), duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      whileTap={{ scale: 0.98 }}
+      transition={{ delay: Math.min(0.06 + index * 0.045, 0.42), duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+      whileTap={{ scale: 0.985 }}
       onClick={onOpen}
       aria-label={`Плейлист: ${pl.name}, ${pl.tracks.length} ${pluralRu(pl.tracks.length, "трек", "трека", "треков")}`}
-      className={`group relative overflow-hidden text-left cursor-pointer rounded-2xl aspect-[5/7] outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)] ${className}`}
+      className={`group relative overflow-hidden text-left cursor-pointer rounded-md outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)] ${className}`}
       style={{
-        backgroundColor: "var(--mq-card)",
         border: `1px solid ${isPlayingThis ? "color-mix(in srgb, var(--mq-accent) 45%, transparent)" : "var(--mq-border-hairline)"}`,
+        backgroundColor: "color-mix(in srgb, var(--mq-card) 55%, transparent)",
+        ...style,
       }}
     >
-      {covers.length > 0 ? (
-        <img
-          src={covers[0]}
-          alt=""
-          loading="lazy"
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-        />
-      ) : (
+      {/* Atmosphere — faint downward gradient (reference surface) */}
+      <div aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--mq-text) 3.5%, transparent), transparent 45%)" }} />
+
+      {/* Cover whisper — the real artwork surfacing on hover (reference:
+          strips stay flat; a light block peeks when a card wakes up) */}
+      {covers.length > 0 && (
         <div
-          className="absolute inset-0 flex items-center justify-center"
-          style={{ background: `linear-gradient(150deg, ${hashHue(pl.name, 0)}, ${hashHue(pl.name, 1)})` }}
+          aria-hidden="true"
+          className="absolute inset-x-0 bottom-0 h-[46%] overflow-hidden pointer-events-none opacity-25 md:opacity-0 md:group-hover:opacity-40 transition-opacity duration-500"
         >
-          <ListMusic className="w-6 h-6 text-white/35" />
+          <img src={covers[0]} alt="" loading="lazy" className="w-full h-full object-cover" style={{ filter: "grayscale(0.75) brightness(1.05) blur(6px)", transform: "scale(1.3)" }} />
+          <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, var(--mq-card) 0%, transparent 60%)" }} />
         </div>
       )}
 
-      {/* Left scrim for the rotated title */}
-      <div className="absolute inset-y-0 left-0 w-[70%] pointer-events-none bg-gradient-to-r from-black/60 via-black/20 to-transparent" />
+      {/* Vertical title — centered, near the top, bottom-up (reference) */}
+      <p
+        title={pl.name}
+        className="absolute left-1/2 -translate-x-1/2 text-[13px] font-medium leading-none tracking-[0.02em] whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180"
+        style={{ top: "6.5%", height: "52%", color: "color-mix(in srgb, var(--mq-text) 88%, transparent)" }}
+      >
+        {pl.name}
+      </p>
 
-      {/* Vertical title — typography as structure (reference signature) */}
-      <div className="absolute inset-y-0 left-0 py-2.5 pl-2.5 pointer-events-none">
-        <p
-          className="[writing-mode:vertical-rl] rotate-180 text-[13px] font-medium leading-none tracking-[0.02em] text-white whitespace-nowrap overflow-hidden text-ellipsis max-h-full"
-          style={{ textShadow: "0 1px 10px rgba(0,0,0,0.65)" }}
-          title={pl.name}
-        >
-          {pl.name}
-        </p>
-      </div>
-
-      {/* Foot — small line-icon + count (reference's bottom glyph) */}
-      {pl.tracks.length > 0 && (
-        <div
-          className="hidden md:flex absolute bottom-2 right-2 items-center gap-1 pointer-events-none"
-          style={{ color: "rgba(255,255,255,0.62)", textShadow: "0 1px 6px rgba(0,0,0,0.6)" }}
-        >
-          <ListMusic className="w-3 h-3" />
-          <span className="text-[11px] mq-t-num font-medium">{pl.tracks.length}</span>
-        </div>
-      )}
-
-      {/* Playing indicator */}
-      {isPlayingThis && (
-        <span className="absolute top-2 left-2 z-10">
+      {/* Foot — one small line-icon, centered (reference); eq while playing */}
+      <div aria-hidden="true" className="absolute bottom-[5.5%] left-1/2 -translate-x-1/2 pointer-events-none">
+        {isPlayingThis ? (
           <NowPlayingEqualizer size="xs" variant="overlay" />
-        </span>
-      )}
+        ) : (
+          <ListMusic className="w-[15px] h-[15px]" style={{ color: "color-mix(in srgb, var(--mq-text) 45%, transparent)" }} />
+        )}
+      </div>
 
       {/* Desktop: glass play circle on hover (keyboard-focusable) */}
       {pl.tracks.length > 0 && (
@@ -2099,13 +2249,8 @@ function PlaylistStripCard({
           aria-label={`Играть — ${pl.name}`}
           onClick={(e) => { e.stopPropagation(); onPlay(); }}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onPlay(); } }}
-          className="hidden md:flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none transition-opacity"
-          style={{
-            backgroundColor: "rgba(0,0,0,0.55)",
-            backdropFilter: "blur(6px)",
-            WebkitBackdropFilter: "blur(6px)",
-            border: "1px solid rgba(255,255,255,0.16)",
-          }}
+          className="hidden md:flex absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 rounded-full items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none transition-opacity z-10"
+          style={{ top: "74%", backgroundColor: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,0.16)" }}
         >
           {isPlayingThis
             ? <Pause className="w-4 h-4 text-white" fill="currentColor" />
@@ -2113,15 +2258,14 @@ function PlaylistStripCard({
         </div>
       )}
 
-      {/* Mobile: compact accent play circle, always visible (36px — matches
-          the touch target of the previous card design) */}
+      {/* Mobile: always-visible play circle (touch parity) */}
       {pl.tracks.length > 0 && (
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onPlay(); }}
           aria-label={`Играть — ${pl.name}`}
-          className="md:hidden absolute bottom-2 right-2 w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-transform"
-          style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 4px 14px rgba(0,0,0,0.4)" }}
+          className="md:hidden absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-transform z-10"
+          style={{ top: "74%", backgroundColor: "var(--mq-accent)", boxShadow: "0 4px 14px rgba(0,0,0,0.4)" }}
         >
           {isPlayingThis
             ? <Pause className="w-4 h-4 text-white" fill="currentColor" />
@@ -2129,7 +2273,7 @@ function PlaylistStripCard({
         </button>
       )}
 
-      {/* More — top-right */}
+      {/* More — top-right (existing playlist actions) */}
       <div
         className="absolute top-1.5 right-1.5 z-10 rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
         style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
@@ -2141,27 +2285,26 @@ function PlaylistStripCard({
   );
 }
 
-// ─── CREATE TILE — completes the strip grid, mirrors the empty-state CTA ──
+// ─── CREATE STRIP — completes the strip row in its own rhythm (dashed
+// hairline, muted vertical label, accent plus at the foot) ──────────────
 
-function CreatePlaylistTile({ onClick, className = "" }: { onClick: () => void; className?: string }) {
+function CreatePlaylistStrip({ onClick, className = "", style }: { onClick: () => void; className?: string; style?: React.CSSProperties }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label="Создать плейлист"
-      className={`group/create relative rounded-2xl aspect-[5/7] flex flex-col items-center justify-center gap-2 transition-colors hover:bg-[var(--mq-overlay-hover)] outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)] ${className}`}
-      style={{
-        border: "1px dashed var(--mq-border-thin)",
-        backgroundColor: "color-mix(in srgb, var(--mq-card) 60%, transparent)",
-      }}
+      className={`group/create relative rounded-md outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)] ${className}`}
+      style={{ border: "1px dashed var(--mq-border-thin)", backgroundColor: "color-mix(in srgb, var(--mq-card) 35%, transparent)", ...style }}
     >
-      <div
-        className="w-9 h-9 rounded-full flex items-center justify-center transition-transform group-hover/create:scale-105"
-        style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 13%, transparent)" }}
+      <div aria-hidden="true" className="absolute inset-0 rounded-md opacity-0 group-hover/create:opacity-100 transition-opacity" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 5%, transparent)" }} />
+      <p
+        className="absolute left-1/2 -translate-x-1/2 text-[13px] font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180"
+        style={{ top: "6.5%", height: "52%", color: "var(--mq-text-muted)" }}
       >
-        <Plus className="w-[18px] h-[18px]" style={{ color: "var(--mq-accent)" }} />
-      </div>
-      <span className="text-[11px] mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>Новый</span>
+        Новый плейлист
+      </p>
+      <Plus aria-hidden="true" className="absolute bottom-[5.5%] left-1/2 -translate-x-1/2 w-[15px] h-[15px]" style={{ color: "var(--mq-accent)", opacity: 0.75 }} />
     </button>
   );
 }
