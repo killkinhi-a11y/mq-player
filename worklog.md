@@ -5617,3 +5617,62 @@ Stage Summary:
   pre-existing queue-clear дефект (root cause + минимальный фикс
   описаны, не чинился по правилам сессии).
 - Код приложения не менялся; коммит: worklog + QA secret-scan скрипт.
+
+---
+Task ID: W01-ICON-AUDIT
+Agent: Main Agent
+Task: W01 Home — убрать очевидные AI/SVG placeholder-иконки (аудит + фикс + visual QA)
+
+Work Log:
+- BASELINE: HEAD 60844b2d, дерево чистое, прод mq-build-9e11a2d7 (= код HEAD,
+  аудирован живой прод). Icon system проекта: lucide-react 0.525.0 (в
+  package.json) — единственная UI icon library.
+- JSX-SOURCE АУДИТ всех Home-поверхностей (MainView + дочерние): MainView
+  0 inline <svg> (все иконки lucide); PlaylistArtwork 0 svg (CSS-orbs —
+  artwork обложек); NowPlayingEqualizer — единственный кастомный SVG в
+  Home-компонентах (SMIL-анимированный эквалайзер = visualizer, разрешён
+  спекой); TrackMoreButton = lucide MoreHorizontal (один триггер меню на все
+  поверхности — дубликатов SVG для одинаковых действий нет); ContextMenu/
+  ArtistActionsMenu/PlaylistActionsMenu/SectionHeader/EmptyState/Skeleton/
+  NotificationPanel/Avatar — lucide или без svg; NavBar/Sidebar/MobileDock/
+  PlayerBar — lucide; эмодзи в JSX Home-компонентов нет (→ в комментариях).
+- DOM АУДИТ на проде (demo-вход, полный скролл всей страницы):
+  Desktop 1440×900: 76 svg — 100% lucide, 0 non-lucide, 0 canvas, 0 emoji,
+  0 битых img (18/18 загружены). Mobile 390×844: 69 svg — 100% lucide,
+  0 emoji, overflowX=0. Playing-state: +4 mq-eq-svg (NowPlayingEqualizer на
+  hero-бейдже/строках/оверлее — один компонент, одна система визуализатора).
+  Wave-state: canvas не появляется, та же mq-eq-svg система.
+- STROKE/SCALE: nav-иконки 1.8 (inactive) / 2.2 (active) — намеренный
+  паттерн акцента активного таба, единый в NavBar/Sidebar/MobileDock;
+  контент + плеер = 2.0 (lucide default). Внутри каждого контекста вес
+  одинаков. Filled Play/Pause в акцентных CTA — стандартный паттерн
+  музыкальных приложений, иконки те же lucide с fill.
+- VLM-АУДИТ 6 скриншотов (desktop top/mid/bottom + hover-кроп, mobile
+  top/mid/bottom, wave-playing): система когерентна, lucide-style
+  подтверждён, placeholder-иконок нет, эмодзи нет, эквалайзер читается
+  как правильный visualizer. Hover play-оверлей на обложке проверен
+  (чистый lucide Play, opacity-переход работает).
+- «БОЛЬШОЙ X» FALSE POSITIVE: VLM дважды пометил обложку трека
+  «Тимати — Мне Наплевать» как broken-image placeholder. Проверено
+  напрямую: это РЕАЛЬНАЯ обложка альбома «Аудиокапсула» (B&W фото,
+  500×500 JPEG через image-proxy, HTTP 200) — artwork артиста, по спеке
+  не трогается.
+- ИТОГ АУДИТА: 0 проблемных иконок на текущем Home → КОД НЕ МЕНЯЛСЯ
+  (нет доказанного дефекта; прошлые W01-проходы уже очистили иконографию
+  до единой lucide-системы). Требование «не создавать новую icon library /
+  не рисовать SVG вручную» соблюдено by construction.
+- GATES (baseline verification, код не менялся): tests 453/453 (28.6s)
+  PASS; tsc — чисто в app-коде (2 pre-existing skills/* ошибки = baseline);
+  web build PASS; public/version.json после build восстановлен (артефакт);
+  production smoke = сам аудит на живом проде. Дерево чистое.
+- QA-артефакты: download/w01-icon-audit/ — 10 скриншотов/кропов аудита
+  (desktop 3 + mobile 3 + wave + hover-кроп + факт-проверка обложки).
+
+Stage Summary:
+- W01 ICON AUDIT: найдено 0 проблемных иконок; заменено 0; код не менялся.
+  Icon system = lucide-react 0.525.0, единая на всей Home. Оставленные
+  не-lucide SVG: только NowPlayingEqualizer (visualizer, разрешён) и
+  logo/artwork (обложки, CSS-orbs, обложки SoundCloud). Desktop 1440×900 и
+  Mobile 390×844 visual QA PASS (DOM + VLM + скриншоты), overflowX=0,
+  touch targets не изменены (иконки не трогали), hover/active работают.
+  Gates: 453/453, tsc app-clean, build PASS. Коммит: worklog-only.
