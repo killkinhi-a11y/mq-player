@@ -5305,3 +5305,100 @@ Stage Summary:
   ручной токен не нужен.
 - Worklog-коммит ниже вызовет ещё один тривиальный редеплой
   (mq-build-<sha>, только docs) — ожидаемо и безвредно.
+
+---
+Task ID: real-auth-verification
+Agent: main (Super Z)
+Task: REAL AUTH VERIFICATION W12/W13 на production (mq1.vercel.app) поверх
+baseline e51957fc: Google/Telegram linking, конфликты, session persistence,
+отсутствие регрессий. Без редизайна, без W14, без destructive-операций.
+
+Work Log:
+- STEP 1 AUDIT (код не менялся): git HEAD = прод (mq-build-e51957fc поверх
+  функционального 5bad44a0), дерево чистое. Прочитаны: google start/callback
+  (state-CSRF, mq_oauth_link cookie, конфликт-логика google_taken без merge),
+  telegram-widget callback (официальный HMAC-алгоритм, freshness 1h,
+  identity/legacy/new-User ветки, link-режим), telegram-verify (bot-code),
+  link/providers (401 без сессии, без provider user ids), AccountLinkingCard,
+  lib/auth.ts (JWT HS256 7d httpOnly), register/login/verify-code/logout/me,
+  lib/email.ts (Brevo), AuthView (email+password login UI).
+- PROD NO-SESSION QA (scripts/qa-auth/prod-auth-qa-phase-b.py): 8/8 PASS —
+  google login start (302 + state cookie, redirect_uri/scope/client_id
+  корректны), google LINK start (mq_oauth_link cookie), cancel-flow
+  (access_denied + валидный state → google_cancelled), CSRF-guard (невалидный
+  state → invalid_state), fake code + валидный state → google_exchange_failed
+  (→ ПРОД-КРЕДЕНШЕЛЫ GOOGLE ВАЛИДНЫ: Google отклонил код, не клиента),
+  TG widget мусорный hash → telegram_hash_invalid (login + link режим,
+  verify-before-link), link/providers → 401 без утечек. Прогнано на 5bad44a0
+  и повторно на 68aa0c3c — стабильно.
+- НАХОДКА #1 (внешняя, НЕ код): прод-отправка email через Brevo ПАДАЕТ —
+  register 201, но emailSent=false при emailConfigured=true; 5 попыток на
+  5 доменов (mail.tm/gmail/outlook/proton + повтор) в течение ~1.5ч, через
+  границу UTC-полуночи и два билда. email.ts/register не менялись со времён
+  базового кода (git log) — не регрессия W01-W13. Brevo-квота/ключ/sender —
+  owner action; точная ошибка видна в Vercel logs/Sentry (инициализирован).
+  Следствие: email-верификация на проде сейчас недоступна → реальная сессия
+  на проде для линкинг-QA недостижима (Google/TG тоже требуют реальных
+  внешних аккаунтов, бот-токен серверный).
+- LOCAL E2E (тот же код, что прод — дерево 5bad44a0): dev-сервер + throwaway
+  SQLite через ТУ ЖЕ Turso-ветку, тестовый BOT_TOKEN. scripts/qa-auth/
+  local-auth-qa-phase-e.py: 25/25 PASS — email-аккаунт (devCode) → сессия;
+  TG widget login РЕАЛЬНЫМИ HMAC-подписанными пейлоадами (новый юзер →
+  pending-identity → register → сессия); линк свежей TG-identity →
+  linkSuccess; КОНФЛИКТ (identity другого аккаунта) → telegram_taken, оба
+  аккаунта целы, никакого merge; повторный линк своей → идемпотентно, ровно
+  1 AuthIdentity-строка (прямой SQLite-аудит); мусорный hash в link-режиме →
+  reject до линка; /api/sync до/после идентичен (линк ≠ merge); logout
+  (cookie очищается, аноним → 401) + login + линк переживает re-login;
+  google link-start с сессией (302 + cookie). Наблюдение: stateless JWT
+  остаётся криптографически валиден до 7д, если кто-то сохранил сырой токен
+  (без серверной ревокации) — pre-existing дизайн, не W12/W13.
+- НАХОДКА #2 (код W13 — ИСПРАВЛЕНО): после OAuth-редиректа /play?linkSuccess=
+  /linkError= баннер в AccountLinkingCard НЕ показывался — карта внутри
+  LAZY SettingsView, а history-sync эффект AppShell перезаписывал URL на
+  ?v=… ДО маунта чанка; конфликт (telegram_taken) оставался для юзера
+  НЕВИДИМ (бэкенд корректно отклонял). UI-дефект воспроизведен в браузере.
+  FIX (коммит 68aa0c3c): lib/link-result.ts — AppShell захватывает параметры
+  в ПЕРВЫЙ рендер (паттерн существующего pendingLinkRef), карта потребляет
+  снапшот на маунте (URL-fallback сохранён), очистка из эффекта; StrictMode-
+  safe (consume — чистое чтение). 6 юнит-тестов на relay-семантику.
+  Верифицировано в браузере: success-баннер + конфликт-баннер + отсутствие
+  replay после remount + статус бэкенда при конфликте не изменился.
+  Инструментально найдено попутно: Service Worker (mq-static-v4) отдавал
+  stale-чанки в dev-QA (сброс SW+кэшей обязателен при браузерном QA после
+  правок).
+- ТЕСТЫ/СБОРКИ: 453/453 (447 + 6 новых); tsc чист; eslint 0 новых; web prod
+  build PASS (31.4s); desktop frontend build PASS (10.1s). Android — без
+  runtime (как раньше), APK не пересобирался.
+- DEPLOY: 68aa0c3c → прод live за 90s (mq-build-68aa0c3c, v79).
+- PROD REGRESSION на 68aa0c3c (agent-browser, SW выписан, свежая загрузка):
+  Home (ранги №1–№10, shell-изоляция, overflowX=0) ✓; Search (подсказки
+  «Искать jazz» + жанр, 76 результатов) ✓; Library + History ✓; Settings ✓
+  (линк-карта скрыта в demo — по дизайну); Player (трек играет, capsule
+  24px) ✓; Queue (drawer: СЕЙЧАС ИГРАЕТ/Очистить/дальше) ✓; Context Menu —
+  все 11 пунктов вкл. «Похожие треки», НЕ редизайнен ✓; QR share (canvas
+  512×512) ✓; ?track=171347962 deep link → трек DEVILMAN играет, артист
+  показан, URL вычищен ✓; 0 page errors, консоль чистая (Turnstile —
+  известный шум). Фикс подтверждён в прод-чанках (capture/consume на месте);
+  ранние ReferenceError в логе браузера — HMR-артефакты локальной dev-сессии
+  (dev-именованный чанк), на проде 0.
+- ANDROID (W12): runtime в песочнице нет → device QA BLOCKED. Код-цепочка
+  корректна (Credential Manager 2-pass, публичный web client id как aud).
+  Внешняя настройка (единственное недостающее): Google Cloud Console, тот же
+  проект что web client id 577360231136-…: OAuth-клиент типа "Android",
+  package com.mq1.player + SHA-1 release-keystore. Debug-сборки имеют
+  суффикс .debug — для них нужен отдельный SHA-1 записи, если тестировать
+  debug-билды.
+
+Stage Summary:
+- Прод: все no-session части W12/W13 PASS (8/8 × 2 билда), Google-кредитеншелы
+  прода валидны (диагностика fake-code), полный regression-проход PASS.
+- Полные provider-флоу на проде BLOCKED: (а) нет реальных Google/TG-аккаунтов
+  и бот-токена в песочнице, (б) НОВАЯ внешняя проблема — Brevo email-отправка
+  падает на проде (owner action). Локально тем же кодом: полный W13-матрикс
+  25/25 PASS с реальной криптографией.
+- Найден+исправлен+задеплоен реальный W13 UI-дефект (невидимые баннеры
+  результата линкинга) — 68aa0c3c, 453/453, web+desktop builds PASS.
+- Секретов в логах/коммитах нет (пароли/токены/cookies только в gitignored
+  .secret-файлах, удалены после QA; QA-аккаунты одноразовые, локальная БД
+  throwaway, удалена).
