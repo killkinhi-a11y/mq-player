@@ -5756,3 +5756,51 @@ Stage Summary:
   bottom line-icon+count, hairline+radius, сдержанный hover. MQ-токены,
   lucide, glass-круг play, существующие экшены — сохранены. Все 9 пунктов
   QA-листа пользователя выполнены и задокументированы выше.
+
+---
+Task ID: PLAYLISTS-EDITORIAL-DEPLOY
+Agent: Main Agent
+Task: Деплой редизайна «Плейлистов» (mq editorial, коммиты 22b641cb+97e8bf84) на прод + post-deploy smoke
+
+Work Log:
+- PRE-CHECK: дерево чистое, origin/main отставал на 4 коммита
+  (53d18db9/97015330/22b641cb/97e8bf84), прод был на mq-build-60844b2d
+  (v79). Gates уже зелёные на этом коде (453/453 + tsc + build из
+  PLAYLISTS-EDITORIAL-REDESIGN), version.json-артефакт восстановлен.
+- DEPLOY: git push 60844b2d..97e8bf84 → Vercel собрал и переключил прод:
+  /version.json = buildId mq-build-97e8bf84, commit 97e8bf84,
+  releasedAt 2026-09-23T21:07:46Z (v79→80). Полл ~75-115с.
+- HTTP SMOKE: / → 307 → /play → 200; skip-link + «Перейти к основному»
+  в SSR-выводе.
+- REAL-BROWSER SMOKE (agent-browser, демо-режим). Артефакт среды: первый
+  launch упал (pthread_create EAGAIN — зомби-Chrome от прошлых сессий);
+  вылечено pkill -9 + ретрай, дальше стабильно.
+  * Секция «Плейлисты» = НОВЫЙ код подтверждён: при 0 плейлистов
+    рендерится осознанное empty-state (широкая dashed-плитка «Новый
+    плейлист / Собери своё», сверено с кодом MainView).
+  * Создание плейлиста реальным UI-флоу: context menu трека →
+    «Добавить в плейлист» → «Новый плейлист» → «Создать плейлист» →
+    «Плейлист 1» (1 трек) создан, переход в вью плейлистов.
+  * DESKTOP 1440×900: hero 590×250, обложка реальная (complete &&
+    naturalWidth>0), мета «1 трек · 3 мин», CTA «Слушать», create-плитка
+    139×195; overflowX=0. VLM: hero с scrim/типографикой/CTA-pill —
+    8/10 (правая пустота = 1 плейлист в данных, не дефект).
+  * ИНТЕРАКТИВЫ: play CTA → «Пауза — DEVILMAN», трек играет, глобальный
+    плеер переключился ✓; клик карточки → PlaylistView «DEVILMAN» ✓;
+    more-chip → PlaylistActionsMenu (5 пунктов) ✓.
+  * MOBILE 390×844: hero 360×224, play CTA 85×32, create-плитка,
+    overflowX=0 (doc + body). VLM 8.5/10: читаемо, тап-таргеты ок,
+    иерархия hero→действие→создать; mini-player поверх — стандарт MQ.
+  * Curated «Рекомендованные плейлисты» не тронуты, рендерятся.
+  * CLEANUP: тестовый плейлист удалён через реальный флоу (PlaylistView
+    → «Меню плейлиста» → «Удалить плейлист») — заодно проверено playlist
+    action на проде; демо-аккаунт возвращён в чистое состояние («Нет
+    плейлистов», Home-секция → empty-state, imgs=0).
+- QA-скриншоты: download/playlist-deploy-smoke/ (4 шт., не коммитятся).
+
+Stage Summary:
+- ПРОД ОБНОВЛЁН: mq-build-97e8bf84 (редизайн «Плейлистов» live на
+  https://mq1.vercel.app). Full smoke PASS: HTTP/SSR, демо-вход, empty
+  state, создание плейлиста через UI, desktop hero+create+overflowX=0,
+  play/open/actions, mobile hero+CTA+overflowX=0, VLM 8/8.5 из 10,
+  curated-секция цела, демо-данные очищены. Дефектов не найдено.
