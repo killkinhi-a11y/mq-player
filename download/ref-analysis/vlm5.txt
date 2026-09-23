@@ -1,0 +1,30 @@
+🚀 Initializing Z-AI SDK...
+🚀 Sending vision chat request...
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "Based on the image provided, here is the analysis of the text:\n\n1.  **Exact words visible:** \"Analyst estimates\"\n2.  **Reading direction:** **BOTTOM-TO-TOP** (rotated 90 degrees counterclockwise). The word \"Analyst\" appears at the top and \"estimates\" at the bottom, meaning you read from bottom to top.\n3.  **Horizontal position:** **Centered** within the dark card.\n4.  **Approximate cap-height:** The capital letters (like 'A' in Analyst) appear to be roughly **15% to 20%** of the card's width.\n5.  **Letter-spacing:** **Tight/Normal**. The letters are closely spaced in a standard font configuration.\n6.  **Second column:** **No**, there is only a single column of vertical text.",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1790200093,
+  "id": "202609240548077106de4dacda4bee",
+  "model": "glm-5v-turbo",
+  "object": "chat.completion",
+  "request_id": "202609240548077106de4dacda4bee",
+  "usage": {
+    "completion_tokens": 179,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 534,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "total_tokens": 713
+  }
+}
