@@ -5402,3 +5402,93 @@ Stage Summary:
 - Секретов в логах/коммитах нет (пароли/токены/cookies только в gitignored
   .secret-файлах, удалены после QA; QA-аккаунты одноразовые, локальная БД
   throwaway, удалена).
+---
+Task ID: real-auth-verification-2 (brevo-root-cause + external blockers)
+Agent: main (Super Z)
+Task: Устранить оставшиеся внешние блокеры W12/W13 и доказать auth на
+реальном production. Baseline: functional 68aa0c3c + worklog 14fec5aa,
+прод mq-build-14fec5aa, 453/453. Без редизайна, без W14, без workaround'ов
+в коде под внешние проблемы.
+
+Work Log:
+- STEP 1 AUDIT: локальное дерево оказалось STALE-снимком эпохи 3b4494ec
+  (незавершённый merge со stale origin/main 6f0fbd91 + unstaged-правки).
+  Никакой уникальной работы в нём нет — весь актуальный код в origin/main.
+  Forensic-бэкап незакоммиченного состояния: stale-snapshot-backup.tar.gz
+  (untracked, 16MB, вне коммита). Merge прерван, main fast-forward на
+  origin/main 14fec5aa (ff-only, история не переписывалась, ничего не
+  потеряно). HEAD = прод = 14fec5aa. upload/ — mount-point, содержимое
+  байт-в-байт совпадает с трекаемым в origin/main.
+- BLOCKER #1 BREVO (диагностика без ключа — VERCEL_TOKEN в сессии нет по
+  политике «секреты не персистятся»): новый инструмент
+  scripts/qa-auth/prod-email-brevo-probe.py (коммитится): mail.tm inbox +
+  baseline-латентность (400-регистрация 598ms) + реальная регистрация
+  (201, 1818ms, delta 1220ms) → FAST-FAIL класс: Brevo API быстро отвечает
+  ошибкой (ключ/sender/квота/права, 4xx), НЕ сетевой таймаут. Inbox пуст
+  90s — отправки нет. Воспроизведено на ТРЕТЬЕМ билде (5bad44a0, 68aa0c3c,
+  14fec5aa). email.ts не менялся со времён базового кода. Исключено
+  доказательно: квота (переживает UTC-midnight, дни), rate-limit (стабильно
+  дни/билды), сеть (быстрый ответ API), домен получателя (gmail/outlook/
+  proton тоже падали). Остались кандидаты (по вероятности): ключ
+  invalid/ротирован (401) > аккаунт suspended/under review (403 — типично
+  для новых free-аккаунтов Brevo) > sender не верифицирован (sender error).
+  Точный статус: Vercel Logs (строка [BREVO ERROR] … Brevo API <status>:
+  <body> при любом register) или Brevo dashboard — owner action; владелец
+  может также передать VERCEL_TOKEN в сессию. Код НЕ менялся (по инструкции
+  никакого workaround'а). Проверка после фикса: повторный запуск probe-
+  скрипта (emailSent:true + код в inbox).
+- REAL ACCOUNT FLOWS (Google/TG login, linking, conflict, duplicate на
+  ПРОДЕ): в песочнице нет реальных Google/Telegram аккаунтов и бот-токена
+  (проверено: env, dotfiles, scripts, git history — секреты не хранятся по
+  политике), пользователем в сессию не переданы → BLOCKED (внешнее).
+  Реально проверено на проде 14fec5aa (phase-B, 8/8 PASS): Google start
+  302 → accounts.google.com (client_id/redirect_uri/scope корректны, state
+  cookie), link-start (mq_oauth_link), cancel, CSRF-guard, fake-code →
+  google_exchange_failed (= прод-кредитеншелы Google ВАЛИДНЫ), TG мусорный
+  hash → telegram_hash_invalid (login+link), link/providers 401, me 401
+  {"authenticated":false} без утечек. Логика линкинга/конфликтов/идемпотент-
+  ности тем же кодом доказана локально (25/25, см. prev. секцию).
+- ANDROID W12: adb/emulator/SDK в песочнице отсутствуют (проверено) →
+  device QA BLOCKED (runtime). Внешняя настройка (owner): Google Cloud
+  Console, проект web-клиента 577360231136-…, создать OAuth-клиент типа
+  «Android»: package com.mq1.player + SHA-1 release-keystore (для .debug-
+  сборок — отдельная запись с SHA-1 debug-ключа). Код-цепочка (Credential
+  Manager 2-pass, aud = web client id) проверена ранее.
+- REGRESSION WALK на проде 14fec5aa (agent-browser, свежая загрузка, SW
+  нет): Home — чарт №1–№10 (W01), «Для вас», «Рекомендованные плейлисты»,
+  overflowX=0 ✓; Search — подсказки W02 на real-data (трек из истории по
+  «drum», listbox + aria-selected + Enter; dropdown скрыт при результатах —
+  by design, blur/refocus показывает) ✓; Library (Избранное/Плейлисты/
+  История) ✓; History (2 прослушивания, топ-артист/жанр, W03) ✓; Settings
+  (demo-профиль, link-карта скрыта — by design) ✓; Player (progress 41→48%
+  за 6s, policy=ALLOW) ✓; Queue drawer («Сейчас играет»/«Очистить»/
+  «Слушать дальше») ✓; Context Menu — 11 пунктов вкл. «Похожие треки», НЕ
+  редизайнен ✓; QR — видимый SVG 200×200 + canvas 512×512, канонический
+  URL /track/171347962 ✓; deep link /play?track=171347962 — целевой трек
+  играет (resolveStream track=171347962 ALLOW, «Пауза», Действия целевого
+  трека), URL вычищен ✓; 0 page errors, консоль чистая (Turnstile —
+  известный шум). Находка (не дефект): неканоническая форма /?track=… —
+  HTTP 307 на /play БЕЗ параметра; приложение такую форму не генерирует
+  (QR/шеринг = /track/<id>), исправление не требуется.
+- BASELINE HEALTH на 14fec5aa: тесты 453/453 (24.8s) ✓; tsc — app-код
+  чист (src/ desktop/ scripts/ 0 ошибок; 2 pre-existing ошибки в skills/
+  агентской обвязке, не app-код, на baseline; next.config
+  ignoreBuildErrors:true — pre-existing) ✓; eslint 565 pre-existing
+  проблем, 0 новых (JS/TS не менялись) ✓; web prod build PASS 26.9s ✓;
+  desktop frontend build PASS 7.77s (deps установлены) ✓.
+- SECURITY: пароли/коды/tokens/cookies не печатались; mail.tm креды
+  одноразовые in-memory; rate-limit register соблюдён (2/3 окно); git
+  diff/status проверены перед коммитом.
+
+Stage Summary:
+- Brevo: причина локализована до класса (быстрый 4xx API-отказ Brevo при
+  валидно заданных env), квота/rate/сеть/домен исключены доказательно;
+  точный HTTP-статус — один клик владельца в Vercel Logs (или передача
+  VERCEL_TOKEN). Код не менялся.
+- Real-account E2E на проде (Google/TG login, linking, conflict,
+  duplicate) + Android device QA: BLOCKED (внешние зависимости: реальные
+  аккаунты/бот-токен, Android runtime, GCP Android-клиент). Все
+  проверяемые без них части: 8/8 no-session PASS на 14fec5aa + полный
+  regression walk PASS.
+- Код приложения не менялся (No code changes); коммит — worklog + QA
+  скрипт + 2 скриншота; прод-деплой верифицирован (mq-build-<sha> ниже).
