@@ -1836,21 +1836,23 @@ function UserPlaylistsEditorial({
     <div className={isMobile ? "text-center pt-1 pb-5" : "absolute text-center"}
       style={isMobile ? undefined : { top: "11.8%", left: "50%", transform: "translateX(-50%)", width: "min(60%, 560px)" }}
     >
+      {/* Reference scale: headline ≈ 2.6% of canvas width, subtext ≈ 1% —
+          with a minimal readability uplift on the subtext only. */}
       <h2
         className="mq-text-headline font-bold tracking-tight"
-        style={{ color: "var(--mq-text)", fontSize: isMobile ? 24 : "clamp(24px, 2.6vw, 38px)" }}
+        style={{ color: "var(--mq-text)", fontSize: isMobile ? 22 : "clamp(22px, 2vw, 28px)" }}
       >
         Плейлисты
       </h2>
-      <p className={isMobile ? "mt-1.5 text-xs" : "mt-2 text-[13px]"}
-        style={{ color: "color-mix(in srgb, var(--mq-text) 62%, transparent)" }}
+      <p className={isMobile ? "mt-1.5 text-[11px]" : "mt-2.5 text-[11.5px]"}
+        style={{ color: "color-mix(in srgb, var(--mq-text) 62%, transparent)", lineHeight: 1.6 }}
       >
         {sub}
       </p>
       <button
         type="button"
         onClick={onAll}
-        className="mt-2 mq-t-label text-xs transition-colors hover:underline underline-offset-4 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)]"
+        className={`${isMobile ? "mt-2" : "mt-3"} mq-t-label text-[11px] transition-colors hover:underline underline-offset-4 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)]`}
         style={{ color: "var(--mq-text-muted)" }}
       >
         Все плейлисты →
@@ -2014,26 +2016,28 @@ function CoversLightBand({ playlists }: { playlists: UserPlaylist[] }) {
               alt=""
               loading="lazy"
               className="h-full flex-1 min-w-0 object-cover"
-              style={{ filter: "grayscale(0.88) brightness(0.9) contrast(1.06)", opacity: 0.55, transform: "scale(1.35)" }}
+              style={{ filter: "grayscale(0.85) brightness(1.0) contrast(1.18)", opacity: 0.78, transform: "scale(1.5)" }}
             />
           ))}
         </div>
       ) : (
         <div
           className="absolute inset-0"
-          style={{ background: "linear-gradient(100deg, transparent 0%, rgba(148,163,184,0.10) 30%, rgba(226,232,240,0.16) 50%, rgba(148,163,184,0.08) 70%, transparent 100%)" }}
+          style={{ background: "linear-gradient(100deg, transparent 0%, rgba(148,163,184,0.14) 28%, rgba(226,232,240,0.22) 50%, rgba(148,163,184,0.10) 72%, transparent 100%)" }}
         />
       )}
-      {/* Melt into one silver field + fade the top edge in (reference) */}
+      {/* Melt into one silver field; keep the streaks' dynamic range (reference
+          band is high-contrast: dark base + bright metallic ribbons) and fade
+          the top edge in quickly, like the reference */}
       <div
         className="absolute inset-0"
         style={{
-          background: "linear-gradient(180deg, var(--mq-bg) 0%, color-mix(in srgb, var(--mq-bg) 55%, transparent) 26%, color-mix(in srgb, var(--mq-bg) 18%, transparent) 55%, color-mix(in srgb, var(--mq-bg) 62%, transparent) 100%)",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
+          background: "linear-gradient(180deg, var(--mq-bg) 0%, color-mix(in srgb, var(--mq-bg) 62%, transparent) 9%, color-mix(in srgb, var(--mq-bg) 26%, transparent) 34%, color-mix(in srgb, var(--mq-bg) 46%, transparent) 74%, color-mix(in srgb, var(--mq-bg) 64%, transparent) 100%)",
+          backdropFilter: "blur(11px)",
+          WebkitBackdropFilter: "blur(11px)",
         }}
       />
-      <div className="absolute inset-0" style={{ background: "radial-gradient(56% 130% at 38% 102%, rgba(226,232,240,0.16), transparent 62%)" }} />
+      <div className="absolute inset-0" style={{ background: "radial-gradient(74% 160% at 34% 104%, rgba(226,232,240,0.30), transparent 60%), radial-gradient(40% 120% at 10% 96%, rgba(226,232,240,0.16), transparent 65%)" }} />
     </div>
   );
 }
@@ -2087,18 +2091,20 @@ function PlaylistExpandedCard({
       className={`group relative overflow-hidden text-left cursor-pointer rounded-xl outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)] ${className}`}
       style={{
         border: `1px solid ${isPlayingThis ? "color-mix(in srgb, var(--mq-accent) 45%, transparent)" : "var(--mq-border-hairline)"}`,
-        backgroundColor: "color-mix(in srgb, var(--mq-card) 55%, transparent)",
+        backgroundColor: "color-mix(in srgb, var(--mq-card) 85%, transparent)",
         ...style,
       }}
     >
       {/* Atmosphere — faint downward gradient (reference card surface) */}
-      <div aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--mq-text) 3.5%, transparent), transparent 45%)" }} />
+      <div aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--mq-text) 5%, transparent), transparent 45%)" }} />
 
-      {/* Vertical title — at the left edge, reading bottom-up (reference) */}
+      {/* Vertical title — at the left edge, reading bottom-up (reference).
+          Reference: ≈16px on a 466px card → scaled to this card ≈ 9px;
+          12px = the minimal readability uplift. Inset ≈ 9% from the left. */}
       <p
         title={pl.name}
-        className={`absolute font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180 ${compact ? "text-sm" : "text-[15px]"}`}
-        style={{ left: pad, top: "7%", height: "40%", color: "var(--mq-text)" }}
+        className="absolute font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180 text-[12px]"
+        style={{ left: "9%", top: "7%", height: "40%", color: "var(--mq-text)" }}
       >
         {pl.name}
       </p>
@@ -2107,7 +2113,7 @@ function PlaylistExpandedCard({
 
       {/* Bottom stack: description + circle-icon CTA (reference) */}
       <div className="absolute" style={{ left: pad, right: pad, bottom: "calc(21% + 7%)" }}>
-        <p className={`line-clamp-2 ${compact ? "text-xs" : "text-[13px]"} leading-relaxed`} style={{ color: "color-mix(in srgb, var(--mq-text) 74%, transparent)" }}>
+        <p className={`line-clamp-2 text-[11px] leading-relaxed`} style={{ color: "color-mix(in srgb, var(--mq-text) 74%, transparent)" }}>
           {desc}
         </p>
         {pl.tracks.length > 0 && (
@@ -2115,16 +2121,16 @@ function PlaylistExpandedCard({
             type="button"
             onClick={(e) => { e.stopPropagation(); onPlay(); }}
             aria-label={isPlayingThis ? `Пауза — ${pl.name}` : `Слушать — ${pl.name}`}
-            className={`mt-3 inline-flex items-center gap-2 font-semibold transition-transform active:scale-95 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)] ${compact ? "text-xs" : "text-[13px]"}`}
+            className="mt-4 inline-flex items-center gap-2 text-[11px] font-semibold transition-transform active:scale-95 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)]"
             style={{ color: "var(--mq-text)" }}
           >
             <span
-              className={`${compact ? "w-[20px] h-[20px]" : "w-[22px] h-[22px]"} rounded-full flex items-center justify-center`}
+              className="w-[20px] h-[20px] rounded-full flex items-center justify-center"
               style={{ border: "1px solid color-mix(in srgb, var(--mq-text) 55%, transparent)" }}
             >
               {isPlayingThis
-                ? <Pause className="w-3 h-3" fill="currentColor" />
-                : <ArrowUpRight className="w-3 h-3" />}
+                ? <Pause className="w-2.5 h-2.5" fill="currentColor" />
+                : <ArrowUpRight className="w-2.5 h-2.5" />}
             </span>
             {isPlayingThis ? "Пауза" : "Слушать"}
           </button>
@@ -2132,7 +2138,8 @@ function PlaylistExpandedCard({
       </div>
 
       {/* Preview band — the real cover, silver-washed, bleeding to the
-          card's bottom edge (reference light preview, 21% of card height) */}
+          card's bottom edge (reference light preview: mean luminance ≈ 91,
+          a genuinely LIGHT band on the dark card) */}
       <div aria-hidden="true" className="absolute inset-x-0 bottom-0 overflow-hidden" style={{ height: "21%" }}>
         {covers.length > 0 ? (
           <img
@@ -2140,15 +2147,15 @@ function PlaylistExpandedCard({
             alt=""
             loading="lazy"
             className="w-full h-full object-cover"
-            style={{ filter: "grayscale(0.72) brightness(1.12) contrast(0.95)" }}
+            style={{ filter: "grayscale(0.85) brightness(1.45) contrast(1.02)" }}
           />
         ) : (
           <div
             className="w-full h-full"
-            style={{ background: `linear-gradient(100deg, ${hashHue(pl.name, 0)}, ${hashHue(pl.name, 1)})`, filter: "grayscale(0.6) brightness(1.05)" }}
+            style={{ background: `linear-gradient(100deg, ${hashHue(pl.name, 0)}, ${hashHue(pl.name, 1)})`, filter: "grayscale(0.7) brightness(1.2)" }}
           />
         )}
-        <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--mq-bg) 55%, transparent) 0%, color-mix(in srgb, #ffffff 5%, transparent) 55%, color-mix(in srgb, #ffffff 12%, transparent) 100%)" }} />
+        <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--mq-bg) 45%, transparent) 0%, color-mix(in srgb, #ffffff 18%, transparent) 55%, color-mix(in srgb, #ffffff 28%, transparent) 100%)" }} />
       </div>
 
       {/* More — top-right (existing playlist actions) */}
@@ -2204,12 +2211,12 @@ function PlaylistStripCard({
       className={`group relative overflow-hidden text-left cursor-pointer rounded-md outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)] ${className}`}
       style={{
         border: `1px solid ${isPlayingThis ? "color-mix(in srgb, var(--mq-accent) 45%, transparent)" : "var(--mq-border-hairline)"}`,
-        backgroundColor: "color-mix(in srgb, var(--mq-card) 55%, transparent)",
+        backgroundColor: "color-mix(in srgb, var(--mq-card) 85%, transparent)",
         ...style,
       }}
     >
       {/* Atmosphere — faint downward gradient (reference surface) */}
-      <div aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--mq-text) 3.5%, transparent), transparent 45%)" }} />
+      <div aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--mq-text) 5%, transparent), transparent 45%)" }} />
 
       {/* Cover whisper — the real artwork surfacing on hover (reference:
           strips stay flat; a light block peeks when a card wakes up) */}
@@ -2223,10 +2230,12 @@ function PlaylistStripCard({
         </div>
       )}
 
-      {/* Vertical title — centered, near the top, bottom-up (reference) */}
+      {/* Vertical title — centered, near the top, bottom-up (reference:
+          ≈16px on a 108px strip = 14.8% of card width, normal tracking;
+          11px here = proportional + minimal readability uplift) */}
       <p
         title={pl.name}
-        className="absolute left-1/2 -translate-x-1/2 text-[13px] font-medium leading-none tracking-[0.02em] whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180"
+        className="absolute left-1/2 -translate-x-1/2 text-[11px] font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180"
         style={{ top: "6.5%", height: "52%", color: "color-mix(in srgb, var(--mq-text) 88%, transparent)" }}
       >
         {pl.name}
@@ -2237,7 +2246,7 @@ function PlaylistStripCard({
         {isPlayingThis ? (
           <NowPlayingEqualizer size="xs" variant="overlay" />
         ) : (
-          <ListMusic className="w-[15px] h-[15px]" style={{ color: "color-mix(in srgb, var(--mq-text) 45%, transparent)" }} />
+          <ListMusic className="w-3.5 h-3.5" style={{ color: "color-mix(in srgb, var(--mq-text) 38%, transparent)" }} />
         )}
       </div>
 
@@ -2299,12 +2308,12 @@ function CreatePlaylistStrip({ onClick, className = "", style }: { onClick: () =
     >
       <div aria-hidden="true" className="absolute inset-0 rounded-md opacity-0 group-hover/create:opacity-100 transition-opacity" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 5%, transparent)" }} />
       <p
-        className="absolute left-1/2 -translate-x-1/2 text-[13px] font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180"
+        className="absolute left-1/2 -translate-x-1/2 text-[11px] font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180"
         style={{ top: "6.5%", height: "52%", color: "var(--mq-text-muted)" }}
       >
         Новый плейлист
       </p>
-      <Plus aria-hidden="true" className="absolute bottom-[5.5%] left-1/2 -translate-x-1/2 w-[15px] h-[15px]" style={{ color: "var(--mq-accent)", opacity: 0.75 }} />
+      <Plus aria-hidden="true" className="absolute bottom-[5.5%] left-1/2 -translate-x-1/2 w-3.5 h-3.5" style={{ color: "var(--mq-accent)", opacity: 0.7 }} />
     </button>
   );
 }
