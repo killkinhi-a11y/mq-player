@@ -745,7 +745,9 @@ function MainView() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* PLAYLISTS — user's playlists grid (moved below the fold) */}
+      {/* PLAYLISTS — editorial hero + strip row (Pinterest-ref adaptation):
+          image-led cards, asymmetric hierarchy, vertical strip titles.
+          Same actions as before: open / play / context menu. */}
       {/* ════════════════════════════════════════════════════════════════ */}
       <Section
         title="Плейлисты"
@@ -759,28 +761,23 @@ function MainView() {
         }
       >
         {playlists.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-            {playlists.slice(0, 8).map((pl, i) => (
-              <PlaylistCard
-                key={pl.id}
-                playlist={pl}
-                index={i}
-                isCurrent={!!currentTrack && pl.tracks.some(t => t.id === currentTrack.id) && isPlaying}
-                onClick={() => {
-                  setTimeout(() => useAppStore.getState().setSelectedPlaylistId(pl.id), 0);
-                  setView("playlists");
-                }}
-                onPlay={(e) => {
-                  e.stopPropagation();
-                  if (pl.tracks.length === 0) return;
-                  if (currentTrack?.id === pl.tracks[0].id) { togglePlay(); return; }
-                  playTrack(pl.tracks[0], [...pl.tracks], pl.id);
-                }}
-                onMore={(e) => openPlaylistMenu(pl, e)}
-                animationsEnabled={animationsEnabled}
-              />
-            ))}
-          </div>
+          <UserPlaylistsEditorial
+            playlists={playlists}
+            currentTrackId={currentTrack?.id}
+            isPlaying={isPlaying}
+            animationsEnabled={animationsEnabled}
+            onOpen={(pl) => {
+              setTimeout(() => useAppStore.getState().setSelectedPlaylistId(pl.id), 0);
+              setView("playlists");
+            }}
+            onPlay={(pl) => {
+              if (pl.tracks.length === 0) return;
+              if (currentTrack?.id === pl.tracks[0].id) { togglePlay(); return; }
+              playTrack(pl.tracks[0], [...pl.tracks], pl.id);
+            }}
+            onMore={openPlaylistMenu}
+            onCreate={() => setView("playlists")}
+          />
         ) : (
           <button
             onClick={() => setView("playlists")}
@@ -1778,7 +1775,9 @@ function ChartRow({
 // ═════════════════════════════════════════════════════════════════════════
 
 // ═════════════════════════════════════════════════════════════════════════
-// PLAYLIST CARD — user's playlist tile
+// PLAYLISTS (EDITORIAL) — hero + strip cards, Pinterest-ref adaptation.
+// Kept: hashHue fallback gradients (below). Replaced the old square
+// SaaS-style tile with image-led editorial cards (see components below).
 // ═════════════════════════════════════════════════════════════════════════
 
 const PLAYLIST_GRADIENTS: [string, string][] = [
@@ -1791,97 +1790,379 @@ function hashHue(name: string, idx: 0 | 1): string {
   return PLAYLIST_GRADIENTS[Math.abs(h) % PLAYLIST_GRADIENTS.length][idx];
 }
 
-function PlaylistCard({
+function UserPlaylistsEditorial({
+  playlists,
+  currentTrackId,
+  isPlaying,
+  animationsEnabled,
+  onOpen,
+  onPlay,
+  onMore,
+  onCreate,
+}: {
+  playlists: UserPlaylist[];
+  currentTrackId?: string;
+  isPlaying: boolean;
+  animationsEnabled: boolean;
+  onOpen: (pl: UserPlaylist) => void;
+  onPlay: (pl: UserPlaylist) => void;
+  onMore: (pl: UserPlaylist, e: React.MouseEvent) => void;
+  onCreate: () => void;
+}) {
+  const isMobile = useIsMobile();
+  const hero = playlists[0];
+  const strips = playlists.slice(1, 9); // hero + up to 8 strips
+  const isPlayingPl = (pl: UserPlaylist) =>
+    !!currentTrackId && isPlaying && pl.tracks.some((t) => t.id === currentTrackId);
+
+  return (
+    <div className="flex flex-col gap-3 sm:gap-4">
+      <PlaylistHeroCard
+        playlist={hero}
+        isPlayingThis={isPlayingPl(hero)}
+        onOpen={() => onOpen(hero)}
+        onPlay={() => onPlay(hero)}
+        onMore={(e) => onMore(hero, e)}
+        animationsEnabled={animationsEnabled}
+      />
+      {/* Desktop: uniform strip grid; mobile: horizontal scroll row — the
+          composition is rebuilt per breakpoint, not just scaled down. */}
+      {isMobile ? (
+        <HScroll className="flex gap-3 overflow-x-auto scrollbar-none -mx-3 px-3 pb-1">
+          {strips.map((pl, i) => (
+            <PlaylistStripCard
+              key={pl.id}
+              playlist={pl}
+              index={i}
+              isPlayingThis={isPlayingPl(pl)}
+              onOpen={() => onOpen(pl)}
+              onPlay={() => onPlay(pl)}
+              onMore={(e) => onMore(pl, e)}
+              animationsEnabled={animationsEnabled}
+              className="w-[124px] shrink-0"
+            />
+          ))}
+          {strips.length < 8 && <CreatePlaylistTile onClick={onCreate} className="w-[124px] shrink-0" />}
+        </HScroll>
+      ) : (
+        <div className="grid grid-cols-4 gap-3">
+          {strips.map((pl, i) => (
+            <PlaylistStripCard
+              key={pl.id}
+              playlist={pl}
+              index={i}
+              isPlayingThis={isPlayingPl(pl)}
+              onOpen={() => onOpen(pl)}
+              onPlay={() => onPlay(pl)}
+              onMore={(e) => onMore(pl, e)}
+              animationsEnabled={animationsEnabled}
+            />
+          ))}
+          {strips.length < 8 && <CreatePlaylistTile onClick={onCreate} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function playlistCoverSources(playlist: UserPlaylist): string[] {
+  if (playlist.cover) return [playlist.cover];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of playlist.tracks) {
+    const c = t?.cover;
+    if (c && !seen.has(c)) { seen.add(c); out.push(c); }
+    if (out.length >= 4) break;
+  }
+  return out;
+}
+
+function playlistDurationLabel(tracks: Track[]): string {
+  const total = tracks.reduce((acc, t) => acc + (t?.duration || 0), 0);
+  if (total <= 0) return "";
+  const mins = Math.round(total / 60);
+  if (mins < 60) return `${mins} мин`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `${h} ч ${m} мин` : `${h} ч`;
+}
+
+// ─── HERO — one dominant image-led card for the first playlist ────────────
+// Reference language: the cover IS the card, title + meta sit on a
+// left-weighted scrim, and the CTA is a pill with a circular icon + label.
+
+function PlaylistHeroCard({
   playlist: pl,
-  index,
-  isCurrent,
-  onClick,
+  isPlayingThis,
+  onOpen,
   onPlay,
   onMore,
   animationsEnabled,
 }: {
-  playlist: { id: string; name: string; cover: string; tracks: Track[] };
-  index: number;
-  isCurrent: boolean;
-  onClick: () => void;
-  onPlay: (e: React.MouseEvent) => void;
+  playlist: UserPlaylist;
+  isPlayingThis: boolean;
+  onOpen: () => void;
+  onPlay: () => void;
   onMore: (e: React.MouseEvent) => void;
   animationsEnabled: boolean;
 }) {
+  const covers = playlistCoverSources(pl);
+  const mosaic = covers.length >= 4;
+  const duration = playlistDurationLabel(pl.tracks);
+  const trackWord = pluralRu(pl.tracks.length, "трек", "трека", "треков");
   return (
     <motion.div
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
       initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index * 0.04, 0.4), duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
       whileHover={hoverProps({ y: -2, transition: { duration: 0.15, ease: "easeOut" } })}
-
-      onClick={onClick}
-      className="group relative text-left cursor-pointer rounded-2xl overflow-hidden w-full"
+      whileTap={{ scale: 0.995 }}
+      onClick={onOpen}
+      aria-label={`Плейлист: ${pl.name}${pl.tracks.length ? `, ${pl.tracks.length} ${trackWord}` : ""}`}
+      className="group relative w-full overflow-hidden text-left cursor-pointer rounded-2xl outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)] aspect-[16/10] sm:aspect-[2.35/1]"
       style={{
         backgroundColor: "var(--mq-card)",
-        border: "1px solid var(--mq-border-hairline)",
+        border: `1px solid ${isPlayingThis ? "color-mix(in srgb, var(--mq-accent) 45%, transparent)" : "var(--mq-border-hairline)"}`,
         boxShadow: "var(--mq-shadow-premium-md)",
       }}
     >
-      <div
-        className="relative aspect-square overflow-hidden flex items-center justify-center"
-        style={pl.cover
-          ? { backgroundColor: "transparent" }
-          : { background: `linear-gradient(135deg, ${hashHue(pl.name, 0)}, ${hashHue(pl.name, 1)})` }
-        }
-      >
-        {pl.cover ? (
-          <img src={pl.cover} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+      {/* Cover — full-bleed photo / 2×2 collage of real track covers / quiet gradient */}
+      <div className="absolute inset-0 transition-transform duration-700 ease-out group-hover:scale-[1.03]">
+        {mosaic ? (
+          <div className="grid grid-cols-2 grid-rows-2 w-full h-full">
+            {covers.slice(0, 4).map((c, i) => (
+              <img key={i} src={c} alt="" loading="lazy" className="w-full h-full object-cover" />
+            ))}
+          </div>
+        ) : covers.length > 0 ? (
+          <img src={covers[0]} alt="" loading="lazy" className="w-full h-full object-cover" />
         ) : (
-          <div className="flex flex-col items-center justify-center w-full h-full">
-            <ListMusic className="w-8 h-8" style={{ color: "rgba(255,255,255,0.5)" }} />
-            <span className="mq-t-meta-2 font-medium mt-1" style={{ color: "rgba(255,255,255,0.35)" }}>{pl.tracks.length}</span>
+          <div className="w-full h-full flex items-center justify-center" style={{ background: `linear-gradient(120deg, ${hashHue(pl.name, 0)}, ${hashHue(pl.name, 1)})` }}>
+            <ListMusic className="w-8 h-8 text-white/30" />
           </div>
         )}
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300" />
-        {/* Play button */}
-        {pl.tracks.length > 0 && (
-          <div
-            onClick={onPlay}
-            className="absolute bottom-2 right-2 w-9 h-9 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 sm:scale-90 sm:group-hover:scale-100 sm:translate-y-2 sm:group-hover:translate-y-0 cursor-pointer"
-            style={{
-              backgroundColor: "var(--mq-accent)",
-              boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
-            }}
-          >
-            <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
-          </div>
-        )}
-        {/* Current badge */}
-        {isCurrent && (
-          <div
-            className="absolute top-2 left-2 px-2 py-0.5 rounded-full backdrop-blur-md flex items-center gap-1"
-            style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "var(--mq-accent)", border: "1px solid var(--mq-border-accent)" }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
-            <span className="mq-t-badge">Играет</span>
-          </div>
-        )}
-        {/* More — top-right overlay on artwork */}
-        <div
-          className="absolute top-2 right-2 rounded-full"
-          style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <TrackMoreButton onOpen={onMore} size="sm" label={`Действия: ${pl.name}`} className="!text-white" />
-        </div>
       </div>
-      <div className="p-3">
-        <p className="mq-t-track-sm truncate leading-tight" title={pl.name}>{pl.name}</p>
-        <p className="mq-t-meta-2 mt-0.5 truncate">
-          {pl.tracks.length} {pluralRu(pl.tracks.length, "трек", "трека", "треков")}
+      {/* Scrims — left-weighted for the text block + a bottom belt */}
+      <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(90deg, rgba(0,0,0,0.74) 0%, rgba(0,0,0,0.42) 36%, rgba(0,0,0,0.06) 66%, rgba(0,0,0,0) 100%)" }} />
+      <div className="absolute inset-x-0 bottom-0 h-2/3 pointer-events-none bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+
+      {/* Playing badge */}
+      {isPlayingThis && (
+        <div
+          className="absolute top-3 left-3 px-2 py-0.5 rounded-full backdrop-blur-md flex items-center gap-1.5"
+          style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "var(--mq-accent)", border: "1px solid var(--mq-border-accent)" }}
+        >
+          <NowPlayingEqualizer size="xs" variant="overlay" />
+          <span className="mq-t-badge">Играет</span>
+        </div>
+      )}
+
+      {/* More — top-right */}
+      <div
+        className="absolute top-2 right-2 rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+        style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <TrackMoreButton onOpen={onMore} size="sm" label={`Действия: ${pl.name}`} className="!text-white" />
+      </div>
+
+      {/* Text block */}
+      <div className="absolute inset-y-0 left-0 flex flex-col justify-end p-4 sm:p-5" style={{ maxWidth: "72%" }}>
+        <p
+          className="text-base sm:text-lg font-semibold text-white leading-tight line-clamp-2"
+          style={{ textShadow: "0 1px 12px rgba(0,0,0,0.55)" }}
+          title={pl.name}
+        >
+          {pl.name}
         </p>
+        <p className="mt-1 text-[11px] sm:text-xs text-white/70" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.5)" }}>
+          {pl.tracks.length > 0
+            ? `${pl.tracks.length} ${trackWord}${duration ? ` · ${duration}` : ""}`
+            : "Пока пусто"}
+        </p>
+        {pl.tracks.length > 0 && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onPlay(); }}
+            className="mt-2.5 sm:mt-3 self-start inline-flex items-center gap-2 h-8 pl-1.5 pr-3.5 rounded-full text-xs font-semibold text-white transition-transform active:scale-95 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/80"
+            style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 6px 20px color-mix(in srgb, var(--mq-accent) 32%, transparent)" }}
+            aria-label={isPlayingThis ? `Пауза — ${pl.name}` : `Слушать — ${pl.name}`}
+          >
+            <span className="w-[22px] h-[22px] rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.18)" }}>
+              {isPlayingThis
+                ? <Pause className="w-3 h-3" fill="currentColor" />
+                : <Play className="w-3 h-3 ml-px" fill="currentColor" />}
+            </span>
+            {isPlayingThis ? "Пауза" : "Слушать"}
+          </button>
+        )}
       </div>
     </motion.div>
+  );
+}
+
+// ─── STRIP — narrow vertical card, reference's signature: rotated title ───
+
+function PlaylistStripCard({
+  playlist: pl,
+  index,
+  isPlayingThis,
+  onOpen,
+  onPlay,
+  onMore,
+  animationsEnabled,
+  className = "",
+}: {
+  playlist: UserPlaylist;
+  index: number;
+  isPlayingThis: boolean;
+  onOpen: () => void;
+  onPlay: () => void;
+  onMore: (e: React.MouseEvent) => void;
+  animationsEnabled: boolean;
+  className?: string;
+}) {
+  const covers = playlistCoverSources(pl);
+  return (
+    <motion.div
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
+      initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: Math.min(0.05 + index * 0.04, 0.4), duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onOpen}
+      aria-label={`Плейлист: ${pl.name}, ${pl.tracks.length} ${pluralRu(pl.tracks.length, "трек", "трека", "треков")}`}
+      className={`group relative overflow-hidden text-left cursor-pointer rounded-2xl aspect-[5/7] outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)] ${className}`}
+      style={{
+        backgroundColor: "var(--mq-card)",
+        border: `1px solid ${isPlayingThis ? "color-mix(in srgb, var(--mq-accent) 45%, transparent)" : "var(--mq-border-hairline)"}`,
+      }}
+    >
+      {covers.length > 0 ? (
+        <img
+          src={covers[0]}
+          alt=""
+          loading="lazy"
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+        />
+      ) : (
+        <div
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ background: `linear-gradient(150deg, ${hashHue(pl.name, 0)}, ${hashHue(pl.name, 1)})` }}
+        >
+          <ListMusic className="w-6 h-6 text-white/35" />
+        </div>
+      )}
+
+      {/* Left scrim for the rotated title */}
+      <div className="absolute inset-y-0 left-0 w-[70%] pointer-events-none bg-gradient-to-r from-black/60 via-black/20 to-transparent" />
+
+      {/* Vertical title — typography as structure (reference signature) */}
+      <div className="absolute inset-y-0 left-0 py-2.5 pl-2.5 pointer-events-none">
+        <p
+          className="[writing-mode:vertical-rl] rotate-180 text-[13px] font-medium leading-none tracking-[0.02em] text-white whitespace-nowrap overflow-hidden text-ellipsis max-h-full"
+          style={{ textShadow: "0 1px 10px rgba(0,0,0,0.65)" }}
+          title={pl.name}
+        >
+          {pl.name}
+        </p>
+      </div>
+
+      {/* Foot — small line-icon + count (reference's bottom glyph) */}
+      {pl.tracks.length > 0 && (
+        <div
+          className="hidden md:flex absolute bottom-2 right-2 items-center gap-1 pointer-events-none"
+          style={{ color: "rgba(255,255,255,0.62)", textShadow: "0 1px 6px rgba(0,0,0,0.6)" }}
+        >
+          <ListMusic className="w-3 h-3" />
+          <span className="text-[11px] mq-t-num font-medium">{pl.tracks.length}</span>
+        </div>
+      )}
+
+      {/* Playing indicator */}
+      {isPlayingThis && (
+        <span className="absolute top-2 left-2 z-10">
+          <NowPlayingEqualizer size="xs" variant="overlay" />
+        </span>
+      )}
+
+      {/* Desktop: glass play circle on hover (keyboard-focusable) */}
+      {pl.tracks.length > 0 && (
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label={`Играть — ${pl.name}`}
+          onClick={(e) => { e.stopPropagation(); onPlay(); }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onPlay(); } }}
+          className="hidden md:flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none transition-opacity"
+          style={{
+            backgroundColor: "rgba(0,0,0,0.55)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            border: "1px solid rgba(255,255,255,0.16)",
+          }}
+        >
+          {isPlayingThis
+            ? <Pause className="w-4 h-4 text-white" fill="currentColor" />
+            : <Play className="w-4 h-4 text-white ml-px" fill="currentColor" />}
+        </div>
+      )}
+
+      {/* Mobile: compact accent play circle, always visible (36px — matches
+          the touch target of the previous card design) */}
+      {pl.tracks.length > 0 && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onPlay(); }}
+          aria-label={`Играть — ${pl.name}`}
+          className="md:hidden absolute bottom-2 right-2 w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-transform"
+          style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 4px 14px rgba(0,0,0,0.4)" }}
+        >
+          {isPlayingThis
+            ? <Pause className="w-4 h-4 text-white" fill="currentColor" />
+            : <Play className="w-4 h-4 text-white ml-px" fill="currentColor" />}
+        </button>
+      )}
+
+      {/* More — top-right */}
+      <div
+        className="absolute top-1.5 right-1.5 z-10 rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+        style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <TrackMoreButton onOpen={onMore} size="sm" label={`Действия: ${pl.name}`} className="!text-white" />
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── CREATE TILE — completes the strip grid, mirrors the empty-state CTA ──
+
+function CreatePlaylistTile({ onClick, className = "" }: { onClick: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Создать плейлист"
+      className={`group/create relative rounded-2xl aspect-[5/7] flex flex-col items-center justify-center gap-2 transition-colors hover:bg-[var(--mq-overlay-hover)] outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)] ${className}`}
+      style={{
+        border: "1px dashed var(--mq-border-thin)",
+        backgroundColor: "color-mix(in srgb, var(--mq-card) 60%, transparent)",
+      }}
+    >
+      <div
+        className="w-9 h-9 rounded-full flex items-center justify-center transition-transform group-hover/create:scale-105"
+        style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 13%, transparent)" }}
+      >
+        <Plus className="w-[18px] h-[18px]" style={{ color: "var(--mq-accent)" }} />
+      </div>
+      <span className="text-[11px] mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>Новый</span>
+    </button>
   );
 }
 

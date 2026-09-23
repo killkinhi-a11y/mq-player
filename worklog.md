@@ -5676,3 +5676,83 @@ Stage Summary:
   Mobile 390×844 visual QA PASS (DOM + VLM + скриншоты), overflowX=0,
   touch targets не изменены (иконки не трогали), hover/active работают.
   Gates: 453/453, tsc app-clean, build PASS. Коммит: worklog-only.
+
+---
+Task ID: PLAYLISTS-EDITORIAL-REDESIGN
+Agent: Main Agent
+Task: Редизайн блока «Плейлисты» по Pinterest-референсу (визуальный принцип, не копия)
+
+Work Log:
+- РЕФЕРЕНС ИЗУЧЕН (i.pinimg.com/originals/59/5e/02/…, 1702×1219; Pinterest
+  login-wall обойдён через og:image с bot-UA). Разбор VLM (3 прохода):
+  асимметричная композиция «hero + узкие вертикальные стрипы», обложка =
+  главный элемент карточки, ВЕРТИКАЛЬНЫЙ повёрнутый текст вдоль левого
+  края (typography as structure), CTA-строка с круглой иконкой + текстом,
+  маленькие line-иконки внизу карточек на ~40% opacity, hairline-границы,
+  скругления ~4-5% ширины, сдержанный hover (brighten/лёгкий scale),
+  премиальность через негативное пространство и монохромные температуры.
+- ТОЧКА ИЗМЕНЕНИЯ: секция «Плейлисты» в MainView (grid → editorial) +
+  полный рефактор PlaylistCard → PlaylistHeroCard + PlaylistStripCard +
+  CreatePlaylistTile + UserPlaylistsEditorial + хелперы
+  (playlistCoverSources, playlistDurationLabel). ВНЕШНЕЕ не тронуто:
+  плеер/capsule/context menu/nav/search/library/auth/settings/desktop/
+  backend/логика плейлистов/CuratedPlaylistCard/PlaylistView.
+- ДАННЫЕ: pl.cover (реальная) → иначе первая обложка трека → иначе
+  mosaic 2×2 из 4 уникальных обложек треков (достижимо для bot-created
+  плейлистов: DB-merge даёт cover="") → иначе hashHue-градиент +
+  ListMusic. Мета: N треков · длительность (мин/ч). Никаких выдуманных
+  данных; QA-датасет создан через реальные UI-флоу (context menu →
+  «Добавить в плейлист» → «Новый плейлист», диалог создания) + 1 bot-style
+  плейлист в localStorage для mosaic-ветки (cover="", 4 трека).
+- DESKTOP (≥md): hero 592×252 (aspect 2.35:1, full-bleed cover/mosaic,
+  left-scrim, title+meta+CTA-pill «Слушать» с круглой иконкой — паттерн
+  CTA из референса) + сетка стрипов grid-cols-4 (139×195, aspect 5/7,
+  вертикальный title: writing-mode vertical-rl + rotate-180, чтение
+  снизу-вверх, left-scrim, count-иконка ListMusic+N внизу справа) +
+  dashed create-тайл («Новый»). MOBILE (<md): hero 362×226 (16/10) +
+  HScroll-ряд стрипов 124×174 с always-visible accent play 36px (=
+  touch target старой карточки) + create-тайл в конце ряда — композиция
+  перестроена, не уменьшена.
+- ИНТЕРАКТИВЫ: hover (cover scale 1.03/1.04, more-chip, glass play-circle
+  blur(6px) в центре стрипа — MQ glass language), active (whileTap 0.98),
+  keyboard focus (focus-visible outline 2px accent, Enter/Space → open),
+  play (hero pill toggles Слушать/Пауза; strip circle + mobile circle),
+  open (клик карточки → PlaylistView), «Играет» (eq-бейдж + accent-бордер
+  45%). Все playlist actions сохранены: то же playTrack/setView/
+  openPlaylistMenu, TrackMoreButton, PlaylistActionsMenu (5 пунктов),
+  переименование/закрепление в PlaylistView не тронуты.
+- QA ОКРУЖЕНИЕ: local production build (next start :3111) + agent-browser.
+  Найдены и обойдены артефакты среды: (1) headless Chrome репортит
+  (hover:hover)=false → Tailwind v4 group-hover правила (вся система,
+  включая СТАРЫЕ компоненты) инертны — верифицировано патч-стилью,
+  дублирующей сгенерированные правила 1:1 (attribute-селекторы) + реальный
+  CDP hover; (2) pkill не убил next-server → stale HTML → ChunkLoadError —
+  перезапущено начисто; (3) SW-кэш отдавал старый чанк после rebuild —
+  очищен; (4) demo-сессия очищается при rehydrate by design — плейлисты
+  переживают.
+- ВЕРИФИКАЦИЯ DOM: desktop hero 592×252/mosaic 4 img/CTA ✓; 5 стрипов +
+  create ✓; 5 вертикальных titles ✓; overflowX=0 ✓; mobile hero 362×226
+  (1.60) ✓, ряд скроллится (442px), create-тайл достижим ✓, play 36px ✓;
+  playing-state: eq-бейдж на стрипе + accent-бордер + Pause ✓; focus-visible
+  outline solid 2px rgb(224,49,49) ✓; Enter на сфокусированной карточке →
+  PlaylistView ✓; hover hero (more-chip подтверждён пиксель-анализом
+  440/1600 bright + VLM) ✓.
+- VLM-ОЦЕНКИ: desktop mosaic-hero 8/10 (weakest: create-тайл простоват —
+  осознанно, это affordance); финальный desktop 9/10 («composition
+  strong, editorial rhythm, crystal-clear hierarchy, app-store-worthy»);
+  mobile 5/5 вопросов PASS (не crampped, читаемо, ничего не обрезано,
+  кнопки видны, премиально).
+- GATES: tests 453/453 ✓; tsc — 0 ошибок в src/ (18 pre-existing: skills/*
+  + desktop/* Tauri) ✓; production build PASS (×2: до и после touch-fix)
+  ✓; version.json-артефакт восстановлен; дерево чистое, кроме MainView.tsx.
+- ФИКС ПО ХОДУ: mobile play button 32px → 36px (w-9, touch-parity со
+  старой карточкой), пересборка + перепроверка (36px в DOM подтверждён).
+- Сервер остановлен, temp-скрипты вычищены.
+
+Stage Summary:
+- Изменён ТОЛЬКО src/components/mq/MainView.tsx (+363/−83): секция
+  «Плейлисты» + семейство карточек. Из референса взяты: асимметрия
+  hero+strips, image-led карточки, вертикальные titles, CTA-pill,
+  bottom line-icon+count, hairline+radius, сдержанный hover. MQ-токены,
+  lucide, glass-круг play, существующие экшены — сохранены. Все 9 пунктов
+  QA-листа пользователя выполнены и задокументированы выше.
