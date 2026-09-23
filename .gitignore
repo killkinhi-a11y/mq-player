@@ -102,3 +102,4 @@ bun.lockb
 
 # Sandbox internal artifacts (never publish)
 tool-results/
+scripts/qa-auth/.secret*

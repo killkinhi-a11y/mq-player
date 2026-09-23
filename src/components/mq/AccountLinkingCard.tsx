@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { isDesktopApp } from "@/lib/desktop-mode";
+import { consumeLinkResult, clearLinkResult } from "@/lib/link-result";
 import { toast } from "@/hooks/use-toast";
 import {
   Check, Link2, Loader2, AlertTriangle, X,
@@ -59,13 +60,19 @@ export default function AccountLinkingCard() {
 
   // Result banner from the OAuth redirect (?linkSuccess= / ?linkError=) —
   // read ONCE at mount via the lazy initializer (client-only guard). The
-  // URL is cleaned in the effect below WITHOUT any setState (lint-clean,
-  // no cascading render); a successful link also refetches the status.
+  // snapshot captured by AppShell during ITS first render is consumed first:
+  // this card lives inside the LAZY SettingsView, so by the time it mounts,
+  // AppShell's history-sync effect has usually already rewritten the URL to
+  // /play?v=… and the raw params are gone (see lib/link-result.ts). The
+  // URLSearchParams fallback still covers contexts where the card mounts
+  // before any URL cleanup (tests, direct embeds). The URL is cleaned in
+  // the effect below WITHOUT any setState (lint-clean, no cascading render);
+  // a successful link also refetches the status.
   const [banner, setBanner] = useState<{ kind: "ok" | "error"; text: string } | null>(() => {
     if (typeof window === "undefined") return null;
-    const params = new URLSearchParams(window.location.search);
-    const ok = params.get("linkSuccess");
-    const err = params.get("linkError");
+    const captured = consumeLinkResult();
+    const ok = captured.ok ?? new URLSearchParams(window.location.search).get("linkSuccess");
+    const err = captured.err ?? new URLSearchParams(window.location.search).get("linkError");
     if (ok) return { kind: "ok", text: SUCCESS_MESSAGES[ok] ?? "Сервис подключён" };
     if (err) return { kind: "error", text: CONFLICT_MESSAGES[err] ?? "Не удалось подключить сервис" };
     return null;
@@ -101,17 +108,25 @@ export default function AccountLinkingCard() {
   }, [visible, loadStatus]);
 
   // Clean the link result params from the URL (a refresh must not repeat
-  // the banner) and refresh linkage state after a successful link. No
-  // synchronous setState — both updates ride async continuations.
+  // the banner), clear the relay snapshot (a later remount of this card —
+  // tab switches — must not replay the banner), and refresh linkage state
+  // after a successful link. No synchronous setState — all updates ride
+  // async continuations. (The clear lives HERE — an effect — not in
+  // consumeLinkResult: dev StrictMode double-invokes the useState
+  // initializer, and both invocations must read the same snapshot.)
   useEffect(() => {
     if (!visible || !banner) return;
     const params = new URLSearchParams(window.location.search);
-    if (!params.get("linkSuccess") && !params.get("linkError")) return;
+    if (!params.get("linkSuccess") && !params.get("linkError")) {
+      clearLinkResult();
+      return;
+    }
     const wasSuccess = banner.kind === "ok";
     params.delete("linkSuccess");
     params.delete("linkError");
     const qs = params.toString();
     window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
+    clearLinkResult();
     if (wasSuccess) void Promise.resolve().then(loadStatus);
   }, [visible, banner, loadStatus]);
 

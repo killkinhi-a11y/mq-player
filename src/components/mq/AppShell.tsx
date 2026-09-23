@@ -11,6 +11,7 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAndroidPermissions } from "@/hooks/use-android-permissions";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { isDesktopApp } from "@/lib/desktop-mode";
+import { captureLinkResultFromLocation } from "@/lib/link-result";
 import dynamic from "next/dynamic";
 import CobaltTurnstile from "@/components/mq/CobaltTurnstile";
 import { OfflineBanner } from "@/components/mq/OfflineBanner";
@@ -312,6 +313,12 @@ export default function AppShell() {
     typeof window === "undefined" || typeof URLSearchParams === "undefined"
       ? null
       : (() => {
+          // W13 fix: the OAuth link result (?linkSuccess=/?linkError=) must be
+          // captured during FIRST RENDER too — the lazy SettingsView (and its
+          // AccountLinkingCard) mounts only after the history-sync effect
+          // below has rewritten the URL to /play?v=…, wiping the params.
+          // Same "parse during first render" pattern as this deep-link ref.
+          captureLinkResultFromLocation();
           const params = new URLSearchParams(window.location.search);
           return { pl: params.get("pl"), artist: params.get("artist"), track: params.get("track"), consumed: false };
         })()
