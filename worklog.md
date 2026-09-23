@@ -5804,3 +5804,91 @@ Stage Summary:
   state, создание плейлиста через UI, desktop hero+create+overflowX=0,
   play/open/actions, mobile hero+CTA+overflowX=0, VLM 8/8.5 из 10,
   curated-секция цела, демо-данные очищены. Дефектов не найдено.
+
+---
+Task ID: PLAYLISTS-REF-V2 (reference-faithful rewrite)
+Agent: Main Agent
+Task: Полная переработка «Плейлистов» по требованию владельца: точная
+адаптация КОМПОЗИЦИИ Pinterest-референса (предыдущая реализация признана
+неудачным прототипом — перенесены приёмы, но не композиция)
+
+Work Log:
+- РАЗБОР РЕФЕРЕНСА (фактический, 1702×1219, og:image через bot-UA):
+  программная геометрия (numpy: hairline-детекция, brightness-профили,
+  fine-scan 4px, activity-карта) + 7 VLM-проходов (общий + зумы карточек/
+  заголовка/вертикального текста/низа). Итоговая схема (canvas %):
+  заголовочный блок по центру y 11.8–21%; карточный ряд x 13.1–86.5%
+  (73.4%), y 29.9–72.6% (42.7%); Card 1 = 27.4%W × 42.7%H (аспект 0.90),
+  6 стрипов по 6.3%W (аспект 1:4.85), gap-ритм 2.2% / 1.35%; вертикальные
+  тайтлы (rotate 90° CCW, чтение снизу-вверх) у Card 1 слева (7–10% от
+  края), в стрипах по центру; у Card 1 ПУСТАЯ середина + description +
+  CTA (circle-icon+текст) + светлый preview-блок 21% высоты full-bleed к
+  низу; line-иконка внизу по центру у каждого стрипа (~45% opacity);
+  полноширинный серебристый артворк-полоса 23.3% высоты с fade-in; пустота
+  y 21–30% и боковые 13% маргины — часть композиции. 13 конкретных
+  различий с v1 задокументированы (аспекты карточек, стек вместо ряда,
+  нет рамки пустоты, нет заголовочного блока, нет артворка, artwork
+  инвертирован и т.д.).
+- РЕАЛИЗАЦИЯ (только MainView.tsx, +~430/−330): UserPlaylistsEditorial →
+  full-bleed breakout из колонки 640px (marginInline calc с clamp и
+  −8px/side safety; ≤ main-ширины → overflowX=0), канвас
+  aspect-ratio 1702/1219 (width min(100%, 76vh×1.396, 1280)), вся
+  геометрия в % канваса 1:1 с референсом (row 13.1/13.5/29.9/42.7;
+  grid 37.3% 2.2% repeat(n, 8.6% 1.2%)). PlaylistHeroCard →
+  PlaylistExpandedCard (верт. тайтл слева, пустая середина, description
+  из реальных данных «N треков · длительность · артист», CTA circle-icon
+  «Слушать», серебристый preview 21% из реальной обложки grayscale(0.72),
+  full-bleed к низу). PlaylistStripCard → экстремальный стрип 1:4.85:
+  плоская поверхность, верт. тайтл по центру, ListMusic 45% внизу,
+  обложка-шёпот только на hover, glass play-circle на hover (desktop),
+  36px accent play (mobile), eq при игре. CreatePlaylistTile →
+  CreatePlaylistStrip (dashed, верт. «Новый плейлист», Plus внизу, в
+  ритме ряда). Новый CoversLightBand — нижняя артворк-полоса из РЕАЛЬНЫХ
+  обложек всех плейлистов (grayscale 0.88, blur 16, серебристый radial,
+  fade-in, ярче центр-слева), full-bleed. Заголовочный блок: центрирован,
+  h2 «Плейлисты» + сабтекст из реальных агрегатов (N плейлистов · M
+  треков) + «Все плейлисты →». Mobile: перестройка (не уменьшение):
+  центрированный заголовок → expanded 362×402 (0.9) → hscroll-ряд стрипов
+  83×402 (0.206) ТОЙ ЖЕ высоты → тонкая full-bleed полоса света.
+- НАЙДЕН И ОБЙДЕН КРИТИЧНЫЙ ДЕФЕКТ: ScrollReveal рендерит null до
+  попадания во viewport И клипует детей (overflow:hidden +
+  contain:paint) — вырезал бы breakout до 640px. Реструктурировано:
+  breakout-<section> снаружи, ScrollReveal внутри (desktop), на mobile
+  reveal убран.
+- QA-ДАННЫЕ: 3 плейлиста созданы реальным UI-флоу (context menu →
+  «Добавить в плейлист» → «Новый плейлист»).
+- QA ОКРУЖЕНИЕ: local prod build :3111 + agent-browser. Артефакты среды:
+  (1) сервер умирал между вызовами — вылечено subshell-паттерном запуска;
+  (2) SW отдавал старый чанк после rebuild — unregister+cache clear;
+  (3) попап «Новая версия» перехватывал клики — отклонён; (4) headless
+  (hover:hover)=false — hover проверен патч-стилем + реальный CDP hover.
+- DESKTOP DOM (1440×900): breakout 1128px симметрично; canvas aspect
+  1.396; row top 29.9% / h-share 42.7% (точно референс); expanded
+  261×292 (аспект 0.90 — референс 0.895); стрипы 60×292 (0.21 =
+  1:4.85 — референс); все карточки одного роста; h2 центрирован
+  (offset 0px); 4 верт. тайтла; overflowX=0 (doc+body); битых img 0.
+- DESKTOP ИНТЕРАКТИВЫ: CTA «Слушать» → «Пауза» ✓; клик expanded →
+  PlaylistView ✓; strip play-circle: hover opacity 0→1 (CDP) ✓, клик →
+  toggle ✓; more-chip → PlaylistActionsMenu 5 пунктов ✓; focus-visible
+  Tab → outline solid 2px rgb(224,49,49) ✓.
+- MOBILE DOM (390×844): expanded 362×402 (0.90) ✓; стрипы 83×402
+  (0.206) той же высоты ✓; play-круги 36px ✓; заголовок центрирован ✓;
+  create-strip ✓; overflowX=0 ✓; битых img 0.
+- VLM: desktop 9/10 (композиция узнаваема, дефектов нет), mobile 9/10
+  (всё присутствует, читаемо, тач-таргеты ок). SIDE-BY-SIDE (референс |
+  MQ): «скелет идентичен… same composition adapted» — ВЕРДИКТ PASS по
+  критерию владельца.
+- GATES (финальный код): tests 453/453 ✓; tsc 0 ошибок в src/ (18
+  pre-existing desktop/skills = baseline) ✓; production build PASS ✓;
+  version.json-артефакт восстановлен; дерево чистое, кроме MainView.tsx.
+- QA-артефакты: download/playlist-ref-qa/ (скриншоты + side-by-side),
+  download/ref-analysis/ (референс + сетка + кропы + vlm-логи).
+
+Stage Summary:
+- Секция «Плейлисты» переписана как точная композиционная адаптация
+  референса (не «в духе»): те же пропорции канваса/ряда/карточек, тот же
+  типографический план, та же негативная рамка, тот же ритм гэпов,
+  полноширинная световая полоса из реальных обложек. Вся функциональность
+  сохранена (play/open/actions/create, реальные данные, токены, lucide,
+  focus, touch). Изменён только MainView.tsx. Деплой НЕ производился —
+  ожидает решения владельца.
