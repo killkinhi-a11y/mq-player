@@ -2009,16 +2009,44 @@ function CoversLightBand({ playlists }: { playlists: UserPlaylist[] }) {
     <div aria-hidden="true" className="absolute inset-0 overflow-hidden">
       {covers.length > 0 ? (
         <div className="absolute inset-0 flex">
-          {covers.map((c, i) => (
-            <img
-              key={i}
-              src={c}
-              alt=""
-              loading="lazy"
-              className="h-full flex-1 min-w-0 object-cover"
-              style={{ filter: "grayscale(0.85) brightness(1.02) contrast(1.9)", opacity: 0.82, transform: "scale(1.7)" }}
-            />
-          ))}
+          {/* CHROME TRAILS — the reference band is elongated metallic light
+              streaks (≈10–20:1 length:width), not blurred photos. Each cover
+              is stretched hard along ONE axis (≈6–7× horizontal) and squashed
+              vertically, so its bright rims become long thin silver ribbons
+              and all recognisable photo detail melts away. Covers cycle
+              through three LANE ROLES (every third cover shares a lane):
+              · structure lane — tall, full contrast: thin bright elements of
+                the artwork become sharp specular RIDGES (the chrome crests);
+              · underglow lane — thin, dimmed silver (low contrast/brightness,
+                softer opacity): flat-bright covers read as the soft metallic
+                WASH the ridges ride on, not as a flat white bar;
+              · cap lane — dark, crushed to near-black: the fast top fade.
+              Lanes sit at different heights (staggered origin-y) like the
+              reference's trails; the melt blur feathers the seams. */}
+          {covers.map((c, i) => {
+            const lane = i % 3;
+            const laneFilter = [
+              "grayscale(1) brightness(1.12) contrast(3.4) blur(2px)",
+              "grayscale(1) brightness(0.95) contrast(2.0)",
+              "grayscale(1) brightness(1.0) contrast(3.0)",
+            ][lane];
+            const laneOpacity = [1.0, 1.0, 0.95][lane] - 0.18 * Math.floor(i / 3);
+            return (
+              <img
+                key={i}
+                src={c}
+                alt=""
+                loading="lazy"
+                className="h-full flex-1 min-w-0 object-cover"
+                style={{
+                  filter: laneFilter,
+                  opacity: Math.max(0.5, laneOpacity),
+                  transform: `rotate(${[-1, -2.5, 1.5][lane]}deg) scale(${[7.2, 5.6, 6.4][lane]}, ${[0.56, 0.10, 0.40][lane]})`,
+                  transformOrigin: `${44 + ((i * 13) % 12)}% ${[34, 48, 8][lane] + ((i * 7) % 8) - 4}%`,
+                }}
+              />
+            );
+          })}
         </div>
       ) : (
         <div
@@ -2026,20 +2054,20 @@ function CoversLightBand({ playlists }: { playlists: UserPlaylist[] }) {
           style={{ background: "linear-gradient(100deg, transparent 0%, rgba(148,163,184,0.14) 28%, rgba(226,232,240,0.22) 50%, rgba(148,163,184,0.10) 72%, transparent 100%)" }}
         />
       )}
-      {/* Melt into one silver field; keep the streaks' dynamic range (reference
-          band is high-contrast: dark base + bright metallic ribbons) and fade
-          the top edge in quickly, like the reference. Contrast is pushed so
-          INDIVIDUAL bright ribbons reach the reference p95 without lifting
-          the dark base; the flat silver washes stay whisper-level. */}
+      {/* Melt the stretched ribbons into one silver field with Gaussian-soft
+          edges (reference streaks are feathered, not hard). The vertical
+          gradient keeps the near-black base and fades the top edge in
+          quickly, like the reference; contrast above keeps INDIVIDUAL bright
+          ribbons at the reference p95 without lifting the dark base. */}
       <div
         className="absolute inset-0"
         style={{
-          background: "linear-gradient(180deg, var(--mq-bg) 0%, color-mix(in srgb, var(--mq-bg) 62%, transparent) 9%, color-mix(in srgb, var(--mq-bg) 30%, transparent) 34%, color-mix(in srgb, var(--mq-bg) 47%, transparent) 74%, color-mix(in srgb, var(--mq-bg) 62%, transparent) 100%)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
+          background: "linear-gradient(180deg, var(--mq-bg) 0%, color-mix(in srgb, var(--mq-bg) 62%, transparent) 9%, color-mix(in srgb, var(--mq-bg) 6%, transparent) 34%, color-mix(in srgb, var(--mq-bg) 24%, transparent) 74%, color-mix(in srgb, var(--mq-bg) 62%, transparent) 100%)",
+          backdropFilter: "blur(4px)",
+          WebkitBackdropFilter: "blur(4px)",
         }}
       />
-      <div className="absolute inset-0" style={{ background: "radial-gradient(74% 160% at 34% 104%, rgba(226,232,240,0.10), transparent 60%), radial-gradient(40% 120% at 10% 96%, rgba(226,232,240,0.14), transparent 65%)" }} />
+      <div className="absolute inset-0" style={{ background: "radial-gradient(74% 160% at 34% 104%, rgba(226,232,240,0.06), transparent 60%), radial-gradient(40% 120% at 10% 96%, rgba(226,232,240,0.08), transparent 65%)" }} />
     </div>
   );
 }

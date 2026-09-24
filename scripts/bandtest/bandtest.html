@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root { --mq-bg: #0a0a0f; }
+  body { margin: 0; background: #050508; }
+  .band { position: relative; width: 1128px; height: 159px; overflow: hidden; background: var(--mq-bg); }
+  .covers { position: absolute; inset: 0; display: flex; }
+  .covers img { height: 100%; flex: 1; min-width: 0; object-fit: cover; }
+  .melt { position: absolute; inset: 0;
+    background: linear-gradient(180deg, var(--mq-bg) 0%,
+      color-mix(in srgb, var(--mq-bg) 62%, transparent) 9%,
+      color-mix(in srgb, var(--mq-bg) 20%, transparent) 34%,
+      color-mix(in srgb, var(--mq-bg) 40%, transparent) 74%,
+      color-mix(in srgb, var(--mq-bg) 62%, transparent) 100%);
+    backdrop-filter: blur(11px); -webkit-backdrop-filter: blur(11px); }
+  .radials { position: absolute; inset: 0;
+    background: radial-gradient(74% 160% at 34% 104%, rgba(226,232,240,0.10), transparent 60%),
+                radial-gradient(40% 120% at 10% 96%, rgba(226,232,240,0.16), transparent 65%); }
+</style>
+</head>
+<body>
+<!-- A: full pipeline (melt gradient + blur + radials) -->
+<div class="band" id="full">
+  <div class="covers">
+    <img src="cov0.jpg" style="filter: grayscale(1) brightness(1.06) contrast(3.0); opacity: 0.9; transform: rotate(-1.2deg) scale(7.2, 0.50); transform-origin: 50% 44%;">
+    <img src="cov1.jpg" style="filter: grayscale(1) brightness(1.06) contrast(3.0); opacity: 0.9; transform: rotate(-1.2deg) scale(5.6, 0.22); transform-origin: 50% 50%;">
+    <img src="cov2.jpg" style="filter: grayscale(1) brightness(1.06) contrast(3.0); opacity: 0.9; transform: rotate(-1.2deg) scale(6.4, 0.40); transform-origin: 50% 8%;">
+  </div>
+  <div class="melt"></div>
+  <div class="radials"></div>
+</div>
+<!-- B: no melt layer at all (raw stretched covers) -->
+<div class="band" id="raw">
+  <div class="covers">
+    <img src="cov0.jpg" style="filter: grayscale(1) brightness(1.06) contrast(3.0); opacity: 0.9; transform: rotate(-1.2deg) scale(7.2, 0.50); transform-origin: 50% 44%;">
+    <img src="cov1.jpg" style="filter: grayscale(1) brightness(1.06) contrast(3.0); opacity: 0.9; transform: rotate(-1.2deg) scale(5.6, 0.22); transform-origin: 50% 50%;">
+    <img src="cov2.jpg" style="filter: grayscale(1) brightness(1.06) contrast(3.0); opacity: 0.9; transform: rotate(-1.2deg) scale(6.4, 0.40); transform-origin: 50% 8%;">
+  </div>
+</div>
+<!-- C: covers WITHOUT filter (raw material check) -->
+<div class="band" id="nofilter">
+  <div class="covers">
+    <img src="cov0.jpg" style="opacity: 0.9; transform: rotate(-1.2deg) scale(7.2, 0.50); transform-origin: 50% 44%;">
+    <img src="cov1.jpg" style="opacity: 0.9; transform: rotate(-1.2deg) scale(5.6, 0.22); transform-origin: 50% 50%;">
+    <img src="cov2.jpg" style="opacity: 0.9; transform: rotate(-1.2deg) scale(6.4, 0.40); transform-origin: 50% 8%;">
+  </div>
+</div>
+
+<!-- D: blur 6 -->
+<div class="band" id="blur6">
+  <div class="covers">
+    <img src="cov0.jpg" style="filter: grayscale(1) brightness(1.06) contrast(3.0); opacity: 0.9; transform: rotate(-1.2deg) scale(7.2, 0.50); transform-origin: 50% 44%;">
+    <img src="cov1.jpg" style="filter: grayscale(1) brightness(1.06) contrast(3.0); opacity: 0.9; transform: rotate(-1.2deg) scale(5.6, 0.22); transform-origin: 50% 50%;">
+    <img src="cov2.jpg" style="filter: grayscale(1) brightness(1.06) contrast(3.0); opacity: 0.9; transform: rotate(-1.2deg) scale(6.4, 0.40); transform-origin: 50% 8%;">
+  </div>
+  <div class="melt" style="backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);"></div>
+  <div class="radials"></div>
+</div>
+<!-- E: blur 3 -->
+<div class="band" id="blur3">
+  <div class="covers">
+    <img src="cov0.jpg" style="filter: grayscale(1) brightness(1.06) contrast(3.0); opacity: 0.9; transform: rotate(-1.2deg) scale(7.2, 0.50); transform-origin: 50% 44%;">
+    <img src="cov1.jpg" style="filter: grayscale(1) brightness(1.06) contrast(3.0); opacity: 0.9; transform: rotate(-1.2deg) scale(5.6, 0.22); transform-origin: 50% 50%;">
+    <img src="cov2.jpg" style="filter: grayscale(1) brightness(1.06) contrast(3.0); opacity: 0.9; transform: rotate(-1.2deg) scale(6.4, 0.40); transform-origin: 50% 8%;">
+  </div>
+  <div class="melt" style="backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);"></div>
+  <div class="radials"></div>
+</div>
+<!-- F: no blur, gradient only -->
+<div class="band" id="blur0">
+  <div class="covers">
+    <img src="cov0.jpg" style="filter: grayscale(1) brightness(1.06) contrast(3.0); opacity: 0.9; transform: rotate(-1.2deg) scale(7.2, 0.50); transform-origin: 50% 44%;">
+    <img src="cov1.jpg" style="filter: grayscale(1) brightness(1.06) contrast(3.0); opacity: 0.9; transform: rotate(-1.2deg) scale(5.6, 0.22); transform-origin: 50% 50%;">
+    <img src="cov2.jpg" style="filter: grayscale(1) brightness(1.06) contrast(3.0); opacity: 0.9; transform: rotate(-1.2deg) scale(6.4, 0.40); transform-origin: 50% 8%;">
+  </div>
+  <div class="melt" style="backdrop-filter: none; -webkit-backdrop-filter: none;"></div>
+  <div class="radials"></div>
+</div>
+</body>
+</html>

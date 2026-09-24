@@ -6044,3 +6044,77 @@ Stage Summary:
   download/playlist-ref-qa/{desktop-final-v3.png, mobile-final-v3.png,
   mobile-band-v3.png, side-by-side-final-v3.png,
   side-by-side-abstract-v3.png}.
+---
+Task ID: PLAYLISTS-REF-V4-CHROME-TRAILS
+Agent: Main Agent
+Task: Финальная проверка artwork material (задача владельца): переделать
+ТОЛЬКО artwork band под chrome/metallic light trails характер (не яркостью,
+а текстурой). Не откатывать принятый micro-pass, не деплоить, не пушить.
+
+Work Log:
+- ДИАГНОЗ ИСХОДНОГО (v3): VLM: reference band = ribbons/streaks 10-20:1
+  elongation, synthetic liquid metal; MQ v3 = blobs 2-3:1, soft bokeh.
+- ИЗОЛИРОВАННЫЙ ТЕСТ (scripts/bandtest/): raw stretched covers дают p95
+  230/max 252, а melt blur(11px) уничтожает highlights до max 115 —
+  главный пожиратель лент найден (blur, не градиент).
+- НОВАЯ АНАТОМИЯ REFERENCE (точная): mean 17.6, std 46.5, p50=1, p75=7,
+  p95 130, p99 243, max 255; px>150 = 4.3%, px>180 = 3.37%; thirds
+  13/31/9; яркие ленты = 2-3 узких ран'а 6-13px (peaks 201-237) на
+  колонку, СРЕДНЯЯ треть; прежний «профиль 65/55» был артефактом замера.
+- РЕАЛИЗАЦИЯ (только MainView.tsx, только существующие ручки: blur/scale/
+  transform/grayscale/contrast/opacity/crop/melt/radial):
+  1. Анизотропное растяжение scale(5.6-7.2x, 0.10-0.56) + rotate per lane
+     (-1/-2.5/+1.5deg) — элонгация лент 10-20:1, диагональный flow.
+  2. Три LANE-РОЛИ (каждая 3-я обложка): structure (0.56 высота,
+     brightness 1.12 contrast 3.4 blur(2px) — тонкие яркие RIDGES из
+     элементов арта, зерно сглажено до melt), underglow (0.10, 0.95/2.0 —
+     узкая яркая лента-штрих), cap (0.40, contrast 3.0 — чёрная шапка).
+  3. Melt: blur 11→4, mid-зона 30/47% → 6/24% (ленты светятся сквозь wash
+     на силе reference: белый → 182-221).
+  4. Radials 0.10/0.16 → 0.06/0.08 (по истинной анатомии ref low=9).
+  5. Opacity лент 0.82 → 1.0/1.0/0.95 (снятие потолка яркости).
+- 29 итераций build+measure: замаплен весь спектр (contrast↑+blur↓ = зерно;
+  contrast↓+blur↑ = smear; magnification 14-26x = провал, показывает
+  «пятно» источника). Плато = iter-27 конфигурация (зафиксирована).
+- QA-ИНФРАСТРУКТУРА: найден и исправлен двойной siege JSON в
+  qa-store-backup.json (top-level string → version 0 → миграция → пустой
+  store); атомарная инъекция setItem+location.assign в одном JS-обороте;
+  demo-режим кликом после реhydtration (M1-fix вычищает demo-auth);
+  capture-скрипт scripts/qa_v4_capture.sh (сервер+браузер в одном вызове —
+  фоновые процессы прибиваются между вызовами).
+- ЗАМЕРЫ ФИНАЛ (desktop, зоны по DOM-телеметрии): mean 42.2→27.5 (ref
+  17.6), std 42.8→39.1 (ref 46.5), p50 21→14 (ref 1), p95 133→139 (ref
+  130), p99 149→178 (ref 243), max 227→190 (ref 255); px>120 20356→11712
+  (ref 5.3%), px>150 1553→6726=3.8% (ref 4.3%!), px>180 240→1310=0.74%
+  (ref 3.37%, v3 0.14%); thirds 23/42/61 → 9/50/23 (ref 13/31/9).
+  Колонки: узкие ран'ы 16px(177)/20px(155)/5px(113) на разных высотах —
+  анатомия ref (6px/201, 13px/237).
+- МОБАЙЛ (390×844): band mean 25.3 std 32.8 p95 116 max 155 (v3: std 19.2
+  p95 27 — плоско); overflowX=0, битых img 0.
+- НЕ ТРОНУТО (проверено): геометрия (hero 261.5×292, strips 60.3×292, band
+  y628.4 h159.4), тайты (9px/60.3=14.9% strip, hero 9.94px), preview 88.1
+  (ref 91), поверхности 31.4/25.2, иконка 25.9, h2 28px.
+- VLM-ВЕРДИКТЫ: full side-by-side 9/10 (v3: 7/10), GEOMETRY/TYPOGRAPHY/
+  BRIGHTNESS — MATCH во всех прогонах; MATERIAL — MATCH в 2/3 прогонов
+  full-view («chrome light trails replicated», «same material system
+  8/10»), но на изолированном 2x zoom — PHOTOGRAPHIC 9/10 ×2 («organic
+  bokeh falloff vs vector-like definition»).
+- GATES: vitest 453/453 ✓; tsc src/ 0 ошибок ✓; prod build PASS (свежесть
+  чанков проверена) ✓; version.json восстановлен ✓; дерево = MainView.tsx
+  + QA-артефакты (+ шум .wrangler cache от упавшего dev-server).
+
+Stage Summary:
+- Chrome-trail pipeline реализован в рамках разрешённых ручек; распределение
+  яркости band'а сведено к истинной анатомии reference (px>150 3.8% vs ref
+  4.3%, p95 139 vs 130, тёмная база p50 14, thirds-форма). Full-view VLM:
+  9/10 и MATERIAL MATCH в большинстве прогонов. ОСТАВШИЙСЯ РАЗРЫВ:
+  микротекстура кромок — при 2x zoom ленты читаются как photo-bokeh (soft
+  organic edges), а не как sharp vector-like штрихи reference. Эмпирически
+  доказано (29 итераций): фото-источник обложек при любых blur/contrast/
+  scale даёт спектр «зерно↔smear»; sharp synthetic streaks требуют
+  синтетического источника (SVG/canvas/mask/generated texture) — новая
+  визуальная техника, требующая решения владельца. ДЕПЛОЙ/ПУШ/КОММИТ НЕ
+  ПРОИЗВЕДЕНЫ. Артефакты: download/playlist-ref-qa/{desktop-final-v4.png,
+  mobile-final-v4.png, side-by-side-final-v4.png,
+  side-by-side-abstract-v4.png, band-duel-v4.png, band-duel-v4-2x.png,
+  section-duel-v4.png, section-abstract-v4.png}.
