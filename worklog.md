@@ -6200,3 +6200,42 @@ Stage Summary:
   max +65) при сохранённой геометрии/типографике/ярости baseline.
   Критический тест band-duel-2x: MATERIAL MATCH 9/10. Деплой-гейт
   пройден → commit + push (main) → Vercel auto-deploy → production E2E.
+---
+Task ID: PLAYLISTS-REF-V5-DEPLOY-E2E
+Agent: Main Agent
+Task: Deploy gate пройден (MATERIAL MATCH) → commit → push → Vercel
+auto-deploy → production E2E (desktop + mobile + functionality).
+
+Work Log:
+- COMMIT: 0685e21f (19 files: MainView.tsx + v5 QA scripts/artifacts,
+  874 insertions) — только файлы этой задачи.
+- PUSH: origin main 84a6c1de..0685e21f @ 16:11:33 UTC.
+- DEPLOY: Vercel auto-deploy (штатный pipeline: git push → build);
+  production version.json сменился mq-build-84a6c1de → mq-build-0685e21f,
+  releasedAt 2026-09-24T16:12:03.565Z (~90 сек от push).
+  URL: https://mq1.vercel.app
+- PROD E2E DESKTOP 1440x900 (scripts/qa_v5_prod_e2e.sh):
+  home открывается ✓; console errors 0 ✓; section present, playlists=3 ✓;
+  hero 267.308.5 261.5x292 / strip 60.3x292 / band y628.6 h159.4 w1128 —
+  геометрия 1:1 с локальной ✓; chromeSvg ✓; vtitle 9.94px ✓; play button
+  работает ✓; overflowX=0 ✓; broken imgs=0 ✓; playback ✓ (play → queue 1,
+  currentTrack «Persian Girl»).
+- PROD E2E MOBILE 390x844: band y698.4 h110 ✓; chromeSvg ✓;
+  overflowX=0, hscroll=false ✓; broken=0 ✓; play button 36px ✓; тайты
+  целы (prod-скрин пиксельно идентичен локальному принятому: full-frame
+  diff 0.14; «clipped»-флаг — артефакт scrollWidth-эвристики на
+  vertical-writing тексте).
+- ФУНКЦИОНАЛЬНОСТЬ: создание плейлиста ✓ («E2E Prod Smoke v5», count
+  3→4); открытие плейлиста ✓ (PlaylistView); действия плейлиста ✓
+  (удаление через меню, count 4→3, тестовый вычищен).
+- PIXEL-VERIFY: prod-desktop vs local desktop-final-v5 = mean abs diff
+  0.02 (0.00% пикселей >10); mobile 0.14 — прод отдаёт новый билд
+  пиксель-в-пиксель. PROD band: mean 24.3 std 46.3 p95 134 p99 236 max
+  255; px>150 4.38 / >180 3.37 / >220 1.76 — идентично локальным замерам.
+
+Stage Summary:
+- Полный цикл v5 завершён: синтетический chrome-streak слой в проде,
+  все E2E зелёные, регрессий нет. Итоговые вердикты: MATERIAL/TEXTURE =
+  MATCH (band-duel-v5-2x 9/10; section-duel A/B/C/D ALL MATCH 9/10;
+  side-by-final D MATCH 8/10; abstract 2/2 split при подтверждённом
+  пиксельным замером совпадении макро-света). REGRESSIONS: none.
