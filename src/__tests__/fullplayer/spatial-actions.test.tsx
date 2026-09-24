@@ -317,27 +317,49 @@ describe("Playback bar — reference-like compact glass panel", () => {
     expect(nr).toBeGreaterThan(450);
   });
 
-  it("11c. mobile adapts the rail into a compact horizontal pill (same setting)", async () => {
+  it("11c. v10 mobile = NORMAL player (no carousel, no rail pill); Left/Right setting never breaks it", async () => {
     const origW = window.innerWidth;
     const origH = window.innerHeight;
     (window as unknown as { innerWidth: number }).innerWidth = 390;
     (window as unknown as { innerHeight: number }).innerHeight = 844;
     try {
       await mountSpatial({ spatialActionsPosition: "left" });
-      const rail = railEl();
-      expect(rail).toBeTruthy();
-      expect(rail!.getAttribute("data-mq-orientation")).toBe("horizontal");
-      expect(rail!.getAttribute("data-mq-position")).toBe("left");
-      // the pill row sits between artwork and control bar (in-flow)
-      expect(container?.querySelector('[data-mq-spatial="action-rail-row"]')).toBeTruthy();
-      // Like still works from the horizontal pill
+      // normal mobile player anatomy — big artwork + identity + like/dislike
+      expect(container?.querySelector('[data-mq-spatial="mobile-artwork"]')).toBeTruthy();
+      expect(container?.querySelector('[data-mq-spatial="mobile-identity"]')).toBeTruthy();
+      expect(container?.querySelector('[data-mq-spatial="mobile-stage"]')).toBeTruthy();
+      // NOT a shrunken desktop carousel and NOT the old action pill
+      expect(container?.querySelectorAll('[data-mq-spatial-card]').length).toBe(0);
+      expect(container?.querySelector('[data-mq-spatial="action-rail"]')).toBeNull();
+      expect(container?.querySelector('[data-mq-spatial="action-rail-row"]')).toBeNull();
+      // Like works from the identity row
       await clickByLabel("Нравится");
       expect(useAppStore.getState().likedTrackIds).toContain("b");
-      // and the RIGHT setting still changes the side on mobile
+      // More lives in the header on mobile
+      const headerMore = container?.querySelector('header button[aria-label="Ещё"]');
+      expect(headerMore).toBeTruthy();
+      // controls keep transport + progress + secondary
+      const bar = container?.querySelector('[data-mq-spatial="controls"]');
+      expect(bar).toBeTruthy();
+      const barHtml = bar!.innerHTML;
+      for (const label of [
+        'aria-label="Предыдущий трек"',
+        'aria-label="Следующий трек"',
+        'aria-label="Позиция воспроизведения"',
+        'aria-label="Текст песни"',
+        'aria-label="Очередь"',
+        'aria-label="Громкость',
+      ]) {
+        expect(barHtml.includes(label), `bar missing: ${label}`).toBe(true);
+      }
+      // the LEFT/RIGHT setting still applies (desktop-only) and switching
+      // it must not break the mobile composition
       await act(async () => {
         useAppStore.getState().setSpatialActionsPosition("right");
       });
-      expect(railEl()?.getAttribute("data-mq-position")).toBe("right");
+      expect(useAppStore.getState().spatialActionsPosition).toBe("right");
+      expect(container?.querySelector('[data-mq-spatial="mobile-artwork"]')).toBeTruthy();
+      expect(container?.querySelector('[data-mq-spatial="action-rail"]')).toBeNull();
     } finally {
       (window as unknown as { innerWidth: number }).innerWidth = origW;
       (window as unknown as { innerHeight: number }).innerHeight = origH;

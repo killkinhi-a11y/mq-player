@@ -6848,3 +6848,124 @@ Stage Summary:
   reload persistence), compact reference-like 3-row glass control bar,
   mobile horizontal pill adaptation, Classic untouched and functional,
   499/499 tests. REGRESSIONS: none.
+
+---
+Task ID: SPATIAL-POLISH-V10
+Agent: Main Agent
+Task: MQ Player v10 — Full Player polish: hover preview on
+neighbour covers, artwork banding fix (root cause), full More
+actions, Spatial mobile = normal player composition, Classic
+mobile micro-polish, Settings desktop-only note.
+
+Work Log:
+- AUDIT §3: inventoried every existing track action from Classic
+  FullTrackView More (Поделиться/Копировать название/Скачать +
+  playback settings), unified ContextMenu (play/queue/playlist/
+  similar/like/dislike/artist/subscribe/share/copy/download +
+  contextual tails). "Открыть альбом/страницу трека/копировать
+  ссылку" do NOT exist anywhere in the app — not invented.
+  Похожие треки sets a dead flag (requestShowSimilar has no
+  consumer) — excluded as a non-working action.
+- ARTIFACTS (§2): measured the real banding source — the
+  background environment <img filter:blur(72px)>: GPU compositor
+  renders huge blurs at reduced resolution → periodic brightness
+  staircases on smooth dark gradients (measured 96 flat→jump
+  staircases/line, 48% of row pixels identical to neighbours —
+  quantization signature). FIX = SpatialBackdrop: cover drawn into
+  a 144×144 CANVAS with blur baked at tiny resolution (6px) +
+  smooth CSS bilinear upscale — artifact removed AT THE SOURCE
+  (no masking overlay; dark overlay/vignette/readability layers
+  untouched). Verified: identical-neighbour pixels 48% → 4%
+  (12×), VLM A/B (v9 vs v10 side-by-side): "A хуже — широкие
+  полосы; B значительно плавнее, премиальнее".
+- HOVER PREVIEW (§1): SpatialCard component (was inline map) with
+  desktop-only hover/focus states. Pure helpers spatialHoverGeom
+  (scale +0.055 cap 0.76 / opacity +0.22 cap 0.82 / blur −1.0
+  floor 0.5 / brightness 1.07) + spatialFocusGeom (one notch
+  quieter) + SPATIAL_HOVER_MS=200. Latch in event handlers
+  (React-Compiler-clean: setState only in handlers) keeps the
+  LEAVE transition 200ms too; carousel stays 500ms. Soft glass
+  highlight = subtle directional gradient toward deck centre
+  (pointer-transparent, transform/opacity/filter only — zero
+  layout shift). data-mq-hover/data-mq-focus QA markers. Click on
+  neighbours unchanged (center=play/pause, side=switch).
+- MORE (§3): one MenuCore menu, MenuHeader (cover/title/artist),
+  audited set in Classic-mirroring order: Трек → Поделиться /
+  Копировать название / Скачать · К исполнителю / Подписаться на
+  артиста (toggle, active) · Добавить в очередь (splice after
+  current, ContextMenu semantics) / Добавить в плейлист. No
+  duplicates (Like/Dislike/Lyrics/Queue live on screen).
+- MOBILE SPATIAL (§4): NEW normal mobile player composition — big
+  centered artwork (min(86vw, 52vh), 24px radius, ~350ms swap
+  crossfade) + identity row (LiquidTitle 21px + artist link
+  44px-touch + Like/Dislike 44px) + full-width progress row with
+  times ABOVE a 2-row glass panel (transport prev/play/next +
+  secondary lyrics/queue/volume-with-popup). No carousel, no rail,
+  no hover-only UI; swipe left/right/down on artwork kept; artwork
+  sits CLOSE to identity (18px gap — free space pools above);
+  Left/Right setting intentionally has no mobile effect.
+- CLASSIC MOBILE (§5): micro-polish only — artwork 92vw→90vw
+  (more air), playing ring 32%→24% (subtler), elapsed 26→24px,
+  secondary row icons opacity .92. Architecture untouched.
+- SETTINGS (§6): «Расположение дополнительных действий» note now
+  states it applies to the desktop player; both existing settings
+  and persistence unchanged.
+- TESTS: spatial-v10.test.tsx — 27 new tests (hover/focus pure
+  geometry incl. mobile-never-hovers + spec bands, mounted
+  hover/focus wiring + neighbour clicks, canvas backdrop contract,
+  banding-source-gone source checks, More full set/order/no-dupes/
+  clipboard/queue-insert/subscribe round-trip/artist-nav/picker,
+  mobile anatomy/actions/more/no-hover, Classic + persistence
+  contracts). Updated spatial-actions.test.tsx 11c to pin the NEW
+  mobile composition (was pinning the removed pill). 526/526 PASS.
+- GATES: vitest 526/526; tsc 0 errors in src/ (desktop//skills/
+  are unrelated pre-existing); eslint changed files 0 errors (3
+  pre-existing react-compiler warnings live in untouched
+  FullTrackViewMobile lines); production build PASS.
+- LOCAL QA DESKTOP 1440×900 (fresh sessions on final build):
+  Classic opens/Esc×2 ✓; Settings→Spatial + position setting ✓;
+  spatial: 5 cards + rail left [138,330,58×156] + canvas 144×144 +
+  overflowX=0 ✓; hover NEXT (visible edge) scale 0.68→0.735, blur
+  1.5→0.5, brightness 1.07, data-mq-hover=true ✓; hover PREV
+  mirrored ✓; leave returns to 0.68/1.5 smoothly ✓; click next →
+  new center + 500ms + mid-transition screenshot ✓; click prev ✓;
+  play/pause ✓; like pressed=true ✓; dislike → skip + mutual
+  like-exclusion ✓; More → header + 7 audited items ✓;
+  add-to-queue inserts duplicate after current (verified in queue
+  drawer: 135 rows, same track next) ✓; subscribe → «Отписаться»
+  active → unsubscribe ✓; copy name clicked (+ unit-verified
+  clipboard write) ✓; playlist picker ✓; К исполнителю → player
+  closes + artist view ✓; lyrics (F) real text ✓; queue (Q) 136
+  buttons ✓; volume popup + ArrowUp 70→75 ✓; N/P/Space/L/Esc
+  layering ✓; RIGHT rail [1246,330] mirrored + overflowX=0 ✓;
+  reload → spatial+right persisted, rail right after demo re-entry
+  ✓; zero UI console errors ✓.
+- LOCAL QA MOBILE 390×844 (iPhone 14, final build): Classic
+  opens/play/close ✓; Settings→Spatial ✓; mobile = NORMAL player
+  (mobile-artwork/mobile-identity present, 0 carousel cards, 0
+  rail, overflowX=0) ✓; play/pause ✓; next (Jazz Evening) / prev
+  (back) ✓; touch-swipe left on artwork → next track ✓; like
+  pressed ✓; dislike → store + skip (into queue duplicate — same
+  track next, semantics correct) ✓; header ⋯ More = same 7 items
+  ✓; playlist picker ✓; lyrics open/close ✓; queue drawer ✓;
+  Esc-layering picker→menu→player ✓; close/reopen ✓; reload →
+  spatial persisted + normal layout ✓; layout bounds: controls
+  bottom = 844 (inside viewport), artwork→identity gap 18px,
+  artist button 44px, ALL touch targets ≥44px, overflowX=0 ✓.
+- VLM: desktop normal/hover/more pass (hover lift visible, soft
+  directional highlight, no acid glow, center dominant; menu
+  complete/aligned/no dupes); A/B background v9-vs-v10 → v10
+  significantly smoother (banding gone); mobile final composition
+  all-pass (artwork hero, tight identity, compact controls,
+  nothing cut); classic mobile A/B → polished version wins.
+- QA server note: standalone restart must pkill "next-server"
+  (not just the node wrapper) or the stale process serves old
+  chunks → ChunkLoadError.
+
+Stage Summary:
+- v10 complete locally: hover preview (desktop, 200ms, spec-band
+  geometry), banding fixed at the source (tiny-canvas backdrop,
+  12× less quantization, VLM-confirmed), More = full audited
+  action set, Spatial mobile = normal premium player, Classic
+  mobile polished, Settings desktop-only note. 526/526 tests, all
+  gates green. Ready for commit → push → Vercel → production E2E.

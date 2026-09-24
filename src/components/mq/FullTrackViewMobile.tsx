@@ -489,7 +489,8 @@ function FullTrackViewMobileInner() {
             key={currentTrack.id}
             className="mq-ft-anim relative rounded-[20px] overflow-hidden"
             style={{
-              width: "min(92vw, 58vh)",
+              // v10: 90vw side margins — a touch more air around the hero art
+              width: "min(90vw, 58vh)",
               aspectRatio: "1 / 1",
               boxShadow: "var(--mq-art-shadow)",
               // Artwork entrance replays on track change (key remount) —
@@ -507,7 +508,7 @@ function FullTrackViewMobileInner() {
               </div>
             )}
             {isPlaying && (
-              <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: "inset 0 0 0 1.5px color-mix(in srgb, var(--mq-accent) 32%, transparent)" }} />
+              <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: "inset 0 0 0 1.5px color-mix(in srgb, var(--mq-accent) 24%, transparent)" }} />
             )}
           </div>
         </div>
@@ -589,9 +590,10 @@ function FullTrackViewMobileInner() {
         {/* ── Seek (28px touch) + times ── */}
         <div className="mq-ft-anim px-4 mt-3.5" style={{ flexShrink: 0, animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 150ms backwards" }}>
           {/* Editorial flip: times ABOVE the bar — current in text color, larger.
-              v69: Manrope tabular (font-mono dropped), remaining honest “—”. */}
+              v10 polish: 24px (was 26) — still editorial, one notch calmer;
+              Manrope tabular, remaining honest “—”. */}
           <div className="flex items-baseline justify-between">
-            <span ref={timeCurrentRef} className="text-[26px] tabular-nums font-bold leading-none tracking-tight shrink-0" style={{ color: "var(--mq-text)" }}>0:00</span>
+            <span ref={timeCurrentRef} className="text-[24px] tabular-nums font-bold leading-none tracking-tight shrink-0" style={{ color: "var(--mq-text)" }}>0:00</span>
             <span ref={timeRemainingRef} className="mq-t-body tabular-nums shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)" }}>{duration > 0 ? `−${formatDuration(duration)}` : "—"}</span>
           </div>
           <input
@@ -680,7 +682,7 @@ function FullTrackViewMobileInner() {
                   : "var(--mq-text-muted)",
               }}
             >
-              <Icon className="w-[19px] h-[19px]" fill={on && (id === "dislike") ? "currentColor" : "none"} />
+              <Icon className="w-[19px] h-[19px]" fill={on && (id === "dislike") ? "currentColor" : "none"} style={{ opacity: 0.92 }} />
             </button>
           ))}
         </div>

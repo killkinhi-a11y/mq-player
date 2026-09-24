@@ -1041,6 +1041,7 @@ export default function SettingsView() {
                     </div>
                     <p className="mt-2 text-xs" style={{ color: "var(--mq-text-muted)" }}>
                       Плавающая панель «Нравится / Не нравится / Ещё» в новом плеере.
+                      Применяется к плееру на компьютере — на телефоне Spatial всегда компактный плеер.
                     </p>
                   </div>
                 )}

@@ -15,16 +15,28 @@
  *   - minimal top nav (close / eyebrow / share);
  *   - v9: auxiliary actions (Like / Dislike / More) live in a floating
  *     vertical glass pill BESIDE the carousel (left by default, right via
- *     Settings — one component, position prop, never duplicated); mobile
- *     adapts it into a compact horizontal glass pill between artwork and
- *     the control bar (same visual language, same setting);
+ *     Settings — one component, position prop, never duplicated);
+ *   - v10: side cards get a calm desktop HOVER PREVIEW (slightly larger,
+ *     brighter, less blur — "this card is selectable") and a softer
+ *     keyboard-focus twin; hover is desktop-only, ~200ms in/out;
+ *   - v10: the background environment is drawn through a tiny CANVAS
+ *     (cover → 144px canvas, blur baked at tiny resolution, smooth
+ *     bilinear upscale). The old full-screen <img filter:blur(72px)>
+ *     produced GPU-blur banding — periodic brightness staircases on the
+ *     smooth dark gradients (measured: ~96 flat→jump steps per line at
+ *     the top of the screen). Baking the blur small and upscaling kills
+ *     the artifact at the SOURCE (no masking overlay);
+ *   - v10 MOBILE: Spatial mobile is a NORMAL mobile player (big artwork,
+ *     identity + like/dislike, progress, transport, secondary row) —
+ *     the depth carousel is a desktop composition; Left/Right setting
+ *     applies to the desktop rail only;
  *   - separate compact glass control area at the bottom (thin progress /
  *     prev-play-next primary / lyrics-queue-volume secondary — a floating
  *     object, NOT a full-width standard player bar);
  *   - premium calm carousel transition ~500ms (scale/opacity/blur/
  *     position/z all move together; no jumps) on next/prev/queue jump;
- *   - mobile 390×844: same system — center card dominant, side cards
- *     more cropped, thumb-reachable controls, no h-scroll, safe areas.
+ *   - mobile 390×844: normal player layout — center artwork dominant,
+ *     thumb-reachable controls, no h-scroll, safe areas.
  *
  * Playback state is the app store's — this component only READS it and
  * calls the same store actions as the Classic players (togglePlay,
@@ -47,6 +59,7 @@ import {
   Play, Pause, SkipBack, SkipForward, ChevronDown, Heart, ThumbsDown,
   Volume2, VolumeX, Volume1, Music, ListMusic, Share2, Mic2,
   MoreHorizontal, Loader2, X, User as UserIcon, ListPlus,
+  Copy, Download, Users,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import type { Track } from "@/lib/musicApi";
@@ -59,7 +72,7 @@ import VolumeSlider from "@/components/ui/volume-slider";
 import { fetchLyrics } from "@/lib/lyrics-client";
 import { LyricsView, type LyricLine } from "@/components/mq/LyricsView";
 import LiquidTitle from "@/components/mq/LiquidTitle";
-import MenuCore, { type MenuElement } from "@/components/mq/ui/MenuCore";
+import MenuCore, { MenuHeader, type MenuElement } from "@/components/mq/ui/MenuCore";
 import { shareTrackUrl, openInAppTrackUrl } from "@/lib/share-urls";
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -144,6 +157,38 @@ export function spatialMotionOn(
   return animationsEnabled && !reduceMotion && !prefersReduced;
 }
 
+// ── v10 hover preview geometry (pure — unit-tested) ──
+
+/** Hover preview transition for the side cards — calm, inside the
+ *  180–250ms spec band (enter AND leave). */
+export const SPATIAL_HOVER_MS = 200;
+
+/** Hover-preview target geometry for a NEIGHBOUR card (desktop only):
+ *  a touch larger, noticeably more present (opacity up), less blurred —
+ *  "this card is selectable" — while staying a quiet deck member, never
+ *  a loud button. Center cards and mobile never get a hover state. */
+export function spatialHoverGeom(g: SpatialCardGeom, mobile: boolean): SpatialCardGeom {
+  if (mobile) return g;
+  return {
+    ...g,
+    scale: Math.min(0.76, g.scale + 0.055),
+    opacity: Math.min(0.82, g.opacity + 0.22),
+    blurPx: Math.max(0.5, g.blurPx - 1.0),
+  };
+}
+
+/** Keyboard-focus twin of the hover preview — same language, one notch
+ *  quieter (a focused card is “pointed at”, not “picked up”). */
+export function spatialFocusGeom(g: SpatialCardGeom, mobile: boolean): SpatialCardGeom {
+  if (mobile) return g;
+  return {
+    ...g,
+    scale: Math.min(0.74, g.scale + 0.035),
+    opacity: Math.min(0.76, g.opacity + 0.14),
+    blurPx: Math.max(0.7, g.blurPx - 0.8),
+  };
+}
+
 // ── v9 action rail geometry (pure — unit-tested) ──
 
 /** Width of the desktop vertical action rail (44px target + 2×6 padding). */
@@ -225,6 +270,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
   const playbackState = useAppStore((s) => s.playbackState);
   const radioMode = useAppStore((s) => s.radioMode);
   const playlists = useAppStore((s) => s.playlists);
+  const favoriteArtists = useAppStore((s) => s.favoriteArtists);
 
   const setOpen = useAppStore((s) => s.setFullTrackViewOpen);
   const togglePlay = useAppStore((s) => s.togglePlay);
@@ -238,6 +284,8 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
   const addToPlaylist = useAppStore((s) => s.addToPlaylist);
   const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
   const openShareSheet = useAppStore((s) => s.openShareSheet);
+  const addFavoriteArtist = useAppStore((s) => s.addFavoriteArtist);
+  const removeFavoriteArtist = useAppStore((s) => s.removeFavoriteArtist);
 
   const isMobile = useIsMobile();
 
@@ -302,13 +350,14 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
     return () => window.removeEventListener("resize", on);
   }, []);
 
-  const stripH = isMobile ? 78 : 88;
+  const stripH = 88;
   const cardW = useMemo(() => {
     const w = Math.max(280, Math.min(vp.w, vp.h * 1.2));
     if (isMobile) {
-      // 0.42·h cap: keeps the true-square card + glass strip clear of the
-      // horizontal action pill + 3-row control bar even on short phones.
-      return Math.round(Math.min(w * 0.8, vp.h * 0.42));
+      // v10 normal mobile composition (no deck strip): big square artwork
+      // that still leaves room for identity + like/dislike, progress and
+      // the glass control panel on short phones.
+      return Math.round(Math.min(w * 0.86, vp.h * 0.52));
     }
     return Math.round(Math.min(w * 0.4, vp.h * 0.48, 480));
   }, [vp, isMobile]);
@@ -440,6 +489,88 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
     toast({ title: "Добавлено в плейлист" });
   }, [currentTrack, addToPlaylist]);
 
+  // ── v10 More actions — the SAME actions that already exist in Classic
+  //    FullTrackView's menu and the unified ContextMenu (audit §3): copy
+  //    name / download / add-to-queue / artist subscription. No new
+  //    behaviour invented here — same store actions, same semantics. ──
+
+  const handleCopyName = useCallback(() => {
+    if (!currentTrack) return;
+    try {
+      navigator.clipboard
+        ?.writeText(`${currentTrack.title} — ${currentTrack.artist}`)
+        ?.catch(() => {});
+    } catch {
+      /* clipboard unavailable (non-secure context) — toast still shows */
+    }
+    toast({ title: "Название скопировано" });
+  }, [currentTrack]);
+
+  const handleDownload = useCallback(async () => {
+    const audio = getAudioElement();
+    if (!currentTrack || !audio || !audio.src) return;
+    const name = `${currentTrack.artist} - ${currentTrack.title}.mp3`;
+    try {
+      const res = await fetch(audio.src);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      const a = document.createElement("a");
+      a.href = audio.src;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  }, [currentTrack]);
+
+  // Same insertion semantics as the unified ContextMenu: right after the
+  // currently playing track.
+  const handleAddToQueue = useCallback(() => {
+    if (!currentTrack) return;
+    const state = useAppStore.getState();
+    const newQueue = [...state.queue];
+    const at = state.queueIndex + 1;
+    if (newQueue.some((t, i) => i >= at && t.id === currentTrack.id)) {
+      // already queued next — don't stack duplicates
+      const dup = newQueue.findIndex((t, i) => i >= at && t.id === currentTrack.id);
+      if (dup === at) { toast({ title: "Уже следующий в очереди" }); return; }
+    }
+    newQueue.splice(at, 0, currentTrack);
+    useAppStore.setState({ queue: newQueue });
+    toast({ title: "Добавлено в очередь" });
+  }, [currentTrack]);
+
+  const isSubscribed = currentTrack
+    ? favoriteArtists.some((a) => a.username.toLowerCase() === currentTrack.artist.toLowerCase())
+    : false;
+
+  const handleToggleSubscribe = useCallback(() => {
+    if (!currentTrack) return;
+    if (isSubscribed) {
+      const fav = favoriteArtists.find(
+        (a) => a.username.toLowerCase() === currentTrack.artist.toLowerCase()
+      );
+      if (fav) removeFavoriteArtist(fav.id);
+    } else {
+      addFavoriteArtist({
+        id: Date.now(),
+        username: currentTrack.artist,
+        avatar: currentTrack.cover || "",
+        genre: currentTrack.genre || "",
+        followers: 0,
+        trackCount: 0,
+      });
+    }
+  }, [currentTrack, isSubscribed, favoriteArtists, addFavoriteArtist, removeFavoriteArtist]);
+
   // ── Swipe (carousel stage): horizontal = prev/next, down = close ──
   const swipe = useRef({ x: 0, y: 0, t: 0 });
   const onStageTouchStart = useCallback((e: React.TouchEvent) => {
@@ -513,11 +644,29 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
 
   if (!currentTrack) return null;
 
+  // v10 — ONE More menu, same action set as Classic FullTrackView's menu
+  // + the unified ContextMenu (audit §3). Order mirrors Classic where the
+  // sections overlap (Трек → Поделиться / Копировать название / Скачать).
+  // Like/Dislike/Lyrics/Queue live directly on screen (rail / control
+  // bar / identity row) and are NOT duplicated here.
   const moreElements: MenuElement[] = [
+    { type: "label", text: "Трек" },
     { type: "item", id: "share", icon: Share2, label: "Поделиться", onSelect: handleShare },
-    { type: "item", id: "artist", icon: UserIcon, label: "К исполнителю", onSelect: handleArtist },
+    { type: "item", id: "copy", icon: Copy, label: "Копировать название", onSelect: handleCopyName },
+    { type: "item", id: "download", icon: Download, label: "Скачать", onSelect: () => { void handleDownload(); } },
     { type: "separator" },
-    { type: "item", id: "playlist", icon: ListPlus, label: "Добавить в плейлист", onSelect: () => setShowPlaylistPicker(true) },
+    { type: "item", id: "artist", icon: UserIcon, label: "К исполнителю", onSelect: handleArtist },
+    {
+      type: "item",
+      id: "subscribe",
+      icon: Users,
+      label: isSubscribed ? "Отписаться от артиста" : "Подписаться на артиста",
+      active: isSubscribed,
+      onSelect: handleToggleSubscribe,
+    },
+    { type: "separator" },
+    { type: "item", id: "add-queue", icon: ListPlus, label: "Добавить в очередь", onSelect: handleAddToQueue },
+    { type: "item", id: "playlist", icon: ListMusic, label: "Добавить в плейлист", onSelect: () => setShowPlaylistPicker(true) },
   ];
 
   const progressFraction = duration > 0 ? Math.min(1, progress / duration) : 0;
@@ -536,23 +685,27 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
       aria-label={`Полноэкранный плеер: ${currentTrack.title} - ${currentTrack.artist}`}
       data-mq-spatial="root"
     >
-      {/* ═══ BACKGROUND — environment built from the artwork ═══ */}
+      {/* ═══ BACKGROUND — environment built from the artwork.
+          v10: drawn through a TINY CANVAS (cover → 144px, blur baked at
+          that resolution, smooth bilinear upscale via CSS). The previous
+          full-screen <img filter:blur(72px)> produced GPU-blur banding —
+          periodic brightness staircases on smooth dark gradients — because
+          the compositor renders large blurs at reduced resolution. Baking
+          the blur small removes the artifact at the source (this is the
+          fix, not a masking overlay). ═══ */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
         <div className="absolute inset-0 overflow-hidden">
           <AnimatePresence>
-            <motion.img
+            <motion.div
               key={currentTrack.id}
-              src={currentTrack.cover || ""}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover"
-              style={{ transform: "scale(1.6)", filter: "blur(72px) saturate(115%)" }}
+              className="absolute inset-0"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: motionOn ? 0.9 : 0 }}
-              loading="eager"
-              draggable={false}
-            />
+            >
+              <SpatialBackdrop src={currentTrack.cover || ""} />
+            </motion.div>
           </AnimatePresence>
         </div>
         {/* dark overlay — the environment must never compete with the card */}
@@ -564,7 +717,8 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
       </div>
 
       <div className="relative z-10 h-full flex flex-col" style={{ paddingTop: "env(safe-area-inset-top)" }}>
-        {/* ═══ TOP NAV — minimal ═══ */}
+        {/* ═══ TOP NAV — minimal (mobile: More instead of Share — share
+            lives in the menu, the ⋯ target is the primary overflow) ═══ */}
         <header className="flex items-center justify-between px-4 sm:px-6 py-2 flex-shrink-0">
           <button
             onClick={() => setOpen(false)}
@@ -581,169 +735,65 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
               {currentTrack.album || currentTrack.artist}
             </p>
           </div>
-          <button
-            onClick={handleShare}
-            className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn"
-            aria-label="Поделиться"
-          >
-            <Share2 className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
-          </button>
+          {isMobile ? (
+            <button
+              onClick={(e) => setMoreMenu({ x: e.clientX, y: e.clientY })}
+              className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn"
+              aria-label="Ещё"
+            >
+              <MoreHorizontal className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
+            </button>
+          ) : (
+            <button
+              onClick={handleShare}
+              className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn"
+              aria-label="Поделиться"
+            >
+              <Share2 className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
+            </button>
+          )}
         </header>
 
-        {/* ═══ SPATIAL CAROUSEL ═══ */}
-        <main
-          className="relative flex-1 min-h-0 flex items-center justify-center px-4"
-          style={{ perspective: "1400px" }}
-          onTouchStart={onStageTouchStart}
-          onTouchEnd={onStageTouchEnd}
-          data-mq-spatial="stage"
-        >
-          <div
-            className="relative"
-            style={{ width: cardW, height: cardW + stripH }}
-            data-mq-spatial="deck"
+        {/* ═══ DESKTOP — SPATIAL CAROUSEL (depth deck + hover preview) ═══ */}
+        {!isMobile && (
+          <main
+            className="relative flex-1 min-h-0 flex items-center justify-center px-4"
+            style={{ perspective: "1400px" }}
+            data-mq-spatial="stage"
           >
-            <AnimatePresence>
-              {cards.map(({ track, offset }) => {
-                const g = spatialCardGeom(offset, isMobile);
-                const deeper = deeperThan(g);
-                const isCenter = offset === 0;
-                // Stable identity per physical queue slot: a card keeps
-                // its key while its OFFSET changes → framer animates the
-                // deck smoothly instead of remounting every card.
-                const absPos = queueIndex + offset;
-                return (
-                  <motion.div
-                    key={`${track.id}@${absPos}`}
-                    className="absolute"
-                    style={{
-                      // CSS centering via margins (NOT transform — framer
-                      // owns the transform during animation)
-                      left: "50%",
-                      top: "50%",
-                      marginLeft: -cardW / 2,
-                      marginTop: -(cardW + stripH) / 2,
-                      width: cardW,
-                      height: cardW + stripH,
-                      zIndex: g.zIndex,
-                      borderRadius: 24,
-                      overflow: "hidden",
-                      boxShadow: isCenter
-                        ? "0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.07)"
-                        : "0 18px 44px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04)",
-                      WebkitTapHighlightColor: "transparent",
-                    }}
-                    initial={{
-                      opacity: deeper.opacity,
-                      scale: offset === 0 ? 0.94 : deeper.scale,
-                      x: (deeper.xPct / 100) * cardW,
-                      y: (deeper.yPct / 100) * cardW,
-                      rotate: deeper.rotateZDeg,
-                      rotateY: deeper.rotateYDeg,
-                      filter: `blur(${deeper.blurPx}px)`,
-                    }}
-                    animate={{
-                      opacity: g.opacity,
-                      scale: g.scale,
-                      x: (g.xPct / 100) * cardW,
-                      y: (g.yPct / 100) * cardW,
-                      rotate: g.rotateZDeg,
-                      rotateY: g.rotateYDeg,
-                      filter: `blur(${g.blurPx}px)`,
-                    }}
-                    exit={{
-                      opacity: deeper.opacity,
-                      scale: deeper.scale,
-                      x: (deeper.xPct / 100) * cardW,
-                      y: (deeper.yPct / 100) * cardW,
-                      rotate: deeper.rotateZDeg,
-                      rotateY: deeper.rotateYDeg,
-                      filter: `blur(${deeper.blurPx}px)`,
-                    }}
-                    transition={{ duration: motionOn ? SPATIAL_TRANSITION_MS / 1000 : 0, ease: SPATIAL_EASE }}
-                    data-mq-spatial-card={offset}
-                    data-track-id={track.id}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (isCenter) togglePlay();
-                        else playTrack(track, queue);
-                      }}
-                      className="w-full h-full flex flex-col text-left cursor-pointer"
-                      style={{ padding: 0, border: "none", background: "transparent", font: "inherit" }}
-                      aria-label={isCenter
-                        ? `${isPlaying ? "Пауза" : "Играть"}: ${track.title}`
-                        : `Переключиться на: ${track.title} — ${track.artist}`}
-                    >
-                      {/* artwork — real cover, true square, never cropped */}
-                      <div className="w-full flex-shrink-0 relative" style={{ height: cardW }}>
-                        {track.cover ? (
-                          <img
-                            src={track.cover}
-                            alt=""
-                            className="absolute inset-0 w-full h-full object-cover"
-                            loading="eager"
-                            draggable={false}
-                          />
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 55%, #000))" }}>
-                            <Music className="w-14 h-14" style={{ color: "rgba(255,255,255,0.7)" }} />
-                          </div>
-                        )}
-                      </div>
-                      {/* glass info strip — title/metadata live INSIDE the card */}
-                      {isCenter ? (
-                        <div
-                          className="w-full flex-1 min-h-0 flex flex-col justify-center min-w-0"
-                          style={{
-                            background: "rgba(10, 10, 14, 0.42)",
-                            backdropFilter: "blur(20px)",
-                            WebkitBackdropFilter: "blur(20px)",
-                            borderTop: "1px solid rgba(255,255,255,0.08)",
-                            padding: isMobile ? "8px 14px" : "10px 18px",
-                          }}
-                        >
-                          <LiquidTitle
-                            text={track.title}
-                            swapKey={track.id}
-                            playing={isPlaying}
-                            progressFraction={progressFraction}
-                            motionEnabled={motionOn}
-                            className={`mq-text-display font-bold leading-tight ${isMobile ? "text-[19px]" : "text-[22px]"} tracking-[-0.01em]`}
-                          />
-                          <p
-                            className={`truncate ${isMobile ? "text-[13px] mt-1" : "text-sm mt-1"}`}
-                            style={{ color: "var(--mq-text-muted)" }}
-                          >
-                            {track.artist}
-                            {track.album ? ` · ${track.album}` : ""}
-                          </p>
-                        </div>
-                      ) : (
-                        /* side cards: quiet glass foot — presence, not info */
-                        <div
-                          className="w-full flex-1 min-h-0"
-                          style={{
-                            background: "rgba(10, 10, 14, 0.38)",
-                            backdropFilter: "blur(18px)",
-                            WebkitBackdropFilter: "blur(18px)",
-                            borderTop: "1px solid rgba(255,255,255,0.06)",
-                          }}
-                        />
-                      )}
-                    </button>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </div>
+            <div
+              className="relative"
+              style={{ width: cardW, height: cardW + stripH }}
+              data-mq-spatial="deck"
+            >
+              <AnimatePresence>
+                {cards.map(({ track, offset }) => {
+                  // Stable identity per physical queue slot: a card keeps
+                  // its key while its OFFSET changes → framer animates the
+                  // deck smoothly instead of remounting every card.
+                  const absPos = queueIndex + offset;
+                  return (
+                    <SpatialCard
+                      key={`${track.id}@${absPos}`}
+                      track={track}
+                      offset={offset}
+                      cardW={cardW}
+                      stripH={stripH}
+                      motionOn={motionOn}
+                      isPlaying={isPlaying}
+                      progressFraction={progressFraction}
+                      onCenterPlayPause={() => togglePlay()}
+                      onSidePlay={(t) => playTrack(t, queue)}
+                    />
+                  );
+                })}
+              </AnimatePresence>
+            </div>
 
-          {/* v9 — floating action rail (desktop): vertical glass pill
-              (Like / Dislike / More) beside the carousel, vertically
-              centred on the composition; side comes from the user
-              setting; clamped so it can never leave the stage. */}
-          {!isMobile && (
+            {/* v9 — floating action rail (desktop): vertical glass pill
+                (Like / Dislike / More) beside the carousel, vertically
+                centred on the composition; side comes from the user
+                setting; clamped so it can never leave the stage. */}
             <div
               className="absolute"
               style={{
@@ -764,57 +814,126 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
                 onMore={(e) => setMoreMenu({ x: e.clientX, y: e.clientY })}
               />
             </div>
-          )}
-        </main>
-
-        {/* v9 — mobile action pill: the vertical rail physically cannot
-            fit beside the card on a phone, so the SAME component becomes a
-            compact horizontal glass pill between the artwork and the
-            control bar — same visual language, same LEFT/RIGHT setting. */}
-        {isMobile && (
-          <div
-            className="relative z-20 flex-shrink-0 px-4"
-            style={{ paddingBottom: 6 }}
-            data-mq-spatial="action-rail-row"
-          >
-            <div className={`flex ${spatialActionsPosition === "left" ? "justify-start" : "justify-end"}`}>
-              <SpatialActionRail
-                position={spatialActionsPosition}
-                orientation="horizontal"
-                isLiked={isLiked}
-                isDisliked={isDisliked}
-                onLike={() => handleLike()}
-                onDislike={() => handleDislike()}
-                onMore={(e) => setMoreMenu({ x: e.clientX, y: e.clientY })}
-              />
-            </div>
-          </div>
+          </main>
         )}
 
-        {/* ═══ BOTTOM — compact floating glass control bar (reference-like
-            3-row stack: thin progress / transport / secondary). A floating
-            object with negative space around it — never a full-width
-            standard player panel. Like/Dislike/More live in the action
-            rail above, NOT here. ═══ */}
+        {/* ═══ MOBILE — NORMAL PLAYER COMPOSITION (v10).
+            Not a shrunken desktop carousel: a proper mobile music player —
+            big centered artwork (swipeable), identity + Like/Dislike under
+            it, then progress and the glass control panel in the footer.
+            The Left/Right rail setting is desktop-only and intentionally
+            has no effect here. ═══ */}
+        {isMobile && (
+          <main
+            className="relative flex-1 min-h-0 flex flex-col px-4"
+            onTouchStart={onStageTouchStart}
+            onTouchEnd={onStageTouchEnd}
+            data-mq-spatial="mobile-stage"
+          >
+            {/* artwork — the hero of the screen; sits CLOSE to the
+                identity row (native mobile anatomy — free space pools
+                above, never between artwork and its metadata) */}
+            <div className="flex-1 min-h-0 flex items-end justify-center" style={{ paddingBottom: 18 }}>
+              <div
+                data-mq-spatial="mobile-artwork"
+                className="relative overflow-hidden flex-shrink-0"
+                style={{
+                  width: cardW,
+                  height: cardW,
+                  borderRadius: 24,
+                  boxShadow: "0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.07)",
+                }}
+              >
+                <AnimatePresence>
+                  <motion.div
+                    key={currentTrack.id}
+                    className="absolute inset-0"
+                    initial={{ opacity: 0, scale: 1.05 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: motionOn ? 0.35 : 0, ease: SPATIAL_EASE }}
+                  >
+                    {currentTrack.cover ? (
+                      <img
+                        src={currentTrack.cover}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover"
+                        loading="eager"
+                        draggable={false}
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 55%, #000))" }}>
+                        <Music className="w-16 h-16" style={{ color: "rgba(255,255,255,0.7)" }} />
+                      </div>
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+            </div>
+
+            {/* identity + Like / Dislike (44px targets) */}
+            <div className="flex items-end justify-between gap-1 flex-shrink-0" style={{ paddingBottom: 12 }} data-mq-spatial="mobile-identity">
+              <div className="min-w-0 flex-1">
+                <LiquidTitle
+                  text={currentTrack.title}
+                  swapKey={currentTrack.id}
+                  playing={isPlaying}
+                  progressFraction={progressFraction}
+                  motionEnabled={motionOn}
+                  className="mq-text-display font-bold text-[21px] leading-tight tracking-[-0.01em]"
+                />
+                <button
+                  type="button"
+                  onClick={handleArtist}
+                  className="text-[14px] mt-0.5 truncate max-w-full text-left flex items-center"
+                  style={{ color: "var(--mq-text-muted)", padding: 0, border: "none", background: "transparent", font: "inherit", cursor: "pointer", minHeight: 44 }}
+                >
+                  {currentTrack.artist}
+                  {currentTrack.album ? ` · ${currentTrack.album}` : ""}
+                </button>
+              </div>
+              <SpIconButton
+                onClick={() => handleLike()}
+                label={isLiked ? "Убрать из избранного" : "Нравится"}
+                pressed={isLiked}
+              >
+                <Heart
+                  className="w-[21px] h-[21px]"
+                  style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
+                  fill={isLiked ? "currentColor" : "none"}
+                />
+              </SpIconButton>
+              <SpIconButton
+                onClick={() => handleDislike()}
+                label={isDisliked ? "Убрать отметку «Не нравится»" : "Не нравится"}
+                pressed={isDisliked}
+              >
+                <ThumbsDown
+                  className="w-[19px] h-[19px]"
+                  style={{
+                    color: isDisliked ? "var(--mq-error, #ef4444)" : "var(--mq-text-muted)",
+                    ...(isDisliked ? { fill: "currentColor" } : {}),
+                  }}
+                />
+              </SpIconButton>
+            </div>
+          </main>
+        )}
+
+        {/* ═══ BOTTOM — compact floating glass control bar. Desktop: the
+            reference-like 3-row stack inside the glass panel. Mobile: a
+            normal player arrangement — full-width progress + times ABOVE
+            the panel, then the glass panel with transport + secondary.
+            Like/Dislike live in the rail (desktop) / identity row
+            (mobile), NOT here. ═══ */}
         <footer
           className="relative z-20 flex-shrink-0 px-3 sm:px-4"
           style={{ paddingTop: 2, paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
           data-mq-spatial="controls"
         >
-          <div
-            className="mx-auto w-full rounded-[28px]"
-            style={{
-              maxWidth: isMobile ? 340 : 400,
-              backgroundColor: "rgba(12, 12, 17, 0.45)",
-              backdropFilter: "blur(24px)",
-              WebkitBackdropFilter: "blur(24px)",
-              border: "1px solid rgba(255,255,255,0.09)",
-              boxShadow: "0 24px 60px rgba(0,0,0,0.45)",
-              padding: isMobile ? "6px 10px 4px" : "8px 14px 6px",
-            }}
-          >
-            {/* row 1 — progress / track time: thin, minimal, integrated */}
-            <div className="flex items-center gap-2.5">
+          {/* mobile — progress ABOVE the panel (normal mobile player anatomy) */}
+          {isMobile && (
+            <div className="flex items-center gap-2.5 mx-auto w-full" style={{ maxWidth: 400, paddingBottom: 10 }}>
               <span ref={timeCurrentRef} className="text-[11px] tabular-nums flex-shrink-0" style={{ color: "var(--mq-text-muted)", minWidth: 36, textAlign: "left" }}>0:00</span>
               <input
                 ref={seekInputRef}
@@ -831,6 +950,40 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
               />
               <span ref={timeRemainingRef} className="text-[11px] tabular-nums flex-shrink-0" style={{ color: "var(--mq-text-muted)", minWidth: 36, textAlign: "right" }}>−0:00</span>
             </div>
+          )}
+          <div
+            className="mx-auto w-full rounded-[28px]"
+            style={{
+              maxWidth: isMobile ? 340 : 400,
+              backgroundColor: "rgba(12, 12, 17, 0.45)",
+              backdropFilter: "blur(24px)",
+              WebkitBackdropFilter: "blur(24px)",
+              border: "1px solid rgba(255,255,255,0.09)",
+              boxShadow: "0 24px 60px rgba(0,0,0,0.45)",
+              padding: isMobile ? "6px 10px 4px" : "8px 14px 6px",
+            }}
+          >
+            {/* row 1 — progress / track time: DESKTOP only (mobile moved it
+                above the panel); thin, minimal, integrated */}
+            {!isMobile && (
+              <div className="flex items-center gap-2.5">
+                <span ref={timeCurrentRef} className="text-[11px] tabular-nums flex-shrink-0" style={{ color: "var(--mq-text-muted)", minWidth: 36, textAlign: "left" }}>0:00</span>
+                <input
+                  ref={seekInputRef}
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={0.05}
+                  defaultValue={0}
+                  onChange={handleSeekChange}
+                  onPointerUp={commitSeek}
+                  onKeyUp={commitSeek}
+                  aria-label="Позиция воспроизведения"
+                  className="mq-sp-seek flex-1 min-w-0"
+                />
+                <span ref={timeRemainingRef} className="text-[11px] tabular-nums flex-shrink-0" style={{ color: "var(--mq-text-muted)", minWidth: 36, textAlign: "right" }}>−0:00</span>
+              </div>
+            )}
 
             {/* row 2 — primary transport: prev · play/pause · next */}
             <div className="flex items-center justify-center gap-3 sm:gap-5">
@@ -878,8 +1031,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
               >
                 <ListMusic className="w-[19px] h-[19px]" style={{ color: queueOpen ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
               </SpIconButton>
-              {!isMobile && (
-                <div className="relative">
+              <div className="relative">
                   <SpIconButton
                     onClick={() => setShowVolume(o => !o)}
                     label={`Громкость: ${Math.round(volume)}%`}
@@ -909,8 +1061,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
                       </>
                     )}
                   </AnimatePresence>
-                </div>
-              )}
+              </div>
             </div>
           </div>
         </footer>
@@ -1048,14 +1199,24 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
         )}
       </AnimatePresence>
 
-      {/* ═══ MORE MENU (MenuCore portal) ═══ */}
+      {/* ═══ MORE MENU (MenuCore portal) — v10: header with track art +
+          the full audited action set (same handlers as Classic) ═══ */}
       {moreMenu && (
         <MenuCore
           anchor={moreMenu}
           onClose={() => setMoreMenu(null)}
           elements={moreElements}
+          width={280}
           ariaLabel="Действия с треком"
           side="above"
+          header={
+            <MenuHeader
+              cover={currentTrack.cover}
+              title={currentTrack.title}
+              subtitle={currentTrack.artist}
+              fallbackIcon={Music}
+            />
+          }
         />
       )}
 
@@ -1129,6 +1290,287 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
 // SHARED BITS
 // ═════════════════════════════════════════════════════════════════════════
 
+/** v10 — BACKGROUND environment from the artwork, drawn through a tiny
+ *  canvas so the blur is baked at SMALL resolution and upscaled with the
+ *  browser's smooth bilinear filtering. This removes GPU-blur banding
+ *  (periodic brightness staircases) that a full-screen
+ *  <img filter:blur(72px)> produced on smooth dark gradients — the
+ *  compositor renders huge blurs at reduced internal resolution. The
+ *  canvas is opaque; failure (no ctx / broken image) just leaves the
+ *  solid dark base — no fallback artifacts. */
+function SpatialBackdrop({ src }: { src: string }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const c = ref.current;
+    if (!c || !src) return;
+    setReady(false);
+    // intrinsic size first (survives even where getContext is unsupported —
+    // e.g. jsdom — the element is still a tiny canvas)
+    const S = 144; // tiny square — the CSS upscale smooths everything
+    c.width = S;
+    c.height = S;
+    // jsdom: getContext returns null → stays dark, no crash
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = () => {
+      try {
+        ctx.clearRect(0, 0, S, S);
+        // blur baked at tiny resolution (6px here ≈ 60px on a 1440 screen)
+        ctx.filter = "blur(6px) saturate(112%)";
+        // cover-crop the artwork into the tiny square
+        const ar = img.width / img.height;
+        let sw = img.width, sh = img.height, sx = 0, sy = 0;
+        if (ar > 1) { sw = img.height; sx = (img.width - sw) / 2; }
+        else { sh = img.width; sy = (img.height - sh) / 2; }
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, S, S);
+        ctx.filter = "none";
+        setReady(true);
+      } catch {
+        /* tainted canvas draw is fine; anything else → keep dark base */
+      }
+    };
+    img.onerror = () => setReady(false);
+    img.src = src;
+  }, [src]);
+
+  return (
+    <canvas
+      ref={ref}
+      aria-hidden="true"
+      className="absolute inset-0 w-full h-full"
+      style={{
+        objectFit: "cover",
+        // grow past the edges so the blurred border zones stay off-screen
+        transform: "scale(1.45)",
+        opacity: ready ? 1 : 0,
+        transition: "opacity 0.5s ease",
+      }}
+    />
+  );
+}
+
+/** v10 — ONE carousel card with the desktop hover preview + keyboard-focus
+ *  twin. Geometry: side cards sit quieter (deck members); hovering a side
+ *  card lifts it a notch (a touch larger, brighter, less blur — the pure
+ *  spatialHoverGeom), focusing it lifts one notch less (spatialFocusGeom).
+ *  Hover/focus is DESKTOP-ONLY (mobile gets plain cards — no hover-only
+ *  states on touch). Timing: 200ms in AND out; the 500ms carousel ease is
+ *  untouched. The preview is transform/opacity/filter only — no layout
+ *  shift — and the click behaviour is unchanged (center = play/pause,
+ *  side = switch to that track). */
+function SpatialCard({
+  track,
+  offset,
+  cardW,
+  stripH,
+  motionOn,
+  isPlaying,
+  progressFraction,
+  onCenterPlayPause,
+  onSidePlay,
+}: {
+  track: Track;
+  offset: number;
+  cardW: number;
+  stripH: number;
+  motionOn: boolean;
+  isPlaying: boolean;
+  progressFraction: number;
+  onCenterPlayPause: () => void;
+  onSidePlay: (t: Track) => void;
+}) {
+  const g = spatialCardGeom(offset, false);
+  const deeper = deeperThan(g);
+  const isCenter = offset === 0;
+
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const hoverActive = !isCenter && hovered;
+  const focusActive = !isCenter && focused && !hovered;
+  const isPreview = hoverActive || focusActive;
+  const target = hoverActive
+    ? spatialHoverGeom(g, false)
+    : focusActive
+      ? spatialFocusGeom(g, false)
+      : g;
+
+  // 200ms for preview enter AND leave (spec: 180–250ms both ways); the
+  // 500ms carousel ease stays for deck motion. The latch is armed in the
+  // EVENT HANDLERS (never in render/effects) and decays after the hover
+  // window — so the leave transition is fast too, then deck motion
+  // returns to its 500ms calm.
+  const [previewLatch, setPreviewLatch] = useState(false);
+  const latchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const armLatch = () => {
+    setPreviewLatch(true);
+    if (latchTimer.current) clearTimeout(latchTimer.current);
+    latchTimer.current = setTimeout(() => setPreviewLatch(false), SPATIAL_HOVER_MS);
+  };
+  useEffect(() => () => {
+    if (latchTimer.current) clearTimeout(latchTimer.current);
+  }, []);
+  const transitionSec = isPreview || previewLatch
+    ? SPATIAL_HOVER_MS / 1000
+    : motionOn
+      ? SPATIAL_TRANSITION_MS / 1000
+      : 0;
+
+  const filterStr = isPreview
+    ? `blur(${target.blurPx}px) brightness(1.07)`
+    : `blur(${target.blurPx}px)`;
+
+  return (
+    <motion.div
+      className="absolute"
+      style={{
+        // CSS centering via margins (NOT transform — framer owns the
+        // transform during animation)
+        left: "50%",
+        top: "50%",
+        marginLeft: -cardW / 2,
+        marginTop: -(cardW + stripH) / 2,
+        width: cardW,
+        height: cardW + stripH,
+        zIndex: g.zIndex,
+        borderRadius: 24,
+        overflow: "hidden",
+        boxShadow: isCenter
+          ? "0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.07)"
+          : isPreview
+            ? "0 22px 52px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.10)"
+            : "0 18px 44px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04)",
+        WebkitTapHighlightColor: "transparent",
+      }}
+      initial={{
+        opacity: deeper.opacity,
+        scale: offset === 0 ? 0.94 : deeper.scale,
+        x: (deeper.xPct / 100) * cardW,
+        y: (deeper.yPct / 100) * cardW,
+        rotate: deeper.rotateZDeg,
+        rotateY: deeper.rotateYDeg,
+        filter: `blur(${deeper.blurPx}px)`,
+      }}
+      animate={{
+        opacity: target.opacity,
+        scale: target.scale,
+        x: (target.xPct / 100) * cardW,
+        y: (target.yPct / 100) * cardW,
+        rotate: target.rotateZDeg,
+        rotateY: target.rotateYDeg,
+        filter: filterStr,
+      }}
+      exit={{
+        opacity: deeper.opacity,
+        scale: deeper.scale,
+        x: (deeper.xPct / 100) * cardW,
+        y: (deeper.yPct / 100) * cardW,
+        rotate: deeper.rotateZDeg,
+        rotateY: deeper.rotateYDeg,
+        filter: `blur(${deeper.blurPx}px)`,
+      }}
+      transition={{ duration: transitionSec, ease: SPATIAL_EASE }}
+      // hover preview — desktop pointers only, never on the center card;
+      // every enter/leave also arms the 200ms transition latch
+      onMouseEnter={isCenter ? undefined : () => { setHovered(true); armLatch(); }}
+      onMouseLeave={isCenter ? undefined : () => { setHovered(false); armLatch(); }}
+      // keyboard focus bubbles from the inner button to here
+      onFocus={isCenter ? undefined : () => { setFocused(true); armLatch(); }}
+      onBlur={isCenter ? undefined : () => { setFocused(false); armLatch(); }}
+      data-mq-spatial-card={offset}
+      data-mq-hover={hoverActive ? "true" : undefined}
+      data-mq-focus={focusActive ? "true" : undefined}
+      data-track-id={track.id}
+    >
+      <button
+        type="button"
+        onClick={() => {
+          if (isCenter) onCenterPlayPause();
+          else onSidePlay(track);
+        }}
+        className="w-full h-full flex flex-col text-left cursor-pointer"
+        style={{ padding: 0, border: "none", background: "transparent", font: "inherit" }}
+        aria-label={isCenter
+          ? `${isPlaying ? "Пауза" : "Играть"}: ${track.title}`
+          : `Переключиться на: ${track.title} — ${track.artist}`}
+      >
+        {/* artwork — real cover, true square, never cropped */}
+        <div className="w-full flex-shrink-0 relative" style={{ height: cardW }}>
+          {track.cover ? (
+            <img
+              src={track.cover}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+              loading="eager"
+              draggable={false}
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 55%, #000))" }}>
+              <Music className="w-14 h-14" style={{ color: "rgba(255,255,255,0.7)" }} />
+            </div>
+          )}
+          {/* v10 — soft glass highlight + barely-there directional glow
+              toward the deck centre. Appears only on hover/focus preview,
+              200ms fade, pointer-transparent, zero layout impact. */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              opacity: isPreview ? 1 : 0,
+              transition: `opacity ${SPATIAL_HOVER_MS}ms ease`,
+              background: `linear-gradient(${offset < 0 ? "to left" : "to right"}, rgba(255,255,255,0.085) 0%, rgba(255,255,255,0.03) 26%, transparent 58%)`,
+              boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.09)",
+            }}
+          />
+        </div>
+        {/* glass info strip — title/metadata live INSIDE the card */}
+        {isCenter ? (
+          <div
+            className="w-full flex-1 min-h-0 flex flex-col justify-center min-w-0"
+            style={{
+              background: "rgba(10, 10, 14, 0.42)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              borderTop: "1px solid rgba(255,255,255,0.08)",
+              padding: "10px 18px",
+            }}
+          >
+            <LiquidTitle
+              text={track.title}
+              swapKey={track.id}
+              playing={isPlaying}
+              progressFraction={progressFraction}
+              motionEnabled={motionOn}
+              className="mq-text-display font-bold leading-tight text-[22px] tracking-[-0.01em]"
+            />
+            <p
+              className="truncate text-sm mt-1"
+              style={{ color: "var(--mq-text-muted)" }}
+            >
+              {track.artist}
+              {track.album ? ` · ${track.album}` : ""}
+            </p>
+          </div>
+        ) : (
+          /* side cards: quiet glass foot — presence, not info */
+          <div
+            className="w-full flex-1 min-h-0"
+            style={{
+              background: "rgba(10, 10, 14, 0.38)",
+              backdropFilter: "blur(18px)",
+              WebkitBackdropFilter: "blur(18px)",
+              borderTop: "1px solid rgba(255,255,255,0.06)",
+            }}
+          />
+        )}
+      </button>
+    </motion.div>
+  );
+}
+
 /** 44×44 icon button (a11y target size), theme-token styled. */
 function SpIconButton({
   onClick,
@@ -1164,14 +1606,12 @@ function SpIconButton({
 }
 
 /** v9 — ONE floating glass control for the auxiliary actions
- *  (Like / Dislike / More), reference-style:
- *    - desktop: vertical rounded pill floating beside the carousel;
- *    - mobile: compact horizontal pill between artwork and control bar
- *      (same visual language, same component);
- *    - position: "left" | "right" — the user setting; the SAME component
- *      changes side, controls are never duplicated.
- *  Reads the exact same store actions as Classic (toggleLike /
- *  toggleDislike / existing More menu) — no new logic, no new menu. */
+ *  (Like / Dislike / More), reference-style: a vertical rounded pill
+ *  floating beside the carousel. Position: "left" | "right" — the user
+ *  setting (desktop Spatial only; the v10 mobile composition keeps
+ *  Like/Dislike in the identity row instead of a rail). Reads the exact
+ *  same store actions as Classic (toggleLike / toggleDislike / existing
+ *  More menu) — no new logic, no new menu. */
 function SpatialActionRail({
   position,
   orientation,
