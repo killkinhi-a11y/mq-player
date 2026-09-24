@@ -6969,3 +6969,80 @@ Stage Summary:
   action set, Spatial mobile = normal premium player, Classic
   mobile polished, Settings desktop-only note. 526/526 tests, all
   gates green. Ready for commit → push → Vercel → production E2E.
+
+---
+Task ID: SPATIAL-POLISH-V10-DEPLOY-E2E
+Agent: Main Agent
+Task: Deploy gate → commit d41375b4 → push main → Vercel production
+mq-build-d41375b4 live 2026-09-24T23:39:30Z (auto-deploy on push,
+version 80) → production E2E desktop + mobile.
+
+Work Log:
+- PROD E2E DESKTOP 1440×900 (fresh demo): Classic opens (real
+  dialog, Ambient Dreams), play toggle, Esc×2 close ✓; Settings →
+  Spatial + «Расположение дополнительных действий» visible ✓;
+  spatial open: canvas backdrop 144×144 live in prod, rail left,
+  overflowX=0 ✓; hover neighbour (visible edge): scale 0.68→0.735,
+  blur 1.5→0.5, brightness 1.07, data-mq-hover=true — full parity
+  with local ✓; More → header + all 7 audited items ✓; switch
+  Right → rail [1246,330,58×156] mirrored, overflowX=0 ✓; RELOAD
+  → stored spatial+right, demo re-entry, track play, reopen →
+  rail right + canvas 144 ✓; console: ZERO UI errors, zero page
+  errors ✓.
+- PROD E2E MOBILE 390×844 (iPhone 14, fresh demo): defaults
+  classic+left for fresh users ✓; Classic mobile opens, play
+  toggle, Esc×2 close ✓; switch to Spatial via Settings ✓;
+  Spatial mobile = NORMAL player (mobile-artwork [28,264,335×335]
+  + mobile-identity, ZERO carousel cards, ZERO rail, overflowX=0,
+  brokenImages=0) ✓; play/pause ✓; next → Electronic Pulse ✓;
+  touch-swipe left on artwork → Jazz Evening ✓; header ⋯ More =
+  7 items ✓; like pressed + persisted (liked=1) ✓; reload →
+  mode=spatial persisted ✓; console: ZERO UI errors, zero page
+  errors ✓.
+- NOTE for future QA: standalone server restart requires
+  pkill -f "next-server" (the spawned process name) — killing
+  only the node wrapper leaves a stale server serving old chunks
+  (ChunkLoadError theater).
+
+Stage Summary:
+- v10 complete in production: hover preview (200ms, desktop-only,
+  spec-band), banding fixed at the source (tiny-canvas backdrop —
+  12× less quantization, VLM A/B confirms), full audited More
+  menu (7 actions, Classic-mirroring order, no duplicates),
+  Spatial mobile = normal premium player, Classic mobile
+  polished, Settings desktop-only note. 526/526 tests. Production
+  E2E desktop + mobile green. REGRESSIONS: none.
+
+---
+Task ID: MQ-REFERENCE-WORKFLOW-STANDARD
+Agent: Main Agent
+Task: Fix the REFERENCE-driven workflow as the standard MQ Player
+process (owner §12) — canonical for all future reference tasks.
+
+Work Log:
+- Documented the standard workflow (this + the v10 run itself as
+  the reference execution):
+  1. STUDY the original reference first (image → inspect; video →
+     download/extract and study key frames).
+  2. If there is ANIMATION — study initial state, transition,
+     timing, hover, expansion, collapse, interaction — not just
+     the resting look.
+  3. Study the CURRENT MQ implementation.
+  4. Write a CONCRETE differences list (MQ vs reference) BEFORE
+     any code.
+  5. Only then implement — same composition / interaction pattern
+     / hierarchy / depth / animation / visual language as the
+     reference, without literally copying the foreign brand/UI.
+  6. Verify with MULTIPLE passes, never one VLM run: DOM/geometry
+     assertions, screenshots, pixel/visual comparison where
+     applicable (e.g. v10: 48%→4% quantization measurement), and
+     several VLM checks (A/B side-by-side beats absolute judgment).
+  7. Local QA gates (vitest/tsc/eslint/build) then browser E2E
+     (desktop 1440×900 + mobile 390×844: overflowX=0, console
+     clean, persistence, touch targets).
+  8. Production E2E after Vercel deploy is MANDATORY — only
+     production E2E PASS = task complete.
+
+Stage Summary:
+- Workflow fixed in the worklog as the MQ Player standard for all
+  future reference-driven tasks.
