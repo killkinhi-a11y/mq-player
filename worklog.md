@@ -6469,3 +6469,49 @@ Stage Summary:
   карточки, desktop+mobile, pub+cur, мышью и клавиатурой; плейлистная
   страница — существующая, дублирования нет; playback/menu без
   регрессий. Гейты зелёные → commit + push + deploy + production E2E.
+---
+Task ID: PLAYLISTS-MICRO-V7-DEPLOY-E2E
+Agent: Main Agent
+Task: Deploy gate пройден → commit bda064de → push main → Vercel
+auto-deploy → production E2E (desktop + mobile + функциональность).
+
+Work Log:
+- COMMIT: bda064de (MainView.tsx + PublicPlaylistsView.tsx +
+  useAppStore.ts + 5 новых deep-link тестов + QA-скрипты/артефакты +
+  worklog) — только файлы этой задачи; push 0a07865b..bda064de.
+- DEPLOY: Vercel auto-deploy; production version.json → mq-build-bda064de,
+  releasedAt 2026-09-24T19:21:07.125Z (~1.5 мин от push). URL:
+  https://mq1.vercel.app
+- QA-ИНСТРУМЕНТ (для будущих проходов): в НЕ-TTY скрипт-контексте
+  agent-browser eval сериализует строки/объекты как {} (числа проходят);
+  обходной путь — eval пишет результат в DOM-узел #mq-qa-dump, чтение
+  через `get text` (работает). Хелпер q() в qa_v7_prod_*.sh.
+- PROD E2E DESKTOP 1440x900 (fresh demo-сессия): «Рекомендованные
+  плейлисты» + «2 подборки · подобрано по вашему вкусу» ✓; computed
+  transition 0.5s | grid-template-columns | cubic-bezier(0.25,1,0.3,1) —
+  РОВНО 500ms в проде ✓; cards [309,71], gapBelow=24px (chrome-полосы
+  нет, пустого зарезервированного места нет) ✓; overflowX=0 ✓; broken=0 ✓;
+  accordion: hover strip → [71,309] → leave → [309,71] → повторный hover
+  → [71,309] (expand/collapse/reopen) ✓; hero click → view
+  public-playlists + Назад + «Открытия дня» + Play all + 50 треков,
+  fromUser=false (editorial без фейкового автора) ✓; Play all → играет
+  «Trazos Visibles» ✓; strip click → «Популярное» full page ✓; CTA ✓;
+  keyboard focus→expand, Enter→full page ✓; actions menu: «Добавить в
+  очередь» → queue=50 ✓; back → Home, секция цела [309,71] ✓; console
+  errors=0 (только [log] диагностика AudioEngine/resolveStream).
+- PROD E2E MOBILE 390x844 (fresh demo-сессия): hero 362x402 + strips
+  [83px], play-кнопки 36px ✓; tap strip (видимая зона) → стал hero
+  «Популярное», бывший hero ушёл в ряд ✓; tap hero → full page
+  («Популярное», Назад, Play all, 50 rows) ✓; back → Home ✓; 36px
+  play → играет ✓; overflowX=0 ✓; клиппинга нет ✓; broken=0 ✓;
+  console errors=0 ✓.
+- ВИЗУАЛЬНО (VLM по прод-скринам): desktop initial — «под карточками
+  просто чистое пространство, никакой тёмной полосы», поломок нет ✓;
+  mobile full page — Назад/титул/трек-лист/Play all целы ✓.
+
+Stage Summary:
+- Полный цикл v7 micro-pass завершён: анимация ровно 500ms (проверено
+  computed-стилем в проде), полное открытие плейлиста работает в проде на
+  desktop (клик hero/strip, keyboard Enter) и mobile (tap hero), внутри
+  существующей страницы плейлиста (public-playlists detail), playback/
+  actions/menu/back без регрессий. REGRESSIONS: none.
