@@ -6804,3 +6804,47 @@ Stage Summary:
   two orientations, never duplicated), compact reference-like 3-row
   glass control bar, Classic untouched, 499/499 tests, all QA gates
   green. Ready for commit → push → Vercel → production E2E.
+
+---
+Task ID: SPATIAL-POLISH-V9-DEPLOY-E2E
+Agent: Main Agent
+Task: Deploy gate → commit efd71093 → push main → Vercel production
+mq-build-efd71093 live 2026-09-24T21:57:30Z (auto-deploy on push,
+version 79) → production E2E desktop + mobile.
+
+Work Log:
+- PROD E2E DESKTOP 1440x900 (fresh demo): defaults classic+left for
+  fresh users ✓; Settings → Новый → «Расположение дополнительных
+  действий» visible, Слева aria-checked=true, store=left ✓; spatial
+  LEFT open: vertical glass rail [138,330,58×156], gap to center card
+  308px, overflowX=0 ✓ (identical to local — full parity; also
+  accidentally validated responsive rail math at an interim 1280×577
+  viewport: rail recomputed to 241px = formula exact);
+  Like (pressed=true, store=1) ✓; Dislike (store=1) ✓; More → existing
+  menu (Поделиться/К исполнителю/Добавить в плейлист) + Esc ✓;
+  N/P keyboard ✓; Queue drawer 21 rows + Esc ✓; Lyrics (F) real text
+  (Drum and Bass Remix) ✓; ArrowUp volume →75 ✓; Space pause/resume ✓;
+  Switch LEFT→RIGHT via Settings + reopen: rail [1246..1304] mirrored,
+  gap 310, overflowX=0 ✓; RELOAD → spatial+right persisted, rail right
+  vertical after demo re-entry ✓; Like/Dislike (track advanced =
+  skip semantics)/More from RIGHT rail ✓; console: ZERO UI errors,
+  zero page errors ✓. VLM prod desktop LEFT 4/4, RIGHT 4/4.
+- PROD E2E MOBILE 390x844 (iPhone 14 emulation, fresh demo): defaults
+  classic+left ✓; switch to spatial via Settings ✓; LEFT: horizontal
+  pill [16,644,156×58] between card bottom (547) and controls top
+  (708), no overlap, overflowX=0 ✓; Like from pill (store=1) ✓; swipe
+  left → next track ✓; switch RIGHT: pill right edge 374=390-16,
+  overflowX=0 ✓; Classic mode: actions-position setting hidden,
+  player opens FullTrackViewMobile (no spatial root), play toggle,
+  Esc×2 close, overflowX=0 ✓; console: ZERO UI errors ✓. VLM prod
+  mobile LEFT 2/2... (both sides pass, no defects).
+- PROD CLASSIC DESKTOP (fresh session): default mode=classic, player
+  opens FullTrackView, own dislike button present, no spatial root,
+  overflowX=0, Esc×2 close ✓.
+
+Stage Summary:
+- v9 Spatial polish complete in production: floating glass action rail
+  (Like/Dislike/More) Left default + Left/Right setting (live switch,
+  reload persistence), compact reference-like 3-row glass control bar,
+  mobile horizontal pill adaptation, Classic untouched and functional,
+  499/499 tests. REGRESSIONS: none.
