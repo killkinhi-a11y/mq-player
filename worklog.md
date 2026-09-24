@@ -6355,3 +6355,46 @@ Stage Summary:
   расширяет его до hero, прошлый hero сжимается, соседние сдвигаются;
   mobile — tap-раскрытие с перестройкой композиции). Гейты зелёные →
   commit + push + deploy + production E2E.
+---
+Task ID: PLAYLISTS-REF-V6-DEPLOY-E2E
+Agent: Main Agent
+Task: Deploy gate пройден → commit e3da1968 → push main → Vercel
+auto-deploy → production E2E (desktop + mobile + функциональность).
+
+Work Log:
+- COMMIT: e3da1968 (MainView.tsx + useAppStore.ts + worklog + v6 QA
+  scripts/artifacts + reference-video.mp4 и аналитика видео) — только
+  файлы этой задачи.
+- PUSH: origin main efbf4c8a..e3da1968 @ 18:09 UTC.
+- DEPLOY: Vercel auto-deploy; production version.json →
+  mq-build-e3da1968, releasedAt 2026-09-24T18:11:53.989Z (~100 сек от
+  push; edge-ротация заняла ещё ~20с до стабильного e3da1968).
+  URL: https://mq1.vercel.app
+- PROD E2E DESKTOP 1440x900 (СВЕЖАЯ сессия, demo-режим):
+  «Рекомендованные плейлисты» + «2 подборки · подобрано по вашему
+  вкусу» (честный fresh-user curated: Открытия дня + Популярное) ✓;
+  cards [309,71] hero+strip ✓; hover → [71,309] → leave → [309,71]
+  (accordion работает в проде) ✓; gapBelow=24px (band нет, пустого
+  зарезервированного места нет) ✓; overflowX=0 ✓; brokenVisible=0 ✓;
+  playback CTA → «Trazos Visibles» играет ✓; actions-menu
+  (Воспроизвести/Перемешать/Добавить в очередь) → queue=50 ✓; console
+  errors=0 (только [log] диагностика AudioEngine/resolveStream).
+- PROD E2E MOBILE 390x844: hero 362x402 + 3 strips 83px ✓ (после
+  playback на desktop-проходе у сессии появился вкус → curated
+  персональный) ✓; play-кнопки 36px ✓; tap strip «Ваш микс» → стал
+  hero, композиция перестроилась ✓; overflowX=0 ✓; brokenVisible=0 ✓;
+  клиппинга нет ✓; console errors=0 ✓.
+- PROD ВИЗУАЛЬНО (VLM по скринам): desktop — заголовок+суб ✓,
+  featured-анатомия (вертикальный титул слева, описание, CTA,
+  артворк-полоса снизу) ✓, узкая полоса с вертикальным титулом ✓,
+  «нет тёмной горизонтальной полосы под карточками — просто чистое
+  пространство» ✓, поломок нет ✓; mobile — hero сверху + ряд узких
+  полос ✓, всё целое ✓.
+
+Stage Summary:
+- Полный цикл v6 завершён: chrome-полоса удалена (в т.ч. из бандла),
+  секция = «Рекомендованные плейлисты» на реальных рекомендациях
+  (публичные taste-рекомендации + персональный curated), анимация
+  reference воспроизведена и работает в проде на desktop (hover
+  accordion) и mobile (tap-раскрытие). Все гейты и E2E зелёные,
+  регрессий нет. REGRESSIONS: none.
