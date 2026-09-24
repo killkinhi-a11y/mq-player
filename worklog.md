@@ -6515,3 +6515,8 @@ Stage Summary:
   desktop (клик hero/strip, keyboard Enter) и mobile (tap hero), внутри
   существующей страницы плейлиста (public-playlists detail), playback/
   actions/menu/back без регрессий. REGRESSIONS: none.
+- PROD E2E SUPPLEMENT (taste-сессия, 4 карточки [309,71,71,71]): MIDDLE
+  strip click → full page «Открытия дня» (50 rows) ✓; LAST strip click →
+  full page «Популярное» (50 rows) ✓; back → Home, ряд цел ✓. Итого в
+  проде проверены: first/hero, middle, last — все три открывают
+  полноценную страницу плейлиста; CTA/playback/actions без регрессий.
