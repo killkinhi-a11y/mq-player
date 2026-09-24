@@ -90,6 +90,11 @@ export interface PublicPlaylist {
   score?: number;
   createdAt: string;
   updatedAt: string;
+  /** Editorial marker — the app's own curated feed selections (no real
+   *  DB playlist behind them). Only used by the Home recommendations
+   *  deep-link so the existing public-playlist detail screen can hide
+   *  author/social fields that don't exist for editorial picks. */
+  editorial?: boolean;
 }
 
 export interface HistoryEntry {
@@ -458,6 +463,11 @@ interface AppState {
   publicPlaylistsLoading: boolean;
   recommendedPlaylistsLoading: boolean;
   publicPlaylistsTotal: number;
+  /** One-shot deep-link: a playlist the Home recommendations section wants
+   *  opened in the full public-playlist page. Consumed (and cleared) by
+   *  PublicPlaylistsView on mount — transient, never persisted. */
+  publicPlaylistDeepLink: PublicPlaylist | null;
+  openPublicPlaylistDetail: (playlist: PublicPlaylist) => void;
 
   // Support chat actions
   setSupportUnreadCount: (count: number) => void;
@@ -654,6 +664,7 @@ const initialState = {
   history: [] as HistoryEntry[],
   publicPlaylists: [] as PublicPlaylist[],
   recommendedPlaylists: [] as PublicPlaylist[],
+  publicPlaylistDeepLink: null as PublicPlaylist | null,
   publicPlaylistsLoading: false,
   publicPlaylistsPage: 1,
   publicPlaylistsTotal: 0,
@@ -2006,6 +2017,15 @@ export const useAppStore = create<AppState>()(
       },
 
       setSelectedPlaylistId: (id) => set({ selectedPlaylistId: id }),
+
+      // ── Public playlist deep-link (Home recommendations → full page) ──
+      // Stashes the playlist and navigates to the EXISTING public-playlists
+      // view via the normal setView path (scroll-reset etc. included);
+      // PublicPlaylistsView picks the stash up on mount and opens its detail.
+      openPublicPlaylistDetail: (playlist) => {
+        set({ publicPlaylistDeepLink: playlist });
+        get().setView("public-playlists");
+      },
 
       // ── Public playlist actions ──
       publishPlaylist: async (playlistId, tags = []) => {

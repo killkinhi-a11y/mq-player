@@ -6398,3 +6398,74 @@ Stage Summary:
   reference воспроизведена и работает в проде на desktop (hover
   accordion) и mobile (tap-раскрытие). Все гейты и E2E зелёные,
   регрессий нет. REGRESSIONS: none.
+---
+Task ID: PLAYLISTS-MICRO-V7
+Agent: Main Agent
+Task: Финальный micro-pass (v7): 520ms→500ms + полное открытие
+плейлиста (existing full playlist view) + закрепление reference-first
+workflow. Базовая линия: e3da1968 (mq1.vercel.app).
+
+Work Log:
+- ДИСЦИПЛИНА: дизайн/композиция/карточки/recommendation engine/
+  choreography НЕ тронуты (приняты владельцем).
+- ANIMATION 500ms: единственное место 520ms — grid-template-columns
+  transition в RecommendedPlaylistsEditorial → ровно 500ms, тот же
+  easing cubic-bezier(0.25,1,0.3,1), та же механика/initial/expanded/
+  collapse/порядок hero↔strip. Framer-морф (mobile) уже был 0.5s,
+  border-radius уже 500ms — всё выровнено на 500ms.
+- FULL PLAYLIST OPEN: клик/тап по карточке (desktop — любая карточка,
+  hover по-прежнему только раскрывает; mobile — hero, strip-тап
+  по-прежнему раскрывает) открывает ПОЛНУЮ страницу плейлиста через
+  СУЩЕСТВУЮЩИЙ view «public-playlists» (маршрут был осиротевшим —
+  ничего в app его не открывало; нулевой риск для живых страниц) и его
+  существующий detail-экран (artwork/title/metadata/track list/Play
+  all/Like/Назад). НОВОЙ страницы НЕ создано, UI НЕ дублирован,
+  PlaylistView/PlaylistArtwork НЕ тронуты.
+- Механизм: store.openPublicPlaylistDetail(pl) → transient-поле
+  publicPlaylistDeepLink (в persist whitelist НЕ входит) + обычный
+  setView; PublicPlaylistsView читает stash в lazy-initializer
+  первого рендера (без flash сетки) и очищает deferred-timeout'ом
+  (StrictMode-safe, паттерн PlaylistView). Рекомендации двух видов:
+  pub_* → РЕАЛЬНЫЙ PublicPlaylist из store (все поля настоящие);
+  cur_* → честная editorial-обёртка (real name/subtitle/tracks/
+  trackCount, editorial:true) — detail-экран для editorial прячет
+  только «от @автор», лайки/прослушивания и Like-кнопку (несуществующие
+  сущности), остальное байт-в-байт то же.
+- CTA «Слушать», 36px play, actions menu, queue — без изменений.
+- Тесты: новый src/__tests__/store/public-playlist-deeplink.test.ts
+  (5 тестов: stash+навигация, one-shot, transient/non-persisted,
+  editorial flag) → suite 458/458 PASS.
+- Гейты: tsc src/ 0 ошибок; eslint 0 errors (warnings байт-в-байт =
+  baseline 83); production build PASS.
+- QA-окружение: standalone-сервер (next start клинило API при output:
+  standalone; supervisor scripts/serve-qa-v7.sh + daemon-serve-v7.py,
+  double-fork против sandbox reaper), :3111.
+- LOCAL QA DESKTOP 1440x900: transDur computed «0.5s» + prop
+  «grid-template-columns» + тот же bezier ✓; initial [309,71] «2
+  подборки» ✓; hover strip → [71,309] → leave → [309,71] → hover
+  снова → [71,309] (expand/collapse/reopen) ✓; hero click →
+  view=public-playlists + Назад + title + Play all + 50 rows ✓;
+  strip click → «Популярное» full page ✓; keyboard focus→expand,
+  Enter→full page ✓; Play all → играет ✓; track row click → играет ✓;
+  CTA toggle ✓; back → Home, секция цела ✓; overflowX=0; broken=0;
+  console errors=0. VLM: full page цел (artwork/title/metadata/rows/
+  Play all, поломок нет).
+- LOCAL QA MOBILE 390x844: hero 362x402 + strips 83px, play 36px ✓;
+  tap strip (видимая зона) → стал hero, бывший hero ушёл в ряд ✓;
+  tap hero («Открытия дня» и после свапа «Популярное») → full page
+  (title/rows/Назад) ✓; back → Home ✓; overflowX=0; клиппинга нет;
+  console clean. QA-находка (НЕ регрессия, v6-геометрия): нижняя
+  часть высоких strip-карт уходит под fixed bottom nav при данной
+  прокрутке — скролл-андер паттерн; клик в видимую зону работает.
+- REFERENCE-FIRST WORKFLOW закреплён как правило для всех следующих
+  reference-driven задач MQ (A. Discovery → B. Anatomy → C. REFERENCE
+  | MQ direct comparison → D. Implementation поведения → E. QA →
+  F. Production). В этой задаче нового reference не было (владелец
+  запретил редизайн) — применён к проверке анимационных состояний
+  (initial/expanded/collapse соответствуют принятому v6).
+
+Stage Summary:
+- 500ms ровно; полное открытие работает для hero/strip/последней
+  карточки, desktop+mobile, pub+cur, мышью и клавиатурой; плейлистная
+  страница — существующая, дублирования нет; playback/menu без
+  регрессий. Гейты зелёные → commit + push + deploy + production E2E.

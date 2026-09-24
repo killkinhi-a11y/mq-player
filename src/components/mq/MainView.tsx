@@ -195,6 +195,45 @@ function MainView() {
     return out;
   }, [recommendedPlaylists, curatedPlaylists]);
 
+  // ── Full playlist open (micro-pass): clicking/tapping a card (desktop) or
+  // the expanded hero (mobile) opens the playlist's FULL page — the
+  // EXISTING public-playlist detail screen reached via the app's normal
+  // view routing (openPublicPlaylistDetail → currentView
+  // "public-playlists"). Public taste-based picks pass their REAL
+  // PublicPlaylist object; curated feed selections are wrapped as
+  // `editorial` picks (real name/subtitle/tracks, no fabricated author or
+  // social counts — the detail screen hides those fields for them).
+  const openRecommendedPlaylist = useCallback((it: RecPlItem) => {
+    const store = useAppStore.getState();
+    const rawId = it.id.startsWith("pub_") || it.id.startsWith("cur_") ? it.id.slice(4) : it.id;
+    if (it.id.startsWith("pub_")) {
+      const pl = (recommendedPlaylists || []).find((p) => p && String(p.id) === rawId);
+      if (pl) store.openPublicPlaylistDetail(pl);
+      return;
+    }
+    const c = (curatedPlaylists || []).find((p) => p && p.id === rawId);
+    if (c && Array.isArray(c.tracks) && c.tracks.length > 0) {
+      store.openPublicPlaylistDetail({
+        id: c.id,
+        userId: "",
+        username: "",
+        name: c.name,
+        description: c.subtitle,
+        cover: c.tracks[0]?.cover || "",
+        isPublic: false,
+        tags: [],
+        tracks: c.tracks,
+        trackCount: c.tracks.length,
+        likeCount: 0,
+        playCount: 0,
+        isLiked: false,
+        createdAt: "",
+        updatedAt: "",
+        editorial: true,
+      });
+    }
+  }, [recommendedPlaylists, curatedPlaylists]);
+
   // ── Taste signature (Task 2) ──
   // Stable STRING derived from the exact params that drive the home feed
   // request. The tasteProfile object identity changes on every play/sync
@@ -790,6 +829,8 @@ function MainView() {
       {/* reference's own interaction (video pin): hovering/tapping a      */}
       {/* narrow strip EXPANDS it into the featured card while the         */}
       {/* previous featured card collapses back — one accordion row.       */}
+      {/* Activating a card (desktop click / mobile hero tap) opens the     */}
+      {/* playlist's FULL page via the existing public-playlist view.      */}
       {/* ════════════════════════════════════════════════════════════════ */}
       {recPlItems.length > 0 && (
         <RecommendedPlaylistsEditorial
@@ -802,6 +843,7 @@ function MainView() {
             if (currentTrack?.id === it.tracks[0].id) { togglePlay(); return; }
             playTrack(it.tracks[0], it.tracks);
           }}
+          onOpen={openRecommendedPlaylist}
           onMore={(it, e) => openCuratedMenu({ id: it.id, name: it.name, subtitle: it.subtitle, gradient: "", tracks: it.tracks }, e)}
         />
       )}
@@ -1772,6 +1814,7 @@ function RecommendedPlaylistsEditorial({
   isPlaying,
   animationsEnabled,
   onPlay,
+  onOpen,
   onMore,
 }: {
   items: RecPlItem[];
@@ -1779,6 +1822,7 @@ function RecommendedPlaylistsEditorial({
   isPlaying: boolean;
   animationsEnabled: boolean;
   onPlay: (it: RecPlItem) => void;
+  onOpen: (it: RecPlItem) => void;
   onMore: (it: RecPlItem, e: React.MouseEvent) => void;
 }) {
   const isMobile = useIsMobile();
@@ -1819,7 +1863,10 @@ function RecommendedPlaylistsEditorial({
     // on one shared card line below. Tapping a strip EXPANDS it into the
     // featured slot (framer layoutId morph — the card visibly grows from
     // its strip position), the previous featured card collapses back into
-    // the strip row. Same interaction, touch ergonomics.
+    // the strip row. Tapping the ALREADY-expanded featured card opens the
+    // playlist's full page (the strip tap already covers "expand"; the
+    // always-visible 36px play circle and the «Слушать» CTA keep playback
+    // one tap away). Same interaction, touch ergonomics.
     const strips = items.filter((it) => it.id !== featured.id).slice(0, 7);
     return (
       <section aria-label="Рекомендованные плейлисты" className="relative" style={{ overflowX: "clip" }}>
@@ -1832,7 +1879,7 @@ function RecommendedPlaylistsEditorial({
           active
           layoutId={"recpl-" + featured.id}
           isPlayingThis={isPlayingIt(featured)}
-          onClickCard={() => onPlay(featured)}
+          onClickCard={() => onOpen(featured)}
           onPlay={() => onPlay(featured)}
           onMore={(e) => onMore(featured, e)}
           animationsEnabled={animationsEnabled}
@@ -1909,13 +1956,16 @@ function RecommendedPlaylistsEditorial({
           {/* Card row — x 13.1→86.5%, y 29.9→72.6% of the reference
               (rebased to the shorter canvas). Hovering/focusing a strip
               expands it; leaving the row collapses back to the resting
-              featured state. Heights are fixed → zero page reflow/CLS. */}
+              featured state. Clicking a card (or Enter/Space on focus)
+              opens that playlist's FULL page — the existing
+              public-playlist view; playback stays on the «Слушать» CTA
+              and the actions menu. Heights are fixed → zero reflow/CLS. */}
           <div className="absolute" style={{ left: "13.1%", right: "13.5%", top: "39.6%", height: "56.5%" }}>
             <div
               className="grid h-full"
               style={{
                 gridTemplateColumns: template,
-                transition: animationsEnabled ? "grid-template-columns 520ms cubic-bezier(0.25, 1, 0.3, 1)" : undefined,
+                transition: animationsEnabled ? "grid-template-columns 500ms cubic-bezier(0.25, 1, 0.3, 1)" : undefined,
               }}
               onMouseLeave={() => setActiveId(null)}
               onBlur={(e) => {
@@ -1930,7 +1980,7 @@ function RecommendedPlaylistsEditorial({
                   item={it}
                   active={it.id === featured.id}
                   isPlayingThis={isPlayingIt(it)}
-                  onClickCard={() => onPlay(it)}
+                  onClickCard={() => onOpen(it)}
                   onMouseEnter={() => setActiveId(it.id)}
                   onFocus={() => setActiveId(it.id)}
                   onPlay={() => onPlay(it)}
@@ -2067,8 +2117,9 @@ function RecommendedCard({
           )}
         </div>
         {/* Desktop note: no hover play circle here — hovering a strip
-            EXPANDS it (reference interaction) and the play affordance
-            becomes the expanded card's «Слушать» CTA + the card click. */}
+            EXPANDS it (reference interaction); the play affordance is the
+            expanded card's «Слушать» CTA + the actions menu, while a card
+            CLICK opens the playlist's full page. */}
         {/* Mobile: always-visible play circle, 36px (touch parity) */}
         {item.tracks.length > 0 && (
           <button

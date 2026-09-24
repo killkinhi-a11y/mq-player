@@ -45,12 +45,30 @@ export default function PublicPlaylistsView() {
   const [tab, setTab] = useState<Tab>("public");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("popular");
-  const [selectedPlaylist, setSelectedPlaylist] = useState<PublicPlaylist | null>(null);
+  const [selectedPlaylist, setSelectedPlaylist] = useState<PublicPlaylist | null>(
+    // Deep-link from Home's recommended playlists: read the one-shot stash
+    // (set by openPublicPlaylistDetail) during the FIRST render so the
+    // detail screen paints immediately — no grid flash. The stash is
+    // cleared post-mount (StrictMode-safe: both dev double-mount renders
+    // read the same value before the deferred clear fires).
+    () => useAppStore.getState().publicPlaylistDeepLink
+  );
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [publishPlaylistId, setPublishPlaylistId] = useState("");
   const [publishTags, setPublishTags] = useState("");
   const [publishing, setPublishing] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState(false);
+
+  // Deep-link stash cleanup — one-shot: cleared right after mount so a
+  // later plain visit never re-opens the detail. Deferred setTimeout (same
+  // store-update-during-commit pattern as PlaylistView's unmount reset);
+  // the cleanup guard makes the StrictMode double-mount consume it once.
+  useEffect(() => {
+    if (useAppStore.getState().publicPlaylistDeepLink) {
+      const t = setTimeout(() => useAppStore.setState({ publicPlaylistDeepLink: null }), 0);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   // Load data on mount
   useEffect(() => {
@@ -132,9 +150,11 @@ export default function PublicPlaylistsView() {
               <h2 className="text-xl font-bold mb-1 truncate" style={{ color: "var(--mq-text)" }}>
                 {selectedPlaylist.name}
               </h2>
-              <p className="text-sm mb-2" style={{ color: "var(--mq-text-muted)" }}>
-                от @{selectedPlaylist.username}
-              </p>
+              {!selectedPlaylist.editorial && (
+                <p className="text-sm mb-2" style={{ color: "var(--mq-text-muted)" }}>
+                  от @{selectedPlaylist.username}
+                </p>
+              )}
               {selectedPlaylist.description && (
                 <p className="text-xs mb-2" style={{ color: "var(--mq-text-muted)" }}>
                   {selectedPlaylist.description}
@@ -142,8 +162,12 @@ export default function PublicPlaylistsView() {
               )}
               <div className="flex items-center gap-3 text-xs" style={{ color: "var(--mq-text-muted)" }}>
                 <span className="flex items-center gap-1"><Music className="w-3 h-3" />{selectedPlaylist.trackCount}</span>
-                <span className="flex items-center gap-1"><Heart className="w-3 h-3" />{selectedPlaylist.likeCount}</span>
-                <span className="flex items-center gap-1"><Play className="w-3 h-3" />{selectedPlaylist.playCount}</span>
+                {!selectedPlaylist.editorial && (
+                  <>
+                    <span className="flex items-center gap-1"><Heart className="w-3 h-3" />{selectedPlaylist.likeCount}</span>
+                    <span className="flex items-center gap-1"><Play className="w-3 h-3" />{selectedPlaylist.playCount}</span>
+                  </>
+                )}
               </div>
               {selectedPlaylist.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-2">
@@ -171,18 +195,19 @@ export default function PublicPlaylistsView() {
               style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
               <Play className="w-4 h-4" /> Play all
             </motion.button>
-            <motion.button
-
-              onClick={() => togglePlaylistLike(selectedPlaylist.id)}
-              className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm cursor-pointer"
-              style={{
-                backgroundColor: selectedPlaylist.isLiked ? "rgba(239,68,68,0.15)" : "var(--mq-card)",
-                border: `1px solid ${selectedPlaylist.isLiked ? "rgba(239,68,68,0.4)" : "var(--mq-border)"}`,
-                color: selectedPlaylist.isLiked ? "#ef4444" : "var(--mq-text)",
-              }}>
-              <Heart className={`w-4 h-4 ${selectedPlaylist.isLiked ? "fill-current" : ""}`} />
-              {selectedPlaylist.likeCount}
-            </motion.button>
+            {!selectedPlaylist.editorial && (
+              <motion.button
+                onClick={() => togglePlaylistLike(selectedPlaylist.id)}
+                className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm cursor-pointer"
+                style={{
+                  backgroundColor: selectedPlaylist.isLiked ? "rgba(239,68,68,0.15)" : "var(--mq-card)",
+                  border: `1px solid ${selectedPlaylist.isLiked ? "rgba(239,68,68,0.4)" : "var(--mq-border)"}`,
+                  color: selectedPlaylist.isLiked ? "#ef4444" : "var(--mq-text)",
+                }}>
+                <Heart className={`w-4 h-4 ${selectedPlaylist.isLiked ? "fill-current" : ""}`} />
+                {selectedPlaylist.likeCount}
+              </motion.button>
+            )}
           </div>
 
           <ScrollReveal direction="up" delay={0.2}>
