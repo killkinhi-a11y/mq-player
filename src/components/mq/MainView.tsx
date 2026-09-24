@@ -2016,7 +2016,7 @@ function CoversLightBand({ playlists }: { playlists: UserPlaylist[] }) {
               alt=""
               loading="lazy"
               className="h-full flex-1 min-w-0 object-cover"
-              style={{ filter: "grayscale(0.85) brightness(1.0) contrast(1.18)", opacity: 0.78, transform: "scale(1.5)" }}
+              style={{ filter: "grayscale(0.85) brightness(1.02) contrast(1.9)", opacity: 0.82, transform: "scale(1.7)" }}
             />
           ))}
         </div>
@@ -2028,16 +2028,18 @@ function CoversLightBand({ playlists }: { playlists: UserPlaylist[] }) {
       )}
       {/* Melt into one silver field; keep the streaks' dynamic range (reference
           band is high-contrast: dark base + bright metallic ribbons) and fade
-          the top edge in quickly, like the reference */}
+          the top edge in quickly, like the reference. Contrast is pushed so
+          INDIVIDUAL bright ribbons reach the reference p95 without lifting
+          the dark base; the flat silver washes stay whisper-level. */}
       <div
         className="absolute inset-0"
         style={{
-          background: "linear-gradient(180deg, var(--mq-bg) 0%, color-mix(in srgb, var(--mq-bg) 62%, transparent) 9%, color-mix(in srgb, var(--mq-bg) 26%, transparent) 34%, color-mix(in srgb, var(--mq-bg) 46%, transparent) 74%, color-mix(in srgb, var(--mq-bg) 64%, transparent) 100%)",
-          backdropFilter: "blur(11px)",
-          WebkitBackdropFilter: "blur(11px)",
+          background: "linear-gradient(180deg, var(--mq-bg) 0%, color-mix(in srgb, var(--mq-bg) 62%, transparent) 9%, color-mix(in srgb, var(--mq-bg) 30%, transparent) 34%, color-mix(in srgb, var(--mq-bg) 47%, transparent) 74%, color-mix(in srgb, var(--mq-bg) 62%, transparent) 100%)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
         }}
       />
-      <div className="absolute inset-0" style={{ background: "radial-gradient(74% 160% at 34% 104%, rgba(226,232,240,0.30), transparent 60%), radial-gradient(40% 120% at 10% 96%, rgba(226,232,240,0.16), transparent 65%)" }} />
+      <div className="absolute inset-0" style={{ background: "radial-gradient(74% 160% at 34% 104%, rgba(226,232,240,0.10), transparent 60%), radial-gradient(40% 120% at 10% 96%, rgba(226,232,240,0.14), transparent 65%)" }} />
     </div>
   );
 }
@@ -2092,6 +2094,7 @@ function PlaylistExpandedCard({
       style={{
         border: `1px solid ${isPlayingThis ? "color-mix(in srgb, var(--mq-accent) 45%, transparent)" : "var(--mq-border-hairline)"}`,
         backgroundColor: "color-mix(in srgb, var(--mq-card) 85%, transparent)",
+        containerType: "inline-size",
         ...style,
       }}
     >
@@ -2099,12 +2102,15 @@ function PlaylistExpandedCard({
       <div aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--mq-text) 5%, transparent), transparent 45%)" }} />
 
       {/* Vertical title — at the left edge, reading bottom-up (reference).
-          Reference: ≈16px on a 466px card → scaled to this card ≈ 9px;
-          12px = the minimal readability uplift. Inset ≈ 9% from the left. */}
+          Reference: 16px on a 466px card = 3.43% of its width. Size is locked
+          to that share of THIS card's width (cqw, container set on the card),
+          clamped at 12px so the mobile card (already at the reference share)
+          keeps its current size; desktop settles ≈10px = one step down from
+          the old 12px uplift. Inset ≈ 9% from the left (unchanged). */}
       <p
         title={pl.name}
-        className="absolute font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180 text-[12px]"
-        style={{ left: "9%", top: "7%", height: "40%", color: "var(--mq-text)" }}
+        className="absolute font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180"
+        style={{ left: "9%", top: "7%", height: "40%", fontSize: "min(12px, 3.83cqw)", color: "var(--mq-text)" }}
       >
         {pl.name}
       </p>
@@ -2147,7 +2153,7 @@ function PlaylistExpandedCard({
             alt=""
             loading="lazy"
             className="w-full h-full object-cover"
-            style={{ filter: "grayscale(0.85) brightness(1.45) contrast(1.02)" }}
+            style={{ filter: "grayscale(1) brightness(1.05) contrast(1.02)" }}
           />
         ) : (
           <div
@@ -2155,7 +2161,7 @@ function PlaylistExpandedCard({
             style={{ background: `linear-gradient(100deg, ${hashHue(pl.name, 0)}, ${hashHue(pl.name, 1)})`, filter: "grayscale(0.7) brightness(1.2)" }}
           />
         )}
-        <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--mq-bg) 45%, transparent) 0%, color-mix(in srgb, #ffffff 18%, transparent) 55%, color-mix(in srgb, #ffffff 28%, transparent) 100%)" }} />
+        <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--mq-bg) 28%, transparent) 0%, color-mix(in srgb, #ffffff 20%, transparent) 55%, color-mix(in srgb, #ffffff 30%, transparent) 100%)" }} />
       </div>
 
       {/* More — top-right (existing playlist actions) */}
@@ -2212,6 +2218,7 @@ function PlaylistStripCard({
       style={{
         border: `1px solid ${isPlayingThis ? "color-mix(in srgb, var(--mq-accent) 45%, transparent)" : "var(--mq-border-hairline)"}`,
         backgroundColor: "color-mix(in srgb, var(--mq-card) 85%, transparent)",
+        containerType: "inline-size",
         ...style,
       }}
     >
@@ -2231,12 +2238,14 @@ function PlaylistStripCard({
       )}
 
       {/* Vertical title — centered, near the top, bottom-up (reference:
-          ≈16px on a 108px strip = 14.8% of card width, normal tracking;
-          11px here = proportional + minimal readability uplift) */}
+          ≈16px on a 108px strip = 14.8% of card width, normal tracking).
+          Size is LOCKED to that share of THIS card's width (cqw; the card
+          above is the inline-size container) with a 9px readability floor:
+          the visual mass tracks the strip's width, never a fixed px. */}
       <p
         title={pl.name}
-        className="absolute left-1/2 -translate-x-1/2 text-[11px] font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180"
-        style={{ top: "6.5%", height: "52%", color: "color-mix(in srgb, var(--mq-text) 88%, transparent)" }}
+        className="absolute left-1/2 -translate-x-1/2 font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180"
+        style={{ top: "6.5%", height: "52%", fontSize: "max(9px, 14.8cqw)", color: "color-mix(in srgb, var(--mq-text) 88%, transparent)" }}
       >
         {pl.name}
       </p>
@@ -2304,12 +2313,12 @@ function CreatePlaylistStrip({ onClick, className = "", style }: { onClick: () =
       onClick={onClick}
       aria-label="Создать плейлист"
       className={`group/create relative rounded-md outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)] ${className}`}
-      style={{ border: "1px dashed var(--mq-border-thin)", backgroundColor: "color-mix(in srgb, var(--mq-card) 35%, transparent)", ...style }}
+      style={{ border: "1px dashed var(--mq-border-thin)", backgroundColor: "color-mix(in srgb, var(--mq-card) 35%, transparent)", containerType: "inline-size", ...style }}
     >
       <div aria-hidden="true" className="absolute inset-0 rounded-md opacity-0 group-hover/create:opacity-100 transition-opacity" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 5%, transparent)" }} />
       <p
-        className="absolute left-1/2 -translate-x-1/2 text-[11px] font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180"
-        style={{ top: "6.5%", height: "52%", color: "var(--mq-text-muted)" }}
+        className="absolute left-1/2 -translate-x-1/2 font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180"
+        style={{ top: "6.5%", height: "52%", fontSize: "max(9px, 14.8cqw)", color: "var(--mq-text-muted)" }}
       >
         Новый плейлист
       </p>
