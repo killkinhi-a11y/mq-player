@@ -1989,9 +1989,12 @@ function playlistDurationLabel(tracks: Track[]): string {
   return m ? `${h} ч ${m} мин` : `${h} ч`;
 }
 
-// ─── COVERS LIGHT BAND — the reference's bottom artwork, built from the ──
-// playlists' REAL covers: melted into one monochrome silver field with a
-// fade-in top edge. Full-bleed; brightest center-left (reference).
+// ─── COVERS LIGHT BAND — the reference's bottom artwork strip. Real ──
+// playlist covers are stretched into a VERY DARK ambient substrate (tonal
+// variation only — no readable photographic content), and the reference's
+// actual material — liquid chrome light-trails — is rendered on top by the
+// SYNTHETIC CHROME STREAK layer (below). Full-bleed; near-black base with
+// a left glare pool, a mid-cluster of silver trails and a dark right third.
 
 function CoversLightBand({ playlists }: { playlists: UserPlaylist[] }) {
   const covers = useMemo(() => {
@@ -2006,29 +2009,21 @@ function CoversLightBand({ playlists }: { playlists: UserPlaylist[] }) {
     return out;
   }, [playlists]);
   return (
-    <div aria-hidden="true" className="absolute inset-0 overflow-hidden">
+    <div aria-hidden="true" className="absolute inset-0 overflow-hidden" style={{ background: "#030305" }}>
       {covers.length > 0 ? (
         <div className="absolute inset-0 flex">
-          {/* CHROME TRAILS — the reference band is elongated metallic light
-              streaks (≈10–20:1 length:width), not blurred photos. Each cover
-              is stretched hard along ONE axis (≈6–7× horizontal) and squashed
-              vertically, so its bright rims become long thin silver ribbons
-              and all recognisable photo detail melts away. Covers cycle
-              through three LANE ROLES (every third cover shares a lane):
-              · structure lane — tall, full contrast: thin bright elements of
-                the artwork become sharp specular RIDGES (the chrome crests);
-              · underglow lane — thin, dimmed silver (low contrast/brightness,
-                softer opacity): flat-bright covers read as the soft metallic
-                WASH the ridges ride on, not as a flat white bar;
-              · cap lane — dark, crushed to near-black: the fast top fade.
-              Lanes sit at different heights (staggered origin-y) like the
-              reference's trails; the melt blur feathers the seams. */}
+          {/* SUBSTRATE — real covers, hard-stretched along one axis like the
+              reference trails' flow, but crushed to a very dark ambient wash
+              (low brightness + low contrast + blur) so only weak tonal
+              variation survives between/beneath the chrome streaks. Three
+              LANE ROLES (every third cover) keep the smears staggered in
+              height like the reference's trail field. */}
           {covers.map((c, i) => {
             const lane = i % 3;
             const laneFilter = [
-              "grayscale(1) brightness(1.12) contrast(3.4) blur(2px)",
-              "grayscale(1) brightness(0.95) contrast(2.0)",
-              "grayscale(1) brightness(1.0) contrast(3.0)",
+              "grayscale(1) brightness(0.21) contrast(1.8) blur(2.5px)",
+              "grayscale(1) brightness(0.18) contrast(1.4) blur(2px)",
+              "grayscale(1) brightness(0.20) contrast(1.6) blur(2.5px)",
             ][lane];
             const laneOpacity = [1.0, 1.0, 0.95][lane] - 0.18 * Math.floor(i / 3);
             return (
@@ -2051,24 +2046,239 @@ function CoversLightBand({ playlists }: { playlists: UserPlaylist[] }) {
       ) : (
         <div
           className="absolute inset-0"
-          style={{ background: "linear-gradient(100deg, transparent 0%, rgba(148,163,184,0.14) 28%, rgba(226,232,240,0.22) 50%, rgba(148,163,184,0.10) 72%, transparent 100%)" }}
+          style={{ background: "linear-gradient(100deg, transparent 0%, rgba(148,163,184,0.08) 30%, rgba(148,163,184,0.12) 50%, rgba(148,163,184,0.06) 72%, transparent 100%)" }}
         />
       )}
-      {/* Melt the stretched ribbons into one silver field with Gaussian-soft
-          edges (reference streaks are feathered, not hard). The vertical
-          gradient keeps the near-black base and fades the top edge in
-          quickly, like the reference; contrast above keeps INDIVIDUAL bright
-          ribbons at the reference p95 without lifting the dark base. */}
+      {/* MELT — seats the substrate into the reference's lighting: a bright
+          reflection line hugging the top edge (the cards above bleed into
+          the band), a hard black gap below it, near-black crush at both the
+          top and bottom edges, and a backdrop blur that feathers what is
+          left of the covers into one smooth dark field. */}
       <div
         className="absolute inset-0"
         style={{
-          background: "linear-gradient(180deg, var(--mq-bg) 0%, color-mix(in srgb, var(--mq-bg) 62%, transparent) 9%, color-mix(in srgb, var(--mq-bg) 6%, transparent) 34%, color-mix(in srgb, var(--mq-bg) 24%, transparent) 74%, color-mix(in srgb, var(--mq-bg) 62%, transparent) 100%)",
+          background:
+            "linear-gradient(180deg, rgba(203,213,225,0.15) 0%, rgba(203,213,225,0.14) 8%, rgba(203,213,225,0) 12%, #030305 13%, rgba(3,3,5,0.80) 20%, rgba(3,3,5,0.88) 30%, rgba(3,3,5,0.25) 40%, rgba(3,3,5,0.5) 74%, rgba(3,3,5,0.88) 88%, rgba(3,3,5,0.95) 100%)",
           backdropFilter: "blur(4px)",
           WebkitBackdropFilter: "blur(4px)",
         }}
       />
-      <div className="absolute inset-0" style={{ background: "radial-gradient(74% 160% at 34% 104%, rgba(226,232,240,0.06), transparent 60%), radial-gradient(40% 120% at 10% 96%, rgba(226,232,240,0.08), transparent 65%)" }} />
+      {/* MID SHEEN — the reference's dim continuous "metal surface" the
+          trails ride on: a faint horizontal silver air through the cluster
+          zone (keeps the streaks reading as one chrome surface). */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent 0%, rgba(203,213,225,0.045) 10%, rgba(203,213,225,0.062) 34%, rgba(203,213,225,0.045) 52%, rgba(203,213,225,0.018) 62%, transparent 70%)",
+          WebkitMaskImage: "linear-gradient(180deg, transparent 15%, #000 36%, #000 64%, transparent 88%)",
+          maskImage: "linear-gradient(180deg, transparent 15%, #000 36%, #000 64%, transparent 88%)",
+        }}
+      />
+      {/* TOP GLOW — the reference's bright top-edge reflections under the
+          card row (two lobes, fading down within a few px). */}
+      <div
+        className="absolute inset-x-0 top-0"
+        style={{
+          height: "4.4%",
+          background:
+            "linear-gradient(90deg, transparent 11%, rgba(226,232,240,0.44) 14%, rgba(226,232,240,0.54) 20%, rgba(226,232,240,0.5) 26%, rgba(226,232,240,0.34) 32%, rgba(226,232,240,0.38) 38%, rgba(226,232,240,0.42) 45%, rgba(226,232,240,0.34) 50%, rgba(226,232,240,0.1) 55%, transparent 58%)",
+          WebkitMaskImage: "linear-gradient(180deg, #000 0%, #000 40%, transparent 100%)",
+          maskImage: "linear-gradient(180deg, #000 0%, #000 40%, transparent 100%)",
+        }}
+      />
+      {/* SYNTHETIC CHROME STREAKS — the band's actual material. */}
+      <ChromeStreaks />
+      {/* WARM CLOSE — the reference's dim bottom-left smear and a breath of
+          light at the bottom center; everything else stays near-black. */}
+      <div className="absolute inset-0" style={{ background: "radial-gradient(44% 96% at 34% 103%, rgba(226,232,240,0.035), transparent 58%), radial-gradient(9% 4% at 16% 96.5%, rgba(226,232,240,0.5), rgba(226,232,240,0.14) 55%, transparent 78%)" }} />
     </div>
+  );
+}
+
+// ─── SYNTHETIC CHROME STREAKS — liquid-chrome light trails (SVG). Each ──
+// trail is a bezier sweep stroked in up to four concentric layers —
+//   wide dim silver "air" (deep metallic shading) →
+//   underglow →
+//   medium silver body →
+//   thin bright specular core —
+// so every ribbon has the reference's cross-section: bright core, silver
+// shoulders, soft feathered edges (Gaussian), and a near-black base around.
+// A per-trail gradient along its own direction fades each end in and out
+// (light-trail behaviour) and lets brightness breathe along its length.
+// The set mirrors the reference's anatomy — left glare pool, dim bridge
+// runs, a mid cluster (thin upper arcs, double-crest mid, fat dual run,
+// low dim runs, a crossing diagonal spine), a fading tail, a right ghost
+// — with different angles, bends, thicknesses and crossings throughout.
+
+type ChromeLayer = { w: number; o: number; f: "air" | "glow" | "body" | "core" };
+type ChromeTrail = {
+  d: string;
+  g: { x1: number; y1: number; x2: number; y2: number; stops: [number, number][] };
+  layers: ChromeLayer[];
+};
+
+const CHROME_TRAILS: ChromeTrail[] = [
+  // A — main FAT ribbon at the reference's fat-run height; dual staggered
+  // paths give the internal banding of chrome reflections
+  {
+    d: "M 420 98 C 510 84, 610 104, 672 94",
+    g: { x1: 420, y1: 98, x2: 672, y2: 94, stops: [[0, 0], [0.1, 0.6], [0.34, 0.9], [0.52, 0.8], [0.7, 0.92], [0.78, 0.18], [1, 0]] },
+    layers: [
+      { w: 30, o: 0.07, f: "air" }, { w: 20, o: 0.2, f: "glow" },
+      { w: 9, o: 0.64, f: "body" }, { w: 5.6, o: 1, f: "core" },
+    ],
+  },
+  {
+    d: "M 435 106 C 530 92, 625 110, 684 102",
+    g: { x1: 435, y1: 106, x2: 684, y2: 102, stops: [[0, 0], [0.14, 0.55], [0.42, 0.95], [0.6, 0.7], [0.78, 0.9], [1, 0]] },
+    layers: [
+      { w: 16, o: 0.18, f: "glow" }, { w: 8, o: 0.6, f: "body" }, { w: 4.8, o: 0.97, f: "core" },
+    ],
+  },
+  // B — mid double-crest ribbon (main sweep + a parallel crest under it)
+  {
+    d: "M 390 54 C 465 40, 540 66, 582 56",
+    g: { x1: 390, y1: 54, x2: 582, y2: 56, stops: [[0, 0], [0.16, 0.55], [0.38, 0.95], [0.56, 0.82], [0.74, 0.9], [0.92, 0.3], [1, 0]] },
+    layers: [
+      { w: 22, o: 0.06, f: "air" }, { w: 13, o: 0.16, f: "glow" },
+      { w: 6, o: 0.52, f: "body" }, { w: 3.9, o: 0.96, f: "core" },
+    ],
+  },
+  {
+    d: "M 400 63 C 475 49, 545 74, 594 64",
+    g: { x1: 390, y1: 54, x2: 582, y2: 56, stops: [[0, 0], [0.16, 0.55], [0.38, 0.95], [0.56, 0.82], [0.74, 0.9], [0.92, 0.3], [1, 0]] },
+    layers: [{ w: 5, o: 0.42, f: "body" }],
+  },
+  // C — upper thin arc, long, gradual fade like the reference's high runs
+  {
+    d: "M 270 40 C 400 24, 515 50, 638 34",
+    g: { x1: 270, y1: 40, x2: 638, y2: 34, stops: [[0, 0], [0.12, 0.8], [0.3, 0.62], [0.48, 0.92], [0.64, 0.6], [0.82, 0.75], [1, 0]] },
+    layers: [
+      { w: 16, o: 0.05, f: "air" }, { w: 10, o: 0.14, f: "glow" },
+      { w: 5.5, o: 0.54, f: "body" }, { w: 3.7, o: 0.9, f: "core" },
+    ],
+  },
+  // D — crossing diagonal spine tying the cluster together
+  {
+    d: "M 300 62 C 440 68, 560 88, 680 106",
+    g: { x1: 300, y1: 62, x2: 680, y2: 106, stops: [[0, 0], [0.16, 0.45], [0.4, 0.75], [0.62, 0.5], [0.82, 0.6], [1, 0]] },
+    layers: [
+      { w: 11, o: 0.14, f: "glow" }, { w: 5.5, o: 0.48, f: "body" }, { w: 3, o: 0.85, f: "core" },
+    ],
+  },
+  // E — low dim multi-peak ribbon
+  {
+    d: "M 336 100 C 430 94, 520 108, 560 104 C 592 110, 632 114, 652 110",
+    g: { x1: 336, y1: 100, x2: 624, y2: 111, stops: [[0, 0], [0.14, 0.75], [0.34, 0.56], [0.56, 0.68], [0.9, 0.95], [1, 0]] },
+    layers: [
+      { w: 9, o: 0.13, f: "glow" }, { w: 5.5, o: 0.6, f: "body" }, { w: 2.8, o: 0.88, f: "core" },
+    ],
+  },
+  // M1 — bridge-mid dim run: the pool flows toward the cluster
+  {
+    d: "M 128 76 C 172 70, 214 84, 256 79",
+    g: { x1: 128, y1: 76, x2: 256, y2: 79, stops: [[0, 0], [0.2, 0.5], [0.5, 0.72], [0.8, 0.45], [1, 0]] },
+    layers: [
+      { w: 8, o: 0.12, f: "glow" }, { w: 6, o: 0.55, f: "body" }, { w: 2.8, o: 0.72, f: "core" },
+    ],
+  },
+  // M2 — bridge-low dim run
+  {
+    d: "M 136 132 C 182 126, 224 140, 268 136",
+    g: { x1: 136, y1: 132, x2: 268, y2: 136, stops: [[0, 0], [0.22, 0.55], [0.55, 0.74], [0.85, 0.34], [1, 0]] },
+    layers: [
+      { w: 7, o: 0.1, f: "glow" }, { w: 5.5, o: 0.52, f: "body" }, { w: 2.2, o: 0.6, f: "core" },
+    ],
+  },
+  // M3 — descending diagonal tail out of the cluster's low run
+  {
+    d: "M 372 106 C 320 110, 262 116, 214 126",
+    g: { x1: 372, y1: 106, x2: 214, y2: 126, stops: [[0, 0], [0.18, 0.55], [0.5, 0.75], [0.8, 0.45], [1, 0]] },
+    layers: [
+      { w: 8, o: 0.12, f: "glow" }, { w: 5.5, o: 0.56, f: "body" }, { w: 2.8, o: 0.78, f: "core" },
+    ],
+  },
+  // L — left glare POOL: broad, sustained bright plateau (off-canvas start)
+  {
+    d: "M -30 78 C 15 74, 75 88, 122 112",
+    g: { x1: -30, y1: 78, x2: 122, y2: 112, stops: [[0, 0.2], [0.22, 0.85], [0.45, 1], [0.85, 0.95], [1, 0]] },
+    layers: [
+      { w: 34, o: 0.07, f: "air" }, { w: 30, o: 0.32, f: "glow" },
+      { w: 19, o: 0.84, f: "body" }, { w: 7, o: 1, f: "core" },
+    ],
+  },
+  // R2 — the cluster's fading tail continuing right (keeps flow alive)
+  {
+    d: "M 698 46 C 744 40, 782 52, 822 46",
+    g: { x1: 698, y1: 46, x2: 822, y2: 46, stops: [[0, 0.45], [0.5, 0.55], [1, 0]] },
+    layers: [{ w: 3.5, o: 0.3, f: "body" }, { w: 1.8, o: 0.5, f: "core" }],
+  },
+  // R — right ghost entering from the edge (the reference's right is black)
+  {
+    d: "M 1164 74 C 1112 79, 1066 70, 1018 78",
+    g: { x1: 1164, y1: 74, x2: 1018, y2: 78, stops: [[0, 0.5], [0.35, 0.3], [0.75, 0.12], [1, 0]] },
+    layers: [
+      { w: 9, o: 0.07, f: "glow" }, { w: 4, o: 0.12, f: "body" }, { w: 1.8, o: 0.28, f: "core" },
+    ],
+  },
+];
+
+const CHROME_BLURS: [string, number][] = [
+  ["mqCsAir", 6],
+  ["mqCsGlow", 4],
+  ["mqCsBody", 2.2],
+  ["mqCsCore", 0.6],
+];
+
+function ChromeStreaks() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      className="absolute inset-0 h-full w-full"
+      viewBox="0 0 1128 160"
+      preserveAspectRatio="none"
+    >
+      <defs>
+        {CHROME_BLURS.map(([id, dev]) => (
+          <filter key={id} id={id} x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation={dev} />
+          </filter>
+        ))}
+        {CHROME_TRAILS.map((t, i) => (
+          <linearGradient
+            key={i}
+            id={`mqCsG${i}`}
+            gradientUnits="userSpaceOnUse"
+            x1={t.g.x1}
+            y1={t.g.y1}
+            x2={t.g.x2}
+            y2={t.g.y2}
+          >
+            {t.g.stops.map(([off, op]) => (
+              <stop key={off} offset={off} stopColor="#ffffff" stopOpacity={op} />
+            ))}
+          </linearGradient>
+        ))}
+      </defs>
+      {CHROME_TRAILS.map((t, i) => (
+        <g key={i}>
+          {t.layers.map((l, j) => (
+            <path
+              key={j}
+              d={t.d}
+              fill="none"
+              stroke={`url(#mqCsG${i})`}
+              strokeWidth={l.w}
+              strokeLinecap="round"
+              opacity={l.o}
+              filter={`url(#mqCs${l.f[0].toUpperCase()}${l.f.slice(1)})`}
+            />
+          ))}
+        </g>
+      ))}
+    </svg>
   );
 }
 
