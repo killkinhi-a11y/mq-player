@@ -6239,3 +6239,119 @@ Stage Summary:
   MATCH (band-duel-v5-2x 9/10; section-duel A/B/C/D ALL MATCH 9/10;
   side-by-final D MATCH 8/10; abstract 2/2 split при подтверждённом
   пиксельным замером совпадении макро-света). REGRESSIONS: none.
+---
+Task ID: PLAYLISTS-REF-V6-FINAL-PASS
+Agent: Main Agent
+Task: Финальный корректирующий pass по секции плейлистов: (1) полностью
+убрать нижнюю chrome-полосу v5; (2) секция = «Рекомендованные плейлисты»
+на реальных рекомендованных данных; (3) восстановить ИМЕННО анимацию
+reference (accordion expansion); (4) composition = reference; QA + deploy
++ production E2E. Baseline: 0685e21f, prod mq1.vercel.app.
+
+Work Log:
+- REFERENCE — ЭТО ВИДЕО-ПИН (найден mp4 в сохранённом pin.html):
+  download/ref-analysis/reference-video.mp4 (714x510, 30fps, 11.7s).
+  Скачать/разобрать: scripts/ref_video_{anatomy,gutters,diff,rows,grid,
+  topedge,10fps}.py + refvid/ (3fps) + refvid10/ (10fps) кадры.
+- АНАТОМИЯ АНИМАЦИИ (пиксельные замеры + VLM по сетке):
+  * начальное состояние = статичный pin: card1 HERO слева (13-39% кадра),
+    6 узких strips справа (~7% ширины кадра каждый, ratio ~1:4.8);
+  * при активации strip ОН раскрывается до hero-ширины, прошлый hero
+    сжимается до strip-ширины; соседние карточки плавно сдвигаются
+    (accordion reflow), общая ширина ряда постоянна;
+  * в расширенной карточке: вертикальный титул остаётся, описание+CTA
+    проявляются (fade-in по мере роста ширины); в сжатой — исчезают;
+  * длительность перехода ~500ms, плавный ease; демо-видео циклически
+    переносит hero-состояние 1→2→...→7→1;
+  * высоты карточек постоянны (одна верхняя/нижняя линия), скачков
+    страницы нет.
+- РАЗНИЦА С ТЕКУЩИМ MQ: статичный grid (hero всегда 1-я позиция),
+  hover только play-кнопка + cover whisper; семантика библиотеки
+  («Плейлисты», «N плейлистов · M треков», «Все плейлисты →»,
+  create-tile); chrome band снизу (надо удалить).
+- ДАННЫЕ: существующая система рекомендаций = recommendedPlaylists
+  (PublicPlaylist[], /api/playlists/recommendations, taste-based; в проде
+  сейчас ПУСТО — нет публичных плейлистов) + homeCuratedPlaylists
+  (loadHomeFeed уже фетчит /api/playlists/curated; в проде ≥2 реальных:
+  «Открытия дня», «Популярное», при taste-сигналах до ~8: «Для вас»,
+  «Ваш микс», «Похожее», жанровые). Найдено: loadHomeFeed НЕ передаёт
+  taste-параметры в curated (только dislikedIds) — будет исправлено
+  (существующие параметры существующего API, без нового engine).
+- НАЙДЕНА дубль-секция: на Home ниже fold уже есть grid «Рекомендованные
+  плейлисты» (CuratedPlaylistCard, строки 826-851) — editorial-секция
+  забирает её роль и данные, дубль удаляется.
+
+Stage Summary:
+- (in progress) Реализация: MainView.tsx (band removal + recommended
+  data + accordion) + useAppStore.ts (curated taste-params).
+
+Work Log (продолжение v6):
+- РЕАЛИЗАЦИЯ MainView.tsx: удалены CoversLightBand/ChromeStreaks/
+  CHROME_TRAILS/CHROME_BLURS и оба band-контейнера (desktop bottom 23.3%
+  + mobile 110px); canvas 1702:1219 → 1702:920 (контент до y 72.6%
+  reference + ~24px паддинг; высота секции 610px против 843 у v5,
+  контент ниже поднялся, gapBelowRow = 24px естественного паддинга).
+- СЕКЦИЯ «Рекомендованные плейлисты»: UserPlaylistsEditorial →
+  RecommendedPlaylistsEditorial; данные = recommendedPlaylists
+  (публичные taste-рекомендации, fetch 1/сессию с module-guard) +
+  homeCuratedPlaylists; сабтайпл «N подборок · подобрано по вашему
+  вкусу»; убраны «Все плейлисты →», create-tile, empty-state
+  «Новый плейлист»; секция скрыта при 0 items. Удалена дубль-сетка
+  «Рекомендованные плейлисты» below the fold + CuratedPlaylistCard +
+  PlaylistArtwork/PlaylistActionsMenu/Plus/UserPlaylist импорты +
+  openPlaylistMenu + kind:"playlist" меню.
+- ACCORDION (desktop): grid-template-columns transition 520ms
+  cubic-bezier(0.25,1,0.3,1), шаблон [37.3 | 2.2 после активной | 8.6 |
+  1.2]%% — в покое побайтно = v5-шаблон; hover/focus strip → расширение,
+  mouseleave/blur ряда → возврат к items[0]; gap-колонки рендерятся
+  спейсерами (баг-фикс: карты попадали в gap-трек, strip был 18px).
+- RecommendedCard: один компонент, два слоя (strip ↔ hero) с
+  cross-fade; strip-титул clamp(9px,14.8cqw,13px) и hero-титул
+  clamp(9px,3.83cqw,12px) — фикс «растянутого текста» в
+  mid-transition (cqw рос 4x вместе с шириной); hero-слой fade-in с
+  задержкой 200ms (тайминг reference-видео); radius 8↔14 transition;
+  mobile: 36px play-кнопка, hero-on-top + strips, tap → layoutId-morph
+  (framer уже в проекте); onError → graceful hide для мёртвых SC-обложек.
+- STORE: loadHomeFeed теперь передаёт taste-сигналы в
+  /api/playlists/curated (genres/artists/likedScIds/dislikedGenres;
+  полный профиль через extractTasteProfile: явные лайки ∪ история) —
+  curated стал персональным (до 8 реальных подборок вместо 2).
+- QA-фиксы процесса: инъекция store как строки (не объекта —
+  «[object Object]» давал corrupt-clear), polling секции до 60s
+  (жанровые поиски SoundCloud медленные), реальные mouse events
+  (React synthetic mouseenter не ловится dispatchEvent).
+- ЗАМЕРЫ DESKTOP (история из 5 жанровых SC-треков → 8 подборок,
+  7 в ряду): initial [309,71×6] gridCols «37.3% 2.2% 8.6% 1.2%…»;
+  hover strip2 → [71,309,71×5]; leave → [309,71×6]; hover strip3 →
+  [71,71,309,71×4]; hover последней → [71×6,309]; keyboard focus
+  card3 → [71,71,309,…]; overflowX=0; broken=0; imgs=14.
+- MOBILE 390×844: hero 362×402 + 7 strips 83×402; play-кнопки 36px;
+  tap strip «Ваш микс» → он стал hero, бывший hero ушёл в ряд;
+  overflowX=0; broken=0; клippingа нет.
+- ФУНКЦИОНАЛЬНОСТЬ: actions-menu (Воспроизвести/Перемешать/Добавить
+  в очередь) ✓; playback с меню и с CTA ✓; страница пользовательских
+  плейлистов без регрессий: create 3→4 («E2E v6 smoke»), open
+  (PlaylistView), delete 4→3, тестовые данные вычищены.
+- ВИЗУАЛЬНЫЕ СРАВНЕНИЯ (mq_v6_compose.py): side-by-side-initial-v6
+  (reference pin без band-зоны | MQ) — VLM: same compositional idea
+  YES (1-4 все Yes); side-by-side-expanded-v6 (reference video t=3.7s
+  hero справа | MQ hero справа) — Verdict SAME behavior YES;
+  side-by-side-mobile-v6 — tap-expansion reorganizes YES, no broken
+  layout/clipping/overflow; animation-states-v6 (5 состояний);
+  desktop-midtransition-v6 после фикса — VLM: stretched/ghosting
+  text NONE.
+- GATES: vitest 453/453 ✓; tsc src/ 0 ошибок ✓; eslint 0 errors
+  (warning-набор байт-в-байт = baseline) ✓; prod build PASS (чанк
+  0u4qf016ecij3.js с новой секцией; CoversLightBand/mqCsAir в бандле
+  отсутствуют) ✓; version.json восстановлен ✓; corrupt-варнинг в
+  консоли = stale-буфер (не воспроизводится на чистой сессии,
+  storage валиден).
+
+Stage Summary:
+- Все три цели задачи достигнуты: chrome-полоса удалена полностью
+  (в т.ч. из бандла), секция = «Рекомендованные плейлисты» на реальных
+  рекомендациях (публичные taste-рекомендации + персональный curated),
+  анимация reference воспроизведена (accordion: активация strip
+  расширяет его до hero, прошлый hero сжимается, соседние сдвигаются;
+  mobile — tap-раскрытие с перестройкой композиции). Гейты зелёные →
+  commit + push + deploy + production E2E.

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage, type StateStorage } from "zustand/middleware";
 import { type Track, type Message as ChatMessage, detectUserCountry, countryNameFromCode } from "@/lib/musicApi";
+import { extractTasteProfile } from "@/lib/tasteProfile";
 import { themes, applyThemeToDOM } from "@/lib/themes";
 import { pbStart } from "@/lib/playbackTimeline";
 import { resetPollingSuspension, canPollProtected } from "@/lib/authGate";
@@ -1811,8 +1812,31 @@ export const useAppStore = create<AppState>()(
 
             const userCountry = detectUserCountry();
 
+            // Curated recommendations: pass the SAME taste signals the
+            // endpoint understands (genres / artists / liked SC ids /
+            // disliked genres) so the Home's recommended playlists are
+            // actually personalized («Для вас», «Ваш микс», «Похожее»,
+            // жанровые подборки) instead of the anonymous two-playlist
+            // fallback. Genres/artists = the FULL profile (explicit slider
+            // likes ∪ play-history signals) via the shared
+            // extractTasteProfile — existing API params, no new engine.
+            const tp = extractTasteProfile({
+              history: Array.isArray(st.history) ? st.history : [],
+              likedTracksData: Array.isArray(st.likedTracksData) ? st.likedTracksData : [],
+            });
+            const curatedGenreList = [...new Set([...topGenres, ...tp.allGenres])].slice(0, 6);
+            const curatedArtistList = [...new Set([...topArtists, ...tp.topHistoryArtists])].slice(0, 5);
             const curatedParams = new URLSearchParams();
             if (disliked.length > 0) curatedParams.set("dislikedIds", disliked.join(","));
+            if (curatedGenreList.length > 0) curatedParams.set("genres", curatedGenreList.join(","));
+            if (curatedArtistList.length > 0) curatedParams.set("artists", curatedArtistList.join(","));
+            if (likedScIds) curatedParams.set("likedScIds", likedScIds);
+            const dislikedGenres = [...new Set(
+              (st.dislikedTracksData || [])
+                .map((t: any) => (t?.genre || "").toLowerCase().trim())
+                .filter(Boolean)
+            )];
+            if (dislikedGenres.length > 0) curatedParams.set("dislikedGenres", dislikedGenres.join(","));
 
             // 5 parallel requests: recs + trending + apple + spotify + curated
             const [recSettled, trendingSettled, appleSettled, spotifySettled, curatedSettled] =

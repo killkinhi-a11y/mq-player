@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, Music, Heart, Clock, ListMusic, ListPlus, MessageCircle,
-  Plus, Sparkles, Waves, User, Flame,
+  Sparkles, Waves, User, Flame,
   SkipForward, SkipBack, ThumbsDown, TrendingUp, Compass, RotateCcw,
   MoreHorizontal, X, Shuffle, ArrowUpRight,
 } from "lucide-react";
@@ -14,14 +14,12 @@ import { useFriendsListening } from "@/hooks/useFriendsListening";
 import { useRecUpdates } from "@/hooks/useRecUpdates";
 import { type Track, formatDuration } from "@/lib/musicApi";
 import { extractTasteProfile, displayGenre } from "@/lib/tasteProfile";
-import { type HomeRecCategory as RecCategory, type HomeCuratedPlaylist as CuratedPlaylist, type UserPlaylist } from "@/store/useAppStore";
+import { type HomeRecCategory as RecCategory, type HomeCuratedPlaylist as CuratedPlaylist } from "@/store/useAppStore";
 import { useIsMobile } from "@/hooks/use-mobile";
 import ScrollReveal from "./ScrollReveal";
 import ArtistDetailView from "./ArtistDetailView";
-import PlaylistArtwork from "./PlaylistArtwork";
 import ContextMenu from "./ContextMenu";
 import ArtistActionsMenu, { type ArtistMenuTarget } from "./ArtistActionsMenu";
-import PlaylistActionsMenu from "./PlaylistActionsMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
 import MenuCore, { MenuHeader } from "./ui/MenuCore";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
@@ -32,6 +30,12 @@ import { hoverProps } from "@/lib/hoverCapability";
 
 // RecCategory / CuratedPlaylist types now live in the store (home feed
 // cache, Task 2) and are imported at the top of this file.
+
+// Session guard for the public-playlist recommendations fetch (the same
+// engine the Публичные плейлисты view uses): one call per app session is
+// enough — the endpoint is rate-limited (heavy) and the curated feed
+// already refreshes on its own TTL.
+let recPlPublicFetched = false;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -104,6 +108,8 @@ function MainView() {
   // signature guard + in-flight dedupe) — see loadHomeFeed in the store.
   const recCategories = useAppStore((s) => s.homeRecCategories);
   const curatedPlaylists = useAppStore((s) => s.homeCuratedPlaylists);
+  const recommendedPlaylists = useAppStore((s) => s.recommendedPlaylists);
+  const fetchPlaylistRecommendations = useAppStore((s) => s.fetchPlaylistRecommendations);
   const recLoading = useAppStore((s) => s.homeFeedLoading);
   const recError = useAppStore((s) => s.homeFeedError);
   const loadHomeFeed = useAppStore((s) => s.loadHomeFeed);
@@ -112,13 +118,12 @@ function MainView() {
   const setFullTrackViewOpen = useAppStore((s) => s.setFullTrackViewOpen);
 
   // ── Unified context-menu state (v68): ONE menu instance for the whole
-  // Home screen. Every surface (row / card / hero / artist / playlist)
-  // calls openTrackMenu / openArtistMenu / openPlaylistMenu with the click
+  // Home screen. Every surface (row / card / hero / artist)
+  // calls openTrackMenu / openArtistMenu / openCuratedMenu with the click
   // event; the menu anchors at the trigger and flips/clamps itself.
   const [homeMenu, setHomeMenu] = useState<
     | { kind: "track"; track: Track; x: number; y: number; wave?: boolean }
     | { kind: "artist"; artist: ArtistMenuTarget; x: number; y: number }
-    | { kind: "playlist"; playlist: UserPlaylist; x: number; y: number }
     | { kind: "curated"; playlist: CuratedPlaylist; x: number; y: number }
     | null
   >(null);
@@ -129,10 +134,6 @@ function MainView() {
   const openArtistMenu = useCallback((artist: ArtistMenuTarget, e: React.MouseEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     setHomeMenu({ kind: "artist", artist, x: rect.left, y: rect.bottom + 4 });
-  }, []);
-  const openPlaylistMenu = useCallback((playlist: UserPlaylist, e: React.MouseEvent) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setHomeMenu({ kind: "playlist", playlist, x: Math.min(rect.left, window.innerWidth - 240), y: rect.bottom + 4 });
   }, []);
   const openCuratedMenu = useCallback((playlist: CuratedPlaylist, e: React.MouseEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -156,6 +157,43 @@ function MainView() {
   const recentTracks = useMemo(() => {
     return history.slice(0, 10).map((h: any) => h.track).filter(Boolean);
   }, [history]);
+
+  // ── RECOMMENDED PLAYLISTS for the editorial section: the app's TWO real
+  // recommendation sources merged — public taste-based picks (the existing
+  // /playlists/recommendations engine, also powering "Рекомендации" in
+  // Публичные плейлисты) first, then the curated feed the Home already
+  // receives (loadHomeFeed). No user-library data, no static/fake picks.
+  // The public fetch runs once per session (module guard) — the curated
+  // feed is already TTL-guarded inside loadHomeFeed.
+  useEffect(() => {
+    if (recPlPublicFetched) return;
+    recPlPublicFetched = true;
+    fetchPlaylistRecommendations();
+  }, [fetchPlaylistRecommendations]);
+  const recPlItems = useMemo<RecPlItem[]>(() => {
+    const out: RecPlItem[] = [];
+    for (const p of recommendedPlaylists || []) {
+      if (!p || !Array.isArray(p.tracks) || p.tracks.length === 0) continue;
+      out.push({
+        id: `pub_${p.id}`,
+        name: p.name,
+        subtitle: (p.description || "").trim() || `от @${p.username}`,
+        covers: recommendedCoverSources([p.cover], p.tracks),
+        tracks: p.tracks,
+      });
+    }
+    for (const c of curatedPlaylists || []) {
+      if (!c || !Array.isArray(c.tracks) || c.tracks.length === 0) continue;
+      out.push({
+        id: `cur_${c.id}`,
+        name: c.name,
+        subtitle: c.subtitle,
+        covers: recommendedCoverSources([], c.tracks),
+        tracks: c.tracks,
+      });
+    }
+    return out;
+  }, [recommendedPlaylists, curatedPlaylists]);
 
   // ── Taste signature (Task 2) ──
   // Stable STRING derived from the exact params that drive the home feed
@@ -745,62 +783,27 @@ function MainView() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* PLAYLISTS — reference-faithful editorial composition. The        */}
-      {/* reference is a LAYOUT BLUEPRINT (percentages measured off the    */}
-      {/* original): centered headline block, one expanded near-square     */}
-      {/* card + extreme 1:4.8 vertical strips in a single 73.4%-wide      */}
-      {/* row, full-bleed monochrome artwork band below. Same actions as   */}
-      {/* before: open / play / context menu / create.                     */}
+      {/* RECOMMENDED PLAYLISTS — reference-faithful editorial composition  */}
+      {/* built on the app's REAL recommendation sources: public           */}
+      {/* taste-based picks (existing /playlists/recommendations engine)    */}
+      {/* merged with the curated feed Home already receives. The          */}
+      {/* reference's own interaction (video pin): hovering/tapping a      */}
+      {/* narrow strip EXPANDS it into the featured card while the         */}
+      {/* previous featured card collapses back — one accordion row.       */}
       {/* ════════════════════════════════════════════════════════════════ */}
-      {playlists.length > 0 ? (
-        <UserPlaylistsEditorial
-          playlists={playlists}
+      {recPlItems.length > 0 && (
+        <RecommendedPlaylistsEditorial
+          items={recPlItems}
           currentTrackId={currentTrack?.id}
           isPlaying={isPlaying}
           animationsEnabled={animationsEnabled}
-          onOpen={(pl) => {
-            setTimeout(() => useAppStore.getState().setSelectedPlaylistId(pl.id), 0);
-            setView("playlists");
+          onPlay={(it) => {
+            if (it.tracks.length === 0) return;
+            if (currentTrack?.id === it.tracks[0].id) { togglePlay(); return; }
+            playTrack(it.tracks[0], it.tracks);
           }}
-          onPlay={(pl) => {
-            if (pl.tracks.length === 0) return;
-            if (currentTrack?.id === pl.tracks[0].id) { togglePlay(); return; }
-            playTrack(pl.tracks[0], [...pl.tracks], pl.id);
-          }}
-          onMore={openPlaylistMenu}
-          onCreate={() => setView("playlists")}
-          onAll={() => setView("playlists")}
+          onMore={(it, e) => openCuratedMenu({ id: it.id, name: it.name, subtitle: it.subtitle, gradient: "", tracks: it.tracks }, e)}
         />
-      ) : (
-        <Section title="Плейлисты" icon={ListMusic}>
-          <button
-            onClick={() => setView("playlists")}
-            className="w-full rounded-2xl p-5 flex items-center gap-4 transition-all hover:bg-[var(--mq-overlay-hover)] text-left"
-            style={{ backgroundColor: "var(--mq-card)", border: "1px dashed var(--mq-border-thin)" }}
-          >
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)" }}>
-              <Plus className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="mq-t-body text-sm" style={{ color: "var(--mq-text)" }}>Новый плейлист</p>
-              <p className="mq-t-meta text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>Собери своё</p>
-            </div>
-            {recentTracks.length > 0 && (
-              <div className="flex -space-x-2 flex-shrink-0">
-                {recentTracks.slice(0, 3).map((t, i) => t?.cover ? (
-                  <img
-                    key={t.id + "_" + i}
-                    src={t.cover}
-                    alt=""
-                    className="w-8 h-8 rounded-md object-cover"
-                    style={{ border: "2px solid var(--mq-card)" }}
-                    loading="lazy"
-                  />
-                ) : null)}
-              </div>
-            )}
-          </button>
-        </Section>
       )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
@@ -823,33 +826,6 @@ function MainView() {
         </Section>
       )}
 
-      {/* ════════════════════════════════════════════════════════════════ */}
-      {/* RECOMMENDED PLAYLISTS (below the fold) — built from the user's */}
-      {/* real taste signal (top genres/artists + liked tracks) by the */}
-      {/* curated API. W01: honest personalized framing instead of the */}
-      {/* fake "editorial" voice. */}
-      {/* ════════════════════════════════════════════════════════════════ */}
-      {curatedPlaylists.length > 0 && (
-        <Section title="Рекомендованные плейлисты" icon={Sparkles}>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-            {curatedPlaylists.slice(0, 8).map((pl, i) => (
-              <CuratedPlaylistCard
-                key={pl.id}
-                playlist={pl}
-                index={i}
-                onPlay={() => {
-                  if (pl.tracks.length === 0) return;
-                  if (currentTrack?.id === pl.tracks[0].id) { togglePlay(); return; }
-                  playTrack(pl.tracks[0], pl.tracks);
-                }}
-                onMore={(e) => openCuratedMenu(pl, e)}
-                animationsEnabled={animationsEnabled}
-              />
-            ))}
-          </div>
-        </Section>
-      )}
-
       {/* ── Unified context menu for ALL Home surfaces (v68) ── */}
       {homeMenu?.kind === "track" && (
         <ContextMenu
@@ -864,14 +840,6 @@ function MainView() {
       {homeMenu?.kind === "artist" && (
         <ArtistActionsMenu
           artist={homeMenu.artist}
-          x={homeMenu.x}
-          y={homeMenu.y}
-          onClose={closeHomeMenu}
-        />
-      )}
-      {homeMenu?.kind === "playlist" && (
-        <PlaylistActionsMenu
-          playlist={homeMenu.playlist}
           x={homeMenu.x}
           y={homeMenu.y}
           onClose={closeHomeMenu}
@@ -1769,72 +1737,65 @@ function ChartRow({
 // ═════════════════════════════════════════════════════════════════════════
 
 // ═════════════════════════════════════════════════════════════════════════
-// PLAYLISTS (EDITORIAL) — hero + strip cards, Pinterest-ref adaptation.
-// Kept: hashHue fallback gradients (below). Replaced the old square
-// SaaS-style tile with image-led editorial cards (see components below).
+// RECOMMENDED PLAYLISTS (EDITORIAL) — the reference composition driven by   ═
+// the reference's own interaction. Data comes from the app's REAL
+// recommendation sources only (public taste-based picks + the curated
+// feed Home already receives) — never from the user's library, never
+// static. The reference pin is a VIDEO: its choreography is an accordion —
+// activating a narrow strip EXPANDS it to the featured width while the
+// previous featured card collapses back to a strip, neighbours reflow
+// smoothly, the row width never changes, and the expanded card reveals
+// its description while the vertical title persists.
 // ═════════════════════════════════════════════════════════════════════════
 
-const PLAYLIST_GRADIENTS: [string, string][] = [
-  ["#2d1b3d", "#0e0e0e"], ["#1b2d3a", "#0e0e0e"], ["#3d2b1b", "#0e0e0e"],
-  ["#1b3a2d", "#0e0e0e"], ["#3a1b2d", "#0e0e0e"], ["#2d2d1b", "#0e0e0e"],
-];
-function hashHue(name: string, idx: 0 | 1): string {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return PLAYLIST_GRADIENTS[Math.abs(h) % PLAYLIST_GRADIENTS.length][idx];
+type RecPlItem = {
+  id: string;
+  name: string;
+  subtitle: string;
+  covers: string[];
+  tracks: Track[];
+};
+
+function recommendedCoverSources(head: (string | null | undefined)[], tracks: Track[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const c of [...head, ...tracks.map((t) => t?.cover)]) {
+    if (c && !seen.has(c)) { seen.add(c); out.push(c); }
+    if (out.length >= 4) break;
+  }
+  return out;
 }
 
-function UserPlaylistsEditorial({
-  playlists,
+function RecommendedPlaylistsEditorial({
+  items,
   currentTrackId,
   isPlaying,
   animationsEnabled,
-  onOpen,
   onPlay,
   onMore,
-  onCreate,
-  onAll,
 }: {
-  playlists: UserPlaylist[];
+  items: RecPlItem[];
   currentTrackId?: string;
   isPlaying: boolean;
   animationsEnabled: boolean;
-  onOpen: (pl: UserPlaylist) => void;
-  onPlay: (pl: UserPlaylist) => void;
-  onMore: (pl: UserPlaylist, e: React.MouseEvent) => void;
-  onCreate: () => void;
-  onAll: () => void;
+  onPlay: (it: RecPlItem) => void;
+  onMore: (it: RecPlItem, e: React.MouseEvent) => void;
 }) {
   const isMobile = useIsMobile();
-  const hero = playlists[0];
-  // Desktop row mirrors the reference cap (1 expanded + 6 strips); the
-  // mobile h-scroll can carry a couple more.
-  const strips = playlists.slice(1, isMobile ? 9 : 7);
-  const showCreate = strips.length < (isMobile ? 8 : 6);
-  const isPlayingPl = (pl: UserPlaylist) =>
-    !!currentTrackId && isPlaying && pl.tracks.some((t) => t.id === currentTrackId);
+  // Accordion state: which recommended playlist is expanded. null = the
+  // resting featured slot (the top recommendation) — the reference pin's
+  // static state.
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const featured = items.find((it) => it.id === activeId) ?? items[0];
+  const isPlayingIt = (it: RecPlItem) =>
+    !!currentTrackId && isPlaying && it.tracks.some((t) => t.id === currentTrackId);
 
-  // Headline subtext — REAL aggregate data, never invented copy.
-  const totalTracks = playlists.reduce((n, p) => n + p.tracks.length, 0);
-  const sub = `${playlists.length} ${pluralRu(playlists.length, "плейлист", "плейлиста", "плейлистов")} · ${totalTracks} ${pluralRu(totalTracks, "трек", "трека", "треков")}`;
-
-  const expandedCard = (
-    <PlaylistExpandedCard
-      playlist={hero}
-      isPlayingThis={isPlayingPl(hero)}
-      onOpen={() => onOpen(hero)}
-      onPlay={() => onPlay(hero)}
-      onMore={(e) => onMore(hero, e)}
-      animationsEnabled={animationsEnabled}
-      compact={isMobile}
-      className={isMobile ? "w-full" : "h-full"}
-      style={isMobile ? { width: "100%", aspectRatio: "0.9" } : undefined}
-    />
-  );
+  // Headline subtext — REAL aggregate, honest recommendation framing.
+  const sub = `${items.length} ${pluralRu(items.length, "подборка", "подборки", "подборок")} · подобрано по вашему вкусу`;
 
   const headlineBlock = (
     <div className={isMobile ? "text-center pt-1 pb-5" : "absolute text-center"}
-      style={isMobile ? undefined : { top: "11.8%", left: "50%", transform: "translateX(-50%)", width: "min(60%, 560px)" }}
+      style={isMobile ? undefined : { top: "15.6%", left: "50%", transform: "translateX(-50%)", width: "min(66%, 620px)" }}
     >
       {/* Reference scale: headline ≈ 2.6% of canvas width, subtext ≈ 1% —
           with a minimal readability uplift on the subtext only. */}
@@ -1842,58 +1803,63 @@ function UserPlaylistsEditorial({
         className="mq-text-headline font-bold tracking-tight"
         style={{ color: "var(--mq-text)", fontSize: isMobile ? 22 : "clamp(22px, 2vw, 28px)" }}
       >
-        Плейлисты
+        Рекомендованные плейлисты
       </h2>
       <p className={isMobile ? "mt-1.5 text-[11px]" : "mt-2.5 text-[11.5px]"}
         style={{ color: "color-mix(in srgb, var(--mq-text) 62%, transparent)", lineHeight: 1.6 }}
       >
         {sub}
       </p>
-      <button
-        type="button"
-        onClick={onAll}
-        className={`${isMobile ? "mt-2" : "mt-3"} mq-t-label text-[11px] transition-colors hover:underline underline-offset-4 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)]`}
-        style={{ color: "var(--mq-text-muted)" }}
-      >
-        Все плейлисты →
-      </button>
     </div>
   );
 
   if (isMobile) {
-    // No ScrollReveal here: it clips (overflow:hidden) and self-skips under
-    // 640px anyway; the cards carry their own entrance motion.
+    // Mobile translation of the reference composition: the featured card
+    // takes the top slot, the remaining picks stay narrow vertical strips
+    // on one shared card line below. Tapping a strip EXPANDS it into the
+    // featured slot (framer layoutId morph — the card visibly grows from
+    // its strip position), the previous featured card collapses back into
+    // the strip row. Same interaction, touch ergonomics.
+    const strips = items.filter((it) => it.id !== featured.id).slice(0, 7);
     return (
-      <section aria-label="Плейлисты" className="relative" style={{ overflowX: "clip" }}>
+      <section aria-label="Рекомендованные плейлисты" className="relative" style={{ overflowX: "clip" }}>
         {/* Headline — centered (reference) */}
         {headlineBlock}
-        {/* Expanded card — reference Card 1, aspect 0.9 */}
-        {expandedCard}
-        {/* Strips — same height as the expanded card (one shared card
+        {/* Featured — the reference's expanded card, aspect 0.9 */}
+        <RecommendedCard
+          key={featured.id}
+          item={featured}
+          active
+          layoutId={"recpl-" + featured.id}
+          isPlayingThis={isPlayingIt(featured)}
+          onClickCard={() => onPlay(featured)}
+          onPlay={() => onPlay(featured)}
+          onMore={(e) => onMore(featured, e)}
+          animationsEnabled={animationsEnabled}
+          className="w-full"
+          style={{ width: "100%", aspectRatio: "0.9" }}
+        />
+        {/* Strips — same height as the featured card (one shared card
             line, as in the reference), scrolling horizontally */}
-        <HScroll className="mt-3.5 flex gap-3 overflow-x-auto scrollbar-none -mx-3.5 px-3.5">
-          {strips.map((pl, i) => (
-            <PlaylistStripCard
-              key={pl.id}
-              playlist={pl}
-              index={i}
-              isPlayingThis={isPlayingPl(pl)}
-              onOpen={() => onOpen(pl)}
-              onPlay={() => onPlay(pl)}
-              onMore={(e) => onMore(pl, e)}
-              animationsEnabled={animationsEnabled}
-              className="shrink-0"
-              style={{ width: "23.04%", aspectRatio: "0.2074" }}
-            />
-          ))}
-          {showCreate && (
-            <CreatePlaylistStrip onClick={onCreate} className="shrink-0" style={{ width: "23.04%", aspectRatio: "0.2074" }} />
-          )}
-        </HScroll>
-        {/* Artwork band — full-bleed, slim (reference bottom strip) */}
-        <div className="relative mt-5" style={{ height: 110, marginInline: "calc(50% - 50vw)" }}>
-          <CoversLightBand playlists={playlists} />
-        </div>
+        {strips.length > 0 && (
+          <HScroll className="mt-3.5 flex gap-3 overflow-x-auto scrollbar-none -mx-3.5 px-3.5">
+            {strips.map((it) => (
+              <RecommendedCard
+                key={it.id}
+                item={it}
+                active={false}
+                layoutId={"recpl-" + it.id}
+                isPlayingThis={isPlayingIt(it)}
+                onClickCard={() => setActiveId(it.id)}
+                onPlay={() => onPlay(it)}
+                onMore={(e) => onMore(it, e)}
+                animationsEnabled={animationsEnabled}
+                className="shrink-0"
+                style={{ width: "23.04%", aspectRatio: "0.2074" }}
+              />
+            ))}
+          </HScroll>
+        )}
       </section>
     );
   }
@@ -1901,9 +1867,24 @@ function UserPlaylistsEditorial({
   // Desktop: the breakout <section> sits OUTSIDE ScrollReveal — the reveal
   // wrapper clips (overflow:hidden + contain:paint) and would cut the
   // negative-margin breakout back to the 640px column.
+  const row = items.slice(0, 7);
+  const activeIdx = Math.max(0, row.findIndex((it) => it.id === featured.id));
+  // Reference rhythm (measured off the pin): expanded card 37.3% of the
+  // row, strips 8.6%, gaps 1.2% — with the slightly wider 2.2% breath
+  // after the expanded card. In the resting state this reproduces the
+  // static pin exactly; when another card is activated the SAME track
+  // list simply re-maps (hero/strip values swap places), so
+  // grid-template-columns interpolates and the row reflows as one
+  // accordion — the reference video's choreography.
+  const parts: string[] = [];
+  row.forEach((it, i) => {
+    if (i > 0) parts.push(i - 1 === activeIdx ? "2.2%" : "1.2%");
+    parts.push(it.id === featured.id ? "37.3%" : "8.6%");
+  });
+  const template = parts.join(" ");
   return (
     <section
-      aria-label="Плейлисты"
+      aria-label="Рекомендованные плейлисты"
       className="relative"
       style={{
         // Break out of the 640px home column up to the main area's width
@@ -1914,72 +1895,59 @@ function UserPlaylistsEditorial({
       }}
     >
       <ScrollReveal direction="up" delay={0.05}>
-        {/* Canvas — aspect-locked to the reference (1702:1219), capped to
-            stay within one comfortable look */}
+        {/* Canvas — aspect-locked to the reference composition (headline +
+            card row; the pin's bottom artwork band is NOT part of this
+            design), capped to stay within one comfortable look */}
         <div
           className="relative mx-auto"
-          style={{ width: "min(100%, calc(76vh * 1.3962), 1280px)", aspectRatio: "1702 / 1219" }}
+          style={{ width: "min(100%, calc(76vh * 1.85), 1280px)", aspectRatio: "1702 / 920" }}
         >
-          {/* Headline — centered block at y 11.8→21% (reference) */}
+          {/* Headline — centered block (reference y 11.8% of 1219 → 15.6%
+              of the band-less canvas) */}
           {headlineBlock}
 
-          {/* Card row — x 13.1→86.5%, y 29.9→72.6% (reference). Rhythm:
-              expanded 37.3% of the row, first gap 2.2%, strips 8.6%, strip
-              gaps 1.2% — every card shares one top and one bottom line. */}
-          <div className="absolute" style={{ left: "13.1%", right: "13.5%", top: "29.9%", height: "42.7%" }}>
+          {/* Card row — x 13.1→86.5%, y 29.9→72.6% of the reference
+              (rebased to the shorter canvas). Hovering/focusing a strip
+              expands it; leaving the row collapses back to the resting
+              featured state. Heights are fixed → zero page reflow/CLS. */}
+          <div className="absolute" style={{ left: "13.1%", right: "13.5%", top: "39.6%", height: "56.5%" }}>
             <div
               className="grid h-full"
-              style={{ gridTemplateColumns: `37.3% 2.2% repeat(${strips.length + (showCreate ? 1 : 0)}, 8.6% 1.2%)` }}
+              style={{
+                gridTemplateColumns: template,
+                transition: animationsEnabled ? "grid-template-columns 520ms cubic-bezier(0.25, 1, 0.3, 1)" : undefined,
+              }}
+              onMouseLeave={() => setActiveId(null)}
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setActiveId(null);
+              }}
             >
-              {expandedCard}
-              <div aria-hidden="true" />
-              {[
-                ...strips.map((pl) => ({ pl })),
-                ...(showCreate ? [{ pl: null as UserPlaylist | null }] : []),
-              ].flatMap((it, i) => {
-                const card = it.pl ? (
-                  <PlaylistStripCard
-                    key={"s" + i}
-                    playlist={it.pl}
-                    index={i}
-                    isPlayingThis={isPlayingPl(it.pl)}
-                    onOpen={() => onOpen(it.pl!)}
-                    onPlay={() => onPlay(it.pl!)}
-                    onMore={(e) => onMore(it.pl!, e)}
-                    animationsEnabled={animationsEnabled}
-                    className="h-full"
-                  />
-                ) : (
-                  <CreatePlaylistStrip key={"c" + i} onClick={onCreate} className="h-full" />
-                );
-                return [card, <div key={"g" + i} aria-hidden="true" />];
-              })}
+              {row.flatMap((it, i) => [
+                // Gap spacer — occupies the template's dedicated gap track
+                ...(i > 0 ? [<div key={"g" + it.id} aria-hidden="true" />] : []),
+                <RecommendedCard
+                  key={it.id}
+                  item={it}
+                  active={it.id === featured.id}
+                  isPlayingThis={isPlayingIt(it)}
+                  onClickCard={() => onPlay(it)}
+                  onMouseEnter={() => setActiveId(it.id)}
+                  onFocus={() => setActiveId(it.id)}
+                  onPlay={() => onPlay(it)}
+                  onMore={(e) => onMore(it, e)}
+                  animationsEnabled={animationsEnabled}
+                  className="h-full"
+                />,
+              ])}
             </div>
           </div>
-        </div>
-        {/* Artwork band — full-bleed at the section's bottom 23.3% (reference);
-            absolute against the <section>, so it spans the whole breakout */}
-        <div aria-hidden="true" className="absolute inset-x-0 bottom-0 overflow-hidden" style={{ height: "23.3%" }}>
-          <CoversLightBand playlists={playlists} />
         </div>
       </ScrollReveal>
     </section>
   );
 }
 
-function playlistCoverSources(playlist: UserPlaylist): string[] {
-  if (playlist.cover) return [playlist.cover];
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const t of playlist.tracks) {
-    const c = t?.cover;
-    if (c && !seen.has(c)) { seen.add(c); out.push(c); }
-    if (out.length >= 4) break;
-  }
-  return out;
-}
-
-function playlistDurationLabel(tracks: Track[]): string {
+function recDurationLabel(tracks: Track[]): string {
   const total = tracks.reduce((acc, t) => acc + (t?.duration || 0), 0);
   if (total <= 0) return "";
   const mins = Math.round(total / 60);
@@ -1989,347 +1957,61 @@ function playlistDurationLabel(tracks: Track[]): string {
   return m ? `${h} ч ${m} мин` : `${h} ч`;
 }
 
-// ─── COVERS LIGHT BAND — the reference's bottom artwork strip. Real ──
-// playlist covers are stretched into a VERY DARK ambient substrate (tonal
-// variation only — no readable photographic content), and the reference's
-// actual material — liquid chrome light-trails — is rendered on top by the
-// SYNTHETIC CHROME STREAK layer (below). Full-bleed; near-black base with
-// a left glare pool, a mid-cluster of silver trails and a dark right third.
+// ─── RECOMMENDED CARD — one card, two reference states. The container's ──
+// width is driven from OUTSIDE (desktop: the accordion grid animates
+// grid-template-columns; mobile: the framer layoutId morph), so the card
+// itself only cross-fades between its two content layers while the
+// border-radius eases — exactly the behaviour visible in the reference
+// video: the vertical title persists, the expanded card's description
+// and CTA fade in just AFTER the width starts growing, the collapsed
+// card keeps its centered vertical title + foot icon.
 
-function CoversLightBand({ playlists }: { playlists: UserPlaylist[] }) {
-  const covers = useMemo(() => {
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const pl of playlists) {
-      for (const c of playlistCoverSources(pl)) {
-        if (!seen.has(c)) { seen.add(c); out.push(c); }
-        if (out.length >= 9) return out;
-      }
-    }
-    return out;
-  }, [playlists]);
-  return (
-    <div aria-hidden="true" className="absolute inset-0 overflow-hidden" style={{ background: "#030305" }}>
-      {covers.length > 0 ? (
-        <div className="absolute inset-0 flex">
-          {/* SUBSTRATE — real covers, hard-stretched along one axis like the
-              reference trails' flow, but crushed to a very dark ambient wash
-              (low brightness + low contrast + blur) so only weak tonal
-              variation survives between/beneath the chrome streaks. Three
-              LANE ROLES (every third cover) keep the smears staggered in
-              height like the reference's trail field. */}
-          {covers.map((c, i) => {
-            const lane = i % 3;
-            const laneFilter = [
-              "grayscale(1) brightness(0.21) contrast(1.8) blur(2.5px)",
-              "grayscale(1) brightness(0.18) contrast(1.4) blur(2px)",
-              "grayscale(1) brightness(0.20) contrast(1.6) blur(2.5px)",
-            ][lane];
-            const laneOpacity = [1.0, 1.0, 0.95][lane] - 0.18 * Math.floor(i / 3);
-            return (
-              <img
-                key={i}
-                src={c}
-                alt=""
-                loading="lazy"
-                className="h-full flex-1 min-w-0 object-cover"
-                style={{
-                  filter: laneFilter,
-                  opacity: Math.max(0.5, laneOpacity),
-                  transform: `rotate(${[-1, -2.5, 1.5][lane]}deg) scale(${[7.2, 5.6, 6.4][lane]}, ${[0.56, 0.10, 0.40][lane]})`,
-                  transformOrigin: `${44 + ((i * 13) % 12)}% ${[34, 48, 8][lane] + ((i * 7) % 8) - 4}%`,
-                }}
-              />
-            );
-          })}
-        </div>
-      ) : (
-        <div
-          className="absolute inset-0"
-          style={{ background: "linear-gradient(100deg, transparent 0%, rgba(148,163,184,0.08) 30%, rgba(148,163,184,0.12) 50%, rgba(148,163,184,0.06) 72%, transparent 100%)" }}
-        />
-      )}
-      {/* MELT — seats the substrate into the reference's lighting: a bright
-          reflection line hugging the top edge (the cards above bleed into
-          the band), a hard black gap below it, near-black crush at both the
-          top and bottom edges, and a backdrop blur that feathers what is
-          left of the covers into one smooth dark field. */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            "linear-gradient(180deg, rgba(203,213,225,0.15) 0%, rgba(203,213,225,0.14) 8%, rgba(203,213,225,0) 12%, #030305 13%, rgba(3,3,5,0.80) 20%, rgba(3,3,5,0.88) 30%, rgba(3,3,5,0.25) 40%, rgba(3,3,5,0.5) 74%, rgba(3,3,5,0.88) 88%, rgba(3,3,5,0.95) 100%)",
-          backdropFilter: "blur(4px)",
-          WebkitBackdropFilter: "blur(4px)",
-        }}
-      />
-      {/* MID SHEEN — the reference's dim continuous "metal surface" the
-          trails ride on: a faint horizontal silver air through the cluster
-          zone (keeps the streaks reading as one chrome surface). */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            "linear-gradient(90deg, transparent 0%, rgba(203,213,225,0.045) 10%, rgba(203,213,225,0.062) 34%, rgba(203,213,225,0.045) 52%, rgba(203,213,225,0.018) 62%, transparent 70%)",
-          WebkitMaskImage: "linear-gradient(180deg, transparent 15%, #000 36%, #000 64%, transparent 88%)",
-          maskImage: "linear-gradient(180deg, transparent 15%, #000 36%, #000 64%, transparent 88%)",
-        }}
-      />
-      {/* TOP GLOW — the reference's bright top-edge reflections under the
-          card row (two lobes, fading down within a few px). */}
-      <div
-        className="absolute inset-x-0 top-0"
-        style={{
-          height: "4.4%",
-          background:
-            "linear-gradient(90deg, transparent 11%, rgba(226,232,240,0.44) 14%, rgba(226,232,240,0.54) 20%, rgba(226,232,240,0.5) 26%, rgba(226,232,240,0.34) 32%, rgba(226,232,240,0.38) 38%, rgba(226,232,240,0.42) 45%, rgba(226,232,240,0.34) 50%, rgba(226,232,240,0.1) 55%, transparent 58%)",
-          WebkitMaskImage: "linear-gradient(180deg, #000 0%, #000 40%, transparent 100%)",
-          maskImage: "linear-gradient(180deg, #000 0%, #000 40%, transparent 100%)",
-        }}
-      />
-      {/* SYNTHETIC CHROME STREAKS — the band's actual material. */}
-      <ChromeStreaks />
-      {/* WARM CLOSE — the reference's dim bottom-left smear and a breath of
-          light at the bottom center; everything else stays near-black. */}
-      <div className="absolute inset-0" style={{ background: "radial-gradient(44% 96% at 34% 103%, rgba(226,232,240,0.035), transparent 58%), radial-gradient(9% 4% at 16% 96.5%, rgba(226,232,240,0.5), rgba(226,232,240,0.14) 55%, transparent 78%)" }} />
-    </div>
-  );
-}
-
-// ─── SYNTHETIC CHROME STREAKS — liquid-chrome light trails (SVG). Each ──
-// trail is a bezier sweep stroked in up to four concentric layers —
-//   wide dim silver "air" (deep metallic shading) →
-//   underglow →
-//   medium silver body →
-//   thin bright specular core —
-// so every ribbon has the reference's cross-section: bright core, silver
-// shoulders, soft feathered edges (Gaussian), and a near-black base around.
-// A per-trail gradient along its own direction fades each end in and out
-// (light-trail behaviour) and lets brightness breathe along its length.
-// The set mirrors the reference's anatomy — left glare pool, dim bridge
-// runs, a mid cluster (thin upper arcs, double-crest mid, fat dual run,
-// low dim runs, a crossing diagonal spine), a fading tail, a right ghost
-// — with different angles, bends, thicknesses and crossings throughout.
-
-type ChromeLayer = { w: number; o: number; f: "air" | "glow" | "body" | "core" };
-type ChromeTrail = {
-  d: string;
-  g: { x1: number; y1: number; x2: number; y2: number; stops: [number, number][] };
-  layers: ChromeLayer[];
-};
-
-const CHROME_TRAILS: ChromeTrail[] = [
-  // A — main FAT ribbon at the reference's fat-run height; dual staggered
-  // paths give the internal banding of chrome reflections
-  {
-    d: "M 420 98 C 510 84, 610 104, 672 94",
-    g: { x1: 420, y1: 98, x2: 672, y2: 94, stops: [[0, 0], [0.1, 0.6], [0.34, 0.9], [0.52, 0.8], [0.7, 0.92], [0.78, 0.18], [1, 0]] },
-    layers: [
-      { w: 30, o: 0.07, f: "air" }, { w: 20, o: 0.2, f: "glow" },
-      { w: 9, o: 0.64, f: "body" }, { w: 5.6, o: 1, f: "core" },
-    ],
-  },
-  {
-    d: "M 435 106 C 530 92, 625 110, 684 102",
-    g: { x1: 435, y1: 106, x2: 684, y2: 102, stops: [[0, 0], [0.14, 0.55], [0.42, 0.95], [0.6, 0.7], [0.78, 0.9], [1, 0]] },
-    layers: [
-      { w: 16, o: 0.18, f: "glow" }, { w: 8, o: 0.6, f: "body" }, { w: 4.8, o: 0.97, f: "core" },
-    ],
-  },
-  // B — mid double-crest ribbon (main sweep + a parallel crest under it)
-  {
-    d: "M 390 54 C 465 40, 540 66, 582 56",
-    g: { x1: 390, y1: 54, x2: 582, y2: 56, stops: [[0, 0], [0.16, 0.55], [0.38, 0.95], [0.56, 0.82], [0.74, 0.9], [0.92, 0.3], [1, 0]] },
-    layers: [
-      { w: 22, o: 0.06, f: "air" }, { w: 13, o: 0.16, f: "glow" },
-      { w: 6, o: 0.52, f: "body" }, { w: 3.9, o: 0.96, f: "core" },
-    ],
-  },
-  {
-    d: "M 400 63 C 475 49, 545 74, 594 64",
-    g: { x1: 390, y1: 54, x2: 582, y2: 56, stops: [[0, 0], [0.16, 0.55], [0.38, 0.95], [0.56, 0.82], [0.74, 0.9], [0.92, 0.3], [1, 0]] },
-    layers: [{ w: 5, o: 0.42, f: "body" }],
-  },
-  // C — upper thin arc, long, gradual fade like the reference's high runs
-  {
-    d: "M 270 40 C 400 24, 515 50, 638 34",
-    g: { x1: 270, y1: 40, x2: 638, y2: 34, stops: [[0, 0], [0.12, 0.8], [0.3, 0.62], [0.48, 0.92], [0.64, 0.6], [0.82, 0.75], [1, 0]] },
-    layers: [
-      { w: 16, o: 0.05, f: "air" }, { w: 10, o: 0.14, f: "glow" },
-      { w: 5.5, o: 0.54, f: "body" }, { w: 3.7, o: 0.9, f: "core" },
-    ],
-  },
-  // D — crossing diagonal spine tying the cluster together
-  {
-    d: "M 300 62 C 440 68, 560 88, 680 106",
-    g: { x1: 300, y1: 62, x2: 680, y2: 106, stops: [[0, 0], [0.16, 0.45], [0.4, 0.75], [0.62, 0.5], [0.82, 0.6], [1, 0]] },
-    layers: [
-      { w: 11, o: 0.14, f: "glow" }, { w: 5.5, o: 0.48, f: "body" }, { w: 3, o: 0.85, f: "core" },
-    ],
-  },
-  // E — low dim multi-peak ribbon
-  {
-    d: "M 336 100 C 430 94, 520 108, 560 104 C 592 110, 632 114, 652 110",
-    g: { x1: 336, y1: 100, x2: 624, y2: 111, stops: [[0, 0], [0.14, 0.75], [0.34, 0.56], [0.56, 0.68], [0.9, 0.95], [1, 0]] },
-    layers: [
-      { w: 9, o: 0.13, f: "glow" }, { w: 5.5, o: 0.6, f: "body" }, { w: 2.8, o: 0.88, f: "core" },
-    ],
-  },
-  // M1 — bridge-mid dim run: the pool flows toward the cluster
-  {
-    d: "M 128 76 C 172 70, 214 84, 256 79",
-    g: { x1: 128, y1: 76, x2: 256, y2: 79, stops: [[0, 0], [0.2, 0.5], [0.5, 0.72], [0.8, 0.45], [1, 0]] },
-    layers: [
-      { w: 8, o: 0.12, f: "glow" }, { w: 6, o: 0.55, f: "body" }, { w: 2.8, o: 0.72, f: "core" },
-    ],
-  },
-  // M2 — bridge-low dim run
-  {
-    d: "M 136 132 C 182 126, 224 140, 268 136",
-    g: { x1: 136, y1: 132, x2: 268, y2: 136, stops: [[0, 0], [0.22, 0.55], [0.55, 0.74], [0.85, 0.34], [1, 0]] },
-    layers: [
-      { w: 7, o: 0.1, f: "glow" }, { w: 5.5, o: 0.52, f: "body" }, { w: 2.2, o: 0.6, f: "core" },
-    ],
-  },
-  // M3 — descending diagonal tail out of the cluster's low run
-  {
-    d: "M 372 106 C 320 110, 262 116, 214 126",
-    g: { x1: 372, y1: 106, x2: 214, y2: 126, stops: [[0, 0], [0.18, 0.55], [0.5, 0.75], [0.8, 0.45], [1, 0]] },
-    layers: [
-      { w: 8, o: 0.12, f: "glow" }, { w: 5.5, o: 0.56, f: "body" }, { w: 2.8, o: 0.78, f: "core" },
-    ],
-  },
-  // L — left glare POOL: broad, sustained bright plateau (off-canvas start)
-  {
-    d: "M -30 78 C 15 74, 75 88, 122 112",
-    g: { x1: -30, y1: 78, x2: 122, y2: 112, stops: [[0, 0.2], [0.22, 0.85], [0.45, 1], [0.85, 0.95], [1, 0]] },
-    layers: [
-      { w: 34, o: 0.07, f: "air" }, { w: 30, o: 0.32, f: "glow" },
-      { w: 19, o: 0.84, f: "body" }, { w: 7, o: 1, f: "core" },
-    ],
-  },
-  // R2 — the cluster's fading tail continuing right (keeps flow alive)
-  {
-    d: "M 698 46 C 744 40, 782 52, 822 46",
-    g: { x1: 698, y1: 46, x2: 822, y2: 46, stops: [[0, 0.45], [0.5, 0.55], [1, 0]] },
-    layers: [{ w: 3.5, o: 0.3, f: "body" }, { w: 1.8, o: 0.5, f: "core" }],
-  },
-  // R — right ghost entering from the edge (the reference's right is black)
-  {
-    d: "M 1164 74 C 1112 79, 1066 70, 1018 78",
-    g: { x1: 1164, y1: 74, x2: 1018, y2: 78, stops: [[0, 0.5], [0.35, 0.3], [0.75, 0.12], [1, 0]] },
-    layers: [
-      { w: 9, o: 0.07, f: "glow" }, { w: 4, o: 0.12, f: "body" }, { w: 1.8, o: 0.28, f: "core" },
-    ],
-  },
-];
-
-const CHROME_BLURS: [string, number][] = [
-  ["mqCsAir", 6],
-  ["mqCsGlow", 4],
-  ["mqCsBody", 2.2],
-  ["mqCsCore", 0.6],
-];
-
-function ChromeStreaks() {
-  return (
-    <svg
-      aria-hidden="true"
-      focusable="false"
-      className="absolute inset-0 h-full w-full"
-      viewBox="0 0 1128 160"
-      preserveAspectRatio="none"
-    >
-      <defs>
-        {CHROME_BLURS.map(([id, dev]) => (
-          <filter key={id} id={id} x="-80%" y="-80%" width="260%" height="260%">
-            <feGaussianBlur stdDeviation={dev} />
-          </filter>
-        ))}
-        {CHROME_TRAILS.map((t, i) => (
-          <linearGradient
-            key={i}
-            id={`mqCsG${i}`}
-            gradientUnits="userSpaceOnUse"
-            x1={t.g.x1}
-            y1={t.g.y1}
-            x2={t.g.x2}
-            y2={t.g.y2}
-          >
-            {t.g.stops.map(([off, op]) => (
-              <stop key={off} offset={off} stopColor="#ffffff" stopOpacity={op} />
-            ))}
-          </linearGradient>
-        ))}
-      </defs>
-      {CHROME_TRAILS.map((t, i) => (
-        <g key={i}>
-          {t.layers.map((l, j) => (
-            <path
-              key={j}
-              d={t.d}
-              fill="none"
-              stroke={`url(#mqCsG${i})`}
-              strokeWidth={l.w}
-              strokeLinecap="round"
-              opacity={l.o}
-              filter={`url(#mqCs${l.f[0].toUpperCase()}${l.f.slice(1)})`}
-            />
-          ))}
-        </g>
-      ))}
-    </svg>
-  );
-}
-
-// ─── EXPANDED CARD — reference Card 1: vertical title at the left edge,
-// an EMPTY middle (negative space is part of the design), then a short
-// description + circle-icon CTA, and a silver-washed preview of the real
-// cover bleeding to the card's bottom edge (21% of its height).
-
-function PlaylistExpandedCard({
-  playlist: pl,
+function RecommendedCard({
+  item,
+  active,
   isPlayingThis,
-  onOpen,
+  onClickCard,
+  onMouseEnter,
+  onFocus,
   onPlay,
   onMore,
   animationsEnabled,
-  compact = false,
+  layoutId,
   className = "",
   style,
 }: {
-  playlist: UserPlaylist;
+  item: RecPlItem;
+  active: boolean;
   isPlayingThis: boolean;
-  onOpen: () => void;
+  onClickCard: () => void;
+  onMouseEnter?: () => void;
+  onFocus?: () => void;
   onPlay: () => void;
   onMore: (e: React.MouseEvent) => void;
   animationsEnabled: boolean;
-  compact?: boolean;
+  layoutId?: string;
   className?: string;
   style?: React.CSSProperties;
 }) {
-  const covers = playlistCoverSources(pl);
-  const duration = playlistDurationLabel(pl.tracks);
-  const trackWord = pluralRu(pl.tracks.length, "трек", "трека", "треков");
-  const first = pl.tracks.find((t) => t);
-  const desc =
-    pl.tracks.length > 0
-      ? `${pl.tracks.length} ${trackWord}${duration ? ` · ${duration}` : ""}${first ? ` · ${first.artist || first.title}` : ""}`
-      : "Пока пусто — добавьте треки, и подборка оживёт";
-  const pad = compact ? "6.5%" : "7.5%";
+  const covers = item.covers;
+  const duration = recDurationLabel(item.tracks);
+  const trackWord = pluralRu(item.tracks.length, "трек", "трека", "треков");
+  const meta = `${item.tracks.length} ${trackWord}${duration ? ` · ${duration}` : ""}`;
   return (
     <motion.div
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
-      initial={animationsEnabled ? { opacity: 0, y: 14 } : undefined}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      layoutId={layoutId}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClickCard(); } }}
+      onClick={onClickCard}
+      onMouseEnter={onMouseEnter}
+      onFocus={onFocus}
       whileTap={{ scale: 0.99 }}
-      onClick={onOpen}
-      aria-label={`Плейлист: ${pl.name}${pl.tracks.length ? `, ${pl.tracks.length} ${trackWord}` : ""}`}
-      className={`group relative overflow-hidden text-left cursor-pointer rounded-xl outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)] ${className}`}
+      transition={{ layout: animationsEnabled ? { duration: 0.5, ease: [0.25, 1, 0.3, 1] } : { duration: 0 } }}
+      aria-label={`Рекомендованный плейлист: ${item.name}, ${meta}`}
+      className={`group relative overflow-hidden text-left cursor-pointer outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)] transition-[border-radius] duration-500 ${className}`}
       style={{
+        borderRadius: active ? 14 : 8,
         border: `1px solid ${isPlayingThis ? "color-mix(in srgb, var(--mq-accent) 45%, transparent)" : "var(--mq-border-hairline)"}`,
         backgroundColor: "color-mix(in srgb, var(--mq-card) 85%, transparent)",
         containerType: "inline-size",
@@ -2339,195 +2021,143 @@ function PlaylistExpandedCard({
       {/* Atmosphere — faint downward gradient (reference card surface) */}
       <div aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--mq-text) 5%, transparent), transparent 45%)" }} />
 
-      {/* Vertical title — at the left edge, reading bottom-up (reference).
-          Reference: 16px on a 466px card = 3.43% of its width. Size is locked
-          to that share of THIS card's width (cqw, container set on the card),
-          clamped at 12px so the mobile card (already at the reference share)
-          keeps its current size; desktop settles ≈10px = one step down from
-          the old 12px uplift. Inset ≈ 9% from the left (unchanged). */}
-      <p
-        title={pl.name}
-        className="absolute font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180"
-        style={{ left: "9%", top: "7%", height: "40%", fontSize: "min(12px, 3.83cqw)", color: "var(--mq-text)" }}
+      {/* ── STRIP STATE — the reference's extreme card (≈1:4.8): flat dark
+          surface, one centered vertical title near the top, one small
+          line-icon at the foot. Covers do NOT tile the card at rest (the
+          row reads typographic); the real artwork only whispers in on
+          hover. */}
+      <div
+        aria-hidden={active || undefined}
+        className="absolute inset-0 transition-opacity duration-150"
+        style={{ opacity: active ? 0 : 1, pointerEvents: active ? "none" : undefined }}
       >
-        {pl.name}
-      </p>
-
-      {/* (the card's middle stays deliberately EMPTY — reference) */}
-
-      {/* Bottom stack: description + circle-icon CTA (reference) */}
-      <div className="absolute" style={{ left: pad, right: pad, bottom: "calc(21% + 7%)" }}>
-        <p className={`line-clamp-2 text-[11px] leading-relaxed`} style={{ color: "color-mix(in srgb, var(--mq-text) 74%, transparent)" }}>
-          {desc}
+        {covers[0] && (
+          <div className="absolute inset-x-0 bottom-0 h-[46%] overflow-hidden opacity-25 md:opacity-0 md:group-hover:opacity-40 transition-opacity duration-500">
+            <img
+              src={covers[0]}
+              alt=""
+              loading="lazy"
+              className="w-full h-full object-cover"
+              style={{ filter: "grayscale(0.75) brightness(1.05) blur(6px)", transform: "scale(1.3)" }}
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+            />
+            <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, var(--mq-card) 0%, transparent 60%)" }} />
+          </div>
+        )}
+        {/* Vertical title — centered, near the top, bottom-up (reference:
+            ≈16px on a 108px strip = 14.8% of card width, normal tracking).
+            CLAMPED at 13px: at rest it tracks the strip's width via cqw,
+            but during the accordion animation (when this card is the one
+            expanding) the width — and with it the raw cqw — grows 4×;
+            the clamp freezes the visual mass so the fading strip title
+            never reads as stretching. 9px readability floor. */}
+        <p
+          title={item.name}
+          className="absolute left-1/2 -translate-x-1/2 font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180"
+          style={{ top: "6.5%", height: "52%", fontSize: "clamp(9px, 14.8cqw, 13px)", color: "color-mix(in srgb, var(--mq-text) 88%, transparent)" }}
+        >
+          {item.name}
         </p>
-        {pl.tracks.length > 0 && (
+        {/* Foot — one small line-icon, centered (reference); eq while playing */}
+        <div aria-hidden="true" className="absolute bottom-[5.5%] left-1/2 -translate-x-1/2 pointer-events-none">
+          {isPlayingThis ? (
+            <NowPlayingEqualizer size="xs" variant="overlay" />
+          ) : (
+            <ListMusic className="w-3.5 h-3.5" style={{ color: "color-mix(in srgb, var(--mq-text) 38%, transparent)" }} />
+          )}
+        </div>
+        {/* Desktop note: no hover play circle here — hovering a strip
+            EXPANDS it (reference interaction) and the play affordance
+            becomes the expanded card's «Слушать» CTA + the card click. */}
+        {/* Mobile: always-visible play circle, 36px (touch parity) */}
+        {item.tracks.length > 0 && (
           <button
             type="button"
+            tabIndex={active ? -1 : 0}
             onClick={(e) => { e.stopPropagation(); onPlay(); }}
-            aria-label={isPlayingThis ? `Пауза — ${pl.name}` : `Слушать — ${pl.name}`}
-            className="mt-4 inline-flex items-center gap-2 text-[11px] font-semibold transition-transform active:scale-95 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)]"
-            style={{ color: "var(--mq-text)" }}
+            aria-label={`Играть — ${item.name}`}
+            className="md:hidden absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-transform z-10"
+            style={{ top: "74%", backgroundColor: "var(--mq-accent)", boxShadow: "0 4px 14px rgba(0,0,0,0.4)" }}
           >
-            <span
-              className="w-[20px] h-[20px] rounded-full flex items-center justify-center"
-              style={{ border: "1px solid color-mix(in srgb, var(--mq-text) 55%, transparent)" }}
-            >
-              {isPlayingThis
-                ? <Pause className="w-2.5 h-2.5" fill="currentColor" />
-                : <ArrowUpRight className="w-2.5 h-2.5" />}
-            </span>
-            {isPlayingThis ? "Пауза" : "Слушать"}
+            {isPlayingThis
+              ? <Pause className="w-4 h-4 text-white" fill="currentColor" />
+              : <Play className="w-4 h-4 text-white ml-px" fill="currentColor" />}
           </button>
         )}
       </div>
 
-      {/* Preview band — the real cover, silver-washed, bleeding to the
-          card's bottom edge (reference light preview: mean luminance ≈ 91,
-          a genuinely LIGHT band on the dark card) */}
-      <div aria-hidden="true" className="absolute inset-x-0 bottom-0 overflow-hidden" style={{ height: "21%" }}>
-        {covers.length > 0 ? (
-          <img
-            src={covers[0]}
-            alt=""
-            loading="lazy"
-            className="w-full h-full object-cover"
-            style={{ filter: "grayscale(1) brightness(1.05) contrast(1.02)" }}
-          />
-        ) : (
-          <div
-            className="w-full h-full"
-            style={{ background: `linear-gradient(100deg, ${hashHue(pl.name, 0)}, ${hashHue(pl.name, 1)})`, filter: "grayscale(0.7) brightness(1.2)" }}
-          />
-        )}
-        <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--mq-bg) 28%, transparent) 0%, color-mix(in srgb, #ffffff 20%, transparent) 55%, color-mix(in srgb, #ffffff 30%, transparent) 100%)" }} />
-      </div>
-
-      {/* More — top-right (existing playlist actions) */}
+      {/* ── EXPANDED STATE — reference Card 1: vertical title at the left
+          edge, an EMPTY middle (negative space is part of the design),
+          then a short description + circle-icon CTA, and a silver-washed
+          preview of the real cover bleeding to the card's bottom edge
+          (21% of its height). Fades in just after the width starts
+          growing — the reference video's reveal timing. */}
       <div
-        className="absolute top-2 right-2 z-10 rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
-        style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
-        onClick={(e) => e.stopPropagation()}
+        aria-hidden={!active || undefined}
+        className="absolute inset-0 transition-opacity duration-200"
+        style={{ opacity: active ? 1 : 0, transitionDelay: active ? "200ms" : "0ms", pointerEvents: active ? undefined : "none" }}
       >
-        <TrackMoreButton onOpen={onMore} size="sm" label={`Действия: ${pl.name}`} className="!text-white" />
-      </div>
-    </motion.div>
-  );
-}
-
-// ─── STRIP — the reference's signature extreme card (≈1:4.8): flat dark
-// surface, one vertical title centered near the top, one small line-icon
-// centered at the bottom. Covers do NOT tile the card at rest (the row
-// reads typographic); the real artwork only whispers in on hover.
-
-function PlaylistStripCard({
-  playlist: pl,
-  index,
-  isPlayingThis,
-  onOpen,
-  onPlay,
-  onMore,
-  animationsEnabled,
-  className = "",
-  style,
-}: {
-  playlist: UserPlaylist;
-  index: number;
-  isPlayingThis: boolean;
-  onOpen: () => void;
-  onPlay: () => void;
-  onMore: (e: React.MouseEvent) => void;
-  animationsEnabled: boolean;
-  className?: string;
-  style?: React.CSSProperties;
-}) {
-  const covers = playlistCoverSources(pl);
-  return (
-    <motion.div
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
-      initial={animationsEnabled ? { opacity: 0, y: 14 } : undefined}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(0.06 + index * 0.045, 0.42), duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-      whileTap={{ scale: 0.985 }}
-      onClick={onOpen}
-      aria-label={`Плейлист: ${pl.name}, ${pl.tracks.length} ${pluralRu(pl.tracks.length, "трек", "трека", "треков")}`}
-      className={`group relative overflow-hidden text-left cursor-pointer rounded-md outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)] ${className}`}
-      style={{
-        border: `1px solid ${isPlayingThis ? "color-mix(in srgb, var(--mq-accent) 45%, transparent)" : "var(--mq-border-hairline)"}`,
-        backgroundColor: "color-mix(in srgb, var(--mq-card) 85%, transparent)",
-        containerType: "inline-size",
-        ...style,
-      }}
-    >
-      {/* Atmosphere — faint downward gradient (reference surface) */}
-      <div aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--mq-text) 5%, transparent), transparent 45%)" }} />
-
-      {/* Cover whisper — the real artwork surfacing on hover (reference:
-          strips stay flat; a light block peeks when a card wakes up) */}
-      {covers.length > 0 && (
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-0 bottom-0 h-[46%] overflow-hidden pointer-events-none opacity-25 md:opacity-0 md:group-hover:opacity-40 transition-opacity duration-500"
+        {/* Vertical title — at the left edge, reading bottom-up (reference).
+            Reference: 16px on a 466px card = 3.43% of its width (locked
+            via cqw, capped at 12px, floored at 9px so the collapsing
+            animation never crushes it to an unreadable size). Inset ≈ 9%. */}
+        <p
+          title={item.name}
+          className="absolute font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180"
+          style={{ left: "9%", top: "7%", height: "40%", fontSize: "clamp(9px, 3.83cqw, 12px)", color: "var(--mq-text)" }}
         >
-          <img src={covers[0]} alt="" loading="lazy" className="w-full h-full object-cover" style={{ filter: "grayscale(0.75) brightness(1.05) blur(6px)", transform: "scale(1.3)" }} />
-          <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, var(--mq-card) 0%, transparent 60%)" }} />
+          {item.name}
+        </p>
+
+        {/* (the card's middle stays deliberately EMPTY — reference) */}
+
+        {/* Bottom stack: description + circle-icon CTA (reference) */}
+        <div className="absolute" style={{ left: "7.5%", right: "7.5%", bottom: "calc(21% + 7%)" }}>
+          <p className="line-clamp-2 text-[11px] leading-relaxed" style={{ color: "color-mix(in srgb, var(--mq-text) 74%, transparent)" }}>
+            {item.subtitle}
+          </p>
+          <p className="mt-1 text-[10.5px]" style={{ color: "color-mix(in srgb, var(--mq-text) 45%, transparent)" }}>
+            {meta}
+          </p>
+          {item.tracks.length > 0 && (
+            <button
+              type="button"
+              tabIndex={active ? 0 : -1}
+              onClick={(e) => { e.stopPropagation(); onPlay(); }}
+              aria-label={isPlayingThis ? `Пауза — ${item.name}` : `Слушать — ${item.name}`}
+              className="mt-4 inline-flex items-center gap-2 text-[11px] font-semibold transition-transform active:scale-95 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)]"
+              style={{ color: "var(--mq-text)" }}
+            >
+              <span
+                className="w-[20px] h-[20px] rounded-full flex items-center justify-center"
+                style={{ border: "1px solid color-mix(in srgb, var(--mq-text) 55%, transparent)" }}
+              >
+                {isPlayingThis
+                  ? <Pause className="w-2.5 h-2.5" fill="currentColor" />
+                  : <ArrowUpRight className="w-2.5 h-2.5" />}
+              </span>
+              {isPlayingThis ? "Пауза" : "Слушать"}
+            </button>
+          )}
         </div>
-      )}
 
-      {/* Vertical title — centered, near the top, bottom-up (reference:
-          ≈16px on a 108px strip = 14.8% of card width, normal tracking).
-          Size is LOCKED to that share of THIS card's width (cqw; the card
-          above is the inline-size container) with a 9px readability floor:
-          the visual mass tracks the strip's width, never a fixed px. */}
-      <p
-        title={pl.name}
-        className="absolute left-1/2 -translate-x-1/2 font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180"
-        style={{ top: "6.5%", height: "52%", fontSize: "max(9px, 14.8cqw)", color: "color-mix(in srgb, var(--mq-text) 88%, transparent)" }}
-      >
-        {pl.name}
-      </p>
-
-      {/* Foot — one small line-icon, centered (reference); eq while playing */}
-      <div aria-hidden="true" className="absolute bottom-[5.5%] left-1/2 -translate-x-1/2 pointer-events-none">
-        {isPlayingThis ? (
-          <NowPlayingEqualizer size="xs" variant="overlay" />
-        ) : (
-          <ListMusic className="w-3.5 h-3.5" style={{ color: "color-mix(in srgb, var(--mq-text) 38%, transparent)" }} />
-        )}
-      </div>
-
-      {/* Desktop: glass play circle on hover (keyboard-focusable) */}
-      {pl.tracks.length > 0 && (
-        <div
-          role="button"
-          tabIndex={0}
-          aria-label={`Играть — ${pl.name}`}
-          onClick={(e) => { e.stopPropagation(); onPlay(); }}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onPlay(); } }}
-          className="hidden md:flex absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 rounded-full items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none transition-opacity z-10"
-          style={{ top: "74%", backgroundColor: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,0.16)" }}
-        >
-          {isPlayingThis
-            ? <Pause className="w-4 h-4 text-white" fill="currentColor" />
-            : <Play className="w-4 h-4 text-white ml-px" fill="currentColor" />}
+        {/* Preview band — the real cover, silver-washed, bleeding to the
+            card's bottom edge (reference light preview: a genuinely LIGHT
+            band on the dark card) */}
+        <div aria-hidden="true" className="absolute inset-x-0 bottom-0 overflow-hidden" style={{ height: "21%" }}>
+          {covers[0] && (
+            <img
+              src={covers[0]}
+              alt=""
+              loading="lazy"
+              className="w-full h-full object-cover"
+              style={{ filter: "grayscale(1) brightness(1.05) contrast(1.02)" }}
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+            />
+          )}
+          <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--mq-bg) 28%, transparent) 0%, color-mix(in srgb, #ffffff 20%, transparent) 55%, color-mix(in srgb, #ffffff 30%, transparent) 100%)" }} />
         </div>
-      )}
-
-      {/* Mobile: always-visible play circle (touch parity) */}
-      {pl.tracks.length > 0 && (
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onPlay(); }}
-          aria-label={`Играть — ${pl.name}`}
-          className="md:hidden absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-transform z-10"
-          style={{ top: "74%", backgroundColor: "var(--mq-accent)", boxShadow: "0 4px 14px rgba(0,0,0,0.4)" }}
-        >
-          {isPlayingThis
-            ? <Pause className="w-4 h-4 text-white" fill="currentColor" />
-            : <Play className="w-4 h-4 text-white ml-px" fill="currentColor" />}
-        </button>
-      )}
+      </div>
 
       {/* More — top-right (existing playlist actions) */}
       <div
@@ -2535,33 +2165,9 @@ function PlaylistStripCard({
         style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <TrackMoreButton onOpen={onMore} size="sm" label={`Действия: ${pl.name}`} className="!text-white" />
+        <TrackMoreButton onOpen={onMore} size="sm" label={`Действия: ${item.name}`} className="!text-white" />
       </div>
     </motion.div>
-  );
-}
-
-// ─── CREATE STRIP — completes the strip row in its own rhythm (dashed
-// hairline, muted vertical label, accent plus at the foot) ──────────────
-
-function CreatePlaylistStrip({ onClick, className = "", style }: { onClick: () => void; className?: string; style?: React.CSSProperties }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label="Создать плейлист"
-      className={`group/create relative rounded-md outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)] ${className}`}
-      style={{ border: "1px dashed var(--mq-border-thin)", backgroundColor: "color-mix(in srgb, var(--mq-card) 35%, transparent)", containerType: "inline-size", ...style }}
-    >
-      <div aria-hidden="true" className="absolute inset-0 rounded-md opacity-0 group-hover/create:opacity-100 transition-opacity" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 5%, transparent)" }} />
-      <p
-        className="absolute left-1/2 -translate-x-1/2 font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis [writing-mode:vertical-rl] rotate-180"
-        style={{ top: "6.5%", height: "52%", fontSize: "max(9px, 14.8cqw)", color: "var(--mq-text-muted)" }}
-      >
-        Новый плейлист
-      </p>
-      <Plus aria-hidden="true" className="absolute bottom-[5.5%] left-1/2 -translate-x-1/2 w-3.5 h-3.5" style={{ color: "var(--mq-accent)", opacity: 0.7 }} />
-    </button>
   );
 }
 
@@ -2795,68 +2401,6 @@ function ArtistCircleCard({
   );
 }
 
-// ═════════════════════════════════════════════════════════════════════════
-// CURATED PLAYLIST CARD
-// ═════════════════════════════════════════════════════════════════════════
-
-function CuratedPlaylistCard({
-  playlist: pl,
-  index,
-  onPlay,
-  onMore,
-  animationsEnabled,
-}: {
-  playlist: CuratedPlaylist;
-  index: number;
-  onPlay: () => void;
-  onMore: (e: React.MouseEvent) => void;
-  animationsEnabled: boolean;
-}) {
-  return (
-    <motion.div
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPlay(); } }}
-      initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index * 0.04, 0.4), duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={hoverProps({ y: -2, transition: { duration: 0.15, ease: "easeOut" } })}
-
-      onClick={onPlay}
-      className="text-left cursor-pointer group rounded-2xl overflow-hidden w-full"
-      style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)", boxShadow: "var(--mq-shadow-premium-md)" }}
-      aria-label={`Рекомендованный плейлист: ${pl.name}`}
-    >
-      <div className="relative aspect-square overflow-hidden">
-        <PlaylistArtwork playlistId={pl.id} size={200} rounded="rounded-none" className="!w-full !h-full group-hover:scale-105 transition-transform duration-500" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300" />
-        {pl.tracks.length > 0 && (
-          <div
-            className="absolute bottom-2 right-2 w-11 h-11 sm:w-10 sm:h-10 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 sm:scale-90 sm:group-hover:scale-100 sm:translate-y-2 sm:group-hover:translate-y-0"
-            style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)" }}
-          >
-            <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
-          </div>
-        )}
-        {/* More — top-right overlay */}
-        <div
-          className="absolute top-2 right-2 rounded-full"
-          style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <TrackMoreButton onOpen={onMore} size="sm" label={`Действия: ${pl.name}`} className="!text-white" />
-        </div>
-      </div>
-      <div className="p-3">
-        <p className="mq-t-track-sm truncate leading-tight">{pl.name}</p>
-        <p className="mq-t-meta-2 mt-0.5 truncate">{pl.subtitle}</p>
-        <p className="mq-t-badge mt-1.5">
-          {pl.tracks.length} {pluralRu(pl.tracks.length, "трек", "трека", "треков")}
-        </p>
-      </div>
-    </motion.div>
-  );
-}
 
 // ═════════════════════════════════════════════════════════════════════════
 // WAVE CARD — preserved from previous version
