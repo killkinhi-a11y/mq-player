@@ -6666,3 +6666,43 @@ Stage Summary:
   (depth carousel + artwork environment + compact glass controls),
   light Classic polish, 482/482 tests, all local QA gates green.
   Ready for commit → push → Vercel → production E2E.
+
+---
+Task ID: FULLPLAYER-THEMES-V8-DEPLOY-E2E
+Agent: Main Agent
+Task: Deploy gate → commit bfc83927 → push main → Vercel production
+mq-build-bfc83927 live 2026-09-24T20:32:44Z (~2.5 min) → production
+E2E desktop + mobile.
+
+Work Log:
+- PROD E2E DESKTOP 1440x900 (fresh demo session): default mode=classic
+  (existing users unaffected) ✓; Classic: dialog+LiquidTitle, N
+  (Charlie's Inferno→Night Magic Jazz), Q context panel, Esc×2 close ✓;
+  Settings: radios flip (true/false→false/true), localStorage=spatial ✓;
+  RELOAD → mode=spatial persisted ✓; open player → SPATIAL root + 5
+  cards [-2..2] real queue ✓; NEXT with mid-flight animation in prod
+  (matrix3d scale 0.862 @180ms) ✓; PREV = store's standard
+  restart-when-progress>3s semantics (verified in source, not a bug) ✓;
+  queue drawer 184 rows → row click plays picked (Choosin' Texas) +
+  closes ✓; lyrics overlay opens ✓; volume popup ✓; Space pause/resume
+  ✓; close→reopen clean, no stale overlays ✓; overflowX=0 ✓; console:
+  only [log] stream diagnostics, zero UI errors ✓.
+- PROD E2E MOBILE 390x844 (fresh session): demo → switch to Новый →
+  persisted ✓; spatial root + cards [0,1,2] (queue START — correct
+  bounds, no fake prev) ✓; play 52×52 ≥44 ✓; overflowX=0 ✓; swipe left
+  → next + autoplay (Ambient Dreams→Electronic Pulse) ✓; queue bottom
+  sheet 390×311 rounded ✓; screenshots + VLM 4/4 no defects ✓.
+- VLM false-flags investigated & closed: (1) «green border around
+  center card» = the Coffee Crazy SoundCloud artwork ITSELF has a
+  pixel-uniform RGB(126,217,86) lime frame on all 4 edges (verified by
+  canvas pixel sampling of the fetched cover) — artwork content, not
+  UI; (2) «−2:06 timestamp» = the app's established remaining-time
+  convention (same as Classic); (3) «leftmost card clipping» = intended
+  depth composition (outermost ±2 cards crop at viewport; overflowX=0).
+
+Stage Summary:
+- Full Player Themes v8 complete in production: Settings «Вид полного
+  плеера» (Classic default / Новый), SpatialFullPlayer depth carousel
+  live on desktop+mobile with 500ms premium transitions, queue/lyrics/
+  volume/more/keyboard/swipe all green in prod, Classic untouched and
+  functional. REGRESSIONS: none (482/482 tests, all gates green).
