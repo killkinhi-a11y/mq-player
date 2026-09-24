@@ -159,6 +159,11 @@ interface AppState {
    *  Local-only preference (persisted via partialize; NOT synced to server —
    *  no backend schema needed). Switching must never touch playback state. */
   fullPlayerMode: "classic" | "spatial";
+  /** v9 Spatial Player polish: which side of the carousel the floating
+   *  Like/Dislike/More action rail lives on. "left" (default) mirrors the
+   *  reference. Local-only preference (persisted via partialize; NOT synced
+   *  to server). Switching must never touch playback/track/queue state. */
+  spatialActionsPosition: "left" | "right";
 
   // Player
   currentTrack: Track | null;
@@ -327,6 +332,9 @@ interface AppState {
   /** v8 Full Player Themes — pure UI preference write; must not touch
    *  currentTrack/queue/queueIndex/progress/volume/EQ/lyrics state. */
   setFullPlayerMode: (mode: "classic" | "spatial") => void;
+  /** v9 — pure UI preference write; must not touch currentTrack/queue/
+   *  queueIndex/progress/volume/lyrics state (pinned by tests). */
+  setSpatialActionsPosition: (position: "left" | "right") => void;
   setCompactMode: (compact: boolean) => void;
   setFontSize: (size: number) => void;
   setLiquidGlassEnabled: (enabled: boolean) => void;
@@ -616,6 +624,7 @@ const initialState = {
   // v8 Full Player Themes — default "classic": existing users must NOT
   // see the Full Player change suddenly. Spatial is strictly opt-in.
   fullPlayerMode: "classic" as "classic" | "spatial",
+  spatialActionsPosition: "left" as "left" | "right",
   compactMode: false,
   fontSize: 16,
   liquidGlassEnabled: false,
@@ -1094,6 +1103,8 @@ export const useAppStore = create<AppState>()(
       // v8: pure UI preference — writes ONE field. Track/queue/position/
       // volume/EQ/lyrics state is untouched by design (pinned by tests).
       setFullPlayerMode: (mode) => set({ fullPlayerMode: mode }),
+      // v9: pure UI preference — writes ONE field (action rail side).
+      setSpatialActionsPosition: (position) => set({ spatialActionsPosition: position }),
 
       setCompactMode: (compact) => set({ compactMode: compact }),
 
@@ -2989,6 +3000,7 @@ export const useAppStore = create<AppState>()(
           animationsEnabled: persistent.animationsEnabled,
           reduceMotion: persistent.reduceMotion,
           fullPlayerMode: persistent.fullPlayerMode === "spatial" ? "spatial" : "classic",
+          spatialActionsPosition: persistent.spatialActionsPosition === "right" ? "right" : "left",
           compactMode: persistent.compactMode,
           fontSize: persistent.fontSize,
           liquidGlassEnabled: persistent.liquidGlassEnabled,
@@ -3087,6 +3099,7 @@ export const useAppStore = create<AppState>()(
             animationsEnabled: old?.animationsEnabled ?? initialState.animationsEnabled,
             reduceMotion: old?.reduceMotion ?? initialState.reduceMotion,
             fullPlayerMode: old?.fullPlayerMode === "spatial" ? "spatial" : "classic",
+            spatialActionsPosition: old?.spatialActionsPosition === "right" ? "right" : "left",
             compactMode: old?.compactMode ?? initialState.compactMode,
             fontSize: old?.fontSize ?? initialState.fontSize,
             liquidGlassEnabled: old?.liquidGlassEnabled ?? initialState.liquidGlassEnabled,

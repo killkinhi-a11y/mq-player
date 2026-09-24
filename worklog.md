@@ -6706,3 +6706,101 @@ Stage Summary:
   live on desktop+mobile with 500ms premium transitions, queue/lyrics/
   volume/more/keyboard/swipe all green in prod, Classic untouched and
   functional. REGRESSIONS: none (482/482 tests, all gates green).
+
+---
+Task ID: SPATIAL-POLISH-V9
+Agent: Main Agent
+Task: Final Spatial Player polish — Like/Dislike/More floating action
+rail (left default + Left/Right setting) + reference-like compact glass
+control bar. Classic untouched.
+
+Work Log:
+- STORE (useAppStore.ts): spatialActionsPosition:"left"|"right" (default
+  left — mirrors reference) + setSpatialActionsPosition (writes ONE
+  field only) + partialize + migrate preserve. Local-only, no backend.
+- SpatialFullPlayer.tsx:
+  * NEW pure helper spatialRailLeft(cardW, stageW, position) + exported
+    SPATIAL_RAIL_W=56: desktop rail floats just OUTSIDE the outermost
+    visible side card (breathing room 16px), clamped to a ≥10px inset
+    so it can never overflow or leave the stage on narrow desktops;
+    mirrored symmetric placement.
+  * NEW SpatialActionRail component — ONE floating glass control
+    (rounded pill, backdrop blur 24px, translucent rgba(12,12,17,0.42),
+    hairline border, soft shadow, hairline dividers between 44px
+    targets): Like (Heart, accent+fill when active) / Dislike
+    (ThumbsDown, error-color+fill when active — same tokens as Classic)
+    / More (existing MenuCore, no new menu). Two orientations from the
+    SAME component: vertical (desktop, beside carousel, vertically
+    centred on the deck) / horizontal (mobile compact pill, in-flow row
+    between artwork and control bar, aligned to the chosen side);
+    data-mq-spatial="action-rail" + data-mq-position +
+    data-mq-orientation QA hooks.
+  * Desktop render: absolute rail inside the stage, z-40, top 50%,
+    left=spatialRailLeft(cardW, vp.w, position) — live side switch, no
+    duplication. Mobile render: action-rail-row (flex-shrink-0) with
+    justify-start/end per setting — pill NEVER overlaps artwork or
+    control bar at any height (mobile card cap tightened 0.46h → 0.42h
+    to keep the extra row clear on short phones).
+  * CONTROL BAR REWORK (reference-like): compact floating glass panel
+    (rounded-[28px], maxWidth 400 desktop / 340 mobile — was 560 wide
+    standard bar) with 3-row stack: thin progress + subtle time labels /
+    prev · round play 54/50px accent · next / secondary row (lyrics,
+    queue, volume desktop-only, quiet 19px icons). Like & More REMOVED
+    from the bar (live only in the rail). Progress rAF + WASM-aware
+    seek, volume popup, keyboard map unchanged.
+- SettingsView: inside «Вид полного плеера» card (spatial selected) —
+  NEW «Расположение дополнительных действий» radiogroup Слева/Справа
+  with live mini-previews (tiny 3-dot rail on the chosen side); spatial
+  mode preview also shows the rail-side indicator; hidden in Classic
+  mode. Persistence via existing store persist; switching preserves
+  track/queue/position/volume.
+- TESTS: src/__tests__/fullplayer/spatial-actions.test.tsx — 17 tests
+  covering all 12 owner cases: default left (getInitialState), switch
+  left→right + playback-untouched, localStorage persistence, reload
+  rehydrate (both directions), Like/Dislike/More from LEFT rail,
+  Like/Dislike/More from RIGHT rail (dislike skip semantics pinned),
+  bar structure (transport+secondary present, like/dislike/more ONLY
+  in rail, no duplicates), rail geometry (symmetry, clamping, no
+  overflow), mobile horizontal-pill adaptation + live side switch,
+  Classic source contracts (own dislike wiring, dispatcher routing, no
+  rail leakage), Settings UI contract.
+- GATES: vitest 499/499 PASS (482 existing + 17 new); tsc src/ 0
+  errors; eslint changed files 0 errors; production build PASS +
+  standalone assets copied.
+- LOCAL QA SERVER :3112 (standalone; note: restart AFTER
+  copy-standalone-assets or chunks 404).
+- LOCAL QA DESKTOP 1440x900 (fresh demo): Settings — Classic default,
+  switch to Новый ✓, «Расположение дополнительных действий» renders
+  with Слева selected (aria-checked) + localStorage=left ✓; spatial
+  LEFT: vertical glass rail x=138..196 (58×156, vertically centred),
+  gap to center card 308px, overflowX=0 ✓; Like (pressed=true, store
+  liked) ✓; Dislike (disliked + mutual like-exclusion + skip; last-
+  queue-item edge = store no-advance, verified correct) ✓; un-dislike
+  round-trip ✓; More → existing menu (Поделиться/К исполнителю/Добавить
+  в плейлист) + Esc layered ✓; LEFT→RIGHT via Settings: persisted,
+  track/queue/queueIndex/volume preserved ✓; RIGHT: rail 1246..1304
+  mirrored, no overlap, overflowX=0 ✓; RELOAD → spatial+right
+  persisted ✓; Like/Dislike (skip to next observed)/More from RIGHT ✓;
+  Next mid-flight screenshot + new center + progress/time labels ✓;
+  queue drawer 142 rows ✓; volume popup + ArrowUp 70→75 ✓; lyrics (F)
+  real text ✓; N/P/Space ✓; console: only baseline demo-stream retry
+  warnings, zero UI errors ✓. VLM desktop: LEFT 4/4, RIGHT 4/4,
+  playing 3/3, settings 3/3 — no defects.
+- LOCAL QA MOBILE 390x844 (iPhone 14 emulation, fresh demo): spatial
+  LEFT: horizontal pill 156×58 at left=16, between card bottom (547)
+  and controls top (708) — no overlap, overflowX=0, scrollWidth=390 ✓;
+  Like/Dislike/More from pill ✓; swipe left → next track ✓; switch to
+  RIGHT via Settings (live, no reload): pill right edge 374=390-16 ✓;
+  play 50×50 ≥44 ✓. VLM mobile LEFT/RIGHT: all pass, no defects.
+- CLASSIC REGRESSION: desktop — opens (real dialog), N next ✓, Q queue
+  panel ✓, F lyrics ✓, own like (title «Нравится (L)») + dislike
+  buttons work ✓, Esc×2 close ✓, no spatial root, overflowX=0 ✓;
+  mobile — opens, play toggle, Esc close ✓; actions-position setting
+  hidden in Classic + value preserved ✓.
+
+Stage Summary:
+- v9 polish complete locally: floating glass action rail (Like/Dislike/
+  More) left by default with Left/Right user setting (one component,
+  two orientations, never duplicated), compact reference-like 3-row
+  glass control bar, Classic untouched, 499/499 tests, all QA gates
+  green. Ready for commit → push → Vercel → production E2E.

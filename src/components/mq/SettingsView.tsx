@@ -389,6 +389,9 @@ export default function SettingsView() {
   // v8 Full Player Themes — «Вид полного плеера» (classic default / spatial opt-in)
   const fullPlayerMode = useAppStore((s) => s.fullPlayerMode);
   const setFullPlayerMode = useAppStore((s) => s.setFullPlayerMode);
+  // v9 — Spatial Player: side of the floating Like/Dislike/More rail
+  const spatialActionsPosition = useAppStore((s) => s.spatialActionsPosition);
+  const setSpatialActionsPosition = useAppStore((s) => s.setSpatialActionsPosition);
   const volume = useAppStore((s) => s.volume);
   const setVolume = useAppStore((s) => s.setVolume);
   const logout = useAppStore((s) => s.logout);
@@ -945,6 +948,12 @@ export default function SettingsView() {
                       {/* depth stack: back cards peek from behind the center card */}
                       <div className="absolute w-6 h-8 rounded-[3px]" style={{ left: "16%", top: "28%", backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, var(--mq-card))", transform: "rotate(-10deg)", opacity: 0.55 }} />
                       <div className="absolute w-6 h-8 rounded-[3px]" style={{ right: "16%", top: "28%", backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, var(--mq-card))", transform: "rotate(10deg)", opacity: 0.55 }} />
+                      {/* v9 — action rail side indicator (three tiny dots on the chosen side) */}
+                      <div className="absolute flex flex-col gap-[2px]" style={{ [spatialActionsPosition === "left" ? "left" : "right"]: 3, top: "34%", padding: "2px", borderRadius: 999, backgroundColor: "color-mix(in srgb, var(--mq-card) 80%, transparent)", border: "1px solid var(--mq-border-hairline)" }}>
+                        <span className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 55%, transparent)" }} />
+                        <span className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 55%, transparent)" }} />
+                        <span className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 55%, transparent)" }} />
+                      </div>
                       {/* center card — foreground, glass foot strip inside */}
                       <div className="absolute left-1/2 top-[26%] -translate-x-1/2 w-9 rounded-[4px] overflow-hidden" style={{ aspectRatio: "3 / 3.6", backgroundColor: "color-mix(in srgb, var(--mq-accent) 34%, var(--mq-card))", boxShadow: "0 4px 10px rgba(0,0,0,0.4)" }}>
                         <div className="absolute inset-x-0 bottom-0 h-[7px]" style={{ backgroundColor: "color-mix(in srgb, var(--mq-bg) 55%, transparent)" }} />
@@ -967,6 +976,74 @@ export default function SettingsView() {
                 <p className="mt-2.5 text-xs" style={{ color: "var(--mq-text-muted)" }}>
                   Применится при следующем открытии плеера. Трек, очередь и позиция не изменятся.
                 </p>
+
+                {/* v9 — Spatial Player only: side of the floating action
+                    rail. Two compact options with a live side preview;
+                    local persistence via the existing store persist. */}
+                {fullPlayerMode === "spatial" && (
+                  <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }} data-mq-setting="spatial-actions-position">
+                    <p className="text-xs font-medium mb-2" style={{ color: "var(--mq-text-muted)" }}>
+                      Расположение дополнительных действий
+                    </p>
+                    <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Расположение дополнительных действий">
+                      {(["left", "right"] as const).map((pos) => {
+                        const selected = spatialActionsPosition === pos;
+                        return (
+                          <button
+                            key={pos}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            onClick={() => setSpatialActionsPosition(pos)}
+                            data-active={selected}
+                            className="mq-swatch relative p-1.5 rounded-xl flex flex-col items-center gap-1"
+                          >
+                            {/* mini preview: center card + rail dots on the chosen side */}
+                            <div
+                              className="w-full rounded-md overflow-hidden relative shrink-0"
+                              style={{ height: 40, backgroundColor: "var(--mq-glass-bg)", border: "1px solid var(--mq-border-hairline)" }}
+                              aria-hidden="true"
+                            >
+                              {/* side depth cards */}
+                              <div className="absolute w-[14px] h-5 rounded-[2px]" style={{ left: "22%", top: "30%", backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, var(--mq-card))", transform: "rotate(-9deg)", opacity: 0.55 }} />
+                              <div className="absolute w-[14px] h-5 rounded-[2px]" style={{ right: "22%", top: "30%", backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, var(--mq-card))", transform: "rotate(9deg)", opacity: 0.55 }} />
+                              {/* center card */}
+                              <div className="absolute left-1/2 top-[28%] -translate-x-1/2 w-[22px] rounded-[3px]" style={{ aspectRatio: "3 / 3.5", backgroundColor: "color-mix(in srgb, var(--mq-accent) 34%, var(--mq-card))", boxShadow: "0 3px 8px rgba(0,0,0,0.4)" }} />
+                              {/* action rail — on the SELECTED side */}
+                              <div
+                                className="absolute flex flex-col gap-[2px]"
+                                style={{
+                                  [pos === "left" ? "left" : "right"]: 4,
+                                  top: "50%",
+                                  transform: "translateY(-50%)",
+                                  padding: 2,
+                                  borderRadius: 999,
+                                  backgroundColor: selected ? "color-mix(in srgb, var(--mq-accent) 16%, var(--mq-card))" : "color-mix(in srgb, var(--mq-card) 82%, transparent)",
+                                  border: "1px solid var(--mq-border-hairline)",
+                                }}
+                              >
+                                <span className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 55%, transparent)" }} />
+                                <span className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 55%, transparent)" }} />
+                                <span className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 55%, transparent)" }} />
+                              </div>
+                            </div>
+                            <span className="mq-t-meta-2 font-medium" style={{ color: selected ? "var(--mq-text)" : "var(--mq-text-muted)" }}>
+                              {pos === "left" ? "Слева" : "Справа"}
+                            </span>
+                            {selected && (
+                              <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}>
+                                <Check className="w-2.5 h-2.5" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-2 text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                      Плавающая панель «Нравится / Не нравится / Ещё» в новом плеере.
+                    </p>
+                  </div>
+                )}
               </div>
             </Card>
 

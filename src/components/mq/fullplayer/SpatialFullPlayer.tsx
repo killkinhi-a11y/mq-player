@@ -13,8 +13,14 @@
  *     partially overlapped by the center card — smaller scale, lower
  *     opacity, more blur, slight rotation (deck-of-cards depth);
  *   - minimal top nav (close / eyebrow / share);
- *   - separate compact glass control area at the bottom (progress,
- *     prev/play/next primary; like/lyrics/queue/volume/more secondary);
+ *   - v9: auxiliary actions (Like / Dislike / More) live in a floating
+ *     vertical glass pill BESIDE the carousel (left by default, right via
+ *     Settings — one component, position prop, never duplicated); mobile
+ *     adapts it into a compact horizontal glass pill between artwork and
+ *     the control bar (same visual language, same setting);
+ *   - separate compact glass control area at the bottom (thin progress /
+ *     prev-play-next primary / lyrics-queue-volume secondary — a floating
+ *     object, NOT a full-width standard player bar);
  *   - premium calm carousel transition ~500ms (scale/opacity/blur/
  *     position/z all move together; no jumps) on next/prev/queue jump;
  *   - mobile 390×844: same system — center card dominant, side cards
@@ -38,7 +44,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
-  Play, Pause, SkipBack, SkipForward, ChevronDown, Heart,
+  Play, Pause, SkipBack, SkipForward, ChevronDown, Heart, ThumbsDown,
   Volume2, VolumeX, Volume1, Music, ListMusic, Share2, Mic2,
   MoreHorizontal, Loader2, X, User as UserIcon, ListPlus,
 } from "lucide-react";
@@ -138,6 +144,38 @@ export function spatialMotionOn(
   return animationsEnabled && !reduceMotion && !prefersReduced;
 }
 
+// ── v9 action rail geometry (pure — unit-tested) ──
+
+/** Width of the desktop vertical action rail (44px target + 2×6 padding). */
+export const SPATIAL_RAIL_W = 56;
+
+/** Horizontal placement (px from the stage's left edge) of the DESKTOP
+ *  vertical action rail. It floats just outside the outermost visible
+ *  side card — within the player composition, never pinned blindly to the
+ *  viewport: on narrow desktops the value clamps to a safe inset so the
+ *  rail can never leave the screen or cause horizontal overflow. */
+export function spatialRailLeft(
+  cardW: number,
+  stageW: number,
+  position: "left" | "right",
+): number {
+  // outermost visible card extent from the deck centre
+  let outer = 0;
+  for (let o = 1; o <= SPATIAL_DEPTH; o++) {
+    const g = spatialCardGeom(o, false);
+    outer = Math.max(outer, (g.xPct / 100) * cardW + (g.scale * cardW) / 2);
+  }
+  outer += 16; // breathing room between rail and outermost card
+  const half = stageW / 2;
+  const minInset = 10;
+  if (position === "left") {
+    const ideal = Math.round(half - outer - SPATIAL_RAIL_W);
+    return Math.max(minInset, Math.min(half - SPATIAL_RAIL_W - 12, ideal));
+  }
+  const idealR = Math.round(half + outer);
+  return Math.min(stageW - minInset - SPATIAL_RAIL_W, Math.max(half + 12, idealR));
+}
+
 /** Mount/unmount position — slightly deeper than the outermost step, so
  *  cards entering/leaving the ±DEPTH window flow in/out of the depth
  *  instead of popping. */
@@ -182,6 +220,8 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
   const queue = useAppStore((s) => s.queue);
   const queueIndex = useAppStore((s) => s.queueIndex);
   const likedTrackIds = useAppStore((s) => s.likedTrackIds);
+  const dislikedTrackIds = useAppStore((s) => s.dislikedTrackIds);
+  const spatialActionsPosition = useAppStore((s) => s.spatialActionsPosition);
   const playbackState = useAppStore((s) => s.playbackState);
   const radioMode = useAppStore((s) => s.radioMode);
   const playlists = useAppStore((s) => s.playlists);
@@ -193,6 +233,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
   const setVolume = useAppStore((s) => s.setVolume);
   const setProgress = useAppStore((s) => s.setProgress);
   const toggleLike = useAppStore((s) => s.toggleLike);
+  const toggleDislike = useAppStore((s) => s.toggleDislike);
   const playTrack = useAppStore((s) => s.playTrack);
   const addToPlaylist = useAppStore((s) => s.addToPlaylist);
   const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
@@ -264,7 +305,11 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
   const stripH = isMobile ? 78 : 88;
   const cardW = useMemo(() => {
     const w = Math.max(280, Math.min(vp.w, vp.h * 1.2));
-    if (isMobile) return Math.round(Math.min(w * 0.8, vp.h * 0.46));
+    if (isMobile) {
+      // 0.42·h cap: keeps the true-square card + glass strip clear of the
+      // horizontal action pill + 3-row control bar even on short phones.
+      return Math.round(Math.min(w * 0.8, vp.h * 0.42));
+    }
     return Math.round(Math.min(w * 0.4, vp.h * 0.48, 480));
   }, [vp, isMobile]);
 
@@ -357,11 +402,18 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
 
   // ── Actions ──
   const isLiked = currentTrack ? likedTrackIds.includes(currentTrack.id) : false;
+  const isDisliked = currentTrack ? dislikedTrackIds.includes(currentTrack.id) : false;
   const isLoading = playbackState === "loading" || playbackState === "buffering";
 
   const handleLike = useCallback(() => {
     if (currentTrack) toggleLike(currentTrack.id, currentTrack);
   }, [currentTrack, toggleLike]);
+
+  // Same semantics as Classic: the store itself skips to the next track
+  // when the disliked track is the one playing (established behaviour).
+  const handleDislike = useCallback(() => {
+    if (currentTrack) toggleDislike(currentTrack.id, currentTrack);
+  }, [currentTrack, toggleDislike]);
 
   const handleShare = useCallback(() => {
     if (!currentTrack) return;
@@ -540,7 +592,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
 
         {/* ═══ SPATIAL CAROUSEL ═══ */}
         <main
-          className="flex-1 min-h-0 flex items-center justify-center px-4"
+          className="relative flex-1 min-h-0 flex items-center justify-center px-4"
           style={{ perspective: "1400px" }}
           onTouchStart={onStageTouchStart}
           onTouchEnd={onStageTouchEnd}
@@ -686,26 +738,82 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
               })}
             </AnimatePresence>
           </div>
+
+          {/* v9 — floating action rail (desktop): vertical glass pill
+              (Like / Dislike / More) beside the carousel, vertically
+              centred on the composition; side comes from the user
+              setting; clamped so it can never leave the stage. */}
+          {!isMobile && (
+            <div
+              className="absolute"
+              style={{
+                top: "50%",
+                left: spatialRailLeft(cardW, vp.w, spatialActionsPosition),
+                transform: "translateY(-50%)",
+                zIndex: 40,
+              }}
+              aria-hidden={false}
+            >
+              <SpatialActionRail
+                position={spatialActionsPosition}
+                orientation="vertical"
+                isLiked={isLiked}
+                isDisliked={isDisliked}
+                onLike={() => handleLike()}
+                onDislike={() => handleDislike()}
+                onMore={(e) => setMoreMenu({ x: e.clientX, y: e.clientY })}
+              />
+            </div>
+          )}
         </main>
 
-        {/* ═══ BOTTOM — compact glass control area ═══ */}
+        {/* v9 — mobile action pill: the vertical rail physically cannot
+            fit beside the card on a phone, so the SAME component becomes a
+            compact horizontal glass pill between the artwork and the
+            control bar — same visual language, same LEFT/RIGHT setting. */}
+        {isMobile && (
+          <div
+            className="relative z-20 flex-shrink-0 px-4"
+            style={{ paddingBottom: 6 }}
+            data-mq-spatial="action-rail-row"
+          >
+            <div className={`flex ${spatialActionsPosition === "left" ? "justify-start" : "justify-end"}`}>
+              <SpatialActionRail
+                position={spatialActionsPosition}
+                orientation="horizontal"
+                isLiked={isLiked}
+                isDisliked={isDisliked}
+                onLike={() => handleLike()}
+                onDislike={() => handleDislike()}
+                onMore={(e) => setMoreMenu({ x: e.clientX, y: e.clientY })}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ═══ BOTTOM — compact floating glass control bar (reference-like
+            3-row stack: thin progress / transport / secondary). A floating
+            object with negative space around it — never a full-width
+            standard player panel. Like/Dislike/More live in the action
+            rail above, NOT here. ═══ */}
         <footer
-          className="relative z-20 flex-shrink-0 px-3 sm:px-4 pt-1"
-          style={{ paddingBottom: "max(14px, env(safe-area-inset-bottom))" }}
+          className="relative z-20 flex-shrink-0 px-3 sm:px-4"
+          style={{ paddingTop: 2, paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
           data-mq-spatial="controls"
         >
           <div
-            className="mx-auto w-full max-w-[560px] rounded-[26px]"
+            className="mx-auto w-full rounded-[28px]"
             style={{
-              backgroundColor: "rgba(12, 12, 17, 0.42)",
+              maxWidth: isMobile ? 340 : 400,
+              backgroundColor: "rgba(12, 12, 17, 0.45)",
               backdropFilter: "blur(24px)",
               WebkitBackdropFilter: "blur(24px)",
               border: "1px solid rgba(255,255,255,0.09)",
               boxShadow: "0 24px 60px rgba(0,0,0,0.45)",
-              padding: isMobile ? "10px 12px" : "14px 18px",
+              padding: isMobile ? "6px 10px 4px" : "8px 14px 6px",
             }}
           >
-            {/* progress — clean, minimal, responsive */}
+            {/* row 1 — progress / track time: thin, minimal, integrated */}
             <div className="flex items-center gap-2.5">
               <span ref={timeCurrentRef} className="text-[11px] tabular-nums flex-shrink-0" style={{ color: "var(--mq-text-muted)", minWidth: 36, textAlign: "left" }}>0:00</span>
               <input
@@ -724,106 +832,85 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
               <span ref={timeRemainingRef} className="text-[11px] tabular-nums flex-shrink-0" style={{ color: "var(--mq-text-muted)", minWidth: 36, textAlign: "right" }}>−0:00</span>
             </div>
 
-            {/* controls: like | prev/play/next | lyrics queue volume more */}
-            <div className="mt-1.5 flex items-center justify-between gap-1.5">
-              <div className="flex items-center gap-0.5">
-                <SpIconButton
-                  onClick={() => handleLike()}
-                  label={isLiked ? "Убрать из избранного" : "Нравится"}
-                  pressed={isLiked}
-                >
-                  <Heart
-                    className="w-[22px] h-[22px]"
-                    style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
-                    fill={isLiked ? "currentColor" : "none"}
-                  />
-                </SpIconButton>
-              </div>
+            {/* row 2 — primary transport: prev · play/pause · next */}
+            <div className="flex items-center justify-center gap-3 sm:gap-5">
+              <SpIconButton onClick={() => prevTrack()} label="Предыдущий трек">
+                <SkipBack className="w-[22px] h-[22px]" style={{ color: "var(--mq-text-muted)" }} fill="currentColor" />
+              </SpIconButton>
+              <button
+                onClick={() => togglePlay()}
+                aria-label={isPlaying ? "Пауза" : "Играть"}
+                className="mq-icon-btn flex items-center justify-center"
+                style={{
+                  width: isMobile ? 50 : 54,
+                  height: isMobile ? 50 : 54,
+                  borderRadius: "9999px",
+                  backgroundColor: "var(--mq-accent)",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 0,
+                  boxShadow: "0 10px 26px color-mix(in srgb, var(--mq-accent) 30%, transparent)",
+                  transition: "transform 0.15s ease, box-shadow 0.2s ease",
+                }}
+              >
+                {isLoading
+                  ? <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+                  : isPlaying
+                    ? <Pause className="w-6 h-6" style={{ color: "var(--mq-text-on-accent, #fff)" }} fill="currentColor" />
+                    : <Play className="w-6 h-6 translate-x-[1px]" style={{ color: "var(--mq-text-on-accent, #fff)" }} fill="currentColor" />}
+              </button>
+              <SpIconButton onClick={() => nextTrack()} label="Следующий трек">
+                <SkipForward className="w-[22px] h-[22px]" style={{ color: "var(--mq-text-muted)" }} fill="currentColor" />
+              </SpIconButton>
+            </div>
 
-              <div className="flex items-center gap-1.5 sm:gap-3">
-                <SpIconButton onClick={() => prevTrack()} label="Предыдущий трек">
-                  <SkipBack className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
-                </SpIconButton>
-                <button
-                  onClick={() => togglePlay()}
-                  aria-label={isPlaying ? "Пауза" : "Играть"}
-                  className="mq-icon-btn flex items-center justify-center"
-                  style={{
-                    width: isMobile ? 52 : 64,
-                    height: isMobile ? 52 : 64,
-                    borderRadius: "9999px",
-                    backgroundColor: "var(--mq-accent)",
-                    border: "none",
-                    cursor: "pointer",
-                    padding: 0,
-                    boxShadow: "0 12px 32px color-mix(in srgb, var(--mq-accent) 32%, transparent)",
-                    transition: "transform 0.15s ease, box-shadow 0.2s ease",
-                  }}
-                >
-                  {isLoading
-                    ? <Loader2 className="w-7 h-7 animate-spin" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
-                    : isPlaying
-                      ? <Pause className="w-7 h-7" style={{ color: "var(--mq-text-on-accent, #fff)" }} fill="currentColor" />
-                      : <Play className="w-7 h-7 translate-x-[2px]" style={{ color: "var(--mq-text-on-accent, #fff)" }} fill="currentColor" />}
-                </button>
-                <SpIconButton onClick={() => nextTrack()} label="Следующий трек">
-                  <SkipForward className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
-                </SpIconButton>
-              </div>
-
-              <div className="flex items-center gap-0.5">
-                <SpIconButton
-                  onClick={() => { setLyricsOpen(true); setQueueOpen(false); }}
-                  label="Текст песни"
-                >
-                  <Mic2 className="w-5 h-5" style={{ color: lyricsOpen ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                </SpIconButton>
-                <SpIconButton
-                  onClick={() => { setQueueOpen(true); setLyricsOpen(false); }}
-                  label="Очередь"
-                >
-                  <ListMusic className="w-5 h-5" style={{ color: queueOpen ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                </SpIconButton>
-                {!isMobile && (
-                  <div className="relative">
-                    <SpIconButton
-                      onClick={() => setShowVolume(o => !o)}
-                      label={`Громкость: ${Math.round(volume)}%`}
-                    >
-                      <VolumeIcon className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
-                    </SpIconButton>
-                    <AnimatePresence>
-                      {showVolume && (
-                        <>
-                          <div className="fixed inset-0 z-30" onClick={() => setShowVolume(false)} aria-hidden="true" />
-                          <motion.div
-                            initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                            transition={{ duration: 0.18 }}
-                            className="absolute bottom-[calc(100%+12px)] left-1/2 -translate-x-1/2 z-40 rounded-2xl p-3 w-[200px]"
-                            style={{
-                              backgroundColor: "var(--mq-surface-1)",
-                              border: "1px solid var(--mq-edge)",
-                              boxShadow: "0 16px 40px rgba(0,0,0,0.5)",
-                            }}
-                            role="group"
-                            aria-label="Громкость"
-                          >
-                            <VolumeSlider volume={volume} onChange={setVolume} showValue className="w-full" />
-                          </motion.div>
-                        </>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                )}
-                <SpIconButton
-                  onClick={(e) => setMoreMenu({ x: e.clientX, y: e.clientY })}
-                  label="Ещё"
-                >
-                  <MoreHorizontal className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
-                </SpIconButton>
-              </div>
+            {/* row 3 — secondary controls: subtle, small, quiet icons */}
+            <div className="flex items-center justify-center gap-0.5">
+              <SpIconButton
+                onClick={() => { setLyricsOpen(true); setQueueOpen(false); }}
+                label="Текст песни"
+              >
+                <Mic2 className="w-[19px] h-[19px]" style={{ color: lyricsOpen ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+              </SpIconButton>
+              <SpIconButton
+                onClick={() => { setQueueOpen(true); setLyricsOpen(false); }}
+                label="Очередь"
+              >
+                <ListMusic className="w-[19px] h-[19px]" style={{ color: queueOpen ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+              </SpIconButton>
+              {!isMobile && (
+                <div className="relative">
+                  <SpIconButton
+                    onClick={() => setShowVolume(o => !o)}
+                    label={`Громкость: ${Math.round(volume)}%`}
+                  >
+                    <VolumeIcon className="w-[19px] h-[19px]" style={{ color: "var(--mq-text-muted)" }} />
+                  </SpIconButton>
+                  <AnimatePresence>
+                    {showVolume && (
+                      <>
+                        <div className="fixed inset-0 z-30" onClick={() => setShowVolume(false)} aria-hidden="true" />
+                        <motion.div
+                          initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                          transition={{ duration: 0.18 }}
+                          className="absolute bottom-[calc(100%+12px)] left-1/2 -translate-x-1/2 z-40 rounded-2xl p-3 w-[200px]"
+                          style={{
+                            backgroundColor: "var(--mq-surface-1)",
+                            border: "1px solid var(--mq-edge)",
+                            boxShadow: "0 16px 40px rgba(0,0,0,0.5)",
+                          }}
+                          role="group"
+                          aria-label="Громкость"
+                        >
+                          <VolumeSlider volume={volume} onChange={setVolume} showValue className="w-full" />
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
             </div>
           </div>
         </footer>
@@ -1073,6 +1160,97 @@ function SpIconButton({
     >
       {children}
     </button>
+  );
+}
+
+/** v9 — ONE floating glass control for the auxiliary actions
+ *  (Like / Dislike / More), reference-style:
+ *    - desktop: vertical rounded pill floating beside the carousel;
+ *    - mobile: compact horizontal pill between artwork and control bar
+ *      (same visual language, same component);
+ *    - position: "left" | "right" — the user setting; the SAME component
+ *      changes side, controls are never duplicated.
+ *  Reads the exact same store actions as Classic (toggleLike /
+ *  toggleDislike / existing More menu) — no new logic, no new menu. */
+function SpatialActionRail({
+  position,
+  orientation,
+  isLiked,
+  isDisliked,
+  onLike,
+  onDislike,
+  onMore,
+}: {
+  position: "left" | "right";
+  orientation: "vertical" | "horizontal";
+  isLiked: boolean;
+  isDisliked: boolean;
+  onLike: () => void;
+  onDislike: () => void;
+  onMore: (e: React.MouseEvent<HTMLButtonElement>) => void;
+}) {
+  const vertical = orientation === "vertical";
+  return (
+    <div
+      data-mq-spatial="action-rail"
+      data-mq-position={position}
+      data-mq-orientation={orientation}
+      role="group"
+      aria-label="Действия с треком"
+      className="flex"
+      style={{
+        flexDirection: vertical ? "column" : "row",
+        alignItems: "center",
+        gap: 2,
+        padding: 6,
+        borderRadius: 9999,
+        backgroundColor: "rgba(12, 12, 17, 0.42)",
+        backdropFilter: "blur(24px)",
+        WebkitBackdropFilter: "blur(24px)",
+        border: "1px solid rgba(255,255,255,0.09)",
+        boxShadow: "0 18px 44px rgba(0,0,0,0.45)",
+      }}
+    >
+      <SpIconButton
+        onClick={() => onLike()}
+        label={isLiked ? "Убрать из избранного" : "Нравится"}
+        pressed={isLiked}
+      >
+        <Heart
+          className="w-[21px] h-[21px]"
+          style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
+          fill={isLiked ? "currentColor" : "none"}
+        />
+      </SpIconButton>
+      <span
+        aria-hidden="true"
+        style={vertical
+          ? { width: 26, height: 1, background: "rgba(255,255,255,0.09)" }
+          : { width: 1, height: 26, background: "rgba(255,255,255,0.09)" }}
+      />
+      <SpIconButton
+        onClick={() => onDislike()}
+        label={isDisliked ? "Убрать отметку «Не нравится»" : "Не нравится"}
+        pressed={isDisliked}
+      >
+        <ThumbsDown
+          className="w-[19px] h-[19px]"
+          style={{
+            color: isDisliked ? "var(--mq-error, #ef4444)" : "var(--mq-text-muted)",
+            ...(isDisliked ? { fill: "currentColor" } : {}),
+          }}
+        />
+      </SpIconButton>
+      <span
+        aria-hidden="true"
+        style={vertical
+          ? { width: 26, height: 1, background: "rgba(255,255,255,0.09)" }
+          : { width: 1, height: 26, background: "rgba(255,255,255,0.09)" }}
+      />
+      <SpIconButton onClick={(e) => onMore(e)} label="Ещё">
+        <MoreHorizontal className="w-[21px] h-[21px]" style={{ color: "var(--mq-text-muted)" }} />
+      </SpIconButton>
+    </div>
   );
 }
 
