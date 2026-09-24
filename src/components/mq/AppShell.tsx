@@ -9,7 +9,6 @@ import { useGlobalNotifications } from "@/hooks/useGlobalNotifications";
 import { useListenSessionSync } from "@/hooks/useListenSessionSync";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAndroidPermissions } from "@/hooks/use-android-permissions";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { isDesktopApp } from "@/lib/desktop-mode";
 import { captureLinkResultFromLocation } from "@/lib/link-result";
 import dynamic from "next/dynamic";
@@ -91,8 +90,11 @@ const AmbientBackground = dynamic(() => import("@/components/mq/AmbientBackgroun
 const TopBar = dynamic(() => import("@/components/mq/TopBar"), { ssr: false });
 const PlayerBar = dynamic(() => import("@/components/mq/PlayerBar"), { ssr: false });
 const ShareSheet = dynamic(() => import("@/components/mq/ShareSheet").then((m) => m.ShareSheet), { ssr: false });
-const FullTrackView = dynamic(() => import("@/components/mq/FullTrackView"), { ssr: false });
-const FullTrackViewMobile = dynamic(() => import("@/components/mq/FullTrackViewMobile"), { ssr: false });
+// v8 Full Player Themes: one dispatcher — Classic (FullTrackView desktop /
+// FullTrackViewMobile mobile) or new SpatialFullPlayer, per the persisted
+// «Вид полного плеера» setting (default classic — no change for existing
+// users). Live switch safe: playback state lives in the store, not here.
+const FullPlayer = dynamic(() => import("@/components/mq/FullPlayer"), { ssr: false });
 const KeyboardShortcutsHelp = dynamic(() => import("@/components/mq/KeyboardShortcutsHelp").then(m => ({ default: m.KeyboardShortcutsHelp })), { ssr: false });
 const NavBar = dynamic(() => import("@/components/mq/NavBar"), { ssr: false });
 const MobileDock = dynamic(() => import("@/components/mq/MobileDock"), { ssr: false });
@@ -175,7 +177,6 @@ export default function AppShell() {
   const isPlaying = useAppStore((s) => s.isPlaying);
   const miniPlayerHidden = useAppStore((s) => s.miniPlayerHidden);
   const _hasHydrated = useAppStore((s) => s._hasHydrated);
-  const isMobile = useIsMobile();
 
   // ── Visited views tracking: must be BEFORE any conditional returns (Rules of Hooks) ──
   const [visitedViews, setVisitedViews] = useState<Set<string>>(new Set(["main"]));
@@ -877,7 +878,7 @@ export default function AppShell() {
 
       {/* PlayerBar (desktop only — mobile uses MobileDock which combines player + nav) */}
       <Suspense fallback={null}><PlayerBar /></Suspense>
-      <Suspense fallback={null}>{isMobile ? <FullTrackViewMobile /> : <FullTrackView />}</Suspense>
+      <Suspense fallback={null}><FullPlayer /></Suspense>
       {/* Global share sheet — every share surface opens this ONE dialog
           (QR + copy link + native share, canonical URLs from lib/share-urls) */}
       <GlobalShareSheet />

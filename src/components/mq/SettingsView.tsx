@@ -386,6 +386,9 @@ export default function SettingsView() {
   const setCompactMode = useAppStore((s) => s.setCompactMode);
   const fontSize = useAppStore((s) => s.fontSize);
   const setFontSize = useAppStore((s) => s.setFontSize);
+  // v8 Full Player Themes — «Вид полного плеера» (classic default / spatial opt-in)
+  const fullPlayerMode = useAppStore((s) => s.fullPlayerMode);
+  const setFullPlayerMode = useAppStore((s) => s.setFullPlayerMode);
   const volume = useAppStore((s) => s.volume);
   const setVolume = useAppStore((s) => s.setVolume);
   const logout = useAppStore((s) => s.logout);
@@ -873,6 +876,98 @@ export default function SettingsView() {
                 <RangeSlider value={fontSize} min={13} max={20} onChange={setFontSize} minLabel="A" maxLabel="A" />
               </div>
               <SettingToggle icon={Minimize2} label="Компактный режим" subtitle="Меньше отступов" value={compactMode} onCheckedChange={setCompactMode} />
+            </Card>
+
+            {/* §V8 FULL PLAYER APPEARANCE — two live mini-previews; click to
+                choose. Persisted locally (store persist); never auto-opens
+                the player; existing users stay on Classic until they opt in. */}
+            <Card>
+              <CardTitle icon={Music2} title="Вид полного плеера" />
+              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
+                <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Вид полного плеера" data-mq-setting="full-player-mode">
+                  {/* ── Classic preview: artwork left + info/controls right ── */}
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={fullPlayerMode === "classic"}
+                    onClick={() => setFullPlayerMode("classic")}
+                    data-active={fullPlayerMode === "classic"}
+                    className="mq-swatch group relative p-2 rounded-xl flex flex-col items-center gap-1.5"
+                  >
+                    <div
+                      className="w-full rounded-lg overflow-hidden relative shrink-0"
+                      style={{
+                        height: 64,
+                        backgroundColor: "var(--mq-glass-bg)",
+                        border: "1px solid var(--mq-border-hairline)",
+                      }}
+                      aria-hidden="true"
+                    >
+                      {/* mini classic layout: square cover | title lines + transport */}
+                      <div className="absolute left-2 top-2 bottom-2 w-11 rounded-md" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 28%, var(--mq-card))" }} />
+                      <div className="absolute left-[60px] top-3 h-[3px] rounded-full" style={{ width: 26, backgroundColor: "color-mix(in srgb, var(--mq-text) 65%, transparent)" }} />
+                      <div className="absolute left-[60px] top-[19px] h-[2px] rounded-full" style={{ width: 16, backgroundColor: "color-mix(in srgb, var(--mq-text) 35%, transparent)" }} />
+                      {/* progress + controls row */}
+                      <div className="absolute left-[60px] right-3 bottom-[22px] h-[3px] rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 18%, transparent)" }} />
+                      <div className="absolute left-[60px] bottom-[7px] h-[3px] rounded-full" style={{ width: 40, backgroundColor: "var(--mq-accent)" }} />
+                      <div className="absolute right-3 bottom-[5px] flex items-center gap-1.5">
+                        <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 45%, transparent)" }} />
+                        <span className="w-[7px] h-[7px] rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
+                        <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 45%, transparent)" }} />
+                      </div>
+                    </div>
+                    <span className="mq-t-meta-2 font-medium truncate w-full text-center" style={{ color: fullPlayerMode === "classic" ? "var(--mq-text)" : "var(--mq-text-muted)" }}>Классический</span>
+                    {fullPlayerMode === "classic" && (
+                      <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}>
+                        <Check className="w-2.5 h-2.5" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+                      </div>
+                    )}
+                  </button>
+
+                  {/* ── Spatial preview: center card + angled side cards + compact controls ── */}
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={fullPlayerMode === "spatial"}
+                    onClick={() => setFullPlayerMode("spatial")}
+                    data-active={fullPlayerMode === "spatial"}
+                    className="mq-swatch group relative p-2 rounded-xl flex flex-col items-center gap-1.5"
+                  >
+                    <div
+                      className="w-full rounded-lg overflow-hidden relative shrink-0"
+                      style={{
+                        height: 64,
+                        backgroundColor: "var(--mq-glass-bg)",
+                        border: "1px solid var(--mq-border-hairline)",
+                      }}
+                      aria-hidden="true"
+                    >
+                      {/* depth stack: back cards peek from behind the center card */}
+                      <div className="absolute w-6 h-8 rounded-[3px]" style={{ left: "16%", top: "28%", backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, var(--mq-card))", transform: "rotate(-10deg)", opacity: 0.55 }} />
+                      <div className="absolute w-6 h-8 rounded-[3px]" style={{ right: "16%", top: "28%", backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, var(--mq-card))", transform: "rotate(10deg)", opacity: 0.55 }} />
+                      {/* center card — foreground, glass foot strip inside */}
+                      <div className="absolute left-1/2 top-[26%] -translate-x-1/2 w-9 rounded-[4px] overflow-hidden" style={{ aspectRatio: "3 / 3.6", backgroundColor: "color-mix(in srgb, var(--mq-accent) 34%, var(--mq-card))", boxShadow: "0 4px 10px rgba(0,0,0,0.4)" }}>
+                        <div className="absolute inset-x-0 bottom-0 h-[7px]" style={{ backgroundColor: "color-mix(in srgb, var(--mq-bg) 55%, transparent)" }} />
+                      </div>
+                      {/* compact glass control pill */}
+                      <div className="absolute left-1/2 -translate-x-1/2 bottom-[6px] h-[10px] rounded-full flex items-center justify-center gap-[5px]" style={{ width: 56, backgroundColor: "color-mix(in srgb, var(--mq-card) 85%, transparent)", border: "1px solid var(--mq-border-hairline)" }}>
+                        <span className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 50%, transparent)" }} />
+                        <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
+                        <span className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 50%, transparent)" }} />
+                      </div>
+                    </div>
+                    <span className="mq-t-meta-2 font-medium truncate w-full text-center" style={{ color: fullPlayerMode === "spatial" ? "var(--mq-text)" : "var(--mq-text-muted)" }}>Новый</span>
+                    {fullPlayerMode === "spatial" && (
+                      <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}>
+                        <Check className="w-2.5 h-2.5" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+                      </div>
+                    )}
+                  </button>
+                </div>
+                <p className="mt-2.5 text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                  Применится при следующем открытии плеера. Трек, очередь и позиция не изменятся.
+                </p>
+              </div>
             </Card>
 
             <Card>

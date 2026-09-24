@@ -153,6 +153,12 @@ interface AppState {
   compactMode: boolean;
   fontSize: number;
   liquidGlassEnabled: boolean;
+  /** v8 Full Player Themes: which Full Player UI opens on isFullTrackViewOpen.
+   *  "classic" (default) = existing FullTrackView / FullTrackViewMobile;
+   *  "spatial" = new SpatialFullPlayer (reference depth-carousel mode).
+   *  Local-only preference (persisted via partialize; NOT synced to server —
+   *  no backend schema needed). Switching must never touch playback state. */
+  fullPlayerMode: "classic" | "spatial";
 
   // Player
   currentTrack: Track | null;
@@ -318,6 +324,9 @@ interface AppState {
   setCustomAccent: (color: string | null) => void;
   setAnimationsEnabled: (enabled: boolean) => void;
   setReduceMotion: (enabled: boolean) => void;
+  /** v8 Full Player Themes — pure UI preference write; must not touch
+   *  currentTrack/queue/queueIndex/progress/volume/EQ/lyrics state. */
+  setFullPlayerMode: (mode: "classic" | "spatial") => void;
   setCompactMode: (compact: boolean) => void;
   setFontSize: (size: number) => void;
   setLiquidGlassEnabled: (enabled: boolean) => void;
@@ -604,6 +613,9 @@ const initialState = {
   customAccent: null as string | null,
   animationsEnabled: true,
   reduceMotion: false as boolean,
+  // v8 Full Player Themes — default "classic": existing users must NOT
+  // see the Full Player change suddenly. Spatial is strictly opt-in.
+  fullPlayerMode: "classic" as "classic" | "spatial",
   compactMode: false,
   fontSize: 16,
   liquidGlassEnabled: false,
@@ -1079,6 +1091,9 @@ export const useAppStore = create<AppState>()(
 
       setAnimationsEnabled: (enabled) => set({ animationsEnabled: enabled }),
       setReduceMotion: (enabled) => set({ reduceMotion: enabled }),
+      // v8: pure UI preference — writes ONE field. Track/queue/position/
+      // volume/EQ/lyrics state is untouched by design (pinned by tests).
+      setFullPlayerMode: (mode) => set({ fullPlayerMode: mode }),
 
       setCompactMode: (compact) => set({ compactMode: compact }),
 
@@ -2973,6 +2988,7 @@ export const useAppStore = create<AppState>()(
           customAccent: persistent.customAccent,
           animationsEnabled: persistent.animationsEnabled,
           reduceMotion: persistent.reduceMotion,
+          fullPlayerMode: persistent.fullPlayerMode === "spatial" ? "spatial" : "classic",
           compactMode: persistent.compactMode,
           fontSize: persistent.fontSize,
           liquidGlassEnabled: persistent.liquidGlassEnabled,
@@ -3070,6 +3086,7 @@ export const useAppStore = create<AppState>()(
             customAccent: old?.customAccent ?? initialState.customAccent,
             animationsEnabled: old?.animationsEnabled ?? initialState.animationsEnabled,
             reduceMotion: old?.reduceMotion ?? initialState.reduceMotion,
+            fullPlayerMode: old?.fullPlayerMode === "spatial" ? "spatial" : "classic",
             compactMode: old?.compactMode ?? initialState.compactMode,
             fontSize: old?.fontSize ?? initialState.fontSize,
             liquidGlassEnabled: old?.liquidGlassEnabled ?? initialState.liquidGlassEnabled,

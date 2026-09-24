@@ -6520,3 +6520,149 @@ Stage Summary:
   full page «Популярное» (50 rows) ✓; back → Home, ряд цел ✓. Итого в
   проде проверены: first/hero, middle, last — все три открывают
   полноценную страницу плейлиста; CTA/playback/actions без регрессий.
+
+---
+Task ID: FULLPLAYER-THEMES-V8
+Agent: Main Agent
+Task: Full Player Themes/Customization — Settings «Вид полного плеера»
+(Classic default + New SpatialFullPlayer, reference-driven) + light
+Classic polish + tests + QA + deploy.
+
+REFERENCE DISCOVERY (workflow A):
+- Attached file pasted_image_1790278982668.png NOT present on filesystem
+  (upload dir holds only 15 identical copies of the OLD playlists
+  reference, md5 8dfa0b6a). Design spec source = the OWNER'S WRITTEN
+  DESCRIPTION in the task («На reference» + §4–§10), treated as the
+  design specification per §17.
+
+REFERENCE ANATOMY (workflow B) — fixed geometry:
+- Immersive full-screen env; artwork = dominant element.
+- BACKGROUND: enlarged artwork, strong blur, dark overlay, subtle
+  gradient, vignette; must NOT compete with center card.
+- CAROUSEL: center card in FRONT (large, rounded, glass, subtle
+  shadow, real cover, title+metadata inside card per owner ASCII);
+  side cards (prev/next from real queue) BEHIND + partially overlapped
+  by center card: smaller scale, lower opacity, more blur, slight
+  rotation, deeper z; ±2 levels visible (back cards in owner sketch).
+- TOP NAV: minimal (close / eyebrow / share). BOTTOM: separate
+  compact control area (progress; prev/play/next primary; like, queue,
+  lyrics, volume, more secondary) — glass, not neon.
+- ANIMATION: track switch = neighbor slides to center with smooth
+  scale/opacity/blur/position/z change, 450–550ms, premium calm, no
+  jumps; click prev/next, keyboard, swipe (mobile); side cards NOT
+  fake artwork — real neighbouring queue tracks.
+- MOBILE 390×844: center artwork dominant, side cards more cropped,
+  depth kept, thumb controls, no h-scroll, no clipping, play ≥44px,
+  safe areas respected.
+- A11Y: keyboard, focus, aria-labels, ≥44px targets, reduced-motion
+  (spatial transitions reduced/off, functionality intact).
+
+DIRECT COMPARISON (workflow C) vs current FullTrackView (desktop,
+2/3-col grid artwork-left + info-right; FullTrackViewMobile vertical
+single artwork):
+- REFERENCE = spatial depth carousel (center stack + parallax
+  neighbours) vs MQ = flat single artwork. Difference: side cards
+  absent, no depth stack, no carousel transition, controls spread in
+  column vs compact bottom glass area.
+- DECISION: keep Classic untouched (default for existing users); add
+  NEW SpatialFullPlayer per spec; single store playback state reused,
+  no audio logic duplication (dispatcher FullPlayer.tsx).
+
+Work Log:
+- [in progress]
+
+Work Log (continued):
+- STORE (useAppStore.ts): fullPlayerMode:"classic"|"spatial" (default
+  classic — existing users see no change) + setFullPlayerMode (writes
+  ONE field only) + partialize whitelist + migrate preserve. Local-only
+  (NOT in syncToServer/syncFromServer — no backend schema).
+- NEW SpatialFullPlayer.tsx (src/components/mq/fullplayer/):
+  * Pure tested helpers: spatialCardGeom (deck geometry: desktop side
+    cards x=±46%/±92% of card W — inner edge overlapped by center card,
+    scale .68/.52, opacity .55/.30, blur 1.5/3px, rotZ ∓6/∓10°, rotY
+    ∓13/∓21°, z 30/20/10; mobile tighter x=±34%/±66%), spatialQueueWindow
+    (±2 real queue neighbours, bounds-safe), spatialMotionOn,
+    SPATIAL_TRANSITION_MS=500 (450–550 band), SPATIAL_EASE.
+  * Outer shell stays mounted (AnimatePresence gate) + inner
+    SpatialPlayerScreen unmounts on close → ALL overlay state resets
+    structurally (v72 lesson); framer rAF-driven carousel (stable keys
+    trackId@queuePos so cards ANIMATE between offsets, no remount pop);
+    entering/leaving cards flow from deeperThan() depth.
+  * Center card: true-square artwork (px-sized 432/520 desktop,
+    312/390 mobile), glass strip INSIDE card with LiquidTitle (reused,
+    unmodified) + artist·album; side cards quiet glass foot + click
+    affordance; background = keyed crossfade artwork (scale 1.6,
+    blur 72px) + dark overlay 0.55 + vignette + top/bottom gradients.
+  * Bottom compact glass control area: progress (rAF seek, WASM-aware,
+    --mq-seek-pct), like | prev PLAY(64/52px) next | lyrics queue
+    volume(desktop-only popup w/ VolumeSlider) more (MenuCore:
+    Поделиться/К исполнителю/Добавить в плейлист).
+  * Queue drawer (desktop right slide-in / mobile bottom sheet),
+    lyrics overlay (fetchLyrics + LyricsView variant=full, honest
+    empty state + retry event), playlist picker.
+  * Keyboard: Space/←→(+Shift)/↑↓/M/L/N/P/F/Q/Esc (layered). Swipe:
+    horizontal=prev/next, down=close (mobile). Wheel volume (desktop).
+  * A11y: role=dialog aria-modal, aria-labels everywhere, ≥44px
+    targets, focus-visible rings, prefers-reduced-motion via
+    useReducedMotion + user settings → transitions collapse, function
+    intact. data-mq-spatial* QA hooks.
+- FullPlayer.tsx dispatcher: classic→FullTrackView/FullTrackViewMobile,
+  spatial→SpatialFullPlayer (single playback state, zero audio logic
+  duplication; live switch safe). AppShell mounts ONE <FullPlayer/>.
+- SettingsView: «Вид полного плеера» card (Оформление tab) — two live
+  mini-previews (Classic layout mock / Spatial depth-stack mock),
+  radiogroup, obvious selected state (accent + check), hint text.
+- Classic polish (LIGHT, no redesign): 11 desktop icon buttons
+  40→44px (w-11 h-11) for a11y target consistency with mobile+spatial;
+  artwork thumbs untouched; LiquidTitle/cover transition/visualizer/
+  queue/lyrics/volume/progress/context all untouched.
+- TESTS: src/__tests__/fullplayer/full-player-themes.test.tsx — 24
+  tests covering all 16 owner-mandated cases (mode default/switch/
+  persistence via persist.rehydrate/state preservation; classic wiring
+  contract; spatial composition markup; geometry purity; queue window
+  math; mounted interactions incl. keyboard F/Q/N/P/L/M/Space/Escape,
+  queue row click, side card click, lyrics fetch render; reduced
+  motion + 450–550ms band; settings contract; dispatcher contract).
+  Learned: renderToStaticMarkup renders zustand SERVER snapshot →
+  markup tests use mounted client path; jsdom needs matchMedia +
+  Element.scrollTo shims; framer exit needs rAF (state-based asserts).
+- GATES: vitest 482/482 PASS (458 existing + 24 new); tsc src/ 0
+  errors; eslint changed files 0 errors (3 img warnings repo-pattern);
+  production build PASS (+ copy-standalone-assets).
+- QA SERVER: :3112 (daemon-serve-v8.py + serve-qa-v8.sh, standalone).
+- LOCAL QA DESKTOP 1440x900 (fresh demo): Settings card renders, radio
+  Классический checked by default ✓; switch → Новый → aria-checked
+  flips ✓; localStorage fullPlayerMode=spatial ✓; RELOAD → persisted
+  spatial ✓; open player → SPATIAL_ROOT_OK + 5 cards [-2..2] real
+  queue ✓; covers complete=true×5 ✓; overflowX=0 ✓; MID-FLIGHT sample:
+  matrix scale 0.762/op 0.554/blur 1.49px @180ms → settle 1/1/0
+  (smooth premium 500ms) ✓; queue drawer 120 rows, row click plays
+  picked track (Баста х Моя Мишель) + closes ✓; lyrics REAL synced
+  (Zivert — GAZ «Synced» + actual text) and honest «Текст не найден»
+  + retry for unknown ✓; volume popup + ArrowUp 70→75% ✓; More menu
+  items ✓; like false→true ✓; side card click → switch (Феникс) ✓;
+  Space pause/resume ✓; N/P next/prev ✓; Esc close → reopen: no stale
+  drawers, track preserved ✓; console: only baseline demo-stream
+  diagnostics (MEDIA_ERR/retry), no UI errors ✓. VLM playing state:
+  center card+glass strip ✓, side cards behind ✓, compact glass
+  controls ✓, blurred bg+overlay ✓, no breakage ✓. VLM transition
+  frame: cards mid-flight partial scale/opacity/rotation, coherent ✓.
+  VLM settings: previews match, Новый selected accent+check ✓.
+- LOCAL QA MOBILE 390x844: spatial root + 5 cards ✓; center 312×390
+  centered x=39 ✓; play 52×52 (≥44) ✓; volume button hidden ✓;
+  overflowX=0, scrollWidth=390 ✓; swipe left → next (PRIME→Забери
+  меня…) ✓; swipe down → close ✓; reopen + side tap → switch ✓;
+  queue bottom sheet 390×625 y=219 rounded-top 24px + close ✓; VLM
+  4/4 points ✓ (dominant center card, depth sides, compact controls,
+  no clipping). Classic mobile: routes to FullTrackViewMobile ✓,
+  Воспроизвести→Пауза toggle ✓, overflowX=0 ✓. Classic desktop:
+  routes to FullTrackView ✓ LiquidTitle ✓ Space/N ✓ Q queue panel ✓
+  F lyrics real text ✓ Esc×2 close ✓ track preserved across mode
+  switches ✓.
+
+Stage Summary:
+- Full Player Themes shipped: Settings «Вид полного плеера» (Classic
+  default / Новый spatial), SpatialFullPlayer reference composition
+  (depth carousel + artwork environment + compact glass controls),
+  light Classic polish, 482/482 tests, all local QA gates green.
+  Ready for commit → push → Vercel → production E2E.

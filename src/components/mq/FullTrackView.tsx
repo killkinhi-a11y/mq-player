@@ -666,16 +666,16 @@ export default function FullTrackView() {
     <>
       {/* Action buttons row */}
       <div className={`flex items-center gap-2 mb-4 flex-wrap ${isMobile ? "justify-center" : "justify-start"}`}>
-        <button onClick={handleLike} className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn" data-active={isLiked} title="Нравится (L)">
+        <button onClick={handleLike} className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn" data-active={isLiked} title="Нравится (L)">
           <Heart className="w-4 h-4" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
         </button>
-        <button onClick={handleDislike} className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn" data-active={isDisliked} style={{ ["--mq-active-bg" as string]: "rgba(239,68,68,0.15)" }} title="Не нравится">
+        <button onClick={handleDislike} className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn" data-active={isDisliked} style={{ ["--mq-active-bg" as string]: "rgba(239,68,68,0.15)" }} title="Не нравится">
           <ThumbsDown className="w-4 h-4" style={{ color: isDisliked ? "var(--mq-error, #ef4444)" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
         </button>
         <button
           onClick={() => setShowPlaylistPicker(v => !v)}
           /* §HOVER: CSS owns hover bg (was missing — no feedback at all). */
-          className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn"
+          className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn"
           data-active={showPlaylistPicker}
           style={{ ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}
           title="Добавить в плейлист"
@@ -685,7 +685,7 @@ export default function FullTrackView() {
         <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
         <button
           onClick={() => setActivePanel(p => p === "queue" ? null : "queue")}
-          className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn"
+          className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn"
           data-active={panelTab === "queue"}
           title="Очередь (Q)"
         >
@@ -693,7 +693,7 @@ export default function FullTrackView() {
         </button>
         <button
           onClick={() => setActivePanel(p => p === "lyrics" ? null : "lyrics")}
-          className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn"
+          className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn"
           data-active={panelTab === "lyrics"}
           title="Текст песни (F)"
         >
@@ -701,7 +701,7 @@ export default function FullTrackView() {
         </button>
         <button
           onClick={() => setActivePanel(p => p === "history" ? null : "history")}
-          className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn"
+          className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn"
           data-active={panelTab === "history"}
           title="История (H)"
         >
@@ -727,7 +727,7 @@ export default function FullTrackView() {
             aria-label="Контекстное меню трека"
             aria-expanded={!!moreMenu}
             aria-haspopup="menu"
-            className="w-10 h-10 rounded-full flex items-center justify-center relative mq-icon-btn"
+            className="w-11 h-11 rounded-full flex items-center justify-center relative mq-icon-btn"
             data-active={eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer || !!moreMenu}
             title="Дополнительно"
           >
@@ -1175,7 +1175,7 @@ export default function FullTrackView() {
     <>
       {/* ═══ MAIN CONTROLS ═══ */}
       <div className={`flex items-center gap-3 sm:gap-5 mb-4 ${isMobile ? "justify-center" : "justify-start"}`}>
-        <button onClick={toggleShuffle} aria-label="Перемешать" className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn" data-active={shuffle} title="Перемешать (S)">
+        <button onClick={toggleShuffle} aria-label="Перемешать" className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn" data-active={shuffle} title="Перемешать (S)">
           <Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
         </button>
         <button onClick={prevTrack} aria-label="Предыдущий трек" className="w-12 h-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Предыдущий (P)">
@@ -1196,7 +1196,7 @@ export default function FullTrackView() {
         <button onClick={nextTrack} aria-label="Следующий трек" className="w-12 h-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Следующий (N)">
           <SkipForward className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
         </button>
-        <button onClick={toggleRepeat} aria-label="Повтор" className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn" data-active={repeat !== "off"} title="Повтор (R)">
+        <button onClick={toggleRepeat} aria-label="Повтор" className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn" data-active={repeat !== "off"} title="Повтор (R)">
           {repeat === "one" ? <Repeat1 className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
             : <Repeat className="w-5 h-5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
         </button>
@@ -1298,7 +1298,7 @@ export default function FullTrackView() {
             <div className="flex items-center justify-between p-4 sm:p-6">
               <button
                 onClick={() => setOpen(false)}
-                className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn"
+                className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn"
                 aria-label="Закрыть"
               >
                 <ChevronDown className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
@@ -1311,7 +1311,7 @@ export default function FullTrackView() {
               </div>
               <button
                 onClick={handleShare}
-                className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn"
+                className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn"
                 aria-label="Поделиться"
               >
                 <Share2 className="w-4 h-4" style={{ color: "var(--mq-text)" }} />
