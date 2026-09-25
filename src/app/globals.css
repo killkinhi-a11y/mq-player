@@ -2486,6 +2486,19 @@ input.mq-hslider-input:focus-visible::-moz-range-thumb {
   border-color: var(--mq-accent);
 }
 
+/* v10.2 GAP#2 fix: the volume slider's touch hit box was 24px tall —
+   under the 44px touch-target contract (§12). On touch devices the
+   input grows to 44px with negative margins so the visual row height
+   (popup geometry, inline rows) is COMPLETELY unchanged — only the
+   invisible grab halo grows. MUST stay AFTER the 24px base rule above:
+   same specificity (0,1,1), media queries add none, source order wins. */
+@media (hover: none) {
+  input.mq-hslider-input {
+    height: 44px;
+    margin: -10px 0;
+  }
+}
+
 /* ── vertical volume slider (rotated input, same recipe) ── */
 input.mq-vslider-input {
   -webkit-appearance: none;

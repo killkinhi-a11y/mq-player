@@ -296,6 +296,26 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
   const [moreMenu, setMoreMenu] = useState<{ x: number; y: number } | null>(null);
   const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
 
+  // v10.2 GAP#1 fix: the volume popup's fixed inset-0 close-overlay is
+  // INSIDE the glass control panel, and the panel's backdrop-filter makes
+  // it the containing block for fixed descendants — so the overlay only
+  // covered the panel itself. Clicks on the artwork / main stage (outside
+  // the panel) never reached it and the popup stayed open (reproduced in
+  // the V10.2 production audit). A capture-phase document pointerdown
+  // closes it regardless of stacking contexts; clicks on the popup or the
+  // volume button (both inside the wrapper ref) are excluded.
+  const volumeWrapRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!showVolume) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const t = e.target as Node | null;
+      if (t && volumeWrapRef.current?.contains(t)) return;
+      setShowVolume(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [showVolume]);
+
   // ── Lyrics: derived-key pattern (NO sync setState in effect — the
   //    "stale vs current" question is answered at render time; the effect
   //    only writes async fetch results). ──
@@ -1034,7 +1054,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
               >
                 <ListMusic className="w-[19px] h-[19px]" style={{ color: queueOpen ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
               </SpIconButton>
-              <div className="relative">
+              <div className="relative" ref={volumeWrapRef}>
                   <SpIconButton
                     onClick={() => setShowVolume(o => !o)}
                     label={`Громкость: ${Math.round(volume)}%`}
@@ -1711,7 +1731,13 @@ function SpatialStyles({ children }: { children?: React.ReactNode }) {
         @media (prefers-reduced-motion: reduce) {
           .mq-sp-bar { animation: none !important; }
         }
-        .mq-sp-seek {
+        /* v10.2 GAP#3 fix: same cascade bug as the classic mobile seek —
+           the global input[type="range"] 6px rule beat this class selector
+           (0,1,0 < 0,1,1), so the spatial seek hit box rendered 6px tall
+           (measured on production). Element selector ties specificity and
+           this later source order wins. Touch: 44px halo, -8px margins
+           keep the visual geometry identical. */
+        input.mq-sp-seek {
           -webkit-appearance: none;
           appearance: none;
           width: 100%;
@@ -1721,6 +1747,12 @@ function SpatialStyles({ children }: { children?: React.ReactNode }) {
           cursor: pointer;
           -webkit-tap-highlight-color: transparent;
           touch-action: none;
+        }
+        @media (hover: none) {
+          input.mq-sp-seek {
+            height: 44px;
+            margin: -8px 0;
+          }
         }
         input.mq-sp-seek::-webkit-slider-runnable-track {
           height: 6px;

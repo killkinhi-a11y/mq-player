@@ -587,7 +587,14 @@ function FullTrackViewMobileInner() {
           -webkit-user-select: none;
         }
         /* §PRESS (v71): press-scale removed — hover/focus feedback only */
-        .mq-ft-seek-input {
+        /* v10.2 GAP#3 fix: input[type="range"] in globals.css sets
+           height:6px at (0,1,1) specificity and silently beat this
+           class rule (0,1,0) — the seek hit box rendered 6px tall on
+           PRODUCTION (measured). Element selector restores the tie and
+           this LATER source order wins → 28px as designed. Touch
+           devices get a 44px grab halo with negative margins so the
+           visual bar geometry (and the player bar height) is unchanged. */
+        input.mq-ft-seek-input {
           -webkit-appearance: none;
           appearance: none;
           width: 100%;
@@ -597,6 +604,12 @@ function FullTrackViewMobileInner() {
           cursor: pointer;
           -webkit-tap-highlight-color: transparent;
           touch-action: none;
+        }
+        @media (hover: none) {
+          input.mq-ft-seek-input {
+            height: 44px;
+            margin: -8px 0;
+          }
         }
         input.mq-ft-seek-input::-webkit-slider-runnable-track {
           height: 6px;

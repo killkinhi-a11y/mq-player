@@ -7287,3 +7287,75 @@ Stage Summary:
 - 565/565 tests, tsc clean, build pass, production E2E desktop+mobile
   green post-fix. No regressions: desktop Classic/Spatial and mobile
   restored player all re-verified on the new build.
+
+---
+Task ID: v10.2-audit
+Agent: main (Super Z)
+Task: V10.2 final visual + UX audit on production (baseline 876e625b / deploy mq-build-35bb6f3c)
+
+Work Log:
+- Synced local main 0→22 commits behind → fast-forward to 35bb6f3c (= baseline code + worklog files)
+- Baseline gates: npm test 565/565 PASS
+- Production verified live via headless browser 1440x900 + 390x844 (mq1.vercel.app):
+  desktop classic (home/capsule/full player/inline volume/ctx menu 11+1 items/kb nav/Escape),
+  desktop spatial (volume popup/slider/kb/Escape/More 7 items/queue drawer 51 rows/lyrics/
+  track-transition crossfade/rail geometry), mobile classic (composition DOM marks
+  playerbar/artwork/playbtn/seek; geometry play 76, prev/next 56, secondary 6x44, bar 366x212@12,620;
+  volume popup open/drag 58→93/mute 0↔70/outside-tap; More sheet 11 items 48px rows + speed/sleep
+  sub-pages + back; queue panel 5 rows + row ctx menu sheet; lyrics panel; gestures via synthetic
+  TouchEvent: left→next ✓, right→prev ✓, down→close ✓, slow drag rejected = velocity guard ✓),
+  volume persistence 74→reload→74 ✓, reduced-motion live (press transition=none, menu anim=none 0s),
+  hover rules CSSOM-verified (icon-btn:hover bg + @media(hover:hover) mq-press:hover scale(1.03) +
+  reduce guard) — headless ctx is touch-emulated (hover:none), so :hover not visually activatable there
+- Skeleton live-proof: lyrics skeleton (lrclib aborted → 8 skeleton nodes, VLM: grey bars + shimmer ✓),
+  artwork skeleton (image-proxy aborted → empty box + playing hairline, no layout jump, fade caught at opacity 0.80)
+- Context Menu BEFORE/AFTER evidence: pre-v10.1 .mq-menu-surface = opaque var(--mq-surface-1), no blur,
+  no mount anim; current = color-mix 84% glass + inline backdropFilter + mqMenuInBelow/Above 180ms
+  scale(0.96)→1 + rise + press fill + disabled 0.4 + destructive red — VLM verdict: premium, not system menu
+- VLM batch: mobile classic composition ✓ / volume popups desktop+mobile ✓ / ctx menu + More sheet ✓ /
+  desktop queue+lyrics+transition ✓ / artwork clean (ring = intentional playing indicator) ✓
+
+Stage Summary — AUDIT MATRIX (20 items):
+- PASS: Mobile Classic, Context Menu visual+function, More (3 surfaces), All buttons geometry+
+  interaction, Button animations (CSSOM + live reduce), Track transitions (VLM crossfade), Mini↔Full,
+  Skeleton, Artwork artifacts (clean), Gestures (real TouchEvent), Accessibility (aria/kbd/Escape/
+  focus), Reduced motion (live), Desktop Classic, Desktop Spatial, Mobile w/ spatial setting (renders
+  classic), Production buildId=baseline, Settings (mode + rail side intact, desktop-only)
+- GAP #1 (Spatial volume popup outside-click): fixed inset-0 z-30 overlay is INSIDE the glass panel
+  with backdropFilter → containing block = panel → clicks outside the panel (artwork/main area) never
+  reach the overlay → popup stays open. Reproduced live: click (300,300) → STILL-OPEN.
+- GAP #2 (Mobile volume slider touch target): input.mq-hslider-input height 24px < 44px spec.
+- GAP #3 (Seek hit box 6px cascade bug): global input[type=range]{height:6px} (0,1,1) beats component
+  .mq-ft-seek-input/.mq-sp-seek {height:28px} (0,1,0) → BOTH mobile classic + spatial seek inputs
+  render 6px tall (measured live). Touch grab area ≈ thumb 16px only.
+
+---
+Task ID: v10.2-fixes
+Agent: main (Super Z)
+Task: Fix the 3 audit gaps + local verification
+
+Work Log:
+- GAP#1 (spatial volume outside-click): added capture-phase document pointerdown closer in
+  SpatialFullPlayer (ref on the volume wrapper = button + popup DOM). The old fixed overlay stays
+  (handles the panel area) — clicks anywhere else (artwork/stage) now close. Verified locally:
+  click (300,300) → CLOSED; drag inside popup stays open (62→95); button toggles; Escape closes.
+- GAP#2 (volume slider touch target 24px→44px): @media (hover:none) input.mq-hslider-input
+  { height:44px; margin:-10px 0 } in globals.css. PLACED AFTER the 24px base rule — first
+  attempt put it before and lost the same-specificity tie (source order); rebuilt + verified
+  inputH=44, marginTop=-10, popupH=54 UNCHANGED, onscreen=true. VLM BEFORE/AFTER: pixel-perfect
+  identical popup geometry (fix purely invisible halo).
+- GAP#3 (seek hit box 6px cascade bug): global input[type=range]{height:6px} (0,1,1) beat
+  .mq-ft-seek-input/.mq-sp-seek {height:28px} (0,1,0) → renamed to input.mq-ft-seek-input /
+  input.mq-sp-seek (tie + later component <style> source order wins) + @media (hover:none)
+  44px/-8px touch halo. Verified: mobile classic seek 332x44 (was 332x6), spatial seek 44px
+  (was 6px), bar 366x230 (designed geometry restored — was 212 with the 6px bug), all buttons
+  unchanged (play 76, prev/next 56, secondary 6x44). Seek drag commit verified (2:45/-2:50).
+  VLM BEFORE/AFTER: composition identical, seek row breathing room restored, zero regressions.
+- Gates re-run on final state: tests 565/565 PASS, tsc 18 pre-existing (0 src/, = baseline),
+  eslint 57 total = baseline (0 new; 3 pre-existing react-hooks in FullTrackViewMobile unchanged),
+  build Compiled successfully. public/version.json build artifact reverted (not committed).
+- Local QA screenshots: 02-classic-mobile-AFTER-fix.png, 06-volume-mobile-AFTER-fix.png.
+
+Stage Summary:
+- 3/3 gaps fixed and locally verified; no visual regressions (VLM double-checked);
+  ready to commit/push/deploy.
