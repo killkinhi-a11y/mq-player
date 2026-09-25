@@ -7046,3 +7046,145 @@ Work Log:
 Stage Summary:
 - Workflow fixed in the worklog as the MQ Player standard for all
   future reference-driven tasks.
+
+---
+Task ID: FULLPLAYER-V10.1
+Agent: Main Agent
+Task: V10.1 — восстановить прежний мобильный Full Player (до V8) +
+новый премиальный PLAYER BAR + полировка кнопок/Volume/More/Context Menu +
+skeleton + transitions + reduced motion. НЕ делать новый мобильный дизайн.
+
+Work Log:
+- BASELINE AUDIT: found pre-V8 mobile visual = FullTrackViewMobile.tsx at
+  bfc83927^ (pre-Spatial). Diff vs current = only 4 v10 micro-hunks
+  (90vw art, 24% ring, 24px time, icon opacity .92). The "new mobile
+  composition" lived in SpatialFullPlayer's mobile branch (v10).
+- §1 RESTORE: FullPlayer dispatcher now routes mobile →
+  ClassicFullPlayerMobile in BOTH modes (Spatial = desktop-only); the 4
+  micro-hunks reverted to exact pre-V8 values (92vw / 32% / 26px / 1.0).
+  SpatialFullPlayer kept intact (mobile branch unreachable; desktop
+  untouched). VLM A/B vs v8-era screenshot: same composition 1:1 —
+  "same player, only polished" verdict.
+- §2 PLAYER BAR: mobile bottom deck = ONE premium glass surface
+  (color-mix surface-1 58% + inline --mq-blur-md + edge-strong border +
+  soft shadow, r26, 12px margins, safe-area) holding progress row +
+  transport + secondary. Same buttons/order/sizes as baseline
+  (44/56/76/56/44 + 6×44px targets). Volume replaced share in the
+  secondary row (share lives in More). Geometry verified 390/360/412:
+  bar [12..378]/[12..348]/[12..400], no clipping, overflowX=0 everywhere.
+- §4 VOLUME AUDIT: mobile = new button (icon-by-level VolumeX/1/2,
+  aria-expanded) + animated glass popup (opacity/scale/y 180ms) with
+  VolumeSlider (mute icon + value) + click-outside + LAYERED Escape
+  (popup → panel → player) + ArrowUp/Down ±5 + M mute (hardware
+  keyboards); boundaries 0/100 clamped; persistence verified (volume
+  survives reload). FIXED: old More-sheet static Volume2 icon bug.
+  Desktop Classic: inline VolumeSlider audited (native keyboard, mute,
+  icon-by-level) — dead showVolumePopup state + outside-click effect
+  removed (no popup UI ever existed). Spatial popup: glass tokens,
+  0.18s anim verified in viewport, slider drives store live (65→80),
+  ArrowUp 80→85, Escape closes.
+- §5-8 MOTION SYSTEM: globals.css .mq-press (hover scale 1.03 via
+  (hover:hover)+(pointer:fine), :active scale 0.96, 150ms, disabled
+  opacity+pointer-events, focus-visible accent ring) applied to every
+  Full Player button — mobile (transport/secondary/header/like), Classic
+  desktop (actions row, transport, top bar), Spatial (SpIconButton,
+  play, top nav, close buttons). Press 0.96 verified live via computed
+  transform during mouse-hold. Play↔Pause = .mq-icon-swap 180ms
+  crossfade on keyed span (verified mounted + label flip). Like/Dislike
+  = .mq-icon-pop 240ms micro-pop + .mq-color-fade accent transition.
+  No bounce/spring/neon. ALL guarded by prefers-reduced-motion.
+- §9-11 MENU REDESIGN: MenuCore visual = premium glass (translucent
+  color-mix bg + blur — INLINE style, because Lightning CSS strips
+  standard backdrop-filter to the -webkit- alias which Chromium ignores;
+  discovered + worked around), radius 16px, item press = surface
+  feedback (--mq-overlay-active), REAL mount animation
+  mqMenuInBelow/Above 180ms — the old framer wrapper used
+  display:contents which CANNOT transform → desktop menus previously
+  appeared instantly (dead tween). Mobile More = unified MenuCore
+  bottom sheet with the FULL audited set (share/copy/download/artist/
+  subscribe/queue/playlist + eq/spatial/speed/sleep picker sub-pages
+  via backLabelSpec) — same handlers/order as Classic. Context menu
+  verified in 3 call sites (Home row, desktop player More, mobile queue
+  row) — 11 items, glass, keyboard (ArrowDown/End/Escape verified).
+- §12 SKELETON: new keyed ArtworkImage component (shimmer under cover
+  → 200ms fade on decode, onError degrades to empty box) in mobile +
+  Classic desktop; keyed remount per track = no reset effects
+  (React-compiler clean — the first effect-based version was refactored
+  after eslint flagged set-state-in-effect). Lyrics loading = shared
+  LyricsView skeleton (8 shimmer lines) — external spinner blocks
+  removed from BOTH desktop layouts; skeleton captured live during real
+  lrclib fetch (mobile-skeleton.png). No skeleton for instant data
+  (title/artist/queue from store). Spatial center card keeps its
+  existing 350ms crossfade (covers decode).
+- §13 TRANSITIONS: lyrics/queue/history panels close with 160ms
+  slide-down exit (was hard unmount); TextSwap title/artist on track
+  change (mobile) — now reduced-motion aware (duration→0); volume/more
+  open-close animated; menu mount animated (see above).
+- §14 REDUCED MOTION: mq-press/swap/pop/color/art-fade/shimmer/menu
+  mount/sheet slide all under reduce guards; TextSwap uses
+  useReducedMotion; source-contract test pins every guard.
+- §16 SETTINGS: both settings kept (Вид полного плеера affects desktop
+  only — mobile always restored player; Расположение rail — desktop
+  Spatial only). No new settings.
+- BUG FOUND+FIXED DURING QA: standalone public assets nested
+  (public/public) → audio-engine 404 → fixed copy procedure.
+- TESTS: new fullplayer-v101.test.tsx — 37 tests covering all owner
+  §19 items (render/labels/play/pause/prev/next/like/dislike/lyrics/
+  queue/volume open+slider+mute+keyboard+bounds+Escape-layering/More
+  full set + copy + queue-insert + artist + subscribe + speed page +
+  sleep page + spatial toggle/Context Menu/keyboard/skeleton states/
+  loading→loaded/reduced motion/dispatcher routing/no spatial UI on
+  mobile/bar anatomy/persistence/desktop regressions/overflow guards).
+- GATES: vitest 563/563 (was 526); tsc 0 errors src/; eslint 0 NEW
+  errors (7 pre-existing in untouched lines); production build PASS.
+- LOCAL QA DESKTOP 1440×900: Classic opens/play swap/like/next ✓;
+  More glass+anim+8 items ✓; ctx menu (Home) glass+anim+11 items ✓;
+  keyboard ArrowDown/End/Escape ✓; Settings→Spatial: 5 cards + rail
+  left [138,58] + canvas 144 + overflowX=0 ✓; hover next card (visible
+  edge): data-mq-hover=true, scale .712, blur .5px+brightness 1.07,
+  opacity .77, leave restores ✓; PIXEL-VERIFIED hover brightness
+  (+15.0 mean vs rest — VLM's contrary opinion disproven by pixels);
+  Spatial volume popup glass+inView+slider 65→80+ArrowUp 85+Escape ✓;
+  rail More 7 items glass+animAbove ✓; 1280×720 menu+popup inView ✓;
+  Esc×2 close ✓; reload → spatial persisted ✓.
+- LOCAL QA MOBILE 390×844 (mode=spatial!): restored player (bar, 0
+  spatial markers, no rail/cards) ✓; bar glass (0.58 alpha + blur16 +
+  r26 + 12px margins, bottom 832 safe-area) ✓; all 6 secondary targets
+  44×44 ✓; play/pause/prev/next/like ✓; volume popup glass+inView+
+  slider 85+ArrowUp 90+outside-close ✓; More sheet (grabber, 11 items,
+  glass) ✓ copy→toast+clipboard ✓ speed page 0.5-2x → playbackRate
+  1.5 persisted ✓; lyrics panel + real skeleton (8 lines) ✓; queue
+  panel rows play ✓ ctx menu from row (sheet, 11 items) ✓; swipe left
+  on artwork → next ✓; press-scale 0.96 live ✓; layered Escape ✓;
+  close/reopen ✓; reload → spatial persisted + STILL restored player ✓;
+  360×800 no clipping ✓; 412×915 even 16px gaps ✓.
+- VLM: mobile player PASS (restored composition + premium bar, no
+  artifacts); desktop More glass PASS; mobile volume popup PASS;
+  baseline-vs-v101 side-by-side PASS ("same player 1:1, only the bottom
+  bar became glass — evolution, not revolution").
+- DEPLOY: commit 2de16092 → push main → Vercel mq-build-2de16092 live
+  (version 80→81).
+- PRODUCTION E2E DESKTOP 1440×900: demo entry ✓; Classic opens (swap,
+  14 mq-press, skeleton resolved) ✓; More glass+anim+8 items ✓;
+  Settings→Spatial ✓; spatial: cards+rail+canvas144+overflowX=0 ✓;
+  hover true/.5px/1.07/.77 ✓; volume popup glass+inView+70 ✓; Esc×2 ✓;
+  reload → spatial persisted ✓.
+- PRODUCTION E2E MOBILE 390×844 (mode=spatial): demo+play+open ✓;
+  restored player (bar+artwork+glass, 0 spatial markers) ✓; secondary
+  6 buttons + volume label ✓; volume popup glass+inView+70 ✓; More
+  sheet (grabber, 11 items, glass) ✓; reload → spatial persisted AND
+  mobile still shows restored player ✓; overflowX=0 ✓; console: ZERO
+  UI errors (only stream-resolution INFO logs); page-errors: 0 ✓.
+- NOTE: agent-browser eval click on a just-relabeled hero button can
+  hit a detached node (first click no-op) — QA artifact, real taps
+  unaffected (verified by timeline probe: dialog mounts and stays).
+- NOTE: Lightning CSS strips standard backdrop-filter from CSS rules
+  (keeps -webkit- alias Chromium ignores) — any future CSS-class glass
+  must use inline styles (pattern: PlayerBar/MenuCore/mobile bar).
+
+Stage Summary:
+- v10.1 complete in production: mobile = THE RESTORED pre-V8 player +
+  premium glass player bar + volume popup + unified MenuCore More +
+  skeleton + motion system + reduced motion; desktop Spatial/Classic
+  regression-free with the shared motion/menu polish. 563/563 tests,
+  all gates green, production E2E desktop+mobile PASS. REGRESSIONS: none.
