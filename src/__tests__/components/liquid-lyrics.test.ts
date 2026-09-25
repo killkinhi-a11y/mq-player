@@ -6,6 +6,8 @@
  * invented audio timing. These tests pin that contract.
  */
 import { describe, it, expect, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 // Component CSS — vitest must not push it through postcss/tailwind
 vi.mock("@/components/mq/liquid-lyrics.css", () => ({}));
@@ -89,5 +91,34 @@ describe("wordWindows (derived, not invented, timing)", () => {
       const endI = w[i][0] + 100 / w[i][1];
       expect(endI).toBeGreaterThan(w[i + 1][0]);
     }
+  });
+});
+
+/* ── v10.1 §17 regression: active line must not clip its container ────
+ * Found live in production QA (VLM + geometry probe): .ll-on scales to
+ * 1.12 from its left edge; at width:100% the right ~12% of the line box
+ * (and any text filling it) crossed the lyrics container — clipped at
+ * the panel edge on desktop, at the viewport on mobile. Contract:
+ * width × active-scale ≤ 100% so the scaled line always fits. */
+describe("lyrics line geometry (source contract)", () => {
+  const css = readFileSync(
+    join(process.cwd(), "src/components/mq/liquid-lyrics.css"),
+    "utf8",
+  );
+
+  it("ll-line width × 1.12 active scale fits the container (no right-edge clip)", () => {
+    const widthMatch = css.match(/\.ll-line\s*{[^}]*width:\s*([\d.]+)%/);
+    expect(widthMatch).not.toBeNull();
+    const width = parseFloat(widthMatch![1]);
+    const activeScale = css.match(/\.ll-line\.ll-on\s*{[^}]*transform:\s*scale\(([\d.]+)\)/);
+    expect(activeScale).not.toBeNull();
+    const scale = parseFloat(activeScale![1]);
+    // Border-box width includes the horizontal padding, so the scaled box
+    // is exactly width × scale — must not exceed 100% of the container.
+    expect(width * scale).toBeLessThanOrEqual(100 + 1e-9);
+  });
+
+  it("scale still originates at the left edge (reading emphasis, no reflow)", () => {
+    expect(css).toMatch(/\.ll-line\s*\{[^}]*transform-origin:\s*left center/);
   });
 });

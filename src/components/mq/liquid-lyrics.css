@@ -46,7 +46,14 @@
 
 .ll-line {
   display: block;
-  width: 100%;
+  /* ~100%/1.12 with headroom — the active line scales up to 1.12 from
+     its LEFT edge; at full width that pushes the right ~12% past the
+     lyrics container (clipped at the panel edge on desktop, at the
+     viewport on mobile — VLM caught live text cut off in v10.1 QA).
+     88% × 1.12 = 98.6% — the scaled box always lands inside the
+     container, even when the percentage base (the line's parent) is a
+     few px wider than the visible scroller. */
+  width: 88%;
   appearance: none;
   background: transparent;
   border: none;
