@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, ChevronDown, Heart,
-  Shuffle, Repeat, Repeat1, Volume2, VolumeX, Volume1,
+  Shuffle, Repeat, Repeat1,
   Music, ListMusic, Share2, Loader2, Clock, Mic2,
   ThumbsDown, AirVent, Gauge, Timer,
   History, Sparkles, X, ListPlus, Plus, Sliders, MoreHorizontal,
@@ -17,6 +17,7 @@ import type { Track } from "@/lib/musicApi";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "@/hooks/use-toast";
 import VolumeSlider from "@/components/ui/volume-slider";
+import { ArtworkImage } from "./ui/ArtworkImage";
 import { fetchLyrics } from "@/lib/lyrics-client";
 import { LyricsView, type LyricLine } from "./LyricsView";
 import { shareTrackUrl, openInAppTrackUrl } from "@/lib/share-urls";
@@ -116,13 +117,16 @@ export default function FullTrackView() {
   const [lyricsError, setLyricsError] = useState<string | null>(null);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showSleepMenu, setShowSleepMenu] = useState(false);
+  // v10.1: artwork skeleton — <ArtworkImage> is keyed by track id in
+  // coverBox below and owns its own loading state (no reset effects).
   // v68: More menu = unified MenuCore (portal, keyboard, flip). Anchor at
   // trigger position; null = closed. Replaces the inline absolute menu.
   const [moreMenu, setMoreMenu] = useState<{ x: number; y: number } | null>(null);
   const [showDoubleTapHint, setShowDoubleTapHint] = useState(true);
   const [showVisualizer, setShowVisualizer] = useState(false);
   const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
-  const [showVolumePopup, setShowVolumePopup] = useState(false);
+  // v10.1 volume audit: showVolumePopup state removed — it was DEAD code
+  // (no popup UI existed; volume is the inline VolumeSlider row).
   const [lastTapTime, setLastTapTime] = useState(0);
   const [lastTapSide, setLastTapSide] = useState<"left" | "right" | null>(null);
   const [seekFeedback, setSeekFeedback] = useState<{ side: "left" | "right"; amount: number } | null>(null);
@@ -422,7 +426,6 @@ export default function FullTrackView() {
   const progressPct = duration > 0 ? (progress / duration) * 100 : 0;
   const hoveredPct = hoveredTime !== null && duration > 0 ? (hoveredTime / duration) * 100 : 0;
   const isLoading = playbackState === "loading" || playbackState === "buffering";
-  const VolumeIcon = volume === 0 ? VolumeX : volume < 50 ? Volume1 : Volume2;
 
   // ── Upcoming tracks ─────────────────────────────────────────────────────
   const upcoming = useMemo(() => {
@@ -520,18 +523,8 @@ export default function FullTrackView() {
   // ── Sleep timer display formatting ──────────────────────────────────────
   const sleepRemainingMin = Math.ceil(sleepTimerRemaining / 60);
 
-  // Close volume popup when clicking outside
-  const volumePopupRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!showVolumePopup) return;
-    const onDown = (e: MouseEvent) => {
-      if (volumePopupRef.current && !volumePopupRef.current.contains(e.target as Node)) {
-        setShowVolumePopup(false);
-      }
-    };
-    window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
-  }, [showVolumePopup]);
+  // v10.1 volume audit: the old volumePopupRef + outside-click effect were
+  // DEAD code (no popup UI existed) — removed.
 
   // ── Shared layout nodes ───────────────────────────────────────────────────
   // The classic (≤1023px) and wide (≥1024px) compositions render from the
@@ -549,7 +542,7 @@ export default function FullTrackView() {
         }}
       >
           {currentTrack.cover ? (
-            <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" loading="eager" />
+            <ArtworkImage key={currentTrack.id} src={currentTrack.cover} />
           ) : (
             <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
               <Music className="w-16 h-16" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} />
@@ -666,16 +659,20 @@ export default function FullTrackView() {
     <>
       {/* Action buttons row */}
       <div className={`flex items-center gap-2 mb-4 flex-wrap ${isMobile ? "justify-center" : "justify-start"}`}>
-        <button onClick={handleLike} className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn" data-active={isLiked} title="Нравится (L)">
-          <Heart className="w-4 h-4" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
+        <button onClick={handleLike} className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press" data-active={isLiked} title="Нравится (L)">
+          <span key={isLiked ? "on" : "off"} className="mq-icon-pop flex items-center justify-center">
+            <Heart className="w-4 h-4 mq-color-fade" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
+          </span>
         </button>
-        <button onClick={handleDislike} className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn" data-active={isDisliked} style={{ ["--mq-active-bg" as string]: "rgba(239,68,68,0.15)" }} title="Не нравится">
-          <ThumbsDown className="w-4 h-4" style={{ color: isDisliked ? "var(--mq-error, #ef4444)" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
+        <button onClick={handleDislike} className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press" data-active={isDisliked} style={{ ["--mq-active-bg" as string]: "rgba(239,68,68,0.15)" }} title="Не нравится">
+          <span key={isDisliked ? "on" : "off"} className="mq-icon-pop flex items-center justify-center">
+            <ThumbsDown className="w-4 h-4 mq-color-fade" style={{ color: isDisliked ? "var(--mq-error, #ef4444)" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
+          </span>
         </button>
         <button
           onClick={() => setShowPlaylistPicker(v => !v)}
           /* §HOVER: CSS owns hover bg (was missing — no feedback at all). */
-          className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn"
+          className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press"
           data-active={showPlaylistPicker}
           style={{ ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}
           title="Добавить в плейлист"
@@ -685,7 +682,7 @@ export default function FullTrackView() {
         <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
         <button
           onClick={() => setActivePanel(p => p === "queue" ? null : "queue")}
-          className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn"
+          className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press"
           data-active={panelTab === "queue"}
           title="Очередь (Q)"
         >
@@ -693,7 +690,7 @@ export default function FullTrackView() {
         </button>
         <button
           onClick={() => setActivePanel(p => p === "lyrics" ? null : "lyrics")}
-          className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn"
+          className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press"
           data-active={panelTab === "lyrics"}
           title="Текст песни (F)"
         >
@@ -701,7 +698,7 @@ export default function FullTrackView() {
         </button>
         <button
           onClick={() => setActivePanel(p => p === "history" ? null : "history")}
-          className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn"
+          className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press"
           data-active={panelTab === "history"}
           title="История (H)"
         >
@@ -727,7 +724,7 @@ export default function FullTrackView() {
             aria-label="Контекстное меню трека"
             aria-expanded={!!moreMenu}
             aria-haspopup="menu"
-            className="w-11 h-11 rounded-full flex items-center justify-center relative mq-icon-btn"
+            className="w-11 h-11 rounded-full flex items-center justify-center relative mq-icon-btn mq-press"
             data-active={eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer || !!moreMenu}
             title="Дополнительно"
           >
@@ -998,27 +995,22 @@ export default function FullTrackView() {
             style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
           >
             <div className="flex items-center justify-end mb-2">
-              <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: "transparent" }}>
+              <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)] mq-press" style={{ backgroundColor: "transparent" }}>
                 <X className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
               </button>
             </div>
-            {lyricsLoading ? (
-              <div className="flex items-center gap-2 py-6 justify-center">
-                <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} />
-                <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Поиск текста...</span>
-              </div>
-            ) : (
-              <LyricsView
-                lines={lyrics}
-                plainText={plainLyrics}
-                currentTime={progress}
-                isLoading={false}
-                error={lyricsError}
-                onSeek={seekToTime}
-                cover={currentTrack?.cover}
-                duration={duration}
-              />
-            )}
+            {/* v10.1: loading = the shared LyricsView skeleton (shimmer lines,
+                same shape as real content) — not a spinner (§12). */}
+            <LyricsView
+              lines={lyrics}
+              plainText={plainLyrics}
+              currentTime={progress}
+              isLoading={lyricsLoading}
+              error={lyricsError}
+              onSeek={seekToTime}
+              cover={currentTrack?.cover}
+              duration={duration}
+            />
           </motion.div>
         )}
 
@@ -1175,30 +1167,35 @@ export default function FullTrackView() {
     <>
       {/* ═══ MAIN CONTROLS ═══ */}
       <div className={`flex items-center gap-3 sm:gap-5 mb-4 ${isMobile ? "justify-center" : "justify-start"}`}>
-        <button onClick={toggleShuffle} aria-label="Перемешать" className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn" data-active={shuffle} title="Перемешать (S)">
-          <Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+        <button onClick={toggleShuffle} aria-label="Перемешать" className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press" data-active={shuffle} title="Перемешать (S)">
+          <Shuffle className="w-5 h-5 mq-color-fade" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
         </button>
-        <button onClick={prevTrack} aria-label="Предыдущий трек" className="w-12 h-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Предыдущий (P)">
+        <button onClick={prevTrack} aria-label="Предыдущий трек" className="w-12 h-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)] mq-press" title="Предыдущий (P)">
           <SkipBack className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
         </button>
         <motion.button
           onClick={togglePlay}
 
           aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
-          className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center relative"
+          className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center relative mq-press"
           style={{ backgroundColor: "var(--mq-accent)" }}
           title="Play/Pause (Space)"
         >
           {isLoading ? <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
-            : isPlaying ? <Pause className="w-7 h-7 sm:w-8 sm:h-8" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
-            : <Play className="w-7 h-7 sm:w-8 sm:h-8" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)", transform: "translateX(1px)" }} />}
+            : (
+              <span key={isPlaying ? "pause" : "play"} className="mq-icon-swap flex items-center justify-center">
+                {isPlaying
+                  ? <Pause className="w-7 h-7 sm:w-8 sm:h-8" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+                  : <Play className="w-7 h-7 sm:w-8 sm:h-8" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)", transform: "translateX(1px)" }} />}
+              </span>
+            )}
         </motion.button>
-        <button onClick={nextTrack} aria-label="Следующий трек" className="w-12 h-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Следующий (N)">
+        <button onClick={nextTrack} aria-label="Следующий трек" className="w-12 h-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)] mq-press" title="Следующий (N)">
           <SkipForward className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
         </button>
-        <button onClick={toggleRepeat} aria-label="Повтор" className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn" data-active={repeat !== "off"} title="Повтор (R)">
+        <button onClick={toggleRepeat} aria-label="Повтор" className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press" data-active={repeat !== "off"} title="Повтор (R)">
           {repeat === "one" ? <Repeat1 className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-            : <Repeat className="w-5 h-5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
+            : <Repeat className="w-5 h-5 mq-color-fade" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
         </button>
       </div>
 
@@ -1298,7 +1295,7 @@ export default function FullTrackView() {
             <div className="flex items-center justify-between p-4 sm:p-6">
               <button
                 onClick={() => setOpen(false)}
-                className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn"
+                className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press"
                 aria-label="Закрыть"
               >
                 <ChevronDown className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
@@ -1311,7 +1308,7 @@ export default function FullTrackView() {
               </div>
               <button
                 onClick={handleShare}
-                className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn"
+                className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press"
                 aria-label="Поделиться"
               >
                 <Share2 className="w-4 h-4" style={{ color: "var(--mq-text)" }} />
@@ -1585,24 +1582,19 @@ export default function FullTrackView() {
                              height so LiquidLyrics' own .ll-scroll becomes the
                              scroller (auto-scroll targets it). */
                           <div className="h-full min-h-0 flex flex-col px-2 py-3">
-                            {lyricsLoading ? (
-                              <div className="flex items-center gap-2 py-8 justify-center">
-                                <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} />
-                                <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Поиск текста...</span>
-                              </div>
-                            ) : (
-                              <LyricsView
-                                lines={lyrics}
-                                plainText={plainLyrics}
-                                currentTime={progress}
-                                isLoading={false}
-                                error={lyricsError}
-                                onSeek={seekToTime}
-                                cover={currentTrack?.cover}
-                                duration={duration}
-                                variant="full"
-                              />
-                            )}
+                            {/* v10.1: loading = the shared LyricsView skeleton
+                                (shimmer lines) — not a spinner (§12). */}
+                            <LyricsView
+                              lines={lyrics}
+                              plainText={plainLyrics}
+                              currentTime={progress}
+                              isLoading={lyricsLoading}
+                              error={lyricsError}
+                              onSeek={seekToTime}
+                              cover={currentTrack?.cover}
+                              duration={duration}
+                              variant="full"
+                            />
                           </div>
                         )}
 

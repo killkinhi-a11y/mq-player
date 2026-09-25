@@ -1,7 +1,7 @@
 "use client";
 
 import { memo } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 /* ══════════════════════════════════════════════════════════════════════════
    TextSwap — premium now-playing text change (v68 motion system).
@@ -65,6 +65,10 @@ export const TextSwap = memo(function TextSwap({
   ariaLabel,
 }: TextSwapProps) {
   const Tag = TagMap[as];
+  // v10.1 §14: reduced motion → instant swap (no slide, no fade).
+  const reduceMotion = useReducedMotion();
+  const dist = reduceMotion ? 0 : distance;
+  const dur = reduceMotion ? 0 : duration;
   return (
     <Tag
       className={`${className} ${multiline ? "line-clamp-2" : ""} relative block overflow-hidden`}
@@ -75,10 +79,10 @@ export const TextSwap = memo(function TextSwap({
         <motion.span
           key={swapKey}
           layout={false}
-          initial={{ opacity: 0, y: distance }}
+          initial={{ opacity: 0, y: dist }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -distance }}
-          transition={{ duration, ease: PREMIUM_EASE }}
+          exit={{ opacity: 0, y: -dist }}
+          transition={{ duration: dur, ease: PREMIUM_EASE }}
           className={`block w-full ${multiline ? "line-clamp-2" : "truncate"}`}
         >
           {text}

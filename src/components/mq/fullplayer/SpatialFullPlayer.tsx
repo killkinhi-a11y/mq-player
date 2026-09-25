@@ -722,7 +722,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
         <header className="flex items-center justify-between px-4 sm:px-6 py-2 flex-shrink-0">
           <button
             onClick={() => setOpen(false)}
-            className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn"
+            className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press"
             aria-label="Закрыть"
           >
             <ChevronDown className="w-6 h-6" style={{ color: "var(--mq-text)" }} />
@@ -738,7 +738,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
           {isMobile ? (
             <button
               onClick={(e) => setMoreMenu({ x: e.clientX, y: e.clientY })}
-              className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn"
+              className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press"
               aria-label="Ещё"
             >
               <MoreHorizontal className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
@@ -746,7 +746,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
           ) : (
             <button
               onClick={handleShare}
-              className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn"
+              className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press"
               aria-label="Поделиться"
             >
               <Share2 className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
@@ -993,7 +993,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
               <button
                 onClick={() => togglePlay()}
                 aria-label={isPlaying ? "Пауза" : "Играть"}
-                className="mq-icon-btn flex items-center justify-center"
+                className="mq-icon-btn mq-press flex items-center justify-center"
                 style={{
                   width: isMobile ? 50 : 54,
                   height: isMobile ? 50 : 54,
@@ -1003,14 +1003,17 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
                   cursor: "pointer",
                   padding: 0,
                   boxShadow: "0 10px 26px color-mix(in srgb, var(--mq-accent) 30%, transparent)",
-                  transition: "transform 0.15s ease, box-shadow 0.2s ease",
                 }}
               >
                 {isLoading
                   ? <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
-                  : isPlaying
-                    ? <Pause className="w-6 h-6" style={{ color: "var(--mq-text-on-accent, #fff)" }} fill="currentColor" />
-                    : <Play className="w-6 h-6 translate-x-[1px]" style={{ color: "var(--mq-text-on-accent, #fff)" }} fill="currentColor" />}
+                  : (
+                    <span key={isPlaying ? "pause" : "play"} className="mq-icon-swap flex items-center justify-center">
+                      {isPlaying
+                        ? <Pause className="w-6 h-6" style={{ color: "var(--mq-text-on-accent, #fff)" }} fill="currentColor" />
+                        : <Play className="w-6 h-6 translate-x-[1px]" style={{ color: "var(--mq-text-on-accent, #fff)" }} fill="currentColor" />}
+                    </span>
+                  )}
               </button>
               <SpIconButton onClick={() => nextTrack()} label="Следующий трек">
                 <SkipForward className="w-[22px] h-[22px]" style={{ color: "var(--mq-text-muted)" }} fill="currentColor" />
@@ -1049,8 +1052,10 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
                           transition={{ duration: 0.18 }}
                           className="absolute bottom-[calc(100%+12px)] left-1/2 -translate-x-1/2 z-40 rounded-2xl p-3 w-[200px]"
                           style={{
-                            backgroundColor: "var(--mq-surface-1)",
-                            border: "1px solid var(--mq-edge)",
+                            backgroundColor: "color-mix(in srgb, var(--mq-surface-1) 82%, transparent)",
+                            backdropFilter: "var(--mq-blur-md)",
+                            WebkitBackdropFilter: "var(--mq-blur-md)",
+                            border: "1px solid var(--mq-edge-strong)",
                             boxShadow: "0 16px 40px rgba(0,0,0,0.5)",
                           }}
                           role="group"
@@ -1111,7 +1116,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
                   <p className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>
                     Очередь · {queue.length}
                   </p>
-                  <button onClick={() => setQueueOpen(false)} aria-label="Закрыть очередь" className="mq-icon-btn w-11 h-11 rounded-full flex items-center justify-center">
+                  <button onClick={() => setQueueOpen(false)} aria-label="Закрыть очередь" className="mq-icon-btn mq-press w-11 h-11 rounded-full flex items-center justify-center">
                     <X className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
                   </button>
                 </div>
@@ -1176,7 +1181,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
                 <p className="text-sm font-semibold truncate max-w-[240px] sm:max-w-md" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
                 <p className="text-xs truncate max-w-[240px] sm:max-w-md" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
               </div>
-              <button onClick={() => setLyricsOpen(false)} aria-label="Закрыть текст песни" className="mq-icon-btn w-11 h-11 rounded-full flex items-center justify-center">
+              <button onClick={() => setLyricsOpen(false)} aria-label="Закрыть текст песни" className="mq-icon-btn mq-press w-11 h-11 rounded-full flex items-center justify-center">
                 <X className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
               </button>
             </div>
@@ -1252,7 +1257,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
             >
               <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--mq-border-thin)" }}>
                 <p className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>Добавить в плейлист</p>
-                <button onClick={() => setShowPlaylistPicker(false)} aria-label="Закрыть" className="mq-icon-btn w-11 h-11 rounded-full flex items-center justify-center">
+                <button onClick={() => setShowPlaylistPicker(false)} aria-label="Закрыть" className="mq-icon-btn mq-press w-11 h-11 rounded-full flex items-center justify-center">
                   <X className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
                 </button>
               </div>
@@ -1589,7 +1594,7 @@ function SpIconButton({
       onClick={onClick}
       aria-label={label}
       aria-pressed={pressed}
-      className="mq-icon-btn flex items-center justify-center"
+      className="mq-icon-btn mq-press flex items-center justify-center"
       style={{
         width: 44,
         height: 44,

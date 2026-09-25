@@ -3884,12 +3884,32 @@ a:focus-visible {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 6px;
-  border-radius: var(--mq-r-card);
-  background: var(--mq-surface-1);
+  /* v10.1 premium glass: translucent surface — the menu floats OVER the
+     app instead of being an opaque slab. Same color-mix DNA as the mobile
+     player bar. The BLUR is set as an INLINE style by MenuCore.tsx: the
+     CSS pipeline (Lightning) strips the standard backdrop-filter down to
+     the -webkit- alias, which Chromium ignores — inline styles bypass
+     that and keep both spellings. */
+  border-radius: calc(var(--mq-r-card) + 4px);
+  background: color-mix(in srgb, var(--mq-surface-1) 84%, transparent);
   border: 1px solid var(--mq-edge-strong);
   box-shadow: var(--mq-elev-dialog);
   z-index: 10001;
   -webkit-overflow-scrolling: touch;
+}
+
+/* v10.1 — menu mount animation ON THE SURFACE (scale 0.96→1 + slight
+   directional rise, ~180ms premium ease). Direction follows the side the
+   menu opens toward. Reduced motion → static mount (§14). */
+.mq-menu-below { animation: mqMenuInBelow 0.18s cubic-bezier(0.16, 1, 0.3, 1); }
+.mq-menu-above { animation: mqMenuInAbove 0.18s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes mqMenuInBelow {
+  from { opacity: 0; transform: scale(0.96) translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes mqMenuInAbove {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to   { opacity: 1; transform: none; }
 }
 
 .mq-menu-header {
@@ -3938,6 +3958,11 @@ a:focus-visible {
 .mq-menu-item:focus-visible:not(:disabled) {
   background: var(--mq-overlay-hover);
   outline: none;
+}
+/* v10.1: press = surface feedback (one property deeper than hover —
+   scale on menu rows reads as jumpiness; the deeper fill reads premium). */
+.mq-menu-item:active:not(:disabled) {
+  background: var(--mq-overlay-active);
 }
 .mq-menu-item:disabled {
   opacity: 0.4;
@@ -4145,6 +4170,100 @@ a:focus-visible {
 }
 .mq-icon-btn[data-active="true"] {
   background-color: var(--mq-active-bg, color-mix(in srgb, var(--mq-accent) 15%, transparent));
+}
+
+/* ── v10.1 MQ MOTION SYSTEM — one premium interaction language for every
+   Full Player button (mobile player bar, desktop Classic transport, the
+   Spatial rail/footer). Spec: NORMAL → HOVER (subtle lift 1.03, precise
+   pointers only) → PRESS (scale 0.96) → RELEASE (smooth 150ms return) →
+   ACTIVE (icon/fill accent transition via .mq-color-fade) → DISABLED
+   (opacity + no interaction) → FOCUS (accent ring). One property per
+   state, transform+opacity only — no bounce, no overshoot, no springs,
+   no neon. Every rule is mirrored by a prefers-reduced-motion guard
+   (§14: no scales, no transforms — functionality stays). */
+
+.mq-press {
+  transition:
+    transform 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.mq-press:active {
+  transform: scale(0.96);
+}
+/* Hover lift only exists for real pointers — touch never holds :hover. */
+@media (hover: hover) and (pointer: fine) {
+  .mq-press:hover {
+    transform: scale(1.03);
+  }
+}
+.mq-press:disabled,
+.mq-press[aria-disabled="true"] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.mq-press:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--mq-accent) 70%, transparent);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mq-press,
+  .mq-press:hover,
+  .mq-press:active {
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Play ↔ Pause icon swap — crossfade + gentle scale on the keyed icon
+   wrapper (~180ms; reduced motion → instant swap, function unchanged). */
+.mq-icon-swap {
+  animation: mqIconSwap 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+@keyframes mqIconSwap {
+  from { opacity: 0; transform: scale(0.82); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Like / Dislike micro-pop — a keyed wrapper replays on state change
+   (240ms, single soft overshoot-free curve: 1 → 1.16 → 1). */
+.mq-icon-pop {
+  animation: mqIconPop 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+@keyframes mqIconPop {
+  0%   { transform: scale(1); }
+  42%  { transform: scale(1.16); }
+  100% { transform: scale(1); }
+}
+
+/* Icon accent/fill transition — color moves 150ms between states
+   (currentColor carries the SVG fill where fill="currentColor"). */
+.mq-color-fade {
+  transition: color 150ms ease;
+}
+
+/* Artwork decode fade-in (skeleton → loaded). */
+.mq-art-fade {
+  transition: opacity 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mq-icon-swap,
+  .mq-icon-pop {
+    animation: none;
+  }
+  .mq-color-fade,
+  .mq-art-fade {
+    transition: none;
+  }
+  /* §14: shimmer becomes a static surface under reduced motion. */
+  .mq-shimmer {
+    animation: none;
+  }
 }
 
 /* ── §HOVER: Settings — CSS-only hover for swatch/dot/link pickers ──────
@@ -4496,6 +4615,13 @@ html[data-mq-desktop] .mq-card-track {
   .mq-surface,
   .mq-art img {
     transition: none !important;
+  }
+  /* v10.1: menu mount + sheet slide are decorative motion → static (§14). */
+  .mq-menu-below,
+  .mq-menu-above,
+  .mq-menu-sheet,
+  .mq-menu-backdrop[data-sheet="true"] {
+    animation: none !important;
   }
 }
 

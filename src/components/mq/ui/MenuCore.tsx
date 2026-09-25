@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronLeft, type LucideIcon } from "lucide-react";
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -354,10 +353,16 @@ export default function MenuCore({
       // wheel over an open menu.
       data-scrollable="true"
       onKeyDown={handleKeyDown}
-      className={`mq-menu-surface${isSheet ? " mq-menu-sheet" : ""}`}
+      className={`mq-menu-surface${isSheet ? " mq-menu-sheet" : ` mq-menu-${side === "above" ? "above" : "below"}`}`}
       style={{
         ...(width ? { width } : {}),
         ...(pos && !isSheet ? { left: pos.left, top: pos.top } : {}),
+        // v10.1 premium glass blur — INLINE on purpose: the CSS pipeline
+        // (Lightning) strips the standard backdrop-filter declaration down
+        // to the -webkit- alias, which Chromium ignores; inline styles
+        // keep both spellings and the blur actually renders.
+        backdropFilter: "var(--mq-blur-md)",
+        WebkitBackdropFilter: "var(--mq-blur-md)",
       }}
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}
@@ -368,10 +373,12 @@ export default function MenuCore({
     </div>
   );
 
-  const surfaceAnim = isSheet
-    ? { initial: { y: 64, opacity: 0.5 }, animate: { y: 0, opacity: 1 }, exit: { y: 64, opacity: 0 } }
-    : { initial: { opacity: 0, scale: 0.97, y: side === "above" ? 4 : -4 }, animate: { opacity: 1, scale: 1, y: 0 }, exit: { opacity: 0, scale: 0.97 } };
-
+  /* v10.1: the mount animation is CSS on the surface itself (mq-menu-below /
+     mq-menu-above / mq-menu-sheet). The previous Framer wrapper had
+     display:contents — a contents box cannot be transformed, so the tween
+     was visually dead and desktop menus appeared instantly. Close stays
+     instant on purpose: menus answer a click, a lingering exit reads as
+     lag ("быстро и аккуратно"). Reduced motion kills the CSS (§14). */
   return createPortal(
     <>
       <div
@@ -386,15 +393,7 @@ export default function MenuCore({
           close();
         }}
       />
-      <motion.div
-        initial={surfaceAnim.initial}
-        animate={surfaceAnim.animate}
-        exit={surfaceAnim.exit}
-        transition={{ duration: 0.14, ease: [0.25, 0.46, 0.45, 0.94] }}
-        style={{ display: "contents" }}
-      >
-        {content}
-      </motion.div>
+      {content}
     </>,
     document.body
   );

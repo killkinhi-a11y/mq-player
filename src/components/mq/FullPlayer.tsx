@@ -6,7 +6,15 @@
  *   FullPlayer
  *    ├── ClassicFullPlayer      (existing FullTrackView, desktop)
  *    ├── ClassicFullPlayerMobile(existing FullTrackViewMobile, mobile)
- *    └── SpatialFullPlayer      (new reference depth-carousel mode)
+ *    └── SpatialFullPlayer      (reference depth-carousel mode, DESKTOP ONLY)
+ *
+ * v10.1 ROUTING: MOBILE ALWAYS RENDERS THE CLASSIC MOBILE PLAYER
+ * (FullTrackViewMobile — the restored pre-Spatial visual). The Spatial
+ * (reference) player is a desktop-only experience: no carousel, no rail,
+ * no desktop composition shrunken onto a phone. The «Вид полного плеера»
+ * setting still applies — but only on desktop; on mobile both values
+ * render the same familiar restored player, and the Left/Right rail
+ * setting intentionally has no mobile effect.
  *
  * The mode comes from the persisted store preference
  * (Settings → Оформление → «Вид полного плеера», default "classic" so
@@ -29,6 +37,14 @@ export default function FullPlayer() {
   const mode = useAppStore((s) => s.fullPlayerMode);
   const isMobile = useIsMobile();
 
+  // v10.1: mobile = the restored classic player in BOTH modes.
+  if (isMobile) {
+    return (
+      <Suspense fallback={null}>
+        <ClassicFullPlayerMobile />
+      </Suspense>
+    );
+  }
   if (mode === "spatial") {
     return (
       <Suspense fallback={null}>
@@ -38,7 +54,7 @@ export default function FullPlayer() {
   }
   return (
     <Suspense fallback={null}>
-      {isMobile ? <ClassicFullPlayerMobile /> : <ClassicFullPlayer />}
+      <ClassicFullPlayer />
     </Suspense>
   );
 }
