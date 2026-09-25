@@ -7188,3 +7188,102 @@ Stage Summary:
   skeleton + motion system + reduced motion; desktop Spatial/Classic
   regression-free with the shared motion/menu polish. 563/563 tests,
   all gates green, production E2E desktop+mobile PASS. REGRESSIONS: none.
+
+---
+Task ID: v10.1-final
+Agent: main (Super Z)
+Task: v10.1 completion pass — finish §17 screenshot matrix (queue/lyrics/
+track-transition/player-transition), verify all gates, production deploy
+of a QA-discovered lyrics clipping fix, production E2E re-run, final report.
+
+Work Log:
+- Verified prior state: worktree clean at a920d12f (screenshots commit),
+  production was serving mq-build-a47fa7be (= v10.1 code 2de16092 +
+  worklog-only delta). fullplayer-v101 suite 37/37 green on re-run.
+- Captured the 4 missing §17 shots against PRODUCTION:
+  * desktop-queue-open.png — context panel (data-mq-context-panel)
+    [1060,0,380,900] inView, queue tab 19 tracks; VLM PASS.
+  * desktop-lyrics-open.png — lyrics tab, 17 lines loaded (0 skeleton).
+  * mobile-queue-open.png — full-screen queue list (by design); VLM run 1
+    flagged "controls missing/truncation" = design-intent mismatch; run 2
+    with design context PASS.
+  * mobile-lyrics-open.png — first taken on demo track (Текст не найден —
+    honest state), re-taken on real Weeknd track with synced lyrics.
+- TRANSITION CAPTURE TECHNIQUE (scripts/v101-art-freeze.sh): video
+  recording failed (encoder >500ms behind at 1440x900; 0-byte webm).
+  Fixed-offset pauses also failed: headless render clock advances in
+  chunks (rAF fires without frames; sampled timeline showed 0 -> 0.873
+  -> 0.996 -> 1 across ~200ms after ~340ms network decode). SOLUTION:
+  document-level transitionrun/animationstart delegation (survives React
+  keyed remounts — first attempt's listener died with the old <img>),
+  then find the real Animation in document.getAnimations(), pause() +
+  SEEK currentTime to target progress. Deterministic, immune to frame
+  starvation, real intermediate pixels.
+  * desktop-track-transition.png: 200ms fade seeked to 50% ->
+    computed opacity 0.802 (matches ease curve at t=0.5). VLM PASS
+    (semi-transparent artwork; "red border" = app's own playing
+    indicator ring inset 0 0 0 2px accent 30% — intentional, kept).
+  * mobile-track-transition.png: same freeze, opacity 0.802. VLM PASS.
+  * mobile-player-transition.png: mqFtSlideUp 250ms seeked to 20% ->
+    matrix translateY +290.594px (cubic-bezier(0.32,0.72,0,1)@0.2).
+    Full-frame VLM misread twice ("all search page") — DISPROVEN by
+    pixels: top band 0-29% mean 23.2/var 608 (list behind), 45-70% band
+    mean 43.0/var 1257/122 colors (bright player artwork); band-by-band
+    VLM: top=(a) search list, mid=(b) player artwork, bottom=(b)
+    artwork. Controls off-screen at +290px is correct mid-slide state.
+- REAL DEFECT FOUND BY VLM + GEOMETRY: active lyric line
+  .ll-line.ll-on { transform: scale(1.12) } with transform-origin left
+  + width:100% pushed the right ~12% of the line box past the container
+  — mobile viewport clip (right 404 > 390) AND desktop panel clip
+  (right 1454 > container 1415). Live text cut off on long lines.
+  FIX: .ll-line width 100% -> 88% (88 x 1.12 = 98.6% — scaled box
+  always inside; first attempt 89.29% left 100.0048% and 4px residual
+  over because the percentage base is a few px wider than the visible
+  scroller). Regression test added: source contract pins
+  width x activeScale <= 100 and transform-origin left.
+- Gates after fix: vitest 565/565 (33 files; 563 + 2 new). NOTE: a full
+  run with browser sessions open hit fork-worker spawn EAGAIN
+  (uv_thread_create) — infrastructure, not tests; clean rerun 565/565
+  in 35s. tsc 0 errors src/. eslint clean on changed files. Production
+  build PASS (mq-build-a920d12f local).
+- Local standalone QA server gotcha round 2: rebuild needed public/*
+  AND .next/static copied into .next/standalone (chunks 500'd); plus an
+  ORPHANED next-server child (pkill on server.js missed it) kept
+  serving the PREVIOUS build — HTML referenced chunks that existed
+  nowhere on disk. Killed the child (ss -tlnp to find the real PID);
+  fresh server served consistent build.
+- Local fix verification (iPhone 14 @ :3112): active line right 373 <=
+  container 374, overflowX=0. Commit 876e625b -> push -> Vercel
+  mq-build-876e625b live (version 81) after 60s.
+- PRODUCTION E2E (mq-build-876e625b):
+  DESKTOP 1440x900: lyrics active line right 1408 <= container 1415
+  (pre-fix 1454 > 1415) — FIX VERIFIED IN PROD; desktop-lyrics-open.png
+  re-taken with real vocal line active ("Maybe you can show me how to
+  love") — VLM PASS (no truncation anywhere). Like toggle store-verified
+  (liked sc_781154188 -> unliked). Volume slider keyboard 51 -> 56.
+  More menu 8 items inView glass (VLM PASS). Settings -> Spatial:
+  canvas 144x144, 5 [data-mq-spatial] marks, action rail [138,330,
+  58x156] 3 buttons, hover on card offset 2: data-mq-hover=true, scale
+  0.478 -> 0.529, blur 3 -> 2px, opacity 0.3 -> 0.52; leave restores.
+  Spatial volume popup: open/backdrop/slider 51 -> ArrowUp 56 ->
+  Escape closes (only player root remains). Reload: fullPlayerMode
+  spatial + railPos left persisted. Console: 0 errors (stream INFO
+  logs only), 0 page errors.
+  MOBILE 390x844 (iPhone 14): lyrics active line right 373 <= 374
+  + overflowX=0 on prod; mobile-lyrics-open.png re-taken post-fix with
+  long line active — VLM PASS x2 (no character touching/crossing the
+  right border). Restored player (0 spatial marks while desktop store
+  mode=spatial — §14 independence), 14 buttons >= 44x44, overflowX=0.
+  Volume popup 220x54 inView, slider 70 -> ArrowUp 75, outside-click
+  closes. More sheet 11 real items inView. Console 0 errors.
+- Artifacts: prod-desktop-more-postfix.png; scripts/v101-art-freeze.sh,
+  v101-freeze-shot.sh, v101-check-transition-png.py persisted.
+
+Stage Summary:
+- v10.1 §17 screenshot matrix COMPLETE (12/12 named shots + extras), all
+  with geometry and/or VLM evidence (2+ runs for important screens).
+- One real cross-platform defect found and fixed in production: lyrics
+  active-line scale clipping (commit 876e625b, mq-build-876e625b, v81).
+- 565/565 tests, tsc clean, build pass, production E2E desktop+mobile
+  green post-fix. No regressions: desktop Classic/Spatial and mobile
+  restored player all re-verified on the new build.
