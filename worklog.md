@@ -7591,3 +7591,136 @@ Stage Summary:
   build 521c7df with geometry/VLM evidence. v10.2 fixes all re-verified
   live (outside-click, 44px slider/seek, popup geometry, Context Menu,
   Classic mobile). 573/573 tests, tsc clean, 0 new lint, build compiled.
+---
+Task ID: v10.3.1-audit
+Agent: main (Super Z)
+Task: V10.3.1 URGENT hotfix — Full Player volume popup VISUAL bug (black capsule) — reproduce + root cause
+
+Work Log:
+- Synced local repo to origin/main e0f921fb (V10.3 had been deployed by another
+  session: 521c7df0 — Escape fix, last-volume restore, mq-volmute polish).
+- Reproduced on PRODUCTION (mq-build-e0f921fb, fresh sessions):
+  * Desktop CLASSIC 1440x900: volume = INLINE row (no popup) — VLM: properly
+    integrated inline control, PASS. Not the broken surface.
+  * Desktop SPATIAL 1440x900: popup 200x54 @ (666,771), z-40, offsetParent =
+    DIV.relative (volume wrapper). Ancestor chain: popup -> volume wrapper ->
+    secondary row -> glass panel "mx-auto w-full rounded-[28px]" 400x142 @
+    (520,746) which carries backdrop-filter: blur(24px) -> footer (relative,
+    z-20, NO filter) -> root. Computed popup styles: bg
+    color(srgb 0.062 0.062 0.062 / 0.82) = rgb(16,16,16)@82%,
+    backdropFilter blur(16px) saturate(1.4), border 1px rgba(51,51,51,.6),
+    shadow 0 16px 40px rgba(0,0,0,.5). VLM verdict on fresh prod screenshot:
+    "SOLID/OPAQUE DARK... BLACK... covers the play/pause button and part of
+    the progress bar... floating foreign black slab."
+  * MOBILE 390x844 (iPhone 14): popup 220x54 @ (158,538) — 10px above the
+    whole player bar (offsetParent = [data-mq-playerbar] wrapper); ancestors
+    carry NO filter -> popup blur samples real artwork = REAL GLASS. VLM:
+    "translucent dark glass... integrated... no clipping". PASS as-is.
+  * Mini PlayerBar: volume = inline mute+slider (no popup) — nothing to break.
+- Also VLM-analyzed the PREVIOUS agent's own V10.3 QA shot
+  (04-volume-open-desktop-SPATIAL-AFTER.png): "solid black opaque rectangle,
+  not glassmorphic, covers the progress bar, floating/unanchored, heavy" —
+  the V10.3 "no regression" check compared BEFORE vs AFTER, which were BOTH
+  broken (same bug both sides) — that is why V10.3 shipped with the defect.
+
+ROOT CAUSE (established via DOM/CSS inspection, NOT guesswork):
+1. MATERIAL (the "black capsule"): the Spatial volume popup is a DOM
+   descendant of the glass control panel, and the panel carries
+   backdrop-filter: blur(24px). An element with backdrop-filter forms a
+   BACKDROP ROOT; the popup's own backdrop-filter can only sample content
+   painted INSIDE that root (the panel's own translucent background) — there
+   is nothing there to blur, so the popup's blur(16px) saturate(1.4) is a
+   silent no-op. What remains visible is its background
+   color-mix(surface-1 82%, transparent) = rgb(16,16,16)@82% — an essentially
+   opaque near-black capsule — plus box-shadow 0 16px 40px rgba(0,0,0,.5)
+   making it heavier. (The identical recipe looks like real glass in the
+   Context Menu / mobile popup only because those are NOT nested inside a
+   backdrop-filtered element.)
+2. POSITION/INTEGRATION: the popup is anchored bottom:calc(100%+12px) to the
+   44px volume BUTTON wrapper. The button sits in row 3 (bottom row) of a
+   compact 142px 3-row panel, so a 54px popup stacked on the button blankets
+   the transport row (prev/play/next) + most of the progress row — a capsule
+   over the upper part of the control deck, visually detached from the
+   button. (Mobile is anchored above the WHOLE bar — that is why it works.)
+
+Stage Summary:
+- Broken surface: Desktop SPATIAL volume popup only. Classic/PlayerBar inline
+  and Mobile popup are healthy (verified live + VLM).
+- Fix direction (minimal, no redesign): move overlay+popup out of the glass
+  panel to footer level (footer chain has no filter -> real glass; fixed
+  overlay regains true viewport coverage), re-anchor ABOVE THE PANEL TOP
+  centered on the volume button (mobile-style), material = canonical MQ
+  menu recipe (mq-menu-surface + inline blur, 84% surface-1, edge-strong,
+  elev-dialog). Keep all V10.2/V10.3 behavior (Escape, outside-click,
+  last-volume, aria, 44px halos, motion).
+---
+Task ID: v10.3.1-fix
+Agent: main (Super Z)
+Task: Fix the volume popup visual bug (minimal, no redesign) + local verification + regression tests
+
+Work Log:
+- FIX (SpatialFullPlayer.tsx, the only broken surface — Desktop Spatial):
+  1. Popup + fixed close-overlay moved OUT of the glass control panel to
+     FOOTER level (direct children of [data-mq-spatial="controls"]). The
+     footer chain carries no filter -> the popup's backdrop-filter samples
+     the artwork/stage = REAL glass (same physics as the Context Menu),
+     and the fixed overlay regains a true viewport covering box (v10.2
+     GAP#1's containing-block trap eliminated at the root; the capture
+     listener stays as backup and now also excludes the popup node).
+  2. Re-anchored: placeVolumePopup() measures live rects (volume button
+     center, panel top, footer box) at open + on resize. Popup is
+     horizontally CENTERED ON THE VOLUME BUTTON (clamped to the panel
+     span) and floats 12px ABOVE THE PANEL TOP — mirrors the mobile
+     popup (above the whole bar) and covers NO interactive controls
+     (progress/transport rows fully clear).
+  3. Material = canonical MQ menu recipe as INLINE tokens (identical
+     computed values to .mq-menu-surface): surface-1 84% + var
+     (--mq-blur-md) + var(--mq-edge-strong) + var(--mq-elev-dialog),
+     rounded-2xl (16px = r-card+4). The CLASS itself is NOT used — it
+     bakes menu-only geometry (position:fixed, min-width 232px, padding
+     6px, overflow-y auto — unlayered globals beat Tailwind utilities;
+     caught by local measurement: popup rendered 232x42 fixed). Inline
+     also bypasses the Lightning backdrop-filter stripping.
+- NOT TOUCHED: mobile popup (verified healthy), Classic inline volume,
+  PlayerBar inline volume, VolumeSlider, store, all V10.3 behavior.
+- REGRESSION TESTS (volume-v103.test.tsx +5, total 13 in file):
+  D1 popup is a direct footer child + NO ancestor between popup and
+  footer carries backdrop-filter/filter; D2 inline menu tokens + compact
+  geometry classes; D3 measured px positioning (left/bottom set by
+  placeVolumePopup, jsdom-degenerate 0/12px); D4 pointerdown inside
+  popup keeps it open, outside closes; D5 content intact (group aria,
+  RU mute button, range input).
+- GATES: vitest 578/578 (573 baseline + 5 new). tsc --noEmit: 0 errors
+  in src/ (18 pre-existing outside src/ = baseline). eslint changed
+  files: 0 errors, 4 pre-existing <img> warnings = baseline. npm run
+  build: Compiled successfully (74s).
+- LOCAL E2E (next start :3100, fresh sessions):
+  * Desktop Spatial 1440x900: popup 200x54 @ (666,680), popupCx 766.0 =
+    btnCx 766.0, 12px above panel top (746), withinViewport, no overlap
+    with panel/transport/progress. offsetParent = FOOTER (control-deck
+    anchor). Computed: bg rgb(16,16,16)/84%, blur(16px) saturate(1.4),
+    border edge-strong, shadow elev-dialog, radius 16px, z-40.
+  * Viewport matrix: 1280x720 (popup 586,500; cx 686=btn) and
+    1920x1080 (popup 906,860; cx 1006=btn) — same 12px gap, all PASS.
+  * Behavior battery 8/8: open+aria-expanded, slider 40 (popup stays),
+    mute 0 + RU label, unmute RESTORES 40 (not 70), Escape with focused
+    slider closes popup only, outside click closes, M toggles 0<->40,
+    button toggle close.
+  * VLM verdicts: full-page "integrated, no overlap defects, no z-index
+    issues"; zoom crop "frosted translucent glass with soft sheen...
+    premium glass popover". Pixel check: popup region carries the
+    artwork's red tint (translucency live); identical-token More menu
+    over the same stage reads "translucent dark glass (frosted)".
+  * Mobile 390x844 regression: popup (158,538) 220x54 = designed
+    geometry, gap 10 to bar, mute 44x44, spatialMarks=0 (Classic mobile),
+    TRUSTED artwork tap closes popup + aria-expanded=false. Synthetic
+    pointerdown does not close (overlay listens to click) — test
+    artifact only, trusted-tap path verified.
+  * Reduced motion: app-level MotionConfig reducedMotion="user"/"always"
+    wraps the popup's motion.div (unchanged mechanism).
+
+Stage Summary:
+- Spatial volume popup: black-capsule root cause eliminated (backdrop
+  root escape), anchored to the volume button above the deck, canonical
+  menu glass material. All V10.2/V10.3 behavior preserved and re-proven
+  locally. Ready to deploy.

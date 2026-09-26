@@ -296,25 +296,82 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
   const [moreMenu, setMoreMenu] = useState<{ x: number; y: number } | null>(null);
   const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
 
-  // v10.2 GAP#1 fix: the volume popup's fixed inset-0 close-overlay is
-  // INSIDE the glass control panel, and the panel's backdrop-filter makes
-  // it the containing block for fixed descendants — so the overlay only
-  // covered the panel itself. Clicks on the artwork / main stage (outside
-  // the panel) never reached it and the popup stayed open (reproduced in
-  // the V10.2 production audit). A capture-phase document pointerdown
-  // closes it regardless of stacking contexts; clicks on the popup or the
-  // volume button (both inside the wrapper ref) are excluded.
+  // ── v10.3.1 VISUAL HOTFIX — volume popup geometry/material ──────────────
+  // ROOT CAUSE of the "black capsule": the popup used to be a DOM child of
+  // the glass control panel, and the panel's backdrop-filter: blur(24px)
+  // makes it a BACKDROP ROOT — the popup's own backdrop-filter could only
+  // sample the panel's own background (nothing to blur) and silently
+  // no-opped, leaving its rgb(16,16,16)/82% fill to read as an opaque black
+  // slab. It was also anchored to the 44px BUTTON wrapper at the bottom of
+  // the compact 3-row panel, so a 54px popup physically blanketed the
+  // transport + progress rows.
+  // FIX: the popup renders at FOOTER level (the footer chain carries no
+  // filter → the popup's blur samples the artwork/stage = REAL glass, same
+  // physics as the Context Menu), anchored ABOVE THE WHOLE PANEL — the
+  // exact pattern the mobile player uses (bottom: calc(100%+10px) over the
+  // whole bar) — horizontally centered on the volume button so the
+  // popup↔button link stays obvious. Position is measured from live rects
+  // (button center + panel top + footer box) at open time and on resize;
+  // the spatial player is a fixed overlay (never scrolls), so these are
+  // stable between recomputes.
+  const spFooterRef = useRef<HTMLElement | null>(null);
+  const spPanelRef = useRef<HTMLDivElement | null>(null);
+  const volPopupRef = useRef<HTMLDivElement | null>(null);
+  const [volPopupPos, setVolPopupPos] = useState<{ left: number; bottom: number } | null>(null);
+
+  // v10.2 GAP#1 fix (kept as belt-and-suspenders): a capture-phase document
+  // pointerdown closes the volume popup regardless of stacking contexts;
+  // clicks on the popup or the volume button are excluded. (The popup now
+  // lives at footer level — see v10.3.1 below — so the fixed overlay's
+  // containing block is the viewport again, but the capture listener stays
+  // as a guaranteed outside-click path.)
   const volumeWrapRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!showVolume) return;
     const onPointerDown = (e: PointerEvent) => {
       const t = e.target as Node | null;
       if (t && volumeWrapRef.current?.contains(t)) return;
+      if (volPopupRef.current?.contains(t)) return;
       setShowVolume(false);
     };
     document.addEventListener("pointerdown", onPointerDown, true);
     return () => document.removeEventListener("pointerdown", onPointerDown, true);
   }, [showVolume]);
+
+  const placeVolumePopup = useCallback(() => {
+    const wrap = volumeWrapRef.current;
+    const panel = spPanelRef.current;
+    const foot = spFooterRef.current;
+    if (!wrap || !panel || !foot) return;
+    const POPUP_W = 200;
+    const GAP = 12;
+    // NOTE: no zero-rect bail-out — jsdom (unit tests) returns 0×0 for every
+    // rect; with zeros this degrades to {left: 0, bottom: GAP} which renders
+    // the popup for behavior tests. Real browsers always have live rects here
+    // (the player is laid out when it can be open).
+    const w = wrap.getBoundingClientRect();
+    const p = panel.getBoundingClientRect();
+    const f = foot.getBoundingClientRect();
+    // horizontally: centered on the VOLUME BUTTON, clamped to the panel's
+    // horizontal span so the popup always reads as part of the control deck
+    const btnCx = w.left + w.width / 2;
+    let left = btnCx - f.left - POPUP_W / 2;
+    const minLeft = p.left - f.left;
+    const maxLeft = p.right - f.left - POPUP_W;
+    left = Math.max(minLeft, Math.min(maxLeft, left));
+    // vertically: GAP above the PANEL's top edge (above the whole deck —
+    // never covers progress/transport, mirroring the mobile popup)
+    const bottom = f.bottom - p.top + GAP;
+    setVolPopupPos({ left, bottom });
+  }, []);
+
+  useEffect(() => {
+    if (!showVolume) return;
+    placeVolumePopup();
+    const onResize = () => placeVolumePopup();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [showVolume, placeVolumePopup]);
 
   // ── Lyrics: derived-key pattern (NO sync setState in effect — the
   //    "stale vs current" question is answered at render time; the effect
@@ -953,6 +1010,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
             Like/Dislike live in the rail (desktop) / identity row
             (mobile), NOT here. ═══ */}
         <footer
+          ref={spFooterRef}
           className="relative z-20 flex-shrink-0 px-3 sm:px-4"
           style={{ paddingTop: 2, paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
           data-mq-spatial="controls"
@@ -978,6 +1036,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
             </div>
           )}
           <div
+            ref={spPanelRef}
             className="mx-auto w-full rounded-[28px]"
             style={{
               maxWidth: isMobile ? 340 : 400,
@@ -1060,6 +1119,13 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
               >
                 <ListMusic className="w-[19px] h-[19px]" style={{ color: queueOpen ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
               </SpIconButton>
+              {/* v10.3.1: the volume popup now renders at FOOTER level (see
+                  the AnimatePresence right after the panel) — inside this
+                  panel its backdrop-filter was a silent no-op (the panel is a
+                  backdrop root) and the popup read as an opaque black
+                  capsule covering the transport/progress rows. The wrapper
+                  ref stays: it anchors the measured position and the
+                  outside-click exclusion. */}
               <div className="relative" ref={volumeWrapRef}>
                   <SpIconButton
                     onClick={() => setShowVolume(o => !o)}
@@ -1068,34 +1134,65 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
                   >
                     <VolumeIcon className="w-[19px] h-[19px]" style={{ color: "var(--mq-text-muted)" }} />
                   </SpIconButton>
-                  <AnimatePresence>
-                    {showVolume && (
-                      <>
-                        <div className="fixed inset-0 z-30" onClick={() => setShowVolume(false)} aria-hidden="true" />
-                        <motion.div
-                          initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                          transition={{ duration: 0.18 }}
-                          className="absolute bottom-[calc(100%+12px)] left-1/2 -translate-x-1/2 z-40 rounded-2xl p-3 w-[200px]"
-                          style={{
-                            backgroundColor: "color-mix(in srgb, var(--mq-surface-1) 82%, transparent)",
-                            backdropFilter: "var(--mq-blur-md)",
-                            WebkitBackdropFilter: "var(--mq-blur-md)",
-                            border: "1px solid var(--mq-edge-strong)",
-                            boxShadow: "0 16px 40px rgba(0,0,0,0.5)",
-                          }}
-                          role="group"
-                          aria-label="Громкость"
-                        >
-                          <VolumeSlider volume={volume} onChange={setVolume} showValue className="w-full" />
-                        </motion.div>
-                      </>
-                    )}
-                  </AnimatePresence>
               </div>
             </div>
           </div>
+
+          {/* ═══ VOLUME POPUP — v10.3.1 placement ═══
+              Rendered as a DIRECT CHILD OF THE FOOTER (NOT inside the glass
+              panel above): the panel's backdrop-filter forms a backdrop root,
+              which made the popup's own backdrop-filter a silent no-op — the
+              popup rendered as an opaque near-black capsule (rgb(16,16,16)
+              @82%) instead of glass. At footer level the blur samples the
+              artwork/stage behind the deck = REAL glass, the same physics
+              as the Context Menu / mobile volume popup.
+
+              Anchoring: measured from the live volume-button + panel rects
+              (placeVolumePopup) — horizontally centered on the button and
+              clamped to the panel's span, vertically GAP above the PANEL's
+              top edge, so it never covers the progress/transport rows
+              (mirrors the mobile popup, which opens above the whole bar).
+              The fixed close-overlay also regains a true viewport covering
+              box here (no filtered ancestor creates a containing block).
+
+              Material: the canonical MQ menu recipe — the SAME token values
+              the Context Menu renders with (surface-1 84%, --mq-edge-strong,
+              --mq-elev-dialog, --mq-r-card+4 radius = 16px), applied INLINE.
+              The .mq-menu-surface CLASS is deliberately NOT used: it bakes
+              in menu-only geometry (position: fixed, min-width 232px,
+              padding 6px, overflow-y: auto) that outranks the Tailwind
+              utilities and would distort this compact popup. Inline styles
+              also bypass the Lightning pipeline's backdrop-filter stripping
+              (documented in globals.css). */}
+          <AnimatePresence>
+            {showVolume && volPopupPos && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setShowVolume(false)} aria-hidden="true" />
+                <motion.div
+                  ref={volPopupRef}
+                  initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                  transition={{ duration: 0.18 }}
+                  className="absolute z-40 rounded-2xl p-3 w-[200px]"
+                  style={{
+                    left: volPopupPos.left,
+                    bottom: volPopupPos.bottom,
+                    backgroundColor: "color-mix(in srgb, var(--mq-surface-1) 84%, transparent)",
+                    backdropFilter: "var(--mq-blur-md)",
+                    WebkitBackdropFilter: "var(--mq-blur-md)",
+                    border: "1px solid var(--mq-edge-strong)",
+                    boxShadow: "var(--mq-elev-dialog)",
+                  }}
+                  role="group"
+                  aria-label="Громкость"
+                  data-mq-volpopup=""
+                >
+                  <VolumeSlider volume={volume} onChange={setVolume} showValue className="w-full" />
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
         </footer>
       </div>
 

@@ -253,3 +253,109 @@ describe("v10.3 · Classic desktop player — Escape with focused volume slider"
     expect(useAppStore.getState().volume).toBe(50);
   });
 });
+
+// ═══ D · V10.3.1 — volume popup VISUAL placement (the "black capsule" fix) ═══
+//
+// Root cause of the black capsule: the popup used to live INSIDE the glass
+// control panel; the panel's backdrop-filter formed a backdrop root, so the
+// popup's own backdrop-filter no-opped and its rgb(16,16,16)/82% fill read
+// as an opaque black slab floating over the transport/progress rows.
+// Fix: popup renders as a direct child of the footer (no filtered ancestor
+// → real glass), position measured from button+panel rects, canonical
+// mq-menu-surface material.
+
+describe("v10.3.1 · Spatial volume popup — visual placement & material", () => {
+  afterEach(unmount);
+
+  const openPopup = async () => {
+    const btn = [...container!.querySelectorAll("button")].find((b) =>
+      (b.getAttribute("aria-label") || "").startsWith("Громкость:"),
+    );
+    expect(btn).toBeTruthy();
+    await act(async () => {
+      btn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await settle();
+    const popup = container!.querySelector("[data-mq-volpopup]") as HTMLElement | null;
+    expect(popup).toBeTruthy();
+    return { btn: btn!, popup: popup! };
+  };
+
+  it("D1. popup is a DIRECT child of the footer — NOT inside the glass panel (backdrop root)", async () => {
+    await mount(SpatialFullPlayer);
+    const { popup } = await openPopup();
+    const footer = container!.querySelector('[data-mq-spatial="controls"]');
+    expect(footer).toBeTruthy();
+    // direct child of the footer (would be the volume wrapper if regressed
+    // back inside the panel)
+    expect(popup.parentElement).toBe(footer);
+    // no ancestor between popup and footer carries a backdrop-filter/filter
+    // (the glass panel does — that is what made the popup a black capsule)
+    let el: HTMLElement | null = popup.parentElement;
+    while (el && el !== footer) {
+      expect(el.style.backdropFilter).toBe("");
+      expect(el.style.filter).toBe("");
+      el = el.parentElement;
+    }
+    expect(el).toBe(footer);
+  });
+
+  it("D2. canonical MQ menu material as INLINE tokens: 84% surface-1 + blur + edge-strong + elev-dialog", async () => {
+    await mount(SpatialFullPlayer);
+    const { popup } = await openPopup();
+    // SAME token values the Context Menu renders with (.mq-menu-surface),
+    // applied inline (inline is REQUIRED for backdrop-filter: Lightning
+    // strips it from class rules; and the class itself bakes menu-only
+    // geometry — fixed/min-width 232/padding 6 — that must not leak here)
+    expect(popup.style.backgroundColor).toContain("var(--mq-surface-1) 84%");
+    expect(popup.style.backdropFilter).toContain("var(--mq-blur-md)");
+    expect(popup.style.border).toContain("var(--mq-edge-strong)");
+    expect(popup.style.boxShadow).toContain("var(--mq-elev-dialog)");
+    // compact popup geometry survives (Tailwind utilities unopposed)
+    expect(popup.className).toContain("w-[200px]");
+    expect(popup.className).toContain("rounded-2xl");
+  });
+
+  it("D3. position is MEASURED from the button/panel rects (px left/bottom), not a CSS anchor", async () => {
+    await mount(SpatialFullPlayer);
+    const { popup } = await openPopup();
+    // jsdom rects are all 0 → {left: 0px, bottom: 12px} (GAP above panel
+    // top). What matters: concrete px values from placeVolumePopup ran —
+    // the old code anchored via bottom:calc(100%+12px) on the wrapper.
+    expect(popup.style.left).toMatch(/^-?\d+(\.\d+)?px$/);
+    expect(popup.style.bottom).toBe("12px");
+  });
+
+  it("D4. pointerdown INSIDE the popup keeps it open; outside closes (capture exclusion)", async () => {
+    await mount(SpatialFullPlayer);
+    const { btn, popup } = await openPopup();
+    // inside the popup (the slider area) — must NOT close
+    await act(async () => {
+      popup.querySelector("input")!.dispatchEvent(
+        new MouseEvent("pointerdown", { bubbles: true }),
+      );
+    });
+    await settle();
+    expect(btn.getAttribute("aria-expanded")).toBe("true");
+    // outside (footer/artwork area) — must close
+    await act(async () => {
+      container!.querySelector('[data-mq-spatial="stage"], main, [data-mq-spatial]')!
+        .dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+    });
+    await settle();
+    expect(btn.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("D5. popup content intact: VolumeSlider (RU mute button + range input) + group aria", async () => {
+    await mount(SpatialFullPlayer);
+    const { popup } = await openPopup();
+    expect(popup.getAttribute("role")).toBe("group");
+    expect(popup.getAttribute("aria-label")).toBe("Громкость");
+    const slider = popup.querySelector('input[type="range"]');
+    expect(slider).toBeTruthy();
+    const mute = [...popup.querySelectorAll("button")].find((b) =>
+      (b.getAttribute("aria-label") || "").includes("звук"),
+    );
+    expect(mute).toBeTruthy();
+  });
+});
