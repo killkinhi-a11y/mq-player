@@ -7724,3 +7724,48 @@ Stage Summary:
   root escape), anchored to the volume button above the deck, canonical
   menu glass material. All V10.2/V10.3 behavior preserved and re-proven
   locally. Ready to deploy.
+---
+Task ID: v10.3.1-deploy
+Agent: main (Super Z)
+Task: Commit, push, Vercel deploy, production E2E re-verification
+
+Work Log:
+- Commit 1e5f03a9 "fix(full-player): v10.3.1 volume popup visual hotfix"
+  (2 source files +236/-33, 5 new tests, QA scripts + 12 screenshots,
+  worklog). Pushed main e0f921fb..1e5f03a9 -> Vercel.
+- PRODUCTION verified live: mq-build-1e5f03a9 (commit 1e5f03a9 via
+  /version.json + localStorage mq-build-id).
+- PRODUCTION E2E, DESKTOP SPATIAL 1440x900 (fresh session):
+  * popup 200x54 @ (666,680) — was (666,771) blanketing transport/progress
+    on the old build; popupCx 766.0 == btnCx 766.0 (exact button center),
+    12px above panel top (746), withinViewport, noOverlapPanel.
+  * offsetParent = FOOTER; NO glass panel in the ancestor chain -> the
+    popup's blur(16px) saturate(1.4) now samples the real stage = glass.
+  * Computed: bg rgb(16,16,16)/84%, border edge-strong, shadow
+    --mq-elev-dialog, radius 16px, z-40.
+  * Behavior battery 8/8 on prod: open+aria-expanded, slider->40 (popup
+    stays), mute->0, unmute RESTORES 40 (not 70), Escape with focused
+    slider closes popup only (player stays), outside click closes, M
+    0<->40, toggle close.
+  * VLM BEFORE vs AFTER side-by-side: BEFORE "heavy opaque black slab
+    sandwiched between progress and play/pause"; AFTER "glass aesthetic,
+    completely clear of play/pause and progress, hovers neatly above the
+    deck, centered near the volume icon, logical visual connection";
+    verdict "clear and significant visual improvement... premium glass".
+- PRODUCTION E2E, MOBILE 390x844 (iPhone 14, fresh session):
+  * popup (158,538) 220x54 = designed geometry byte-identical to pre-fix,
+    gap 10 to bar, mute 44x44, material 82%+blur unchanged, spatialMarks 0
+    (Classic mobile intact).
+  * TRUSTED tap on artwork -> popup gone + aria-expanded=false.
+- PRODUCTION E2E, DESKTOP CLASSIC regression: inline volume row present,
+  no popup (as designed), player fine.
+- Console + page errors on both prod sessions: 0.
+- Artifacts: download/qa-v10.3.1/ (00-12 + BEFORE set + side-by-side).
+
+Stage Summary:
+- V10.3.1 HOTFIX COMPLETE. Production runs mq-build-1e5f03a9. The volume
+  popup is now a compact MQ glass surface anchored to the volume button,
+  floating above the control deck, covering nothing interactive. Root
+  cause (backdrop-root no-op blur + button-wrapper anchoring) fixed at
+  the source, not with z-index hacks. All V10.2/V10.3 functionality
+  re-proven on production. 578/578 tests, tsc clean, build compiled.
