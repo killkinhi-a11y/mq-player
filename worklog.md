@@ -7544,3 +7544,50 @@ Stage Summary:
 - 6/6 GAPs fixed, all verified locally (functional fixes on the real local
   build; CSS delta via cascade harness). Gates green. Ready to
   commit/push/deploy; production E2E pending deploy.
+
+---
+Task ID: v10.3-deploy
+Agent: main (Super Z)
+Task: Commit, push, Vercel deploy, production E2E + visual QA
+
+Work Log:
+- Commit 521c7df0 "feat(full-player): v10.3 volume button fix and ux polish"
+  (16 files: 7 source + 3 test files + worklog + 5 QA artifacts; git diff
+  +121/-46 scoped to volume cluster; build artifacts reverted).
+- Pushed main b696f9a1..521c7df0 -> Vercel -> production deploy
+  mq-build-521c7df0, verified via /version.json (commit 521c7df0 = HEAD).
+- PRODUCTION E2E on https://mq1.vercel.app (build 521c7df):
+  DESKTOP CLASSIC: set 38 -> mute -> unmute restores 38 (was 70); RU labels
+  (Выключить/Включить звук, was English "Mute"); Escape WITH volume slider
+  focused CLOSES the player (was dead; control pass confirmed focus=INPUT);
+  motion classes on mute icon + hover overlay bg live.
+  DESKTOP SPATIAL: popup opens (aria-expanded=true + haspopup=dialog now
+  exposed), popup 200x54 @ (666,771); slider focused + Escape -> popup GONE,
+  expanded=false, player open; M -> 0%, M -> 38% restored; outside click
+  (300,300) closes (v10.2 GAP#1 fix intact); toggle re-open OK.
+  MOBILE 390x844: composition preserved (bar 366x230, play 76, seek 332x44,
+  volBtn 44x44, spatialMarks=0 -> Classic mobile intact); volume popup
+  220x54 @ (158,538) = designed geometry (the :where bug had made it 70px);
+  mute icon 44x44 with -8px margins; drag -> 8; mute -> 0 + volume-x icon;
+  unmute -> restores 8; outside tap closes; toggle works; Escape closes
+  popup (slider focused) with player open; track change keeps volume 8%;
+  no error overlay.
+- 12-shot QA matrix on the new build: 01 classic desktop, 02 mobile
+  BEFORE/AFTER, 03 volume-closed classic BEFORE/AFTER, 04 spatial popup
+  BEFORE/AFTER, 05/06 mobile closed/open BEFORE/AFTER, 07 More (7 items),
+  08 Context Menu (8 items, glass), 09 queue, 10 lyrics, 11 skeleton
+  (REAL blocked-fetch shimmer, mq-shimmer-sweep on 10 nodes), 12
+  track-transition (frozen mid-flight, 12 animations paused at 140ms).
+- VLM (glm-5v-turbo) verdicts: mobile popup BEFORE/AFTER "visually
+  identical, no regression"; spatial popup BEFORE/AFTER "visually
+  identical"; classic full player volume row "properly aligned, no layout
+  issues"; context menu "premium frosted-glass, far beyond system menus"
+  (v10.2 redesign intact); mobile popup AFTER "fully visible, right-aligned,
+  not clipped, balanced bar".
+
+Stage Summary:
+- V10.3 COMPLETE: primary volume fix (dead-Escape root cause) + unmute
+  restore + mute-icon polish + spatial aria, all verified on production
+  build 521c7df with geometry/VLM evidence. v10.2 fixes all re-verified
+  live (outside-click, 44px slider/seek, popup geometry, Context Menu,
+  Classic mobile). 573/573 tests, tsc clean, 0 new lint, build compiled.
