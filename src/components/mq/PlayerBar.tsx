@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { useAppStore } from "@/store/useAppStore";
+import { useAppStore, getLastVolume } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward,
@@ -166,17 +166,16 @@ export default function PlayerBar() {
     };
   }, [isVolDragging, seekVolume]);
 
-  const prevVolumeRef = useRef(70);
+  // v10.3: mute/unmute unified on the store's last-volume memory — the old
+  // local prevVolumeRef only updated inside handleVolMute, so it restored a
+  // STALE level when the volume had last been changed from another surface
+  // (e.g. muted in the Full Player, unmuted here → always 70).
   const handleVolMute = useCallback(() => {
-    // Mute: save current volume to prevVolumeRef so we can restore it.
-    // Unmute: restore from prevVolumeRef (was buggy before — always
-    // restored to 70 even if user had set a different volume).
     const cur = volRef.current;
     if (cur > 0) {
-      prevVolumeRef.current = cur;
       setVolume(0);
     } else {
-      setVolume(prevVolumeRef.current > 0 ? prevVolumeRef.current : 70);
+      setVolume(getLastVolume());
     }
   }, [setVolume]);
 
@@ -540,7 +539,7 @@ export default function PlayerBar() {
 
               {/* Volume — compact custom slider */}
               <div className="flex items-center gap-1.5 flex-shrink-0 ml-1">
-                <button onClick={handleVolMute} aria-label={volume === 0 ? "Включить звук" : "Выключить звук"} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ border: "none", cursor: "pointer", padding: 0 }}>
+                <button onClick={handleVolMute} aria-label={volume === 0 ? "Включить звук" : "Выключить звук"} className="mq-volmute mq-icon-btn mq-press w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ border: "none", cursor: "pointer", padding: 0 }}>
                   <VolIcon className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
                 </button>
                 <div
@@ -557,7 +556,7 @@ export default function PlayerBar() {
                     else if (e.key === "ArrowRight" || e.key === "ArrowUp") { e.preventDefault(); setVolume(Math.min(100, volume + 5)); }
                     else if (e.key === "Home") { e.preventDefault(); setVolume(0); }
                     else if (e.key === "End") { e.preventDefault(); setVolume(100); }
-                    else if (e.key === " " || e.key === "Enter") { e.preventDefault(); setVolume(volume > 0 ? 0 : (prevVolumeRef.current > 0 ? prevVolumeRef.current : 70)); }
+                    else if (e.key === " " || e.key === "Enter") { e.preventDefault(); setVolume(volume > 0 ? 0 : getLastVolume()); }
                   }}
                   className="mq-pb-vol relative cursor-pointer rounded-full group/vol focus-visible:outline-2 focus-visible:outline-[var(--mq-accent)]"
                   style={{

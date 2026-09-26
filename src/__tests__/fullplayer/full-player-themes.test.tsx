@@ -376,7 +376,8 @@ describe("New Spatial Full Player — interactions", () => {
     await key("KeyM");
     expect(useAppStore.getState().volume).toBe(0);
     await key("KeyM");
-    expect(useAppStore.getState().volume).toBe(70);
+    // v10.3: restores the last audible level (50), not a hardcoded 70
+    expect(useAppStore.getState().volume).toBe(50);
   });
 
   it("15. keyboard: N/P next & previous, L like, Escape closes", async () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect, memo } from "react";
-import { useAppStore } from "@/store/useAppStore";
+import { useAppStore, getLastVolume } from "@/store/useAppStore";
 import { getAudioElement } from "@/lib/audioEngine";
 import { seekPlayback, currentPlaybackPosition } from "@/lib/wasm-audio";
 import { formatDuration } from "@/lib/musicApi";
@@ -505,7 +505,8 @@ function FullTrackViewMobileInner() {
         setVolume(Math.max(0, useAppStore.getState().volume - 5));
       } else if (e.key === "m" || e.key === "M" || e.key === "ь") {
         const v = useAppStore.getState().volume;
-        setVolume(v > 0 ? 0 : 70);
+        // v10.3: unmute restores the last audible level (was hardcoded 70)
+        setVolume(v > 0 ? 0 : getLastVolume());
       }
     };
     window.addEventListener("keydown", onKey);

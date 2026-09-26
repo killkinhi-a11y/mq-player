@@ -2499,6 +2499,26 @@ input.mq-hslider-input:focus-visible::-moz-range-thumb {
   }
 }
 
+/* ── v10.3 GAP fix: the volume MUTE ICON button's touch hit box ──
+   The popup slider got its 44px halo above (v10.2), but the mute icon
+   button beside it stayed 28x28 (w-7 h-7) / 32x32 (mini bar w-8 h-8) —
+   under the same 44px touch-target contract. On touch devices the
+   button grows to 44px with negative margins so the popup/row geometry
+   is unchanged (same recipe as the slider halo). Class is set on every
+   volume mute icon (VolumeSlider + mini PlayerBar).
+   NOTE: no vertical-orientation variant — the vertical VolumeSlider is
+   currently unused (0 call sites); revisit if it returns (a column row
+   would need the halo on the cross axis, and a "descendant of .flex-col"
+   guard is WRONG here — the full player's content column is itself
+   flex-col, so that guard would hijack every horizontal button). */
+@media (hover: none) {
+  .mq-volmute {
+    width: 44px;
+    height: 44px;
+    margin: -8px 0;
+  }
+}
+
 /* ── vertical volume slider (rotated input, same recipe) ── */
 input.mq-vslider-input {
   -webkit-appearance: none;

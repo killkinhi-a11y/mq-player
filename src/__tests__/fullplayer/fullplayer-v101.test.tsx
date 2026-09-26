@@ -363,20 +363,33 @@ describe("v10.1 §10–§14 — volume audit (popup / slider / mute / keyboard /
     expect(useAppStore.getState().volume).toBe(64);
   });
 
-  it("12. mute icon (0) → unmute restores 70; button icon-label follows level", async () => {
-    await mountMobile({ volume: 0 });
-    // 0% → the button label still reports the level
-    expect(q('button[aria-label="Громкость: 0%"]')).toBeTruthy();
+  it("12. mute icon → unmute restores the PREVIOUS level (v10.3 fix); RU state-aware aria-label", async () => {
+    // v10.3: the popup mute icon had a hardcoded 70 on unmute and an English
+    // aria-label. Now: unmute restores the last audible level via the store's
+    // last-volume memory, and the label is Russian + state-aware.
+    useAppStore.getState().setVolume(42);
+    await mountMobile({ volume: 42 });
+    // 42% → the button label still reports the level
+    expect(q('button[aria-label="Громкость: 42%"]')).toBeTruthy();
     const popup = await openVolume();
-    const muteBtn = popup.querySelector('button[aria-label="Mute"]');
+    // v10.3: Russian state-aware label (was English "Mute")
+    const muteBtn = popup.querySelector('button[aria-label="Выключить звук"]');
     expect(muteBtn).toBeTruthy();
     await act(async () => {
       muteBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
-    expect(useAppStore.getState().volume).toBe(70);
+    expect(useAppStore.getState().volume).toBe(0);
+    expect(q('button[aria-label="Громкость: 0%"]')).toBeTruthy();
+    const unmuteBtn = popup.querySelector('button[aria-label="Включить звук"]');
+    expect(unmuteBtn).toBeTruthy();
+    await act(async () => {
+      unmuteBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    // restores 42 — the level the user actually had (was hardcoded 70)
+    expect(useAppStore.getState().volume).toBe(42);
   });
 
-  it("13. keyboard: ArrowUp/Down ±5, M toggles mute", async () => {
+  it("13. keyboard: ArrowUp/Down ±5, M toggles mute (unmute restores last level)", async () => {
     await mountMobile({ volume: 50 });
     await key("ArrowUp", "ArrowUp");
     expect(useAppStore.getState().volume).toBe(55);
@@ -386,7 +399,8 @@ describe("v10.1 §10–§14 — volume audit (popup / slider / mute / keyboard /
     await key("KeyM", "m");
     expect(useAppStore.getState().volume).toBe(0);
     await key("KeyM", "m");
-    expect(useAppStore.getState().volume).toBe(70);
+    // v10.3: restores the last audible level (45), not a hardcoded 70
+    expect(useAppStore.getState().volume).toBe(45);
   });
 
   it("14. boundaries: never below 0 / above 100", async () => {

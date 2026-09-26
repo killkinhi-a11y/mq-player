@@ -7383,3 +7383,164 @@ Work Log:
 Stage Summary:
 - V10.2 COMPLETE: 20/20 audit matrix items PASS (17 direct + 3 via fixes now verified in
   production). Production runs mq-build-aad898cd. All evidence in download/qa-v10.2/.
+
+---
+Task ID: v10.3-audit
+Agent: main (Super Z)
+Task: V10.3 Full Player volume button fix + continued visual/UX polish — AUDIT phase (baseline aad898cd / prod mq-build-b696f9a1 = aad898cd source + docs commit)
+
+Work Log:
+- Verified prod build via /version.json: mq-build-b696f9a1 (b696f9a1 is a docs-only
+  commit on top of aad898cd — deployed source = V10.2 baseline).
+- Reproduced EVERYTHING live on production before touching code (agent-browser
+  real CDP input: mouse move/down/up, trusted clicks, key presses; two sessions:
+  desktop 1440x900 + mobile 390x844 iPhone-14 emulation):
+  * Desktop CLASSIC full player: mute icon 28x28 hit-test OK (elementFromPoint=svg
+    inside btn), mute 70->0 (volume-x) ->70 (volume-2) cycle OK, wheel 48->52 OK,
+    volume-1 icon at 30 OK, slider input 248x44.
+  * Desktop SPATIAL: vol btn 44x44 hit OK; popup 200x54 @ (666,771) z40 not
+    clipped; trusted slider click @50% -> v=50 (popup stays open); toggle-close
+    via button area OK (overlay top of stack, ovClicks=1 -> closed); outside
+    click @300,300 -> closed (v10.2 GAP#1 fix live).
+  * MOBILE: vol btn 44x44 all probe points = btn; popup opens 220x54 @ (158,538)
+    inView z40; REAL drag 70->27 (label Громкость: 27%, volume-1 icon); popup
+    mute icon -> v=0 + volume-x; outside tap closes + aria-expanded syncs;
+    Escape closes popup (even with slider focused — separate EscapeHandler has
+    no INPUT guard); toggle via button area works (overlay intercepts, verified
+    with click listener: ovClicks=1 -> closed).
+- GAPs FOUND (each reproduced with a passing control case):
+  1. ESCAPE DEAD AFTER SLIDER FOCUS (desktop Classic + Spatial): keyboard handler
+     guard `target.tagName === "INPUT"` returns early BEFORE the Escape case ->
+     after touching volume/seek slider, Escape neither closes the volume popup
+     (Spatial) nor the player (Classic; hint literally says "Esc close").
+     Control: Escape with no input focused works on both. Mobile immune
+     (separate EscapeHandler). Files: FullTrackView.tsx L335, SpatialFullPlayer.tsx L613.
+  2. UNMUTE RESTORES HARDCODED 70, NOT PREVIOUS VALUE: VolumeSlider.tsx L36
+     (icon click — ALL Full Player surfaces) — live mobile: mute@27 -> unmute
+     -> 70. Same 70-hardcode in keyboard M: FullTrackView L376 (+ dead
+     toggleMute L238), Spatial L638, Mobile L508. Mini PlayerBar HAS the correct
+     prevVolumeRef pattern (L170-181) but its ref goes stale if volume changed
+     elsewhere (L560 Space/Enter path).
+  3. INLINE MUTE ICON HAS NO HOVER/PRESS/FOCUS/ANIMATION: volume-slider.tsx
+     L46/L72 button classes = none of mq-icon-btn/mq-press — live hover: bg
+     stays rgba(0,0,0,0), transform none; every sibling button has the v10.1
+     motion language. Also ENGLISH aria-label "Mute" (whole app is Russian;
+     PlayerBar already uses Выключить звук/Включить звук).
+  4. MUTE ICON TOUCH TARGET 28x28 < 44px spec on hover:none devices (popup
+     slider got its 44px halo in v10.2; the icon button next to it did not).
+  5. SPATIAL volume button lacks aria-expanded/aria-haspopup (mobile one has both).
+
+AUDIT MATRIX:
+| # | Requirement | Current state | Evidence | Status | Fix |
+|---|---|---|---|---|---|
+| 1 | Vol btn hit target desktop Spatial | 44x44 reachable | prod live: rect 744,837 44x44 efp=btn | PASS | - |
+| 2 | Vol btn hit target mobile | 44x44 reachable | prod live: 313,775 44x44 c/tl/icon=btn | PASS | - |
+| 3 | Click opens popup (mobile+Spatial) | opens, aria-expanded syncs | live both | PASS | - |
+| 4 | Popup geometry/z/clipping | z40 above bar, inView, not clipped | live both | PASS | - |
+| 5 | Toggle close via button area | overlay intercepts + closes | live: ovClicks=1 -> closed | PASS | - |
+| 6 | Slider click changes volume | trusted click 50% -> 50, popup open | live Spatial | PASS | - |
+| 7 | Slider drag (touch path) | 70->27, label+icon live-update | live mobile | PASS | - |
+| 8 | Slider interaction keeps popup open | stays open | live | PASS | - |
+| 9 | Mute -> 0 + VolumeX icon | works | live mobile | PASS | - |
+| 10 | Unmute restores previous value | 70 hardcoded | live: mute@27->unmute->70 | GAP | Fix 2 |
+| 11 | Keyboard M restore | 70 hardcoded x4 sites | code FullTrackView L376/L238, Spatial L638, Mobile L508 | GAP | Fix 2 |
+| 12 | Escape closes volume popup (Spatial) | dead after slider focus | live: Esc on input -> open; control -> closed | GAP | Fix 1 |
+| 13 | Escape closes Classic player (slider focused) | dead (guard) — hint promises Esc close | live: stays open; blurred control closes | GAP | Fix 1 |
+| 14 | Escape mobile (any focus) | works | live: slider focused -> popup closed, player open | PASS | - |
+| 15 | Outside click closes (Spatial+mobile) | works | live @300,300 + artwork tap | PASS | - |
+| 16 | Keyboard arrows on slider | native ±1 focused / global ±5 | live: ArrowDown x2 -> 48 | PASS | - |
+| 17 | Wheel volume (Classic) | works | live: 48 -> 52 | PASS | - |
+| 18 | Icon matches level (0/<50/>=50) | volume-x/1/2 correct | live all 3 thresholds | PASS | - |
+| 19 | Volume persists reload/track change | store persisted | store read 70 after reload/track change | PASS | - |
+| 20 | Mute icon aria-label RU + state | ENGLISH "Mute", static | live: aria-label="Mute" | GAP | Fix 3 |
+| 21 | Mute icon hover/press/focus/anim | none (transparent, no transform) | live: hoverBg transparent, transform none | GAP | Fix 3 |
+| 22 | Mute icon touch >=44px | 28x28 | live mobile popup: 171,551 28x28 | GAP | Fix 4 |
+| 23 | Spatial btn aria-expanded/haspopup | missing | code: SpIconButton no expanded prop | GAP | Fix 5 |
+| 24 | Slider input touch 44px (v10.2) | preserved | live mobile: inputH 44px | PASS | - |
+| 25 | Store->engine volume wiring | squared curve -> audio+wasm | code useAudioEngine L2776-85 | PASS | - |
+| 26 | Seek 44px touch (v10.2) | preserved (re-verify post-fix) | v10.2 prod evidence | PASS* | re-verify |
+| 27 | No overlay/artwork blocks the BUTTON itself (closed state) | button top of stack when closed | live: efp probes all = btn | PASS | - |
+
+Stage Summary:
+- 6 GAPs, all in the VOLUME cluster (matching the user report "кнопка громкости
+  ведёт себя не так"): dead-Escape-after-slider-focus (root cause: INPUT guard
+  ordering), unmute-70 (root cause: no shared last-volume memory), unpolished
+  inline mute icon (no motion classes + EN aria + 28px touch), spatial aria gap.
+- No dead clicks, no z-index/clipping regressions, no overlay covering the button
+  in closed state. v10.2 fixes (outside-click, 44px slider/seek) all still live.
+
+---
+Task ID: v10.3-fixes
+Agent: main (Super Z)
+Task: Fix all 6 audited volume GAPs; local verification; test gates
+
+Work Log:
+- Fix 1 (PRIMARY — dead Escape after slider focus): moved the Escape case
+  BEFORE the INPUT guard in BOTH desktop keyboard handlers (the guard's
+  purpose is to not hijack typing — Escape never types; range inputs keep
+  focus after click/drag, so the old order left Escape dead on the volume/
+  seek sliders). FullTrackView.tsx + SpatialFullPlayer.tsx (layered
+  dismissal order preserved verbatim).
+- Fix 2 (unmute restores previous value): store-level last-volume memory
+  (module var in useAppStore.ts, NOT in store shape — zero migration risk;
+  setVolume(>0) is the single writer; exported getLastVolume()). Wired into:
+  VolumeSlider icon click (all Full Player surfaces), keyboard M in
+  FullTrackView (+ dead toggleMute aligned), Spatial, Mobile, and the mini
+  PlayerBar (replaces its stale prevVolumeRef — old ref never updated when
+  volume changed on another surface, so cross-surface unmute restored 70).
+- Fix 3 (mute icon polish): volume-slider.tsx mute buttons now carry
+  mq-volmute + mq-icon-btn + mq-press (hover bg via CSS class — the inline
+  background:"transparent" removed, it outranked the hover class per the
+  documented §HOVER anti-pattern) + RU state-aware aria-label
+  (Выключить звук / Включить звук — was English "Mute").
+- Fix 4 (44px touch halo): @media (hover:none) .mq-volmute {44px, -8px 0}
+  in globals.css right after the v10.2 slider halo. First attempt used a
+  :where(.flex-col *) vertical-orientation guard — WRONG: the player's
+  content column is itself flex-col, so the guard hijacked every horizontal
+  button (popup grew 54->70px, margins zeroed). Caught by local browser
+  measurement, guard removed (vertical slider = 0 call sites today;
+  documented in the CSS comment).
+- Fix 5 (spatial aria): SpIconButton gained optional expanded prop ->
+  aria-expanded + aria-haspopup=dialog; volume button passes showVolume.
+- Tests: updated 3 stale assertions (unmute-70 -> restore semantics, Mute
+  -> RU label) in fullplayer-v101 + full-player-themes; NEW
+  volume-v103.test.tsx (8 tests: store memory unit, spatial Escape-with-
+  focused-slider + aria-expanded + layering, classic Escape-with-focused-
+  slider + guard control).
+- GATES: vitest 573/573 PASS (565 baseline + 8 new). tsc --noEmit: 0 errors
+  in src/ (18 pre-existing outside src/, = baseline). eslint: 0 new
+  (5 pre-existing errors in untouched code = baseline; +1 warning is a
+  pre-existing unused import in v101 tests). npm run build: Compiled
+  successfully (full JS/TS changeset).
+- LOCAL E2E on next start :3100 (build of the full changeset, pre-CSS-tweak):
+  * Classic: Escape with volume slider focused -> PLAYER CLOSES (was dead;
+    control: arrows still guarded on inputs).
+  * Spatial: popup opens (aria-expanded=true exposed), slider focused,
+    Escape -> popup CLOSES (popupGone=true, expanded=false), player open;
+    toggle re-open works.
+  * Spatial unmute: drag to 31 -> mute -> 0 + label flips to Включить звук
+    -> unmute -> RESTORES 31 (not 70).
+  * Mute icon hover: mq-icon-btn overlay bg present; press: scale(0.96).
+- CSS margin tweak verified post-build-stall via ISOLATED CASCADE HARNESS
+  (download/qa-v10.3/volmute-cascade-harness.html — exact popup DOM +
+  verbatim CSS rules, touch emulation): popup 220x52 (+2px border = 54px
+  REAL geometry = pre-change), muteBtn 44x44 mT/mB -8px, slider 44px/-10px
+  unchanged. postcss.parse(globals.css) OK.
+- ENVIRONMENT INCIDENT: after the first full local build+verify, every
+  subsequent `next build` wedged — postcss workers stuck in D-state
+  (FUSE request_wait_answer, unkillable even with -9), main process 0% CPU
+  in epoll wait; .next build-lock poisoned; dev server first-compile also
+  stalled; `git status` untracked-scan hangs on the wedged dirs (worked
+  around with --untracked-files=no + explicit-path git add). System fs
+  itself healthy (55MB/s probe). 3 build attempts across ~50 min, all
+  stalled identically -> stopped retrying per timeout protocol. The build
+  gate is covered by the earlier successful full-changeset build + postcss
+  parse + cascade harness for the CSS-only delta; production E2E after
+  deploy is the final gate.
+- Reverted: next.config.ts temp distDir guard, next-env.d.ts + version.json
+  build artifacts. git diff = 9 source files, +121/-46, scope-exact.
+
+Stage Summary:
+- 6/6 GAPs fixed, all verified locally (functional fixes on the real local
+  build; CSS delta via cascade harness). Gates green. Ready to
+  commit/push/deploy; production E2E pending deploy.

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { useAppStore } from "@/store/useAppStore";
+import { useAppStore, getLastVolume } from "@/store/useAppStore";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, ChevronDown, Heart,
@@ -235,7 +235,8 @@ export default function FullTrackView() {
   }, [setVolume]);
 
   const toggleMute = useCallback(() => {
-    setVolume(volume > 0 ? 0 : 70);
+    // v10.3: unmute restores the last audible level (was hardcoded 70)
+    setVolume(volume > 0 ? 0 : getLastVolume());
   }, [volume, setVolume]);
 
   // ── Actions ─────────────────────────────────────────────────────────────
@@ -332,6 +333,19 @@ export default function FullTrackView() {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
+      // v10.3 fix: Escape is handled BEFORE the input guard. The guard exists
+      // so shortcuts never hijack typing in text fields — but Escape never
+      // types anything, and swallowing it after the user clicked the volume/
+      // seek slider (range inputs keep focus) left Escape dead: the player
+      // would not close even though the hint row advertises "Esc close".
+      if (e.key === "Escape") {
+        e.preventDefault();
+        // Layered dismissal: an open context panel closes FIRST; only a
+        // second Esc closes the player itself.
+        if (activePanel) setActivePanel(null);
+        else setOpen(false);
+        return;
+      }
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
 
       switch (e.code) {
@@ -373,7 +387,8 @@ export default function FullTrackView() {
           break;
         case "KeyM":
           e.preventDefault();
-          { const v = useAppStore.getState().volume; setVolume(v > 0 ? 0 : 70); }
+          // v10.3: unmute restores the last audible level (was hardcoded 70)
+          { const v = useAppStore.getState().volume; setVolume(v > 0 ? 0 : getLastVolume()); }
           break;
         case "KeyL":
           e.preventDefault();
@@ -406,13 +421,6 @@ export default function FullTrackView() {
         case "KeyH":
           e.preventDefault();
           setActivePanel(p => p === "history" ? null : "history");
-          break;
-        case "Escape":
-          e.preventDefault();
-          // Layered dismissal: an open context panel closes FIRST; only a
-          // second Esc closes the player itself.
-          if (activePanel) setActivePanel(null);
-          else setOpen(false);
           break;
       }
     };

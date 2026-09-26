@@ -18,6 +18,18 @@ import { EQ_PRESETS } from "@/lib/eq";
 // future code adds them.
 type PlaybackState = "idle" | "buffering" | "loading" | "playing" | "paused" | "error" | "ended";
 
+// ── v10.3: last non-zero volume memory (mute/unmute restore) ──
+// Module-level (NOT persisted, NOT in the store shape — zero migration
+// risk). Every setVolume(>0) remembers the value; unmute paths recall it
+// instead of hardcoding 70. Mirrors the prevVolumeRef pattern the mini
+// PlayerBar already used, but app-wide and always fresh (slider drags
+// update it too, so unmuting on one surface restores what the user last
+// heard on ANY surface). Default 70 = the historical unmute target.
+let __lastVolume = 70;
+export function getLastVolume(): number {
+  return __lastVolume > 0 ? __lastVolume : 70;
+}
+
 // ── Storage versioning ──
 // Bump this number to force a fresh store for all users with old data.
 // v10: bumped to force migration that resets radioMode (was persisting
@@ -1217,7 +1229,10 @@ export const useAppStore = create<AppState>()(
         // single source of truth for actually setting audio.volume.
         // Doing it here AND in the effect caused double-apply and occasional
         // volume flicker when both ran in the same frame.
-        set({ volume: Math.round(volume) });
+        const v = Math.round(volume);
+        // v10.3: remember the last audible level for mute/unmute restore.
+        if (v > 0) __lastVolume = v;
+        set({ volume: v });
       },
 
       setProgress: (progress) => {

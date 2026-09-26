@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, memo } from "react";
 import { Volume2, VolumeX, Volume1 } from "lucide-react";
+import { getLastVolume } from "@/store/useAppStore";
 
 interface VolumeSliderProps {
   volume: number;
@@ -32,8 +33,11 @@ function VolumeSliderBase({ volume, onChange, orientation = "horizontal", showIc
 
   useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
 
+  // v10.3 fix: unmute restores the LAST audible level (store memory) instead
+  // of a hardcoded 70 — mute@27 → unmute → 27, not 70. Matches the mini
+  // PlayerBar behavior and the user-perceived value.
   const handleIconClick = useCallback(() => {
-    onChangeRef.current(volumeRef.current > 0 ? 0 : 70);
+    onChangeRef.current(volumeRef.current > 0 ? 0 : getLastVolume());
   }, []);
 
   const Icon = volume === 0 ? VolumeX : volume < 50 ? Volume1 : Volume2;
@@ -43,7 +47,7 @@ function VolumeSliderBase({ volume, onChange, orientation = "horizontal", showIc
     return (
       <div className={`flex flex-col items-center gap-2 ${className}`}>
         {showIcon && (
-          <button onClick={handleIconClick} aria-label="Mute" style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, flexShrink: 0 }}>
+          <button onClick={handleIconClick} aria-label={volume === 0 ? "Включить звук" : "Выключить звук"} className="mq-volmute mq-icon-btn mq-press flex items-center justify-center flex-shrink-0" style={{ border: "none", cursor: "pointer", padding: 0 }}>
             <Icon className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
           </button>
         )}
@@ -69,7 +73,7 @@ function VolumeSliderBase({ volume, onChange, orientation = "horizontal", showIc
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       {showIcon && (
-        <button onClick={handleIconClick} aria-label="Mute" className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-transform" style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}>
+        <button onClick={handleIconClick} aria-label={volume === 0 ? "Включить звук" : "Выключить звук"} className="mq-volmute mq-icon-btn mq-press w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ border: "none", cursor: "pointer", padding: 0 }}>
           <Icon className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
         </button>
       )}

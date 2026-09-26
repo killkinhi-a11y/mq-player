@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* Minimal replicas of the Tailwind utilities used by the real popup */
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: sans-serif; }
+  .flex { display: flex; }
+  .items-center { align-items: center; }
+  .gap-2 { gap: 8px; }
+  .w-full { width: 100%; }
+  .flex-1 { flex: 1 1 0%; }
+  .flex-shrink-0 { flex-shrink: 0; }
+  .w-7 { width: 28px; }
+  .h-7 { height: 28px; }
+  .rounded-full { border-radius: 9999px; }
+  .justify-center { justify-content: center; }
+  .p-3 { padding: 12px; }
+  .w-\[220px\] { width: 220px; }
+  .font-mono { font-family: monospace; }
+  .text-right { text-align: right; }
+  .mq-t-meta-2 { font-size: 12px; line-height: 16px; }
+  button { font: inherit; background: transparent; }
+
+  /* ── REAL RULES under test (copied verbatim from globals.css) ── */
+  input.mq-hslider-input {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 24px;
+    background: transparent;
+    outline: none;
+    cursor: pointer;
+  }
+  @media (hover: none) {
+    input.mq-hslider-input {
+      height: 44px;
+      margin: -10px 0;
+    }
+  }
+  @media (hover: none) {
+    .mq-volmute {
+      width: 44px;
+      height: 44px;
+      margin: -8px 0;
+    }
+  }
+</style>
+</head>
+<body>
+  <!-- EXACT replica of the mobile volume popup structure -->
+  <div id="popup" class="p-3 w-[220px]" style="position:absolute; bottom:100px; right:0;">
+    <div class="flex items-center gap-2 w-full">
+      <button id="muteBtn" class="mq-volmute w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style="border:none;cursor:pointer;padding:0">
+        <svg width="16" height="16"><rect width="16" height="16" fill="#888"></rect></svg>
+      </button>
+      <input id="slider" class="mq-hslider-input flex-1" type="range" min="0" max="100" value="70" style="--mq-vol:70%">
+      <span id="val" class="mq-t-meta-2 font-mono w-7 text-right flex-shrink-0">70</span>
+    </div>
+  </div>
+  <script>
+    window.report = () => {
+      const p = document.getElementById('popup').getBoundingClientRect();
+      const b = document.getElementById('muteBtn').getBoundingClientRect();
+      const bcs = getComputedStyle(document.getElementById('muteBtn'));
+      const ics = getComputedStyle(document.getElementById('slider'));
+      const i = document.getElementById('slider').getBoundingClientRect();
+      return JSON.stringify({
+        hoverNone: matchMedia('(hover: none)').matches,
+        popup: { w: Math.round(p.width), h: Math.round(p.height), EXPECT_H: 54 },
+        muteBtn: { w: Math.round(b.width), h: Math.round(b.height), mT: bcs.marginTop, mB: bcs.marginBottom, EXPECT: '44x44, -8px, -8px' },
+        slider: { h: Math.round(i.height), mT: ics.marginTop, EXPECT: '44, -10px' },
+      });
+    };
+  </script>
+</body>
+</html>

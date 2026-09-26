@@ -61,7 +61,7 @@ import {
   MoreHorizontal, Loader2, X, User as UserIcon, ListPlus,
   Copy, Download, Users,
 } from "lucide-react";
-import { useAppStore } from "@/store/useAppStore";
+import { useAppStore, getLastVolume } from "@/store/useAppStore";
 import type { Track } from "@/lib/musicApi";
 import { formatDuration } from "@/lib/musicApi";
 import { getAudioElement } from "@/lib/audioEngine";
@@ -610,6 +610,20 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
+      // v10.3 fix: Escape BEFORE the input guard — after the user clicks the
+      // volume popup slider (range input keeps focus), Escape was swallowed
+      // by the guard and the volume popup never closed.
+      if (e.key === "Escape") {
+        e.preventDefault();
+        // Layered dismissal: overlays close first, player second.
+        if (showPlaylistPicker) setShowPlaylistPicker(false);
+        else if (moreMenu) setMoreMenu(null);
+        else if (showVolume) setShowVolume(false);
+        else if (lyricsOpen) setLyricsOpen(false);
+        else if (queueOpen) setQueueOpen(false);
+        else setOpen(false);
+        return;
+      }
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
       switch (e.code) {
         case "Space":
@@ -635,7 +649,9 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
         case "ArrowDown":
           e.preventDefault(); setVolume(Math.max(0, useAppStore.getState().volume - 5)); break;
         case "KeyM":
-          e.preventDefault(); { const v = useAppStore.getState().volume; setVolume(v > 0 ? 0 : 70); } break;
+          e.preventDefault();
+          // v10.3: unmute restores the last audible level (was hardcoded 70)
+          { const v = useAppStore.getState().volume; setVolume(v > 0 ? 0 : getLastVolume()); } break;
         case "KeyL":
           e.preventDefault(); handleLike(); break;
         case "KeyN":
@@ -646,16 +662,6 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
           e.preventDefault(); setLyricsOpen(o => !o); break;
         case "KeyQ":
           e.preventDefault(); setQueueOpen(o => !o); break;
-        case "Escape":
-          e.preventDefault();
-          // Layered dismissal: overlays close first, player second.
-          if (showPlaylistPicker) setShowPlaylistPicker(false);
-          else if (moreMenu) setMoreMenu(null);
-          else if (showVolume) setShowVolume(false);
-          else if (lyricsOpen) setLyricsOpen(false);
-          else if (queueOpen) setQueueOpen(false);
-          else setOpen(false);
-          break;
       }
     };
     window.addEventListener("keydown", onKey);
@@ -1058,6 +1064,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
                   <SpIconButton
                     onClick={() => setShowVolume(o => !o)}
                     label={`Громкость: ${Math.round(volume)}%`}
+                    expanded={showVolume}
                   >
                     <VolumeIcon className="w-[19px] h-[19px]" style={{ color: "var(--mq-text-muted)" }} />
                   </SpIconButton>
@@ -1601,11 +1608,15 @@ function SpIconButton({
   onClick,
   label,
   pressed,
+  expanded,
   children,
 }: {
   onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
   label: string;
   pressed?: boolean;
+  /** v10.3: popup toggles expose aria-expanded + aria-haspopup (matches the
+   *  mobile player's volume button semantics). */
+  expanded?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -1614,6 +1625,8 @@ function SpIconButton({
       onClick={onClick}
       aria-label={label}
       aria-pressed={pressed}
+      aria-expanded={expanded}
+      aria-haspopup={expanded === undefined ? undefined : "dialog"}
       className="mq-icon-btn mq-press flex items-center justify-center"
       style={{
         width: 44,
