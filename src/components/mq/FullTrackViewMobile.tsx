@@ -741,7 +741,12 @@ function FullTrackViewMobileInner() {
               className="mq-text-display text-[28px] leading-[1.12] tracking-[-0.02em] font-extrabold"
               style={{ color: "var(--mq-text)" }}
             />
-            <button onClick={handleArtist} className="mq-t-body text-sm mt-1.5 flex items-center gap-1 max-w-full text-left group" style={{ color: "var(--mq-text-muted)" }}>
+            {/* a11y audit fix: artist link hit area was only 81x20 (<44px
+                mobile target, below even WCAG 2.5.8 AA 24px). Invisible
+                ::before halo extends the tappable box to 44px tall / wider
+                without moving a pixel — the title above is plain text (no
+                tap to steal) and the row below has its own spacing. */}
+            <button onClick={handleArtist} className="mq-t-body text-sm mt-1.5 flex items-center gap-1 max-w-full text-left group relative before:content-[''] before:absolute before:-top-3 before:-bottom-3 before:-left-2 before:right-0" style={{ color: "var(--mq-text-muted)" }}>
               <TextSwap text={currentTrack.artist} swapKey={currentTrack.id} className="min-w-0 flex-1" />
               <ChevronUp className="w-3.5 h-3.5 flex-shrink-0 rotate-90 opacity-60" />
             </button>

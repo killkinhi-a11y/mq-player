@@ -14,6 +14,8 @@ export interface LiquidGlassToggleProps {
   showCheck?: boolean
   disabled?: boolean
   className?: string
+  /** Accessible name for the switch (recommended: the visible row label) */
+  ariaLabel?: string
 }
 
 const SIZES = {
@@ -33,11 +35,16 @@ export function LiquidGlassToggle({
   showCheck = false,
   disabled = false,
   className = "",
+  ariaLabel,
 }: LiquidGlassToggleProps) {
   const s = SIZES[size]
   const trackRef = useRef<HTMLDivElement>(null)
   const [hovered, setHovered] = useState(false)
   const [pressed, setPressed] = useState(false)
+  // Keyboard focus ring (:focus-visible only — mouse click must not ring).
+  // MQ a11y audit fix: the toggle was a click-only div — no role, no state,
+  // not focusable, not keyboard-operable. Same visuals, real switch semantics.
+  const [focusRing, setFocusRing] = useState(false)
 
   // Motion values for physics-based animations
   const mx = useMotionValue(0)
@@ -70,14 +77,43 @@ export function LiquidGlassToggle({
     onCheckedChange?.(!checked)
   }, [checked, disabled, onCheckedChange])
 
+  // Space/Enter toggle — WAI-ARIA switch pattern. preventDefault stops the
+  // page from scrolling on Space; divs get no synthetic click from keys, so
+  // this never double-fires with handleClick.
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (disabled) return
+      if (e.key === " " || e.key === "Enter") {
+        e.preventDefault()
+        onCheckedChange?.(!checked)
+      }
+    },
+    [checked, disabled, onCheckedChange],
+  )
+
   const accentColor = color || "var(--mq-accent)"
 
   return (
     <motion.div
       ref={trackRef}
+      role="switch"
+      aria-checked={checked}
+      aria-disabled={disabled || undefined}
+      aria-label={ariaLabel}
+      tabIndex={disabled ? -1 : 0}
       className={`relative rounded-full cursor-pointer select-none flex-shrink-0 ${disabled ? "opacity-40 cursor-not-allowed" : ""} ${className}`}
-      style={{ width: s.track.w, height: s.track.h }}
+      style={{
+        width: s.track.w,
+        height: s.track.h,
+        outline: "none",
+        boxShadow: focusRing ? "var(--mq-focus-ring)" : undefined,
+      }}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      onFocus={(e) => {
+        if ((e.target as HTMLElement).matches(":focus-visible")) setFocusRing(true)
+      }}
+      onBlur={() => setFocusRing(false)}
       onMouseEnter={() => !disabled && setHovered(true)}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}

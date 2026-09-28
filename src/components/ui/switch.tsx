@@ -11,8 +11,9 @@ function Switch({
   checked,
   onCheckedChange,
   disabled,
+  ariaLabel,
   ...props
-}: React.ComponentProps<typeof SwitchPrimitive.Root>) {
+}: React.ComponentProps<typeof SwitchPrimitive.Root> & { ariaLabel?: string }) {
   return (
     <LiquidGlassToggle
       checked={checked ?? false}
@@ -20,6 +21,7 @@ function Switch({
       size="sm"
       disabled={disabled}
       className={className}
+      ariaLabel={ariaLabel ?? (props as { "aria-label"?: string })["aria-label"]}
     />
   )
 }

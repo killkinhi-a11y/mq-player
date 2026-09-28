@@ -667,12 +667,15 @@ export default function FullTrackView() {
     <>
       {/* Action buttons row */}
       <div className={`flex items-center gap-2 mb-4 flex-wrap ${isMobile ? "justify-center" : "justify-start"}`}>
-        <button onClick={handleLike} className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press" data-active={isLiked} title="Нравится (L)">
+        {/* a11y audit fix: state-aware aria-label + aria-pressed (was title-only
+            + data-active — screen readers had no name/state; mobile player
+            already had this treatment). Titles kept for tooltips/shortcuts. */}
+        <button onClick={handleLike} className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press" data-active={isLiked} aria-label={isLiked ? "Убрать из избранного" : "Нравится"} aria-pressed={isLiked} title="Нравится (L)">
           <span key={isLiked ? "on" : "off"} className="mq-icon-pop flex items-center justify-center">
             <Heart className="w-4 h-4 mq-color-fade" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
           </span>
         </button>
-        <button onClick={handleDislike} className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press" data-active={isDisliked} style={{ ["--mq-active-bg" as string]: "rgba(239,68,68,0.15)" }} title="Не нравится">
+        <button onClick={handleDislike} className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press" data-active={isDisliked} aria-label="Не нравится" aria-pressed={isDisliked} style={{ ["--mq-active-bg" as string]: "rgba(239,68,68,0.15)" }} title="Не нравится">
           <span key={isDisliked ? "on" : "off"} className="mq-icon-pop flex items-center justify-center">
             <ThumbsDown className="w-4 h-4 mq-color-fade" style={{ color: isDisliked ? "var(--mq-error, #ef4444)" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
           </span>
@@ -682,6 +685,8 @@ export default function FullTrackView() {
           /* §HOVER: CSS owns hover bg (was missing — no feedback at all). */
           className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press"
           data-active={showPlaylistPicker}
+          aria-label="Добавить в плейлист"
+          aria-pressed={showPlaylistPicker}
           style={{ ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}
           title="Добавить в плейлист"
         >
@@ -692,6 +697,8 @@ export default function FullTrackView() {
           onClick={() => setActivePanel(p => p === "queue" ? null : "queue")}
           className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press"
           data-active={panelTab === "queue"}
+          aria-label="Очередь"
+          aria-pressed={panelTab === "queue"}
           title="Очередь (Q)"
         >
           <ListMusic className="w-4 h-4" style={{ color: panelTab === "queue" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
@@ -700,6 +707,8 @@ export default function FullTrackView() {
           onClick={() => setActivePanel(p => p === "lyrics" ? null : "lyrics")}
           className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press"
           data-active={panelTab === "lyrics"}
+          aria-label="Текст песни"
+          aria-pressed={panelTab === "lyrics"}
           title="Текст песни (F)"
         >
           <Mic2 className="w-4 h-4" style={{ color: panelTab === "lyrics" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
@@ -708,6 +717,8 @@ export default function FullTrackView() {
           onClick={() => setActivePanel(p => p === "history" ? null : "history")}
           className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press"
           data-active={panelTab === "history"}
+          aria-label="История"
+          aria-pressed={panelTab === "history"}
           title="История (H)"
         >
           <History className="w-4 h-4" style={{ color: panelTab === "history" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />

@@ -365,7 +365,7 @@ function SettingToggle({
         <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>{label}</p>
         {subtitle && <p className="mq-t-meta-2 sm:text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{subtitle}</p>}
       </div>
-      <Switch checked={value} onCheckedChange={onCheckedChange} />
+      <Switch checked={value} onCheckedChange={onCheckedChange} ariaLabel={label} />
     </div>
   );
 }
