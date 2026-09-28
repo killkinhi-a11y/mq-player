@@ -7769,3 +7769,167 @@ Stage Summary:
   cause (backdrop-root no-op blur + button-wrapper anchoring) fixed at
   the source, not with z-index hacks. All V10.2/V10.3 functionality
   re-proven on production. 578/578 tests, tsc clean, build compiled.
+
+---
+Task ID: v11-audit
+Agent: main (Super Z)
+Task: MQ x TikTok UX audit — REAL browser audit of production (baseline b904d91c / code 1e5f03a9, mq-build-b904d91c)
+
+Work Log:
+- Synced local main b696f9a1 -> b904d91c (v10.3 + v10.3.1 hotfix complete on
+  remote; local was 4 behind, clean FF).
+- Production live audit, DESKTOP 1440x900 (fresh demo session):
+  * Mini->Full: instant container open; 4 synchronized anim groups at the
+    same tick (artwork opacity, mqIconPop x2, mq-shimmer-sweep, mqIconSwap),
+    no stagger, no pop-in, no layout jump. Full->Mini: instant close
+    (padding transition only).
+  * Transport stress: Next x10 / Play-Pause x10 / Like x10 / Dislike x10 —
+    9ms for 10 like-clicks, no queue/lag/buildup; stuck-anim count 0.
+  * Context Menu: 8 items, mqMenuInBelow 180ms cubic-bezier(.16,1,.3,1),
+    no item stagger, Escape closes (menu only). Spatial More: 7 items,
+    mqMenuInAbove 180ms. Mobile More sheet: 11 items, mq-sheet-up 220ms.
+  * Lyrics: word-level karaoke LIVE (--ll-fill 58.23% mid-word, 4 word
+    spans); active line fs 16.5px == inactive fs (no font-size change),
+    lh 25.08 == 25.08, emphasis = scale(1.12) transform only — zero layout
+    shift. Queue drawer: instant mount (tabs Queue/Lyrics/History).
+  * Spatial: side-card hover preview live (opacity .3->.52, scale
+    .478->.529, blur 3->2px + brightness, 200ms in/out, data-mq-hover),
+    side-card click switches track (framer 500ms carousel), rail 44x44.
+  * VOLUME GATE Desktop Classic (inline): mute 71->0 + label flip +
+    volume-x icon, unmute RESTORES 71, ArrowUp 70->71 (trusted key), M
+    toggles (guard: not while slider focused — correct), hit 44x44.
+  * VOLUME GATE Desktop Spatial (popup): 200x54 @ (666,680), popupCx 766 ==
+    btnCx 766, 10px above panel top, transport clearance 49-54px, footer
+    anchor chain (NO backdrop-filter ancestor — v10.3.1 hotfix HOLDS on
+    prod), glass 84%+blur(16px)+edge+elev-dialog+z-40, entrance 180ms
+    ease-out (caught mid-flight opacity .30/scale .974), slider ArrowUp
+    71->72 popup stays, Escape-after-slider-focus closes popup only,
+    outside click closes, mute 72->0/unmute restores 72, M works.
+  * Motion inventory (measured): menus 180ms, iconPop 240ms, iconSwap
+    180ms, hover/press transitions 150ms, view-enter 340ms + mqFadeIn
+    200ms (content +350ms), page nav synchronized pulse skeletons, queue
+    instant. Motion system EXISTS (--mq-spring-* + --mq-duration-*) — no
+    second token system created (mandate §8).
+  * Search: 80 results live, synchronized pulse skeletons, API 200.
+  * Console 0 errors (desktop + mobile sessions).
+- Production live audit, MOBILE 390x844 (iPhone 16 emu):
+  * Full player entrance: mqFtSlideUp + mqFtArtIn + mqIconPop x6 all at
+    t=95ms, mqFtRise at t=142 — coherent synchronized choreography.
+  * Touch targets: 14/14 player buttons >= 44x44 (play 76, prev/next 56,
+    all secondary 44). ONE gap: artist chip 81x20 (see GAP-3).
+  * VOLUME GATE Mobile: popup 220x54 @ (158,538) in viewport, slider 44px
+    halo, trusted drag 72->88 (live label), mute 88->0 (hit 44x44), unmute
+    RESTORES 88 (not 70), outside tap on artwork closes, Escape closes,
+    track switch does not linger popup, close/reopen fine, Mini->Full fine.
+  * Gestures (synthetic TouchEvent with touchstart — first attempt without
+    touchstart was correctly REJECTED by the dt guard): swipe-down closes;
+    swipe-left next; swipe-right = prev with Spotify semantics (pos>3s =
+    restart, second press <3s = back); slow swipe rejected.
+  * Reduced motion (app setting «Уменьшить движение»): entrance durations
+    collapse to 0.01ms, sheet = mq-sheet-up/1e-05s, functionality intact
+    (player opens, sheet opens, buttons work). CSS guards in source.
+  * Async feedback: add-to-queue toast «Уже следующий в очереди» in 120ms
+    (first watch missed it — MQ toaster has no 'toast' class, it's the
+    .fixed.bottom-4 container; source confirmed both toasts).
+  * Persistence: volume 88 + fullPlayerMode spatial in mq-store-v8 across
+    reload (demo auth is ephemeral by design — gate reappears, expected).
+    Landscape 844x390: controls + artwork visible, no overflow.
+- GAPS CONFIRMED (only these 3 — everything else PASS):
+  * GAP-1 a11y: FullTrackView Classic action row (Like/Dislike/AddToPlay-
+    list/Queue/Lyrics/History) = title-only + data-active (no aria-label,
+    no aria-pressed). Mobile + Spatial players already exemplary.
+  * GAP-2 a11y (worst): LiquidGlassToggle = click-only div — NO role, NO
+    aria-checked, NO tabIndex, NO keyboard. Every Settings/Profile/
+    SpatialAudio/admin toggle was keyboard-unreachable.
+  * GAP-3 touch target: mobile artist chip 81x20 (<44px, below WCAG
+    2.5.8 AA 24px).
+
+Stage Summary:
+- Audit matrix: Volume (3 surfaces) / transport / menus / lyrics / queue /
+  gestures / reduced motion / persistence / console — ALL PASS with live
+  evidence. v10.3.1 volume popup hotfix verified holding on prod.
+- 3 confirmed a11y gaps -> fixed in v11 (next task). No visual/behavior
+  regressions found; motion system healthy (nothing to add — FASTER,
+  CALMER mandate respected).
+---
+Task ID: v11-fixes
+Agent: main (Super Z)
+Task: Fix the 3 confirmed a11y gaps + local verification + regression tests
+
+Work Log:
+- FIX 1 LiquidGlassToggle (src/components/ui/liquid-glass-toggle.tsx):
+  role="switch" + aria-checked + aria-disabled + aria-label prop +
+  tabIndex (0 / -1 disabled) + Space/Enter keydown (WAI-ARIA switch
+  pattern, preventDefault stops scroll; divs get no synthetic click from
+  keys so no double-fire) + :focus-visible-only ring via --mq-focus-ring
+  (matches(':focus-visible') check — mouse click never rings). Switch
+  wrapper (ui/switch.tsx) passes ariaLabel; SettingsView SettingToggle
+  passes the visible row label. Fixes ALL toggles at once (settings,
+  profile, spatial audio, admin flags).
+- FIX 2 FullTrackView Classic action row: state-aware aria-label
+  («Нравится»/«Убрать из избранного» — mirrors mobile) + aria-pressed on
+  Like/Dislike; aria-label + aria-pressed on AddToPlaylist (showPlaylist-
+  Picker) / Queue / Lyrics / History (panelTab). Titles kept (tooltips
+  + shortcut hints). Zero visual/behavior change.
+- FIX 3 FullTrackViewMobile artist chip: invisible ::before halo
+  (before:-top-3 before:-bottom-3 = +/-12px) extends the hit box to 44px
+  tall with zero visual/layout change (title above is plain text; row
+  below has its own spacing). Verified by elementFromPoint hit test.
+- REGRESSION TESTS: src/__tests__/fullplayer/a11y-v11.test.tsx +11:
+  1a-1e mounted LiquidGlassToggle behavior (roles, keyboard, disabled
+  inert), 2a-2d source contracts for the 6 action buttons, 3a-3b artist
+  chip halo contract (incl. no-padding assertion).
+- GATES: vitest 589/589 (578 baseline + 11). tsc --noEmit 18 = baseline
+  (all desktop/ Tauri; 0 src/). eslint changed files: 5 errors before ==
+  5 after (pre-existing react-hooks in FullTrackViewMobile lyrics effects;
+  0 new). npm run build: Compiled successfully 31.2s, 102 pages.
+  public/version.json artifact reverted.
+- LOCAL LIVE VERIFICATION (next start :3100, fresh session):
+  * Settings toggle: role=switch + aria-checked=false + aria-label
+    «Уменьшить движение» + tabIndex=0; Space false->true (focus ring
+    shown), Enter true->false. Screenshot 23.
+  * Classic player: 6 buttons expose aria-label + aria-pressed=false;
+    like toggle -> «Убрать из избранного» + pressed=true -> back; queue
+    toggle pressed=true. Screenshot 24.
+  * Mobile chip: visual h=20px UNCHANGED (zero layout shift), ::before
+    top=-12px/bottom=-12px, elementFromPoint 8px above the box lands on
+    the BUTTON. Screenshot 25.
+  * Console 0 errors.
+
+Stage Summary:
+- 3/3 gaps fixed, all locally verified live with DOM evidence; ready to
+  deploy.
+---
+Task ID: v11-deploy
+Agent: main (Super Z)
+Task: Commit, push, Vercel deploy, production E2E re-verification
+
+Work Log:
+- Commit 3d8310a1 "fix(a11y): v11 ux audit — real switch semantics for
+  settings toggles, aria name+state for classic player action row, 44px
+  artist-chip hit halo" (5 source files + 11-test file + 25 QA shots).
+- Pushed b904d91c..3d8310a1 -> Vercel -> mq-build-3d8310a1 LIVE (~120s,
+  commit verified via /version.json).
+- PRODUCTION E2E on mq-build-3d8310a1:
+  * DESKTOP 1440x900: player opens; FIX LIVE — Like aria-label
+    «Нравится»/pressed=false -> toggle -> «Убрать из избранного»/
+    pressed=true; Queue/Lyrics pressed exposed. Volume inline: 70->0->
+    restores 70, hit 44x44. Lyrics drawer opens (Текст* tab active,
+    aria-pressed false->true; demo track = honest no-lyrics state).
+    Spatial: 5 marks, popup 200x54 @ (666,680) centered on btn, glass
+    84%+blur16, aria-expanded — byte-identical to v10.3.1 verified
+    geometry. Console 0 errors.
+  * MOBILE 390x844: chip halo FIX LIVE (visual 20px, pseudo -12px, hit
+    above = chip). Volume popup 220x54 in viewport, slider 44, mute
+    70->0 (hit 44x44), unmute restores 70. More sheet items present.
+    Settings switch ON PROD: Space false->true->false with aria-label.
+    Console 0 errors.
+  * VLM on AFTER shots: spatial popup = "translucent frosted glass,
+    directly above the main control deck, does not overlap play/pause or
+    progress, no visual defects"; mobile popup = "fully contained,
+    frosted glass aesthetic, text clearly legible without overlap".
+
+Stage Summary:
+- V11 COMPLETE: full real-browser audit (matrix green except 3 a11y
+  gaps), 3 fixes live in production with DOM + VLM evidence, 589/589
+  tests, all gates at baseline. Production runs mq-build-3d8310a1.
