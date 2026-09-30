@@ -1,0 +1,242 @@
+{
+ "build": "mq-build-2d5555c0",
+ "desktop_classic": {
+  "case": "desktop-classic-1440x900",
+  "playerOpen": true,
+  "hintAbsent": true,
+  "playPause": {
+   "before": "Воспроизвести",
+   "after": "Пауза"
+  },
+  "prevNext": {
+   "before": "Ambient Dreams",
+   "afterNext": "Electronic Pulse",
+   "afterPrev": "Ambient Dreams"
+  },
+  "like": {
+   "before": [
+    "false"
+   ],
+   "after": [
+    "true",
+    "Убрать из избранного"
+   ]
+  },
+  "dislike": {
+   "pressedBefore": "false",
+   "titleBefore": "Ambient Dreams",
+   "titleAfter": "Electronic Pulse",
+   "skippedCurrent": true
+  },
+  "lyrics": {
+   "pressed": [
+    "false",
+    "true"
+   ],
+   "panelAppeared": true,
+   "escapeClosed": false
+  },
+  "queue": {
+   "pressed": [
+    "false",
+    "true"
+   ],
+   "panelAppeared": true
+  },
+  "volumeInline": {
+   "set42": -1,
+   "afterMute": "Включить звук",
+   "afterUnmute": "Выключить звук"
+  },
+  "more": {
+   "items": [
+    "Поделиться",
+    "Копировать название",
+    "Скачать",
+    "Эквалайзер",
+    "Пространственное аудио",
+    "Скорость1x",
+    "Таймер сна",
+    "Визуализатор"
+   ],
+   "count": 8
+  },
+  "moreEscapeCloses": true,
+  "seek": {
+   "before": 5,
+   "after": 11,
+   "moved": true,
+   "playerStillOpen": true
+  },
+  "escapeCloses": true,
+  "closeButton": true,
+  "pageErrors": []
+ },
+ "desktop_spatial": {
+  "case": "desktop-spatial-1440x900",
+  "spatialMarks": 5,
+  "popupGeometry": {
+   "popup": {
+    "w": 200,
+    "h": 54,
+    "x": 666,
+    "y": 680,
+    "right": 866,
+    "bottom": 734
+   },
+   "btnCx": 766,
+   "popupCx": 766,
+   "panelTop": 746,
+   "popupBottom": 734,
+   "offsetParent": "FOOTER.relative z-20 flex-shrink-0 px-3 sm:px-4",
+   "filteredAncestor": false,
+   "bg": "color(srgb 0.0619608 0.0619608 0.0619608 / 0.84)",
+   "blur": "blur(16px) saturate(1.4)",
+   "border": "1px solid color(srgb 0.2 0.2 0.2 / 0.6)",
+   "shadow": "rgba(0, 0, 0, 0.6) 0px 24px 64px 0px, rgba(0, 0, 0, 0.4) 0px",
+   "radius": "16px"
+  },
+  "popupV1031": {
+   "size200x54": true,
+   "centerMatchesButton": true,
+   "gapAbovePanel": true,
+   "noFilteredAncestor": true,
+   "glassBlur": true
+  },
+  "popupBehavior": {
+   "set51_popupStays": true,
+   "volAfterSet": 51,
+   "arrowUpNative": 52,
+   "escapeClosesPopupPlayerStays": true,
+   "muteToZero": 0,
+   "unmuteRestores": 52,
+   "outsideClickCloses": true
+  },
+  "more": {
+   "items": 7
+  },
+  "queueDrawer": true,
+  "queueTabs": [],
+  "lyricsOpen": true,
+  "carousel": {
+   "offsets": [
+    "0",
+    "1",
+    "2"
+   ],
+   "clicked": "2",
+   "before": "demo-1",
+   "afterClick": "demo-3",
+   "changed": true
+  },
+  "escapeCloses": true,
+  "closeButton": true,
+  "pageErrors": []
+ },
+ "mobile": {
+  "case": "mobile-390x844",
+  "playerOpen": true,
+  "playPause": {
+   "before": "Воспроизвести",
+   "after": "Пауза"
+  },
+  "prevNext": {
+   "before": "Ambient Dreams",
+   "afterNext": "Electronic Pulse",
+   "afterPrev": "Ambient Dreams"
+  },
+  "like": [
+   "false",
+   "true"
+  ],
+  "dislike": {
+   "pressedBefore": null,
+   "titleBefore": "Ambient Dreams",
+   "titleAfter": "Electronic Pulse",
+   "skippedCurrent": true
+  },
+  "lyrics": [
+   null,
+   "true",
+   true
+  ],
+  "queue": [
+   null,
+   "true",
+   true
+  ],
+  "volumePopup": {
+   "open": true,
+   "insideGeometry": {
+    "valueRight": 365,
+    "popupRight": 378,
+    "valueInside": true,
+    "sliderInside": true,
+    "popupSize": {
+     "w": 220,
+     "h": 54
+    }
+   },
+   "dragTo33": 33,
+   "mute": 0,
+   "unmuteRestores": 33,
+   "escapeCloses": true,
+   "outsideTapCloses": true
+  },
+  "moreSheet": {
+   "items": 11
+  },
+  "closeButton": true,
+  "pageErrors": []
+ },
+ "capsule": {
+  "case": "capsule-desktop-1440x900",
+  "playPause": {
+   "before": "Воспроизвести",
+   "after": "Пауза"
+  },
+  "muteUnmute": {
+   "before": "Выключить звук",
+   "volAfterMute": 0,
+   "volAfterUnmute": 70
+  },
+  "drag": {
+   "before": 70,
+   "after": 84
+  },
+  "trustedKeys": {
+   "before": 84,
+   "afterUp": 89,
+   "afterDown": 84,
+   "upExactly5": true,
+   "downExactly5": true
+  },
+  "pageErrors": []
+ },
+ "context_menu": {
+  "case": "context-menu-regression",
+  "open": true,
+  "items": [
+   "Воспроизвести",
+   "Добавить в очередь",
+   "Добавить в плейлист",
+   "Похожие треки",
+   "Лайк",
+   "Не нравится",
+   "Перейти к артисту",
+   "Подписаться на артиста",
+   "Поделиться",
+   "Копировать название",
+   "Скачать"
+  ],
+  "destructivePresent": false,
+  "disabledPresent": false,
+  "keyboardNav": {
+   "before": "Воспроизвести",
+   "afterArrows": "Добавить в плейлист"
+  },
+  "escapeCloses": true,
+  "outsideClickCloses": true,
+  "pageErrors": []
+ }
+}

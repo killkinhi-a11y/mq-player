@@ -7933,3 +7933,128 @@ Stage Summary:
 - V11 COMPLETE: full real-browser audit (matrix green except 3 a11y
   gaps), 3 fixes live in production with DOM + VLM evidence, 589/589
   tests, all gates at baseline. Production runs mq-build-3d8310a1.
+---
+Task ID: v10.4.1-fixes
+Agent: main (Super Z)
+Task: V10.4.1 — fix the 3 confirmed V10.4 audit GAPs + the NEW volume popup
+overflow bug (GAP #4); local verification with hard browser evidence
+
+Work Log:
+- PHASE 0: synced local main (was v10.2-era) → origin/main 2d5555c0 (v11
+  final = user baseline). Production /version.json verified = mq-build-
+  2d5555c0. Working tree clean (only untracked user pasted bug screenshot).
+  Baseline npm test = 589/589 PASS (matches user's stated baseline).
+- PHASE 1 (GAP#4 reproduction, local standalone :3112 + real Chromium via
+  Python Playwright — the sandbox reaps background servers BETWEEN tool
+  calls, so server+browser run in ONE script process; agent-browser CLI
+  cannot reach localhost in this environment, only the public internet):
+  * DESKTOP SPATIAL popup 200x54 @ (666,680): icon 28 + slider 129 +
+    value w-7 28 + gaps 16 = 201px row inside a 176px content box → the
+    flex-shrink-0 value span "27" rendered at right=880 vs popup
+    right=866 = 14px OUTSIDE the capsule. Computed proof: input flex
+    "1 1 0%" but min-width:auto → the input's INTRINSIC 129px floor.
+    row scrollWidth 201 > clientWidth 174 (delta 27).
+  * MOBILE popup 220x54 @ (158,538): icon 44 (mq-volmute touch halo)
+    + 129 + 28 + 16 = 217 > 194 content → value right=388 vs popup
+    right=378 = 10px OUTSIDE. row delta 23.
+  * Both BEFORE screenshots VLM-confirmed ("27 sticks out past the
+    capsule's right edge") — matches the user's pasted bug screenshot.
+- PHASE 2 (fix): volume-slider.tsx horizontal input class
+  "mq-hslider-input flex-1" → "flex-1 min-w-0". min-width:0 removes the
+  flexbox auto-min clamp (intrinsic 129px) so the input takes exactly the
+  free space — content GENUINELY fits, no overflow:hidden masking.
+  AFTER (measured): desktop slider 102px, value right=853 ≤ 866 (13px
+  inside), popup scrollWidth==clientWidth (delta 0); mobile slider 106px,
+  value right=365 ≤ 378, delta 0. Popup sizes/positions byte-identical
+  (200x54 @ 666,680 / 220x54 @ 158,538). VLM: "27 fully inside" both.
+- PHASE 3 (GAP#1): FullTrackView.tsx hint gate
+  {showDoubleTapHint && ( → {showDoubleTapHint && isMobile && (.
+  Desktop 1440x900: hint has ZERO DOM presence at open, through the full
+  4s window, and after (innerText + node scans = false/0); the desktop
+  double-click seek it described still works (dblclick on artwork right
+  half → "+10s" feedback appeared). Mobile 390x844: player opens, no
+  hint (FullTrackViewMobile never had one — behavior preserved).
+- PHASE 4 (GAP#2): PlayerBar capsule slider onKeyDown — ownership model
+  (same as ProgressBar): preventDefault + stopPropagation for owned keys
+  (arrows/Home/End/Space/Enter). Root cause was double-fire: local React
+  handler ±5 THEN the useKeyboardShortcuts window listener ±5 = ±10.
+  TRUSTED keyboard (CDP): 80→ArrowUp→85→ArrowUp→90→ArrowDown→85→
+  ArrowDown→80 EXACTLY; boundaries Home=0 (ArrowDown stays 0), End=100
+  (ArrowUp stays 100). Global shortcuts intact with the slider
+  unfocused: arrows ±5 (100→95), Space toggles play, M mutes 95→0.
+- PHASE 5 (GAP#3): FullTrackViewMobile swipe-down branch setOpen(false)
+  → requestClose() (new stable useCallback defined with the closing
+  state, shared by Close button / Escape / swipe). TRUSTED CDP touch
+  swipe on artwork: mid-flight document.getAnimations() shows
+  mqFtSlideDown at translateY 657.95px on the dialog root; delegated
+  animationstart log captured mqFtSlideDown; unmount after ~200ms;
+  reopen works. Button close: mqFtSlideDown + unmount. Escape:
+  mqFtSlideDown + unmount. Swipe left = next (title changed, player
+  stayed open); swipe right fires prevTrack (store progress semantics
+  vary by position — untouched code). Reduced motion (Playwright
+  reduced_motion=reduce → .mq-reduce-motion on <html>): swipe close
+  still completes (0.01ms animation → animationend → unmount).
+- DIAGNOSTIC FINDING (pre-existing, NOT a regression): with the demo
+  session's onboarding TOUR active, ArrowRight on the focused classic
+  seek slider advances the TOUR (its own window keydown) and tour steps
+  close/reopen the player. Reproduced identically on the STASHED
+  baseline build. Battery disables the tour via
+  localStorage mq-tour-complete=true (a real user has finished it).
+- PHASE 6: new test file src/__tests__/fullplayer/v1041-fixes.test.tsx
+  (14 tests): G1a desktop hint ZERO DOM, G1b mobile hint preserved by the
+  gate, G1c source contract; G2a/G2b capsule ArrowUp/ArrowDown exactly
+  ±5 WITH useKeyboardShortcuts mounted (the real double-fire pairing) +
+  0/100 boundaries, G2c global arrows still ±5 when unfocused, G2d
+  stopPropagation source contract; G3a swipe arms the exit lifecycle
+  (closing + mqFtSlideDown style, NOT unmounted), G3b animationend →
+  store close → unmount (jsdom quirk: React registers the delegated
+  listener as webkitAnimationEnd because jsdom lacks onanimationend),
+  G3c Close button same lifecycle parity, G3d requestClose source
+  contract; G4a/G4b popup internal contracts (input min-w-0 + flex-1,
+  value span shrink-0 inside the row, w-[200px]/w-[220px] intact, NO
+  overflow-hidden masking), G4c min-w-0 source contract.
+  FULL SUITE: 603/603 PASS (589 baseline + 14 new), 36 files.
+- Gates: tsc --noEmit 18 errors ALL pre-existing (desktop/Tauri +
+  skills; 0 in src/ — same as v11 baseline). eslint changed files: 5
+  errors = the documented pre-existing FullTrackViewMobile react-hooks
+  set (0 new). npm run build PASS.
+- PHASE 7-9 battery (local build, Python Playwright, tour disabled):
+  30/30 CHECKS PASS —
+  * Desktop Classic 1440x900 (12): playPause toggle, prev/next (Ambient
+    Dreams→Electronic Pulse→back), like pressed+label flip, dislike skips
+    current (by design), lyrics panel + queue panel (aria-pressed +
+    panel DOM), volume inline set42 + mute label flip + unmute restore,
+    More 8 items + Escape closes, seek via trusted ArrowRight on the
+    focused ProgressBar (+5s, player stays open), Escape closes, Close
+    button closes, hint absent, 0 page errors.
+  * Desktop Spatial 1440x900 (8): 5 spatial marks; V10.3.1 popup
+    contracts ALL TRUE — 200x54, popupCx 766 == btnCx 766, 12px above
+    panel top (popupBottom 734 + 12 = panelTop 746), offsetParent
+    FOOTER, NO filtered ancestor, glass bg 84% + blur(16px)
+    saturate(1.4) + edge-strong + elev-dialog + radius 16; behavior:
+    set51 popup stays, ArrowUp native +1 (52), Escape closes popup only,
+    mute 0, unmute restores 52, outside click closes; More 7 items;
+    queue drawer opens; lyrics opens; carousel side-card click switches
+    track (demo-1→demo-3); Escape + Close close the player; 0 errors.
+  * Mobile 390x844 (11): playPause, prev/next both directions, like,
+    dislike skips, lyrics panel, queue panel, volume popup FULL battery
+    (open; value 365 ≤ 378 inside; slider inside; 220x54; set33; mute 0;
+    unmute restores 33; Escape; outside tap), More sheet 11 items,
+    Close button; 0 errors. (Swipes proven in the GAP#3 battery.)
+  * Capsule 1440x900 (6): playPause toggle, mute 70→0, unmute →70,
+    pointer drag 70→84, trusted ArrowUp +5 (84→89), ArrowDown -5
+    (89→84); 0 errors.
+  * Context Menu (no working-tree changes to it): open via «Действия: …»,
+    11 items, keyboard nav (ArrowDown moves active menuitem), Escape
+    closes, outside click closes; 0 errors. (This menu has no
+    destructive/disabled items in this context — the queue-row variant
+    owns those; same MenuCore engine.)
+
+Stage Summary:
+- 4/4 fixes implemented and locally proven with numeric browser
+  evidence: overflow eliminated (value inside by 13px both popups,
+  scrollWidth==clientWidth), desktop hint zero-DOM, capsule exactly ±5,
+  swipe-down uses the shared mqFtSlideDown close lifecycle on all
+  dismiss paths incl. reduced motion.
+- 603/603 tests, tsc/lint at baseline, build PASS, 30/30 regression
+  battery checks. Ready to commit/deploy.

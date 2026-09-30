@@ -1,0 +1,303 @@
+{
+ "build": "mq-build-2d5555c0",
+ "desktop": {
+  "surface": "desktop-spatial-1440x900",
+  "log": [
+   "demoLogin=True",
+   "settings: spatial radio clicked",
+   "store mode now: spatial",
+   "open-fullplayer: clicked button[aria-label=\"Открыть полный плеер\"]"
+  ],
+  "spatialMarks": 5,
+  "geometry": {
+   "viewport": {
+    "w": 1440,
+    "h": 900
+   },
+   "rects": {
+    "popup": {
+     "x": 666,
+     "y": 680,
+     "w": 200,
+     "h": 54,
+     "right": 866,
+     "bottom": 734
+    },
+    "icon": {
+     "x": 679,
+     "y": 693,
+     "w": 28,
+     "h": 28,
+     "right": 707
+    },
+    "slider": {
+     "x": 715,
+     "y": 695,
+     "w": 129,
+     "h": 24,
+     "right": 844
+    },
+    "value": {
+     "x": 852,
+     "y": 699.3,
+     "w": 28,
+     "h": 15.39,
+     "right": 880,
+     "text": "27"
+    },
+    "row": {
+     "x": 679,
+     "y": 693,
+     "w": 174,
+     "h": 28,
+     "right": 853
+    }
+   },
+   "styles": {
+    "popup": {
+     "width": "200px",
+     "minWidth": "0px",
+     "maxWidth": "none",
+     "flex": "0 1 auto",
+     "flexGrow": "0",
+     "flexShrink": "1",
+     "flexBasis": "auto",
+     "boxSizing": "border-box",
+     "overflow": "visible",
+     "display": "block",
+     "padding": "12px",
+     "margin": "0px"
+    },
+    "icon": {
+     "width": "28px",
+     "minWidth": "auto",
+     "maxWidth": "none",
+     "flex": "0 0 auto",
+     "flexGrow": "0",
+     "flexShrink": "0",
+     "flexBasis": "auto",
+     "boxSizing": "border-box",
+     "overflow": "visible",
+     "display": "flex",
+     "padding": "0px",
+     "margin": "0px"
+    },
+    "slider": {
+     "width": "129px",
+     "minWidth": "auto",
+     "maxWidth": "none",
+     "flex": "1 1 0%",
+     "flexGrow": "1",
+     "flexShrink": "1",
+     "flexBasis": "0%",
+     "boxSizing": "border-box",
+     "overflow": "visible",
+     "display": "block",
+     "padding": "0px",
+     "margin": "0px"
+    },
+    "value": {
+     "width": "28px",
+     "minWidth": "auto",
+     "maxWidth": "none",
+     "flex": "0 0 auto",
+     "flexGrow": "0",
+     "flexShrink": "0",
+     "flexBasis": "auto",
+     "boxSizing": "border-box",
+     "overflow": "visible",
+     "display": "block",
+     "padding": "0px",
+     "margin": "0px"
+    },
+    "row": {
+     "width": "174px",
+     "minWidth": "0px",
+     "maxWidth": "none",
+     "flex": "0 1 auto",
+     "flexGrow": "0",
+     "flexShrink": "1",
+     "flexBasis": "auto",
+     "boxSizing": "border-box",
+     "overflow": "visible",
+     "display": "flex",
+     "padding": "0px",
+     "margin": "0px"
+    }
+   },
+   "scroll": {
+    "popup": {
+     "scrollWidth": 213,
+     "clientWidth": 198,
+     "delta": 15
+    },
+    "row": {
+     "scrollWidth": 201,
+     "clientWidth": 174,
+     "delta": 27
+    }
+   },
+   "containment": {
+    "sliderInsideRight": true,
+    "valueInsideRight": false,
+    "iconInsideLeft": true,
+    "sliderInsideLeft": true,
+    "valueInsideBottom": true,
+    "valueOverflowPx": 14,
+    "sliderOverflowPx": -22
+   },
+   "valueText": "27"
+  },
+  "screenshot": "01-before-desktop-spatial-popup.png",
+  "pageErrors": []
+ },
+ "mobile": {
+  "surface": "mobile-390x844",
+  "log": [
+   "demoLogin=True",
+   "visibleButtons=['Запустить Волну', 'Открыть плеер', 'Открыть плеер: Ambient Dreams', 'Продолжить', 'Следующий трек', 'Действия: Ambient Dreams', 'Избранное', 'История', 'Плейлисты', 'Чаты', 'Действия: Drake x Lil Wayne - Family Feud', 'Действия: 🎧 Chỉ Cần Em Hạnh Phúc _ MGM Cover _ Deep Chill x R&B Soul Version #deepchill - (320 Kbps)', 'Действия: Drum And Bass Father', 'Действия: The Jackson 5 I Want You Back Drum And Bass Edit', 'Действия: Шадэ (feat. Xcho, МОТ)', 'Действия: VILLIAN, madk1d — ДИНАСТИЯ', 'Действия: Enzro Ты не бойся ночи (Deep Mix)', 'Действия: Toxi$, Дора — ЗНАК', 'Действия: HUGEL, Ultra Nate, Imael Angel - Movin’ To The Sun  [Make The Girls Dance Records]', 'Действия: Addictpulse - Viral (Original Mix) NEW FAT BASS SINGLE! 50 FreeDownloads!!!! OUT NOW ON iTunes!!!', 'Действия: Deepro - Endless Night ( Deep House Top of Charts )', 'Действия: all things break - gravity', 'Действия: As You Do (#13 ON SPOTIFY VIRAL 50 SINGAPORE)', \"Действия: I'm Here Forever (READ DESCRIPTION)\", 'Играть — Открытия дня', 'Слушать — Открытия дня', 'Действия: Открытия дня', 'Играть — Популярное', 'Слушать — Популярное', 'Действия: Популярное']",
+   "open-fullplayer: clicked button[aria-label=\"Открыть плеер\"]"
+  ],
+  "geometry": {
+   "viewport": {
+    "w": 390,
+    "h": 844
+   },
+   "rects": {
+    "popup": {
+     "x": 158,
+     "y": 538.16,
+     "w": 220,
+     "h": 54,
+     "right": 378,
+     "bottom": 592.16
+    },
+    "icon": {
+     "x": 171,
+     "y": 543.16,
+     "w": 44,
+     "h": 44,
+     "right": 215
+    },
+    "slider": {
+     "x": 223,
+     "y": 543.16,
+     "w": 129,
+     "h": 44,
+     "right": 352
+    },
+    "value": {
+     "x": 360,
+     "y": 557.45,
+     "w": 28,
+     "h": 15.39,
+     "right": 388,
+     "text": "27"
+    },
+    "row": {
+     "x": 171,
+     "y": 551.16,
+     "w": 194,
+     "h": 28,
+     "right": 365
+    }
+   },
+   "styles": {
+    "popup": {
+     "width": "220px",
+     "minWidth": "0px",
+     "maxWidth": "none",
+     "flex": "0 1 auto",
+     "flexGrow": "0",
+     "flexShrink": "1",
+     "flexBasis": "auto",
+     "boxSizing": "border-box",
+     "overflow": "visible",
+     "display": "block",
+     "padding": "12px",
+     "margin": "0px"
+    },
+    "icon": {
+     "width": "44px",
+     "minWidth": "44px",
+     "maxWidth": "none",
+     "flex": "0 0 auto",
+     "flexGrow": "0",
+     "flexShrink": "0",
+     "flexBasis": "auto",
+     "boxSizing": "border-box",
+     "overflow": "visible",
+     "display": "flex",
+     "padding": "0px",
+     "margin": "-8px 0px"
+    },
+    "slider": {
+     "width": "129px",
+     "minWidth": "auto",
+     "maxWidth": "none",
+     "flex": "1 1 0%",
+     "flexGrow": "1",
+     "flexShrink": "1",
+     "flexBasis": "0%",
+     "boxSizing": "border-box",
+     "overflow": "visible",
+     "display": "block",
+     "padding": "0px",
+     "margin": "-10px 0px"
+    },
+    "value": {
+     "width": "28px",
+     "minWidth": "auto",
+     "maxWidth": "none",
+     "flex": "0 0 auto",
+     "flexGrow": "0",
+     "flexShrink": "0",
+     "flexBasis": "auto",
+     "boxSizing": "border-box",
+     "overflow": "visible",
+     "display": "block",
+     "padding": "0px",
+     "margin": "0px"
+    },
+    "row": {
+     "width": "194px",
+     "minWidth": "0px",
+     "maxWidth": "none",
+     "flex": "0 1 auto",
+     "flexGrow": "0",
+     "flexShrink": "1",
+     "flexBasis": "auto",
+     "boxSizing": "border-box",
+     "overflow": "visible",
+     "display": "flex",
+     "padding": "0px",
+     "margin": "0px"
+    }
+   },
+   "scroll": {
+    "popup": {
+     "scrollWidth": 229,
+     "clientWidth": 218,
+     "delta": 11
+    },
+    "row": {
+     "scrollWidth": 217,
+     "clientWidth": 194,
+     "delta": 23
+    }
+   },
+   "containment": {
+    "sliderInsideRight": true,
+    "valueInsideRight": false,
+    "iconInsideLeft": true,
+    "sliderInsideLeft": true,
+    "valueInsideBottom": true,
+    "valueOverflowPx": 10,
+    "sliderOverflowPx": -26
+   },
+   "valueText": "27"
+  },
+  "screenshot": "02-before-mobile-popup.png",
+  "pageErrors": []
+ }
+}

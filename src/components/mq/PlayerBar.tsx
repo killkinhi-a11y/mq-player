@@ -542,6 +542,17 @@ export default function PlayerBar() {
                 <button onClick={handleVolMute} aria-label={volume === 0 ? "Включить звук" : "Выключить звук"} className="mq-volmute mq-icon-btn mq-press w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ border: "none", cursor: "pointer", padding: 0 }}>
                   <VolIcon className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
                 </button>
+                {/* v10.4.1 GAP#2 fix — OWNERSHIP PATTERN (same model as
+                    ProgressBar): while this slider is focused it OWNS its
+                    keys. Previously the handler called preventDefault()
+                    only — the keydown still bubbled to the window listener
+                    in useKeyboardShortcuts, which handled the SAME
+                    ArrowUp/ArrowDown again: one trusted press applied ±5
+                    (local) + ±5 (global) = ±10. stopPropagation() ends the
+                    dispatch at the React root, so the global handler never
+                    sees keys owned by the focused slider. Keys the slider
+                    does not handle still bubble → global shortcuts intact
+                    whenever the slider is NOT focused. */}
                 <div
                   ref={volTrackRef}
                   onMouseDown={handleVolDown}
@@ -552,11 +563,11 @@ export default function PlayerBar() {
                   aria-valuemax={100}
                   aria-valuenow={volume}
                   onKeyDown={(e) => {
-                    if (e.key === "ArrowLeft" || e.key === "ArrowDown") { e.preventDefault(); setVolume(Math.max(0, volume - 5)); }
-                    else if (e.key === "ArrowRight" || e.key === "ArrowUp") { e.preventDefault(); setVolume(Math.min(100, volume + 5)); }
-                    else if (e.key === "Home") { e.preventDefault(); setVolume(0); }
-                    else if (e.key === "End") { e.preventDefault(); setVolume(100); }
-                    else if (e.key === " " || e.key === "Enter") { e.preventDefault(); setVolume(volume > 0 ? 0 : getLastVolume()); }
+                    if (e.key === "ArrowLeft" || e.key === "ArrowDown") { e.preventDefault(); e.stopPropagation(); setVolume(Math.max(0, volume - 5)); }
+                    else if (e.key === "ArrowRight" || e.key === "ArrowUp") { e.preventDefault(); e.stopPropagation(); setVolume(Math.min(100, volume + 5)); }
+                    else if (e.key === "Home") { e.preventDefault(); e.stopPropagation(); setVolume(0); }
+                    else if (e.key === "End") { e.preventDefault(); e.stopPropagation(); setVolume(100); }
+                    else if (e.key === " " || e.key === "Enter") { e.preventDefault(); e.stopPropagation(); setVolume(volume > 0 ? 0 : getLastVolume()); }
                   }}
                   className="mq-pb-vol relative cursor-pointer rounded-full group/vol focus-visible:outline-2 focus-visible:outline-[var(--mq-accent)]"
                   style={{

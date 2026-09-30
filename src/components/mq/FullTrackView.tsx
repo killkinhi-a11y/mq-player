@@ -594,8 +594,14 @@ export default function FullTrackView() {
         )}
       </AnimatePresence>
 
-      {/* Hint text for double-tap — auto-hides after 4 seconds */}
-      {showDoubleTapHint && (
+      {/* Hint text for double-tap — auto-hides after 4 seconds.
+          v10.4.1 GAP#1: gated by isMobile — the desktop player rendered the
+          touch-gesture hint «← двойной тап →» on first open at 1440x900.
+          On desktop the hint must not exist AT ALL (not just opacity 0) —
+          no DOM node, no motion mount. Mobile keeps the first-open hint;
+          (in practice mobile renders FullTrackViewMobile via FullPlayer,
+          so this gate is the guarantee for any narrow-window edge case). */}
+      {showDoubleTapHint && isMobile && (
         <motion.div
           className="absolute bottom-2 left-1/2 -translate-x-1/2 mq-t-meta-2 pointer-events-none"
           style={{ color: "var(--mq-text-muted)" }}

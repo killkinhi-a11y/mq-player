@@ -77,10 +77,20 @@ function VolumeSliderBase({ volume, onChange, orientation = "horizontal", showIc
           <Icon className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
         </button>
       )}
+      {/* v10.4.1 GAP#4 fix — measured in a real browser (both popups):
+          <input type="range"> has an INTRINSIC preferred width of exactly
+          129px (Chromium default input size). As a flex item its automatic
+          minimum size (min-width:auto) resolves to that 129px, so `flex-1`
+          (flex:1 1 0%) could NOT shrink it below 129px inside the compact
+          popups (spatial content box 176px, mobile 194px). The flex-shrink-0
+          value span was pushed past the popup's right edge: "27" rendered
+          14px (desktop) / 10px (mobile) OUTSIDE the capsule. min-w-0 removes
+          the auto clamp so the input takes exactly the free space — the
+          content genuinely fits, no overflow:hidden masking. */}
       <input
         ref={inputRef}
         type="range" min={0} max={100} value={volume} onChange={handleChange}
-        className="mq-hslider-input flex-1"
+        className="mq-hslider-input flex-1 min-w-0"
         style={{ "--mq-vol": volPct } as React.CSSProperties}
       />
       {showValue && <span className="mq-t-meta-2 font-mono w-7 text-right flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>{Math.round(volume)}</span>}

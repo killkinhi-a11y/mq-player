@@ -120,6 +120,11 @@ function FullTrackViewMobileInner() {
   // mqFtSlideDown, and onAnimationEnd flips the store open flag. Mobile
   // previously hard-unmounted with no exit — desktop springs out.
   const [closing, setClosing] = useState(false);
+  // v10.4.1 GAP#3: ONE stable close lifecycle for every dismissal path
+  // (Close button, Escape, swipe-down). Defined as an unconditional hook
+  // so the swipe handler can share it — previously the swipe called
+  // setOpen(false) directly, bypassing the exit animation (hard unmount).
+  const requestClose = useCallback(() => setClosing(true), []);
 
   // v72 FIX: the player stays MOUNTED while closed (early return below does
   // not unmount it), so panel/picker/menu state survived a close→reopen —
@@ -230,9 +235,13 @@ function FullTrackViewMobileInner() {
     const dx = e.changedTouches[0].clientX - coverSwipe.current.x;
     const dy = e.changedTouches[0].clientY - coverSwipe.current.y;
     const dt = Date.now() - coverSwipe.current.t;
-    if (dy > 80 && dy > Math.abs(dx) * 1.5 && dt < 600) { setOpen(false); return; }
+    // v10.4.1 GAP#3: swipe-down routes through requestClose() — the SAME
+    // close lifecycle as the Close button (closing=true → mqFtSlideDown
+    // ~200ms → onAnimationEnd → store close → unmount). Previously the
+    // swipe bypassed the exit animation with a hard store flip.
+    if (dy > 80 && dy > Math.abs(dx) * 1.5 && dt < 600) { requestClose(); return; }
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2 && dt < 500) { if (dx < 0) nextTrack(); else prevTrack(); }
-  }, [setOpen, nextTrack, prevTrack]);
+  }, [requestClose, nextTrack, prevTrack]);
 
   const isLiked = currentTrack ? likedTrackIds.includes(currentTrack.id) : false;
   const isDisliked = currentTrack ? dislikedTrackIds.includes(currentTrack.id) : false;
@@ -515,8 +524,7 @@ function FullTrackViewMobileInner() {
 
   if (!isOpen || !currentTrack) return null;
 
-  // Route every close through the exit animation (idempotent while running).
-  const requestClose = () => setClosing(true);
+  // (requestClose is the shared useCallback defined with the closing state)
   // v10.1: layered close — panel exit anim, then unmount on animation end.
   const closePanel = () => setPanelClosing(true);
 

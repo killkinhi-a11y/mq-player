@@ -1,0 +1,200 @@
+{
+ "build": "mq-build-2d5555c0",
+ "gap1_desktop": {
+  "case": "GAP1-desktop-1440x900",
+  "hintAtOpen": false,
+  "hintNodesAtOpen": 0,
+  "hintAt4s": false,
+  "hintNodesAnyTime": 0,
+  "screenshot": "03-desktop-classic-nohint.png",
+  "dblclickSeekFeedback": true,
+  "dblclickTarget": "576,484",
+  "pageErrors": []
+ },
+ "gap1_mobile": {
+  "case": "GAP1-mobile-390x844-preserved",
+  "playerOpen": true,
+  "hintPresent": false,
+  "screenshot": "04-mobile-player-nohint.png",
+  "pageErrors": []
+ },
+ "gap2_capsule": {
+  "case": "GAP2-capsule-trusted-keyboard",
+  "setupTo80": 80,
+  "setupSteps": [
+   {
+    "key": "End",
+    "volume": 100
+   },
+   {
+    "key": "ArrowDown",
+    "volume": 95
+   },
+   {
+    "key": "ArrowDown",
+    "volume": 90
+   },
+   {
+    "key": "ArrowDown",
+    "volume": 85
+   },
+   {
+    "key": "ArrowDown",
+    "volume": 80
+   }
+  ],
+  "sequence": [
+   {
+    "press": "ArrowUp",
+    "expect": 85,
+    "got": 85
+   },
+   {
+    "press": "ArrowUp",
+    "expect": 90,
+    "got": 90
+   },
+   {
+    "press": "ArrowDown",
+    "expect": 85,
+    "got": 85
+   },
+   {
+    "press": "ArrowDown",
+    "expect": 80,
+    "got": 80
+   }
+  ],
+  "sequencePASS": true,
+  "homeIsZero": true,
+  "arrowDownAtZeroStays": true,
+  "endIsHundred": true,
+  "arrowUpAtHundredStays": true,
+  "globalArrowUp": {
+   "before": 100,
+   "after": 100,
+   "delta": 0
+  },
+  "globalArrowDown": {
+   "after": 95,
+   "delta": -10
+  },
+  "globalSpaceTogglesPlay": {
+   "before": "Воспроизвести",
+   "after": "Пауза",
+   "toggled": true
+  },
+  "globalMuteM": {
+   "before": 95,
+   "after": 0
+  },
+  "allSteps": [
+   {
+    "key": "End",
+    "volume": 100
+   },
+   {
+    "key": "ArrowDown",
+    "volume": 95
+   },
+   {
+    "key": "ArrowDown",
+    "volume": 90
+   },
+   {
+    "key": "ArrowDown",
+    "volume": 85
+   },
+   {
+    "key": "ArrowDown",
+    "volume": 80
+   },
+   {
+    "key": "ArrowUp",
+    "volume": 85
+   },
+   {
+    "key": "ArrowUp",
+    "volume": 90
+   },
+   {
+    "key": "ArrowDown",
+    "volume": 85
+   },
+   {
+    "key": "ArrowDown",
+    "volume": 80
+   },
+   {
+    "key": "Home",
+    "volume": 0
+   },
+   {
+    "key": "ArrowDown",
+    "volume": 0
+   },
+   {
+    "key": "End",
+    "volume": 100
+   },
+   {
+    "key": "ArrowUp",
+    "volume": 100
+   }
+  ],
+  "pageErrors": []
+ },
+ "gap3_mobile": {
+  "case": "GAP3-mobile-swipe-close-lifecycle",
+  "playerOpen": true,
+  "swipeMidFlight": {
+   "anims": [
+    {
+     "name": "mqFtSlideDown",
+     "name2": "mqFtSlideDown",
+     "ct": 50
+    }
+   ],
+   "rootTransform": "matrix(1, 0, 0, 1, 0, 657.602)",
+   "rootAnim": "mqFtSlideDown"
+  },
+  "swipeAnimLog": [
+   {
+    "name": "mqFtSlideDown",
+    "t": 8840,
+    "target": "fixed inset-0 z-[100]"
+   }
+  ],
+  "swipeUnmounted": true,
+  "swipeHasSlideDown": true,
+  "reopenAfterSwipe": true,
+  "buttonCloseHasSlideDown": true,
+  "buttonCloseUnmounted": true,
+  "escapeCloseHasSlideDown": true,
+  "escapeCloseUnmounted": true,
+  "swipeLeftNextTrack": {
+   "before": "Ambient Dreams",
+   "after": "Electronic Pulse",
+   "changed": true,
+   "playerStillOpen": true
+  },
+  "swipeRightPrevTrack": {
+   "timeBefore": "0:05",
+   "timeAfter": "0:06",
+   "restartedOrSwitched": true,
+   "titleAfter": "Electronic Pulse",
+   "playerStillOpen": true
+  },
+  "pageErrors": []
+ },
+ "gap3_reduced": {
+  "case": "GAP3-reduced-motion-swipe-close",
+  "reduceClassOnHtml": true,
+  "playerOpen": true,
+  "animNames": [
+   "mqFtSlideDown"
+  ],
+  "closedUnderReducedMotion": true,
+  "pageErrors": []
+ }
+}
