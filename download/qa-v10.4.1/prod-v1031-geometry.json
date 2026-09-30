@@ -1,0 +1,34 @@
+{
+ "geometry": {
+  "size": {
+   "w": 200,
+   "h": 54
+  },
+  "popupCx": 766,
+  "btnCx": 766,
+  "gapAbovePanel": 12,
+  "offsetParent": "FOOTER",
+  "filteredAncestor": false,
+  "bg": "color(srgb 0.0619608 0.0619608 0.0619608 / 0.84)",
+  "blur": "blur(16px) saturate(1.4)",
+  "overlapTransport": true
+ },
+ "checks": {
+  "size200x54": true,
+  "centerX==btnCenterX": true,
+  "12pxAbovePanel": true,
+  "footerAnchor": true,
+  "outsideFilteredAncestor": true,
+  "glassBlur": true,
+  "noTransportOverlap": true
+ },
+ "ALL_PASS": true,
+ "controlsCheck": {
+  "popupBottom": 734,
+  "panelTop": 746,
+  "gap": 12,
+  "overlapPanel": false,
+  "overlappingControls": 0,
+  "controlsInPanel": 7
+ }
+}

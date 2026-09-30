@@ -8058,3 +8058,53 @@ Stage Summary:
   dismiss paths incl. reduced motion.
 - 603/603 tests, tsc/lint at baseline, build PASS, 30/30 regression
   battery checks. Ready to commit/deploy.
+---
+Task ID: v10.4.1-deploy
+Agent: main (Super Z)
+Task: Commit, push, Vercel deploy, production E2E + V10.3.1 re-verification
+
+Work Log:
+- Commit b3141f2c "fix(player): v10.4.1 — ..." (4 source files + 14-test
+  file + 10 QA scripts + 14 evidence artifacts + worklog). Pushed
+  2d5555c0..b3141f2c -> Vercel -> production mq-build-b3141f2c LIVE (90s,
+  commit verified via /version.json).
+- PRODUCTION E2E on mq-build-b3141f2c (Python Playwright, fresh sessions,
+  tour disabled via localStorage like a real user):
+  * DESKTOP 1440x900 CLASSIC: double-tap hint ABSENT at open AND through
+    the full 4s window (prod-01 screenshot). SPATIAL (5 marks): volume
+    popup battery 8/8 — open; value "70" right=853 <= popup right=866
+    INSIDE; slider 817 <= 866 INSIDE; icon inside; set37 (popup stays);
+    mute 0; unmute RESTORES 37; Escape (slider focused) closes popup only
+    (player stays); outside click closes. "27" state re-measured INSIDE
+    (prod-02 screenshot, VLM: "number fully INSIDE the dark capsule").
+    0 page errors.
+  * CAPSULE: trusted ArrowUp/Down sequence 70 -> 75 -> 80 -> 75 -> 70 —
+    exactly5each TRUE, net 0. 0 page errors. (GAP#2 live in production.)
+  * MOBILE 390x844 (iPhone 14): volume popup battery 8/8 — open; value
+    "70" right=365 <= 378 INSIDE; slider 329 <= 378; icon inside; set37;
+    mute 0; unmute restores 37; Escape closes popup (player stays);
+    outside tap closes (first attempt used an off-viewport click
+    coordinate — script bug, fixed to a trusted in-viewport tap).
+    "27" INSIDE (prod-03, VLM confirmed). Swipe-down close: mid-flight
+    document.getAnimations() = mqFtSlideDown, computed translateY
+    657.527px on the dialog root; delegated animationstart log captured
+    mqFtSlideDown; unmounted after the animation (prod-04 mid-flight
+    screenshot — VLM sees the partially-exited player band at the
+    bottom 25%, matching the 657px computed offset). 0 page errors.
+  * V10.3.1 RE-VERIFICATION ON PRODUCTION (prod-v1031-geometry.json):
+    7/7 — 200x54; popupCx 766 == btnCx 766; EXACTLY 12px above panel
+    top; offsetParent FOOTER; NO filtered ancestor; glass 84% surface-1
+    + blur(16px) saturate(1.4); 0 overlapping controls of the 7 inside
+    the panel (popup fully clear of transport/progress).
+- Artifacts: download/qa-v10.4.1/ (before/after geometry JSONs, GAP
+  verification JSON, 30/30 regression battery JSON, prod-e2e.json,
+  prod-v1031-geometry.json, 12 screenshots incl. BEFORE/AFTER overflow
+  pair + prod shots).
+
+Stage Summary:
+- V10.4.1 COMPLETE: all 4 fixes (GAP#1 hint gate, GAP#2 capsule ownership
+  ±5, GAP#3 swipe-down exit lifecycle, GAP#4 popup overflow min-w-0)
+  verified LIVE on production mq-build-b3141f2c with numeric geometry,
+  trusted-key, animation and VLM evidence. 603/603 tests, gates at
+  baseline, V10.3.1 popup contracts 7/7 intact, Context Menu regression
+  clean, no scope creep (4 source files changed, +14 tests).
