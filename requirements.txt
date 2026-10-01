@@ -1,0 +1,9 @@
+# MQ Player — Python dependencies for the root-level Vercel Python Function
+# (api/yandex_adapter.py — Yandex Music server-side adapter).
+#
+# yandex-music is the unofficial Yandex.Music API library by MarshalX:
+#   https://github.com/MarshalX/yandex-music-api
+# Version is PINNED deliberately (Phase 12: no floating dependency).
+# Transitive deps (requests, typing-extensions, ...) are resolved by pip
+# from yandex-music's own ranges at build time.
+yandex-music==3.0.0
