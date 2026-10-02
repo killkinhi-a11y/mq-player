@@ -8198,3 +8198,77 @@ Work Log:
 
 Stage Summary:
 - SHIPPED + VERIFIED LIVE on mq-build-7e8996af. Public URL import: no login, no OAuth, no tokens, no cookies — the production blocker is Yandex's own content geo-fence (451) for non-RU server egress, surfaced honestly in the UI; the identical code path imports real playlists when egress is allowed (proven by the 23/23 local E2E with the fake adapter + real SoundCloud matching).
+
+---
+Task ID: yandex-proxy-egress
+Agent: main (Super Z)
+Task: YANDEX_PROXY_URL egress proxy support — the one remaining actionable path to
+make public (and OAuth) Yandex import work from production despite Yandex's
+content geo-fence (451 for non-RU/CIS egress). Continuation of the
+"Что дальше" plan item 2 from the public-import final report.
+
+Work Log:
+- State verified first: production mq-build-7e8996af healthy and honest
+  (POST /api/yandex/public-playlist -> 503 yandex_geo_blocked, real adapter
+  roundtrip); repo clean at a8fa04c4; the geo-probe branch no longer exists on
+  origin (only main/master/yandex-import).
+- Recon: yandex-music 3.0.0 has NATIVE proxy support — RequestBase.__init__
+  accepts proxy_url and builds proxies={'http':url,'https':url}; the sync
+  Request passes proxies= on every get/post/put/delete/retrieve; Client
+  accepts a pre-built request= instance (adds the OAuth header itself via
+  set_and_return_client). => proxy wiring needs ZERO monkey-patching.
+- IMPLEMENTATION (all default behavior byte-identical without the env var):
+  * api/yandex_adapter.py: YANDEX_PROXY_URL env var (optional egress proxy
+    for ALL Yandex traffic). _proxy_url() validates (allowlist http/https/
+    socks5/socks5h/socks4 via urlsplit — scheme + hostname required, 512-char
+    cap; malformed -> AdapterError yandex_proxy_error 503 BEFORE any network
+    call). _client() builds Request(proxy_url=...) and Client(request=...)
+    when configured — token clients keep the OAuth header. _map_yandex_error:
+    NetworkError with ProxyError/InvalidSchema cause (or proxy/socks text)
+    while the var is set -> yandex_proxy_error (distinct from Yandex
+    downtime); 451 STILL maps to yandex_geo_blocked through a working proxy.
+    action_probe() exposes proxy_configured: true/false — presence only, the
+    URL (possible credentials) never leaves the server. Module docstring
+    documents the var + geo-fence facts + usage examples.
+  * requirements.txt: +PySocks==1.7.1 (pure-Python; enables socks4/5/5h —
+    http/https proxies work without it).
+  * TS: types.ts + "yandex_proxy_error"; adapter.ts statusByCode
+    yandex_proxy_error: 503. UI needs NO change (the component renders the
+    server-provided Russian message; routes relay the code+message verbatim).
+- LIVE PROOF (scripts/yandex/proxy_tunnel_proof.py): a minimal raw-socket
+  HTTP CONNECT proxy on 127.0.0.1:8899 + the REAL tokenless
+  action_public_playlist(music.partners, 1293):
+  1) tunnel observed "CONNECT api.music.yandex.net:443" — requests REALLY
+     traversed the proxy (TLS relayed both ways);
+  2) Yandex's 451 round-tripped BACK through the tunnel and the adapter
+     mapped it to the honest yandex_geo_blocked (503) — mapping intact
+     end-to-end behind a proxy;
+  3) with the var UNSET the tunnel saw ZERO connections — the default path
+     stays direct. PROOF HOLDS (exit 0).
+- TESTS: Python self-tests 76/76 (49 + 27 new: default no-op, 5 schemes
+  accepted+native wiring, OAuth header through proxy, 7 malformed configs
+  rejected, ProxyError/InvalidSchema/451 mappings, no-env stays generic,
+  probe never leaks the URL). vitest 797/797 (+1: yandex_proxy_error -> 503
+  distinct from geo). tsc 18 pre-existing (0 in src/), eslint clean on
+  touched dirs, build PASS (PySocks in requirements broke nothing).
+- LOCAL E2E re-run (prod-mode + fake adapter + real SoundCloud): ALL 23
+  CHECKS PASS — the public import flow is untouched (icon-only button,
+  preview, matching, import, _src metadata, error paths, V10.4.1 invariants,
+  mobile targets).
+- DEPLOY: commit 7cf4f450 -> mq-build-7cf4f450 LIVE. Production verified:
+  GET /api/yandex_adapter -> {"ok":true,...,"proxy_configured":false} (new
+  field live, Python 3.12.14, yandex_music 3.0.0); POST public-playlist with
+  the test URL -> the SAME honest 503 yandex_geo_blocked (no env var set on
+  Vercel — zero behavior change); SSRF host still 400; rate-limit headers
+  live (x-ratelimit-limit: 10); production battery 15/15 PASS (V10.4.1 hint
+  zero-DOM, capsule Δ5, honest error UI desktop+mobile, zero page errors).
+
+Stage Summary:
+- SHIPPED: the adapter is now proxy-ready. Setting YANDEX_PROXY_URL (Vercel
+  Settings -> Environment Variables, e.g. http://user:pass@ru-host:8080 or
+  socks5://... -> Redeploy) routes ALL Yandex traffic through a RU/CIS proxy
+  via the library's native support — after which BOTH public URL import and
+  OAuth import work with zero code changes. Without the var, production is
+  byte-identical (verified live). The remaining step is OPERATOR-side: obtain
+  any RU/CIS proxy (a ~$3/mo RU VPS running e.g. 3proxy/squid/dante works)
+  and set the one env var.
