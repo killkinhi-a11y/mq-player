@@ -210,6 +210,21 @@ describe("public_playlist action (tokenless public flow)", () => {
     });
   });
 
+  it("maps yandex_proxy_error (egress proxy failure) to 503, distinct from geo", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(503, {
+        ok: false,
+        error: { code: "yandex_proxy_error", message: "Импорт по ссылке временно недоступен с нашего сервера — попробуйте позже." },
+      })
+    );
+    const { adapterPublicPlaylistTracks } = await import("@/lib/yandex/adapter");
+    await expect(adapterPublicPlaylistTracks("x", 1)).rejects.toMatchObject({
+      code: "yandex_proxy_error",
+      status: 503,
+      message: expect.stringContaining("нашего сервера"),
+    });
+  });
+
   it("maps yandex_not_found to 404 (private/missing playlist)", async () => {
     fetchMock.mockResolvedValue(
       jsonResponse(404, {

@@ -7,3 +7,7 @@
 # Transitive deps (requests, typing-extensions, ...) are resolved by pip
 # from yandex-music's own ranges at build time.
 yandex-music==3.0.0
+# SOCKS support for the optional YANDEX_PROXY_URL egress proxy
+# (socks4/socks5/socks5h schemes). Pure-Python, no native build step;
+# http:// and https:// proxies work without it.
+PySocks==1.7.1

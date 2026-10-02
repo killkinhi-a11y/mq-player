@@ -60,6 +60,23 @@ Security rules
   (which may contain request details) never floods function logs.
 * Logs carry the action name only — never tokens.
 
+Optional egress proxy
+---------------------
+Yandex geo-fences music CONTENT (451) for server egress outside RU/CIS
+(factual: HK, US and Vercel iad1 all receive 451 while /genres answers 200
+from the same IPs). Setting the YANDEX_PROXY_URL env var routes ALL Yandex
+API traffic through the given proxy via the library's NATIVE support
+(Request(proxy_url=...) — no monkey-patching):
+
+    YANDEX_PROXY_URL=http://user:pass@ru-host:8080      (http/https)
+    YANDEX_PROXY_URL=socks5://user:pass@ru-host:1080    (socks4/5/5h, PySocks)
+
+Any RU/CIS proxy/VPS works; after the var is set, BOTH the public URL import
+and the OAuth import work unchanged. Proxy failures map to the distinct
+yandex_proxy_error code (never confused with Yandex downtime). The URL may
+embed credentials — it is read server-side only, never logged, never
+returned to clients (probe exposes only proxy_configured: true/false).
+
 Local development
 -----------------
 Run standalone (same handler class as on Vercel):
@@ -79,6 +96,7 @@ import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlsplit
 
 # ── Library imports (yandex-music==3.0.0, real public API only) ──────────────
 
@@ -112,6 +130,16 @@ COVER_SIZE = "300x300"
 # yandex-music otherwise forces "Yandex-Music-API" on every request via
 # RequestBase._prepare_kwargs. Server-side only — never sent from a browser.
 PUBLIC_USER_AGENT = "TelegramBot"
+
+# Optional egress proxy for ALL Yandex API traffic (YANDEX_PROXY_URL env var).
+# api.music.yandex.net geo-fences music CONTENT (451) for non-RU/CIS egress —
+# verified factually from HK + US + Vercel iad1. Setting this var routes every
+# Yandex call through the proxy (e.g. a RU/CIS host), after which public and
+# OAuth imports work unchanged. The proxy URL may contain credentials; it is
+# read server-side only and NEVER returned to clients or logs.
+PROXY_ENV = "YANDEX_PROXY_URL"
+MAX_PROXY_URL_LEN = 512
+ALLOWED_PROXY_SCHEMES = ("http", "https", "socks5", "socks5h", "socks4")
 
 # ── HMAC helpers (must mirror src/lib/yandex/adapter.ts exactly) ─────────────
 
@@ -159,6 +187,42 @@ class AdapterError(Exception):
         self.status = status
 
 
+PROXY_BAD_CONFIG_MESSAGE = (
+    "Импорт по ссылке временно недоступен из-за настроек сервера. Попробуйте позже."
+)
+PROXY_UNREACHABLE_MESSAGE = (
+    "Импорт по ссылке временно недоступен с нашего сервера — попробуйте позже."
+)
+
+
+def _raw_proxy_url() -> str:
+    """Raw YANDEX_PROXY_URL presence (no validation) — safe for probes."""
+    return (os.environ.get(PROXY_ENV) or "").strip()
+
+
+def _proxy_url() -> Optional[str]:
+    """Validated YANDEX_PROXY_URL or None.
+
+    Raises AdapterError(yandex_proxy_error) on malformed configuration so the
+    operator gets a distinct, actionable code instead of generic Yandex
+    downtime. Never logs or returns the URL itself (it may embed credentials).
+    """
+    raw = _raw_proxy_url()
+    if not raw:
+        return None
+    if len(raw) > MAX_PROXY_URL_LEN:
+        raise AdapterError("yandex_proxy_error", PROXY_BAD_CONFIG_MESSAGE, 503)
+    try:
+        parts = urlsplit(raw)
+    except ValueError:
+        raise AdapterError("yandex_proxy_error", PROXY_BAD_CONFIG_MESSAGE, 503) from None
+    # Scheme allowlist (no file/gopher/smuggling) + a real host part —
+    # urlsplit("https://:8080").hostname is "" and is rejected below.
+    if parts.scheme.lower() not in ALLOWED_PROXY_SCHEMES or not parts.hostname:
+        raise AdapterError("yandex_proxy_error", PROXY_BAD_CONFIG_MESSAGE, 503)
+    return raw
+
+
 def _map_yandex_error(exc: Exception) -> AdapterError:
     """Map yandex_music exceptions to structured codes. Never leak internals."""
     text = str(exc) or ""
@@ -182,6 +246,15 @@ def _map_yandex_error(exc: Exception) -> AdapterError:
             return AdapterError("device_access_denied", "Вход в Яндекс.Музыку отклонён.", 403)
         return AdapterError("device_auth_failed", "Не удалось завершить вход через Яндекс. Попробуйте снова.", 400)
     if isinstance(exc, NetworkError):
+        # A configured egress proxy that itself fails (dead host, refused
+        # connection, missing SOCKS support) must NOT be reported as generic
+        # Yandex downtime — surface the distinct yandex_proxy_error code so
+        # the operator can tell proxy trouble apart from Yandex trouble.
+        if _raw_proxy_url():
+            cause = getattr(exc, "__cause__", None)
+            cause_name = type(cause).__name__ if cause is not None else ""
+            if cause_name in ("ProxyError", "InvalidSchema") or "proxy" in low or "socks" in low:
+                return AdapterError("yandex_proxy_error", PROXY_UNREACHABLE_MESSAGE, 503)
         if "429" in text or "too many requests" in low:
             return AdapterError("yandex_rate_limited", "Слишком много запросов к Яндекс.Музыке. Подождите немного.", 429)
         # 451 Unavailable For Legal Reasons — Yandex geo-fences music CONTENT
@@ -205,11 +278,29 @@ def _map_yandex_error(exc: Exception) -> AdapterError:
 
 
 def _client(token: Optional[str] = None) -> Client:
-    """Build a Client. For authorized actions pass the token."""
+    """Build a Client. For authorized actions pass the token.
+
+    When YANDEX_PROXY_URL is configured, the client's Request is constructed
+    with proxy_url (NATIVE library support — RequestBase builds
+    proxies={'http': url, 'https': url} and passes them on every request), so
+    ALL Yandex traffic traverses the proxy without any monkey-patching.
+    Malformed proxy config raises AdapterError(yandex_proxy_error) before
+    the first network call.
+    """
+    proxy = _proxy_url()  # None when unset; raises on malformed config
     try:
+        if proxy:
+            from yandex_music.utils.request import Request as _YmRequest
+
+            requester = _YmRequest(proxy_url=proxy)
+            if token:
+                return Client(token, request=requester)
+            return Client(request=requester)
         if token:
             return Client(token)
         return Client()
+    except AdapterError:
+        raise
     except Exception as exc:  # pragma: no cover — Client() ctor is trivial
         raise _map_yandex_error(exc) from exc
 
@@ -236,6 +327,8 @@ def action_probe() -> Dict[str, Any]:
         "service": SERVICE_NAME,
         "python": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
         "yandex_music": getattr(yandex_music, "__version__", "3.0.0"),
+        # Presence only — the URL itself (possible credentials) never leaves.
+        "proxy_configured": _raw_proxy_url() != "",
     }
 
 

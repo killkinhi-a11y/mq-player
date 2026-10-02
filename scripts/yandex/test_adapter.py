@@ -388,6 +388,99 @@ def test_device_actions_dispatch() -> None:
     check("unknown action is not dispatchable", unknown is None)
 
 
+def test_proxy_support() -> None:
+    """YANDEX_PROXY_URL egress proxy: validation, native wiring, error mapping."""
+    print("egress proxy (YANDEX_PROXY_URL):")
+    import requests as _rq
+    from yandex_music.exceptions import NetworkError
+
+    saved = os.environ.get("YANDEX_PROXY_URL")
+    try:
+        # ── default (unset) is a strict no-op ──
+        os.environ.pop("YANDEX_PROXY_URL", None)
+        check("unset env -> proxy None", adapter._proxy_url() is None)
+        check("unset env -> probe reports False", adapter.action_probe()["proxy_configured"] is False)
+        client = adapter._client()
+        check("unset env -> client has no proxies", client._request.proxies is None)
+
+        # ── valid http(s) URLs wire the NATIVE library proxy support ──
+        for url in (
+            "http://ru.example:8080",
+            "https://user:pass@ru.example:8443",
+            "socks5://ru.example:1080",
+            "socks5h://ru.example:1080",
+            "socks4://ru.example:1080",
+        ):
+            os.environ["YANDEX_PROXY_URL"] = url
+            scheme = url.split("://", 1)[0]
+            check(f"valid proxy accepted ({scheme})", adapter._proxy_url() == url)
+            c = adapter._client()
+            check(
+                f"client request carries proxies ({scheme})",
+                c._request.proxies == {"http": url, "https": url} and c._request.proxy_url == url,
+            )
+        check("valid env -> probe reports True", adapter.action_probe()["proxy_configured"] is True)
+
+        # ── token clients keep the OAuth header AND get the proxy ──
+        os.environ["YANDEX_PROXY_URL"] = "http://ru.example:8080"
+        c = adapter._client(token="tok-123")
+        check(
+            "token client keeps OAuth header through proxy",
+            c._request.headers.get("Authorization") == "OAuth tok-123" and c._request.proxies is not None,
+        )
+
+        # ── malformed configs are rejected BEFORE any network call ──
+        for bad in ("not-a-url", "ftp://x:1", "http://", "https://:8080", "socks5://", "x" * 600, "//nohost:1"):
+            os.environ["YANDEX_PROXY_URL"] = bad
+            try:
+                adapter._client()
+                check(f"bad proxy rejected ({bad[:22]})", False)
+            except adapter.AdapterError as e:
+                check(
+                    f"bad proxy rejected ({bad[:22]})",
+                    e.code == "yandex_proxy_error" and e.status == 503,
+                )
+
+        # ── proxy failure mapping (only when the var is set) ──
+        os.environ["YANDEX_PROXY_URL"] = "http://dead-proxy:1"
+        try:
+            raise NetworkError(_rq.exceptions.ProxyError("Cannot connect to proxy."))
+        except NetworkError as exc:
+            err = adapter._map_yandex_error(exc)
+        check("ProxyError + env -> yandex_proxy_error", err.code == "yandex_proxy_error" and err.status == 503)
+
+        try:
+            raise NetworkError(_rq.exceptions.InvalidSchema("Missing dependencies for SOCKS support"))
+        except NetworkError as exc:
+            err = adapter._map_yandex_error(exc)
+        check("SOCKS deps missing -> yandex_proxy_error", err.code == "yandex_proxy_error")
+
+        # 451 through a working proxy still maps to the geo code
+        try:
+            raise NetworkError("Playlist is unavailable for legal reasons (451)")
+        except NetworkError as exc:
+            err = adapter._map_yandex_error(exc)
+        check("451 through proxy -> still yandex_geo_blocked", err.code == "yandex_geo_blocked")
+
+        # ── without the var, identical failures stay generic ──
+        os.environ.pop("YANDEX_PROXY_URL", None)
+        try:
+            raise NetworkError(_rq.exceptions.ProxyError("Cannot connect to proxy."))
+        except NetworkError as exc:
+            err = adapter._map_yandex_error(exc)
+        check("ProxyError WITHOUT env -> generic yandex_unavailable", err.code == "yandex_unavailable")
+
+        # ── the proxy URL never leaks into probe output ──
+        os.environ["YANDEX_PROXY_URL"] = "http://secret-user:secret-pass@ru.example:8080"
+        probe = adapter.action_probe()
+        check("probe never leaks the proxy URL", "secret-pass" not in json.dumps(probe) and probe["proxy_configured"] is True)
+    finally:
+        if saved is None:
+            os.environ.pop("YANDEX_PROXY_URL", None)
+        else:
+            os.environ["YANDEX_PROXY_URL"] = saved
+
+
 if __name__ == "__main__":
     test_signature()
     test_error_mapping()
@@ -396,5 +489,6 @@ if __name__ == "__main__":
     test_public_playlist_action()
     test_account_action()
     test_device_actions_dispatch()
+    test_proxy_support()
     print(f"\n{PASS} passed, {FAIL} failed")
     sys.exit(1 if FAIL else 0)

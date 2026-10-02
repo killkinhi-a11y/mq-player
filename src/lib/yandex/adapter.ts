@@ -114,6 +114,7 @@ async function postAction<T>(
       yandex_unavailable: 503,
       yandex_not_found: 404,
       yandex_geo_blocked: 503,
+      yandex_proxy_error: 503,
       device_code_expired: 400,
       device_code_cancelled: 400,
       device_access_denied: 403,

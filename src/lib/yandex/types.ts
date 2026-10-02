@@ -77,6 +77,7 @@ export type YandexErrorCode =
   | "yandex_unavailable"
   | "yandex_not_found"
   | "yandex_geo_blocked"
+  | "yandex_proxy_error"
   | "yandex_bad_request"
   | "yandex_error"
   | "device_code_expired"
