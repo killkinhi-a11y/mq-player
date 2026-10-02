@@ -247,6 +247,8 @@ export const RATE_LIMITS = {
   medium: { limit: 15, window: 60 },        // 15 req/min
   /** Admin endpoints — moderate */
   admin: { limit: 60, window: 60 },        // 60 req/min
+  /** Yandex import job advancement — polled ~1.5s while a job runs */
+  yandexImport: { limit: 240, window: 60 }, // 240 req/min
 } as const;
 
 // ─── withRateLimit wrapper for Next.js API routes ───────────────────────────

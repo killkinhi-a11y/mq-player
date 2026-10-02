@@ -176,7 +176,7 @@ describe("Rate Limiter — presets have correct limits", () => {
   });
 
   it("should have all expected preset keys", () => {
-    const expectedKeys = ["auth", "upload", "read", "write", "search", "heavy", "medium", "admin"];
+    const expectedKeys = ["auth", "upload", "read", "write", "search", "heavy", "medium", "admin", "yandexImport"];
     expect(Object.keys(RATE_LIMITS).sort()).toEqual(expectedKeys.sort());
   });
 });

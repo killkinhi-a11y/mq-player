@@ -3,53 +3,56 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id             String    @id @default(cuid())
-  username       String    @unique
-  email          String    @unique
-  password       String
-  confirmed      Boolean   @default(false)
-  role           String    @default("user")
-  blocked        Boolean   @default(false)
-  blockedAt      DateTime?
-  blockedReason  String?
-  avatar         String    @default("")
-  theme          String    @default("default")
-  accent         String    @default("#e03131")
-  favoriteArtists String   @default("[]")  // JSON array of {id, username, avatar, genre}
-  onboardingComplete Boolean @default(false)
-  telegramChatId String?   @unique          // Telegram chat ID for auth
-  telegramUsername String?                   // Telegram @username
-  lastSeen       DateTime?
-  createdAt      DateTime  @default(now())
-  sentMessages   Message[] @relation("SentMessages")
-  receivedMessages Message[] @relation("ReceivedMessages")
-  sentFriendRequests     Friend[] @relation("SentFriendRequests")
-  receivedFriendRequests Friend[] @relation("ReceivedFriendRequests")
-  stories                Story[]  @relation("UserStories")
-  storyLikes             StoryLike[] @relation("UserStoryLikes")
-  storyComments          StoryComment[] @relation("UserStoryComments")
-  playlists              Playlist[] @relation("UserPlaylists")
-  playlistLikes          PlaylistLike[] @relation("UserPlaylistLikes")
-  adminLogs              AuditLog[] @relation("AdminLogs")
-  syncData               UserSync[] @relation("UserSyncData")
-  groupChats             GroupChatMember[] @relation("GroupMemberships")
-  groupMessages          GroupMessage[] @relation("GroupMessages")
-  createdGroups          GroupChat[] @relation("GroupChatCreators")
-  notifications          Notification[] @relation("UserNotifications")
-  hostedSessions         ListenSession[] @relation("HostedSessions")
-  joinedSessions         ListenSession[] @relation("JoinedSessions")
-  typingEventsFrom       TypingEvent[] @relation("TypingFrom")
-  typingEventsTo         TypingEvent[] @relation("TypingTo")
-  trackComments          TrackComment[] @relation("TrackComments")
-  smartPlaylists         SmartPlaylist[] @relation("UserSmartPlaylists")
-  listeningStatus        ListeningStatus? @relation("ListeningStatus")
-  hostedLiveSessions     LiveSession[] @relation("HostedLiveSessions")
-  identities             AuthIdentity[] @relation("UserIdentities")
+  id                     String              @id @default(cuid())
+  username               String              @unique
+  email                  String              @unique
+  password               String
+  confirmed              Boolean             @default(false)
+  role                   String              @default("user")
+  blocked                Boolean             @default(false)
+  blockedAt              DateTime?
+  blockedReason          String?
+  avatar                 String              @default("")
+  theme                  String              @default("default")
+  accent                 String              @default("#e03131")
+  favoriteArtists        String              @default("[]") // JSON array of {id, username, avatar, genre}
+  onboardingComplete     Boolean             @default(false)
+  telegramChatId         String?             @unique // Telegram chat ID for auth
+  telegramUsername       String? // Telegram @username
+  lastSeen               DateTime?
+  createdAt              DateTime            @default(now())
+  sentMessages           Message[]           @relation("SentMessages")
+  receivedMessages       Message[]           @relation("ReceivedMessages")
+  sentFriendRequests     Friend[]            @relation("SentFriendRequests")
+  receivedFriendRequests Friend[]            @relation("ReceivedFriendRequests")
+  stories                Story[]             @relation("UserStories")
+  storyLikes             StoryLike[]         @relation("UserStoryLikes")
+  storyComments          StoryComment[]      @relation("UserStoryComments")
+  playlists              Playlist[]          @relation("UserPlaylists")
+  playlistLikes          PlaylistLike[]      @relation("UserPlaylistLikes")
+  adminLogs              AuditLog[]          @relation("AdminLogs")
+  syncData               UserSync[]          @relation("UserSyncData")
+  groupChats             GroupChatMember[]   @relation("GroupMemberships")
+  groupMessages          GroupMessage[]      @relation("GroupMessages")
+  createdGroups          GroupChat[]         @relation("GroupChatCreators")
+  notifications          Notification[]      @relation("UserNotifications")
+  hostedSessions         ListenSession[]     @relation("HostedSessions")
+  joinedSessions         ListenSession[]     @relation("JoinedSessions")
+  typingEventsFrom       TypingEvent[]       @relation("TypingFrom")
+  typingEventsTo         TypingEvent[]       @relation("TypingTo")
+  trackComments          TrackComment[]      @relation("TrackComments")
+  smartPlaylists         SmartPlaylist[]     @relation("UserSmartPlaylists")
+  listeningStatus        ListeningStatus?    @relation("ListeningStatus")
+  hostedLiveSessions     LiveSession[]       @relation("HostedLiveSessions")
+  identities             AuthIdentity[]      @relation("UserIdentities")
+  yandexAccount          YandexAccount?      @relation("UserYandexAccount")
+  yandexAuthSessions     YandexAuthSession[] @relation("UserYandexAuthSessions")
+  yandexImportJobs       YandexImportJob[]   @relation("UserYandexImportJobs")
 }
 
 // External auth identities (Google OAuth / Telegram Login Widget).
@@ -58,14 +61,14 @@ model User {
 // Legacy Telegram bot-code auth keeps using User.telegramChatId — the
 // widget flow backfills AuthIdentity AND telegramChatId for one entity.
 model AuthIdentity {
-  id             String   @id @default(cuid())
-  userId         String
-  provider       String   // "google" | "telegram"
-  providerUserId String
-  providerEmail  String?
+  id               String   @id @default(cuid())
+  userId           String
+  provider         String // "google" | "telegram"
+  providerUserId   String
+  providerEmail    String?
   providerUsername String?
-  createdAt      DateTime @default(now())
-  user           User     @relation("UserIdentities", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+  user             User     @relation("UserIdentities", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerUserId])
   @@index([userId])
@@ -82,59 +85,59 @@ model AuditLog {
 }
 
 model Message {
-  id           String   @id @default(cuid())
-  content      String
-  senderId     String
-  receiverId   String
-  encrypted    Boolean  @default(true)
-  messageType  String   @default("text") // "text", "voice", "sticker", "track_share", "image", "system"
-  replyToId    String?
-  edited       Boolean  @default(false)
-  editedAt     DateTime?
-  deleted      Boolean  @default(false)
-  voiceUrl     String?
+  id            String    @id @default(cuid())
+  content       String
+  senderId      String
+  receiverId    String
+  encrypted     Boolean   @default(true)
+  messageType   String    @default("text") // "text", "voice", "sticker", "track_share", "image", "system"
+  replyToId     String?
+  edited        Boolean   @default(false)
+  editedAt      DateTime?
+  deleted       Boolean   @default(false)
+  voiceUrl      String?
   voiceDuration Float?
-  createdAt    DateTime @default(now())
-  sender       User     @relation("SentMessages", fields: [senderId], references: [id])
-  receiver     User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
-  replyTo      Message? @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
-  replies      Message[] @relation("MessageReplies")
+  createdAt     DateTime  @default(now())
+  sender        User      @relation("SentMessages", fields: [senderId], references: [id])
+  receiver      User      @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  replyTo       Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies       Message[] @relation("MessageReplies")
 }
 
 model Friend {
-  id         String   @id @default(cuid())
+  id          String   @id @default(cuid())
   requesterId String
   addresseeId String
-  status     String   @default("pending") // "pending", "accepted", "rejected"
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  requester  User     @relation("SentFriendRequests", fields: [requesterId], references: [id])
-  addressee  User     @relation("ReceivedFriendRequests", fields: [addresseeId], references: [id])
+  status      String   @default("pending") // "pending", "accepted", "rejected"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  requester   User     @relation("SentFriendRequests", fields: [requesterId], references: [id])
+  addressee   User     @relation("ReceivedFriendRequests", fields: [addresseeId], references: [id])
 
   @@unique([requesterId, addresseeId])
 }
 
 model Story {
-  id        String   @id @default(cuid())
+  id        String         @id @default(cuid())
   userId    String
-  type      String   @default("text") // "text", "image", "music"
-  content   String   // text content or image URL
-  bgColor   String   @default("#1a1a2e")
-  textColor String   @default("#ffffff")
-  createdAt DateTime @default(now())
+  type      String         @default("text") // "text", "image", "music"
+  content   String // text content or image URL
+  bgColor   String         @default("#1a1a2e")
+  textColor String         @default("#ffffff")
+  createdAt DateTime       @default(now())
   expiresAt DateTime // stories expire after 24h
-  user      User     @relation("UserStories", fields: [userId], references: [id])
+  user      User           @relation("UserStories", fields: [userId], references: [id])
   likes     StoryLike[]
   comments  StoryComment[]
 }
 
 model StoryLike {
-  id      String @id @default(cuid())
-  storyId String
-  userId  String
+  id        String   @id @default(cuid())
+  storyId   String
+  userId    String
   createdAt DateTime @default(now())
-  story   Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
-  user    User  @relation("UserStoryLikes", fields: [userId], references: [id])
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user      User     @relation("UserStoryLikes", fields: [userId], references: [id])
 
   @@unique([storyId, userId])
 }
@@ -162,18 +165,18 @@ model VerificationCode {
 }
 
 model Playlist {
-  id          String   @id @default(cuid())
+  id          String         @id @default(cuid())
   userId      String
   name        String
-  description String   @default("")
-  cover       String   @default("")
-  isPublic    Boolean  @default(true)
-  tags        String   @default("")     // comma-separated: "pop,rock,chill"
-  tracksJson  String   @default("[]")   // JSON array of Track objects
-  playCount   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation("UserPlaylists", fields: [userId], references: [id], onDelete: Cascade)
+  description String         @default("")
+  cover       String         @default("")
+  isPublic    Boolean        @default(true)
+  tags        String         @default("") // comma-separated: "pop,rock,chill"
+  tracksJson  String         @default("[]") // JSON array of Track objects
+  playCount   Int            @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  user        User           @relation("UserPlaylists", fields: [userId], references: [id], onDelete: Cascade)
   likes       PlaylistLike[]
 }
 
@@ -201,28 +204,28 @@ model SupportMessage {
 // ===== Admin Panel Extensions =====
 
 model EmailCampaign {
-  id          String   @id @default(cuid())
-  name        String
-  subject     String
-  htmlBody    String   @default("")
-  segment     String   @default("all") // "all", "verified", "active_7d", "inactive"
-  status      String   @default("draft") // "draft", "sent"
-  sentCount   Int      @default(0)
-  openCount   Int      @default(0)
-  clickCount  Int      @default(0)
-  createdAt   DateTime @default(now())
-  sentAt      DateTime?
+  id         String    @id @default(cuid())
+  name       String
+  subject    String
+  htmlBody   String    @default("")
+  segment    String    @default("all") // "all", "verified", "active_7d", "inactive"
+  status     String    @default("draft") // "draft", "sent"
+  sentCount  Int       @default(0)
+  openCount  Int       @default(0)
+  clickCount Int       @default(0)
+  createdAt  DateTime  @default(now())
+  sentAt     DateTime?
 }
 
 model CronJob {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   name      String
   cronExpr  String?
-  status    String   @default("idle") // "idle", "running", "completed", "failed"
+  status    String    @default("idle") // "idle", "running", "completed", "failed"
   lastRun   DateTime?
   nextRun   DateTime?
   log       String?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 }
 
 model Transaction {
@@ -247,77 +250,77 @@ model FeatureFlag {
 }
 
 model SupportChatSession {
-  id        String   @id @default(cuid())
-  sessionId String   @unique
-  userId    String?
-  userName  String?
-  lastMessage String  @default("")
-  messageCount Int    @default(0)
-  status    String   @default("open") // "open", "closed"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  messages  SupportChatMessage[]
+  id           String               @id @default(cuid())
+  sessionId    String               @unique
+  userId       String?
+  userName     String?
+  lastMessage  String               @default("")
+  messageCount Int                  @default(0)
+  status       String               @default("open") // "open", "closed"
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  messages     SupportChatMessage[]
 }
 
 model SupportChatMessage {
-  id        String   @id @default(cuid())
+  id        String             @id @default(cuid())
   sessionId String
-  role      String   // "user", "bot", "admin"
+  role      String // "user", "bot", "admin"
   content   String
-  createdAt DateTime @default(now())
+  createdAt DateTime           @default(now())
   session   SupportChatSession @relation(fields: [sessionId], references: [sessionId], onDelete: Cascade)
 }
 
 // ===== Group Chats =====
 
 model GroupChat {
-  id          String   @id @default(cuid())
+  id          String            @id @default(cuid())
   name        String
-  description String   @default("")
- avatar      String   @default("")
- createdBy   String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  description String            @default("")
+  avatar      String            @default("")
+  createdBy   String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
   members     GroupChatMember[]
   messages    GroupMessage[]
-  creator     User     @relation("GroupChatCreators", fields: [createdBy], references: [id])
+  creator     User              @relation("GroupChatCreators", fields: [createdBy], references: [id])
 }
 
 model GroupChatMember {
-  id         String   @id @default(cuid())
+  id          String    @id @default(cuid())
   groupChatId String
   userId      String
-  role       String   @default("member") // "admin", "member"
-  joinedAt   DateTime @default(now())
-  groupChat  GroupChat @relation(fields: [groupChatId], references: [id], onDelete: Cascade)
-  user       User     @relation("GroupMemberships", fields: [userId], references: [id], onDelete: Cascade)
+  role        String    @default("member") // "admin", "member"
+  joinedAt    DateTime  @default(now())
+  groupChat   GroupChat @relation(fields: [groupChatId], references: [id], onDelete: Cascade)
+  user        User      @relation("GroupMemberships", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([groupChatId, userId])
 }
 
 model GroupMessage {
-  id           String   @id @default(cuid())
-  groupChatId  String
-  senderId     String
-  content      String
-  messageType  String   @default("text") // "text", "voice", "sticker", "track_share", "image", "system"
-  replyToId    String?
-  edited       Boolean  @default(false)
-  editedAt     DateTime?
-  deleted      Boolean  @default(false)
-  voiceUrl     String?
+  id            String    @id @default(cuid())
+  groupChatId   String
+  senderId      String
+  content       String
+  messageType   String    @default("text") // "text", "voice", "sticker", "track_share", "image", "system"
+  replyToId     String?
+  edited        Boolean   @default(false)
+  editedAt      DateTime?
+  deleted       Boolean   @default(false)
+  voiceUrl      String?
   voiceDuration Float?
-  createdAt    DateTime @default(now())
-  groupChat    GroupChat @relation(fields: [groupChatId], references: [id], onDelete: Cascade)
-  sender       User     @relation("GroupMessages", fields: [senderId], references: [id])
+  createdAt     DateTime  @default(now())
+  groupChat     GroupChat @relation(fields: [groupChatId], references: [id], onDelete: Cascade)
+  sender        User      @relation("GroupMessages", fields: [senderId], references: [id])
 }
 
 // Server-side data sync — stores user data as JSON blobs keyed by type
 model UserSync {
   id        String   @id @default(cuid())
   userId    String
-  key       String   // "history", "playlists", "likedTracks", "dislikedTracks", "settings"
-  data      String   // JSON blob
+  key       String // "history", "playlists", "likedTracks", "dislikedTracks", "settings"
+  data      String // JSON blob
   updatedAt DateTime @updatedAt
   user      User     @relation("UserSyncData", fields: [userId], references: [id], onDelete: Cascade)
 
@@ -364,8 +367,8 @@ model TypingEvent {
 // Notifications system
 model Notification {
   id        String   @id @default(cuid())
-  userId    String   // recipient
-  type      String   // "message", "friend_request", "friend_accepted"
+  userId    String // recipient
+  type      String // "message", "friend_request", "friend_accepted"
   title     String
   body      String
   data      String   @default("{}") // JSON with extra data (senderId, senderName, etc.)
@@ -380,10 +383,10 @@ model Notification {
 // Telegram auth — verification codes sent via Telegram bot
 model TelegramAuthCode {
   id               String   @id @default(cuid())
-  chatId           String   // Telegram chat ID
-  telegramUserId   BigInt   // Telegram user ID
-  telegramUsername String?  // Telegram @username (may be null)
-  code             String   // 6-digit verification code
+  chatId           String // Telegram chat ID
+  telegramUserId   BigInt // Telegram user ID
+  telegramUsername String? // Telegram @username (may be null)
+  code             String // 6-digit verification code
   expiresAt        DateTime // 10 minutes
   used             Boolean  @default(false)
   createdAt        DateTime @default(now())
@@ -394,15 +397,15 @@ model TelegramAuthCode {
 
 // Telegram bot conversation state (serverless-safe, replaces in-memory Map)
 model TelegramBotState {
-  id                   String   @id @default(cuid())
-  chatId               String   @unique          // Telegram chat ID
-  state                String   @default("idle") // current conversation state
-  data                 String   @default("{}")   // JSON blob for PendingImport data
-  results              String   @default("[]")   // JSON blob for search results
-  audioBatch           String   @default("[]")   // JSON blob for batch audio collection
-  collectingMessageId  Int?                      // Message ID of the collecting prompt
-  updatedAt            DateTime @updatedAt
-  createdAt            DateTime @default(now())
+  id                  String   @id @default(cuid())
+  chatId              String   @unique // Telegram chat ID
+  state               String   @default("idle") // current conversation state
+  data                String   @default("{}") // JSON blob for PendingImport data
+  results             String   @default("[]") // JSON blob for search results
+  audioBatch          String   @default("[]") // JSON blob for batch audio collection
+  collectingMessageId Int? // Message ID of the collecting prompt
+  updatedAt           DateTime @updatedAt
+  createdAt           DateTime @default(now())
 
   @@index([chatId])
 }
@@ -410,31 +413,31 @@ model TelegramBotState {
 // Track comments — SoundCloud-style timestamped comments on tracks
 model TrackComment {
   id        String   @id @default(cuid())
-  trackId   String   // SoundCloud track ID as string
+  trackId   String // SoundCloud track ID as string
   userId    String
   username  String
   avatar    String   @default("")
   content   String
-  timestamp Float    // seconds into the track where comment was placed
+  timestamp Float // seconds into the track where comment was placed
   likes     Int      @default(0)
   createdAt DateTime @default(now())
 
-  user      User     @relation("TrackComments", fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation("TrackComments", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([trackId, createdAt])
 }
 
 // Smart playlists — rule-based auto-generated playlists (M5.3)
 model SmartPlaylist {
-  id          String   @id @default(cuid())
-  userId      String
-  name        String
-  rules       String   // JSON: [{field, op, value}, ...]
-  limit       Int      @default(100)
-  sortBy      String   @default("createdAt")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation("UserSmartPlaylists", fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  rules     String // JSON: [{field, op, value}, ...]
+  limit     Int      @default(100)
+  sortBy    String   @default("createdAt")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation("UserSmartPlaylists", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -442,43 +445,43 @@ model SmartPlaylist {
 // Listening status — what each user is currently playing (polled by friends)
 // Updated every ~10s while a track is playing. Auto-expires after 5min of inactivity.
 model ListeningStatus {
-  id           String   @id @default(cuid())
-  userId       String   @unique
-  trackId      String
-  trackTitle   String
-  trackArtist  String
-  trackCover   String   @default("")
-  scTrackId    Int?
-  isPlaying    Boolean  @default(true)
-  progress     Float    @default(0)  // seconds
-  duration     Float    @default(0)  // seconds
-  source       String   @default("soundcloud")
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  trackId     String
+  trackTitle  String
+  trackArtist String
+  trackCover  String   @default("")
+  scTrackId   Int?
+  isPlaying   Boolean  @default(true)
+  progress    Float    @default(0) // seconds
+  duration    Float    @default(0) // seconds
+  source      String   @default("soundcloud")
+  updatedAt   DateTime @updatedAt
 
-  user         User     @relation("ListeningStatus", fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation("ListeningStatus", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([updatedAt])
 }
 
 // Live listening sessions — group synchronized playback (host + multiple guests)
 model LiveSession {
-  id           String   @id @default(cuid())
-  hostId       String
-  code         String   @unique  // 6-char join code (e.g. "ABC123")
-  trackId      String
-  trackTitle   String
-  trackArtist  String
-  trackCover   String   @default("")
-  scTrackId    Int?
-  audioUrl     String   @default("")
-  source       String   @default("soundcloud")
-  progress     Float    @default(0)  // seconds
-  isPlaying    Boolean  @default(true)
-  guestCount   Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  host         User     @relation("HostedLiveSessions", fields: [hostId], references: [id], onDelete: Cascade)
-  members      LiveSessionMember[] @relation("LiveSessionMembers")
+  id          String              @id @default(cuid())
+  hostId      String
+  code        String              @unique // 6-char join code (e.g. "ABC123")
+  trackId     String
+  trackTitle  String
+  trackArtist String
+  trackCover  String              @default("")
+  scTrackId   Int?
+  audioUrl    String              @default("")
+  source      String              @default("soundcloud")
+  progress    Float               @default(0) // seconds
+  isPlaying   Boolean             @default(true)
+  guestCount  Int                 @default(0)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  host        User                @relation("HostedLiveSessions", fields: [hostId], references: [id], onDelete: Cascade)
+  members     LiveSessionMember[] @relation("LiveSessionMembers")
 
   @@index([hostId])
   @@index([code])
@@ -486,15 +489,63 @@ model LiveSession {
 
 // Live session members — who's in each session (for guest list + sync)
 model LiveSessionMember {
-  id           String   @id @default(cuid())
-  sessionId    String
-  userId       String
-  username     String
-  avatar       String   @default("")
-  joinedAt     DateTime @default(now())
-  lastSyncAt   DateTime @updatedAt
-  session      LiveSession @relation("LiveSessionMembers", fields: [sessionId], references: [id], onDelete: Cascade)
+  id         String      @id @default(cuid())
+  sessionId  String
+  userId     String
+  username   String
+  avatar     String      @default("")
+  joinedAt   DateTime    @default(now())
+  lastSyncAt DateTime    @updatedAt
+  session    LiveSession @relation("LiveSessionMembers", fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@unique([sessionId, userId])
   @@index([sessionId])
+}
+
+// ===== Yandex Music import (v11.1) =====
+// Linked Yandex account per user. Tokens are stored ONLY as AES-256-GCM
+// ciphertext (src/lib/yandex/token-crypto.ts) — never plaintext, never in
+// responses, never in the client bundle.
+model YandexAccount {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  yandexUid       String?
+  login           String?
+  displayName     String?
+  accessTokenEnc  String
+  refreshTokenEnc String?
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  user            User      @relation("UserYandexAccount", fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Pending OAuth Device Flow sessions (device_code encrypted at rest).
+model YandexAuthSession {
+  id              String    @id @default(cuid())
+  userId          String
+  deviceCodeEnc   String
+  userCode        String?
+  verificationUrl String?
+  expiresAt       DateTime?
+  used            Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  user            User      @relation("UserYandexAuthSessions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Job-based playlist import (serverless-safe: progress advanced by polling).
+model YandexImportJob {
+  id          String    @id @default(cuid())
+  userId      String
+  status      String    @default("pending") // pending|fetching|matching|importing|completed|completed_with_errors|failed|cancelled
+  data        String    @default("{}") // JSON: playlists, tracks, match results, report
+  error       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+  user        User      @relation("UserYandexImportJobs", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

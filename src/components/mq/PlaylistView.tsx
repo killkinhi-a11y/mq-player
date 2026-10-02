@@ -16,6 +16,7 @@ import ContextMenu from "./ContextMenu";
 import PlaylistActionsMenu from "./PlaylistActionsMenu";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import { hoverProps } from "@/lib/hoverCapability";
+import YandexImportFlow from "./yandex/YandexImportFlow";
 
 // ─── helpers ──────────────────────────────────────────────────────────────
 
@@ -90,6 +91,7 @@ export default function PlaylistView() {
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [showImport, setShowImport] = useState(false);
+  const [showYandexImport, setShowYandexImport] = useState(false);
   const [importUrl, setImportUrl] = useState("");
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState("");
@@ -1055,6 +1057,36 @@ export default function PlaylistView() {
                   )}
                 </div>
               )}
+
+              {/* Yandex Music authorized import — full flow with account connection */}
+              <div style={{ borderTop: "1px solid var(--mq-border-thin)", paddingTop: 14, marginTop: 4 }}>
+                <button
+                  onClick={() => {
+                    setShowImport(false);
+                    setShowYandexImport(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-3.5 rounded-xl text-sm font-medium transition-colors"
+                  style={{
+                    minHeight: 48,
+                    backgroundColor: "rgba(255,204,0,0.08)",
+                    border: "1px solid rgba(255,204,0,0.28)",
+                    color: "var(--mq-text)",
+                  }}
+                >
+                  <span
+                    className="flex items-center justify-center rounded-lg shrink-0"
+                    style={{ width: 32, height: 32, backgroundColor: "rgba(255,204,0,0.14)" }}
+                  >
+                    <Music className="w-4 h-4" style={{ color: "#FFCC00" }} />
+                  </span>
+                  <span className="flex-1 text-left">
+                    <span className="block font-semibold">Импортировать из Яндекс Музыки</span>
+                    <span className="block text-xs font-normal" style={{ color: "var(--mq-text-muted)" }}>
+                      С входом в аккаунт — плейлисты переносятся целиком, с сохранением порядка
+                    </span>
+                  </span>
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}
@@ -1098,6 +1130,16 @@ export default function PlaylistView() {
           ))}
         </div>
       )}
+
+      {/* Yandex Music authorized import flow (device auth → select → progress → report) */}
+      <YandexImportFlow
+        open={showYandexImport}
+        onClose={() => setShowYandexImport(false)}
+        onImported={() => {
+          // Pull freshly created server playlists into the store
+          void useAppStore.getState().syncFromServer?.();
+        }}
+      />
     </div>
   );
 }

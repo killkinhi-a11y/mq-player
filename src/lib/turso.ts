@@ -584,5 +584,59 @@ export async function initTursoSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_smartplaylist_userId ON SmartPlaylist(userId);
   `);
 
+  // ── Yandex Music import (v11.1) ────────────────────────────────────────────
+  // Linked Yandex account per user: tokens stored ONLY as AES-256-GCM
+  // ciphertext (see src/lib/yandex/token-crypto.ts).
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS YandexAccount (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL REFERENCES User(id) ON DELETE CASCADE,
+      yandexUid TEXT,
+      login TEXT,
+      displayName TEXT,
+      accessTokenEnc TEXT NOT NULL,
+      refreshTokenEnc TEXT,
+      expiresAt TEXT,
+      createdAt TEXT DEFAULT (datetime('now')),
+      updatedAt TEXT DEFAULT (datetime('now')),
+      UNIQUE(userId)
+    );
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS YandexAuthSession (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL REFERENCES User(id) ON DELETE CASCADE,
+      deviceCodeEnc TEXT NOT NULL,
+      userCode TEXT,
+      verificationUrl TEXT,
+      expiresAt TEXT,
+      used INTEGER DEFAULT 0,
+      createdAt TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS idx_yandex_auth_session_userId ON YandexAuthSession(userId);
+  `);
+
+  // Job-based import (serverless-safe: progress advanced by polling).
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS YandexImportJob (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL REFERENCES User(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'pending',
+      data TEXT NOT NULL DEFAULT '{}',
+      error TEXT,
+      createdAt TEXT DEFAULT (datetime('now')),
+      updatedAt TEXT DEFAULT (datetime('now')),
+      completedAt TEXT
+    );
+  `);
+
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS idx_yandex_import_job_userId ON YandexImportJob(userId);
+  `);
+
   console.log("[Turso] Schema initialized ✓");
 }
