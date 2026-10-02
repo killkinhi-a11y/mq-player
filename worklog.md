@@ -8180,3 +8180,21 @@ Work Log:
 
 Stage Summary:
 - SHIPPED: public URL import works end-to-end for demo AND logged-in users with zero auth (fixes the production 401 regression). The real Yandex fetch is geo-fenced by Yandex itself (451 from US/HK, factual evidence) — the flow surfaces an honest «регион» error from such egresses and will work as-is from RU/CIS hosting or if Yandex lifts the restriction. rsljst/1100 is a dead link (binding error in every region). OAuth flow untouched and still available for full-account imports.
+
+---
+Task ID: yandex-public-import-deploy
+Agent: main (Super Z)
+Task: Deploy verification + production E2E for the public URL import.
+
+Work Log:
+- Commit 7e8996af pushed to main → Vercel deploy mq-build-7e8996af LIVE (~2 min, verified via /version.json commit 7e8996af).
+- PRODUCTION NETWORK TRACE (real browser, demo session, mq-build-7e8996af):
+  * BEFORE: POST /api/music/import-playlist {"url":".../music.partners/playlists/1293"} → 401 {"error":"Не авторизован"} (0.27s)
+  * AFTER:  POST /api/yandex/public-playlist {"url":".../music.partners/playlists/1293"} → 503 {"error":"yandex_geo_blocked","message":"Яндекс.Музыка ограничивает доступ к плейлистам по региону…"} (0.93s — real adapter→Yandex roundtrip, honest mapped error; NO auth, NO token, NO session)
+  * Rate-limit headers live: x-ratelimit-limit: 10, x-ratelimit-remaining.
+  * UI (desktop + mobile): the modal shows the region error with a «Назад» button; zero console/page errors; screenshots 08-10 in download/qa-yandex-public-e2e/.
+- Alternative URLs (factual): music.partners/1294 + yamusic-daily/1001 → same 503 geo (blanket content geo-fence from US egress, not playlist-specific); rsljst/1100 → 404 yandex_not_found (dead binding in every region).
+- Production battery (scripts/yandex/public_prod_battery.py): 15/15 PASS — API contract (invalid 400, SSRF host 400, dead link 404, geo 503, rate headers), deployed build id, icon-only button, honest error UI, V10.4.1 hint zero-DOM, capsule arrow step exactly 5 (50→45), mobile 44px targets, zero page errors.
+
+Stage Summary:
+- SHIPPED + VERIFIED LIVE on mq-build-7e8996af. Public URL import: no login, no OAuth, no tokens, no cookies — the production blocker is Yandex's own content geo-fence (451) for non-RU server egress, surfaced honestly in the UI; the identical code path imports real playlists when egress is allowed (proven by the 23/23 local E2E with the fake adapter + real SoundCloud matching).
