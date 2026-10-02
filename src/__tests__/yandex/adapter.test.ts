@@ -147,6 +147,84 @@ describe("adapter responses", () => {
   });
 });
 
+describe("public_playlist action (tokenless public flow)", () => {
+  it("sends ONLY {user_id, kind} — no token, no raw URL", async () => {
+    let captured: { body: string } | null = null;
+    fetchMock.mockImplementation(async (_url: string, init: RequestInit) => {
+      captured = { body: init.body as string };
+      return jsonResponse(200, { ok: true, data: { kind: 1293, uid: 1, title: "T", description: "", cover_url: "", owner_login: "music.partners", track_count: 0, tracks: [] } });
+    });
+    const { adapterPublicPlaylistTracks } = await import("@/lib/yandex/adapter");
+    await adapterPublicPlaylistTracks("music.partners", 1293);
+    const parsed = JSON.parse(captured!.body);
+    expect(parsed).toEqual({ action: "public_playlist", user_id: "music.partners", kind: 1293 });
+    expect(parsed.token).toBeUndefined();
+    expect(parsed.url).toBeUndefined();
+  });
+
+  it("normalizes the playlist payload to camelCase (same shape as playlist_tracks)", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        ok: true,
+        data: {
+          kind: 1293,
+          uid: 111,
+          title: "Публичный",
+          description: "опис",
+          cover_url: "https://c",
+          owner_login: "music.partners",
+          track_count: 1,
+          tracks: [
+            { position: 0, track_id: "42", album_id: "7", title: "Song", artists: ["A", "B"], album_title: "Al", album_id_full: "7", duration_ms: 123000, available: true },
+          ],
+        },
+      })
+    );
+    const { adapterPublicPlaylistTracks } = await import("@/lib/yandex/adapter");
+    const pl = await adapterPublicPlaylistTracks("music.partners", 1293);
+    expect(pl).toEqual({
+      kind: 1293,
+      uid: 111,
+      title: "Публичный",
+      description: "опис",
+      coverUrl: "https://c",
+      ownerLogin: "music.partners",
+      trackCount: 1,
+      tracks: [
+        { position: 0, trackId: "42", albumId: "7", title: "Song", artists: ["A", "B"], albumTitle: "Al", albumIdFull: "7", durationMs: 123000, available: true },
+      ],
+    });
+  });
+
+  it("maps yandex_geo_blocked to 503 with the region message", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(503, {
+        ok: false,
+        error: { code: "yandex_geo_blocked", message: "Яндекс.Музыка ограничивает доступ к плейлистам по региону." },
+      })
+    );
+    const { adapterPublicPlaylistTracks } = await import("@/lib/yandex/adapter");
+    await expect(adapterPublicPlaylistTracks("x", 1)).rejects.toMatchObject({
+      code: "yandex_geo_blocked",
+      status: 503,
+    });
+  });
+
+  it("maps yandex_not_found to 404 (private/missing playlist)", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(404, {
+        ok: false,
+        error: { code: "yandex_not_found", message: "Плейлист недоступен: не найден или скрыт настройками приватности." },
+      })
+    );
+    const { adapterPublicPlaylistTracks } = await import("@/lib/yandex/adapter");
+    await expect(adapterPublicPlaylistTracks("x", 1)).rejects.toMatchObject({
+      code: "yandex_not_found",
+      status: 404,
+    });
+  });
+});
+
 describe("network failures", () => {
   it("maps fetch rejection to adapter_unreachable", async () => {
     fetchMock.mockRejectedValue(new TypeError("fetch failed"));

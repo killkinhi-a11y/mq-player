@@ -164,6 +164,39 @@ const server = http.createServer((req, res) => {
         const withPositions = { ...pl, tracks: pl.tracks.map((t, i) => ({ ...t, position: i })) };
         return send(200, { ok: true, data: withPositions });
       }
+      case "public_playlist": {
+        // Tokenless public fetch by (user_id, kind). Special canned users:
+        //   geo.blocked   → 451-style geo error (as real Yandex returns abroad)
+        //   private.user  → not found (private playlist semantics)
+        //   empty.user    → playlist exists but has zero tracks
+        const user = String(payload.user_id || "");
+        if (user === "geo.blocked") {
+          return send(503, {
+            ok: false,
+            error: {
+              code: "yandex_geo_blocked",
+              message: "Яндекс.Музыка ограничивает доступ к плейлистам по региону. Импорт по ссылке временно недоступен с нашего сервера — попробуйте позже.",
+            },
+          });
+        }
+        if (user === "private.user") {
+          return send(404, {
+            ok: false,
+            error: { code: "yandex_not_found", message: "Плейлист недоступен: не найден или скрыт настройками приватности." },
+          });
+        }
+        if (user === "empty.user") {
+          return send(200, {
+            ok: true,
+            data: { kind: Number(payload.kind) || 1, uid: 1, title: "Пустой", description: "", cover_url: "", owner_login: user, track_count: 0, tracks: [] },
+          });
+        }
+        // Default: any user gets the canned public playlists (kind-keyed).
+        const pl = PLAYLIST_TRACKS[payload.kind];
+        if (!pl) return send(404, { ok: false, error: { code: "yandex_not_found", message: "Плейлист недоступен: не найден или скрыт настройками приватности." } });
+        const withPositions = { ...pl, owner_login: user, tracks: pl.tracks.map((t, i) => ({ ...t, position: i })) };
+        return send(200, { ok: true, data: withPositions });
+      }
       default:
         return send(400, { ok: false, error: { code: "unknown_action", message: "Неизвестное действие." } });
     }

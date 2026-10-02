@@ -27,7 +27,6 @@ import {
   type YandexPlaylistBrief,
   type YandexPlaylistTracks,
 } from "./types";
-
 const ADAPTER_TIMEOUT_MS = 55_000;
 
 /** Derived signing key — mirrors adapter_derived_secret() in the Python adapter. */
@@ -114,6 +113,7 @@ async function postAction<T>(
       yandex_rate_limited: 429,
       yandex_unavailable: 503,
       yandex_not_found: 404,
+      yandex_geo_blocked: 503,
       device_code_expired: 400,
       device_code_cancelled: 400,
       device_access_denied: 403,
@@ -262,6 +262,43 @@ export async function adapterPlaylistTracks(
     track_count: number;
     tracks: Array<Record<string, unknown>>;
   }>(req, "playlist_tracks", { token, kind });
+  return normalizePlaylistTracks(data);
+}
+
+/**
+ * Fetch a PUBLIC playlist by owner login/uid + kind — NO token, NO OAuth,
+ * NO user cookies. This is the tokenless users_playlists(kind, user_id=...)
+ * path for URL-based imports.
+ */
+export async function adapterPublicPlaylistTracks(
+  ownerLoginOrId: string,
+  kind: number,
+  req?: NextRequest
+): Promise<YandexPlaylistTracks> {
+  const data = await callAdapter<{
+    kind: number;
+    uid: number | null;
+    title: string;
+    description: string;
+    cover_url: string;
+    owner_login: string;
+    track_count: number;
+    tracks: Array<Record<string, unknown>>;
+  }>(req, "public_playlist", { user_id: ownerLoginOrId, kind });
+  return normalizePlaylistTracks(data);
+}
+
+/** Shared snake_case → camelCase normalization for playlist payloads. */
+function normalizePlaylistTracks(data: {
+  kind: number;
+  uid: number | null;
+  title: string;
+  description: string;
+  cover_url: string;
+  owner_login: string;
+  track_count: number;
+  tracks: Array<Record<string, unknown>>;
+}): YandexPlaylistTracks {
   return {
     kind: data.kind,
     uid: data.uid ?? null,

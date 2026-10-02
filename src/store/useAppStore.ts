@@ -2962,6 +2962,9 @@ export const useAppStore = create<AppState>()(
           duration: t.duration, cover: t.cover, genre: t.genre,
           source: t.source, scTrackId: t.scTrackId, scStreamPolicy: t.scStreamPolicy,
           scIsFull: t.scIsFull, audioUrl: t.audioUrl, previewUrl: t.previewUrl,
+          // Import source attribution (yandex public import) — tiny, but the
+          // contract requires it to SURVIVE persistence, not just live in RAM.
+          ...(t._src ? { _src: t._src, _srcTrackId: t._srcTrackId, _srcPlaylistKind: t._srcPlaylistKind } : {}),
         } as Track);
 
         // ── Size caps to prevent localStorage overflow (~5MB limit) ──

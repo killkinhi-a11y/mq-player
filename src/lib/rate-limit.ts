@@ -249,6 +249,11 @@ export const RATE_LIMITS = {
   admin: { limit: 60, window: 60 },        // 60 req/min
   /** Yandex import job advancement — polled ~1.5s while a job runs */
   yandexImport: { limit: 240, window: 60 }, // 240 req/min
+  /** Yandex PUBLIC playlist preview (URL → playlist fetch). No session —
+   *  tighter than the authed import routes, one request per import attempt. */
+  yandexPublic: { limit: 10, window: 60 }, // 10 req/min
+  /** Yandex public import matching chunks — polled in slices of ≤12 tracks */
+  yandexPublicMatch: { limit: 60, window: 60 }, // 60 req/min
 } as const;
 
 // ─── withRateLimit wrapper for Next.js API routes ───────────────────────────

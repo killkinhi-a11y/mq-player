@@ -175,8 +175,20 @@ describe("Rate Limiter — presets have correct limits", () => {
     expect(RATE_LIMITS.admin).toEqual({ limit: 60, window: 60 });
   });
 
+  it("should have yandexImport preset: 240 req/min", () => {
+    expect(RATE_LIMITS.yandexImport).toEqual({ limit: 240, window: 60 });
+  });
+
+  it("should have yandexPublic preset: 10 req/min", () => {
+    expect(RATE_LIMITS.yandexPublic).toEqual({ limit: 10, window: 60 });
+  });
+
+  it("should have yandexPublicMatch preset: 60 req/min", () => {
+    expect(RATE_LIMITS.yandexPublicMatch).toEqual({ limit: 60, window: 60 });
+  });
+
   it("should have all expected preset keys", () => {
-    const expectedKeys = ["auth", "upload", "read", "write", "search", "heavy", "medium", "admin", "yandexImport"];
+    const expectedKeys = ["auth", "upload", "read", "write", "search", "heavy", "medium", "admin", "yandexImport", "yandexPublic", "yandexPublicMatch"];
     expect(Object.keys(RATE_LIMITS).sort()).toEqual(expectedKeys.sort());
   });
 });

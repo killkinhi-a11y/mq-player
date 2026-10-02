@@ -118,6 +118,15 @@ def test_error_mapping() -> None:
     e = adapter._map_yandex_error(FakeNet("429 Too Many Requests"))
     check("429 → yandex_rate_limited", e.code == "yandex_rate_limited" and e.status == 429)
 
+    e = adapter._map_yandex_error(FakeNet("Unavailable For Legal Reasons (451)"))
+    check(
+        "451 → yandex_geo_blocked (503)",
+        e.code == "yandex_geo_blocked" and e.status == 503 and "регион" in e.message,
+    )
+
+    e = adapter._map_yandex_error(FakeNet("451"))
+    check("bare 451 → yandex_geo_blocked too", e.code == "yandex_geo_blocked")
+
     e = adapter._map_yandex_error(RuntimeError("unexpected"))
     check("unknown → sanitized yandex_error", e.code == "yandex_error" and "unexpected" not in e.message)
 
@@ -261,6 +270,92 @@ def test_playlist_tracks_mapping() -> None:
         adapter._client = orig
 
 
+def test_public_playlist_action() -> None:
+    print("public_playlist action (tokenless):")
+    # ── happy path: user_id + kind passthrough, tracks normalized, UA patched ──
+    calls = {}
+
+    import yandex_music.utils.request_base as rb
+
+    class RecordingClient(FakeClient):
+        def users_playlists(self, kind, user_id=None, **kwargs):
+            calls.setdefault("kinds", []).append(kind)
+            calls.setdefault("user_ids", []).append(user_id)
+            calls.setdefault("uas", []).append(rb.USER_AGENT)
+            return self._detail
+
+    short = FakeShort("111", "555")
+    detail = FakePlaylist(kind=1293, title="Партнёрский", track_count=1, tracks=[short])
+    full = FakeTrack(id="111", title="Alpha", artists=[FakeArtist("A1")], albums=[FakeAlbum(555, "Album")])
+    client = RecordingClient(detail=detail, tracks=[full])
+    orig_client = adapter._client
+    adapter._client = lambda token=None: client
+    try:
+        result = adapter.action_public_playlist({"user_id": "music.partners", "kind": 1293})
+        check("user_id passed through", calls["user_ids"][0] == "music.partners")
+        check("kind passed as int", calls["kinds"][0] == 1293)
+        check("playlist fields mapped", result["kind"] == 1293 and result["title"] == "Партнёрский")
+        check("owner login mapped", result["owner_login"] == "ya.owner")
+        t = result["tracks"]
+        check("track normalized in order", len(t) == 1 and t[0]["track_id"] == "111" and t[0]["position"] == 0)
+        check("full metadata batch-fetched", t[0]["title"] == "Alpha" and t[0]["artists"] == ["A1"])
+        check("no token in result", "token" not in json.dumps(result))
+        check("TelegramBot UA applied during the call", calls["uas"][0] == "TelegramBot")
+    finally:
+        adapter._client = orig_client
+
+    # UA restore contract (module-level constant is back to its original value)
+    check(
+        "module UA constant restored after action",
+        rb.USER_AGENT == "Yandex-Music-API",
+        f"got {rb.USER_AGENT!r}",
+    )
+
+    # ── None playlist → not found ──
+    class NoneClient(FakeClient):
+        def users_playlists(self, kind, user_id=None, **kwargs):
+            return None
+
+    adapter._client = lambda token=None: NoneClient()
+    try:
+        try:
+            adapter.action_public_playlist({"user_id": "u", "kind": 5})
+            check("None playlist → yandex_not_found", False)
+        except adapter.AdapterError as e:
+            check("None playlist → yandex_not_found", e.code == "yandex_not_found" and e.status == 404)
+    finally:
+        adapter._client = orig_client
+
+    # ── bad inputs ──
+    for payload, label in [
+        ({}, "missing user+kind"),
+        ({"user_id": "u"}, "missing kind"),
+        ({"kind": 1}, "missing user"),
+        ({"user_id": "../etc", "kind": 1}, "path traversal user"),
+        ({"user_id": "a b", "kind": 1}, "space in user"),
+        ({"user_id": "u" * 65, "kind": 1}, "user too long"),
+        ({"user_id": "u", "kind": "abc"}, "non-numeric kind"),
+        ({"user_id": "u", "kind": 0}, "zero kind"),
+        ({"user_id": "u", "kind": -1}, "negative kind"),
+    ]:
+        try:
+            adapter.action_public_playlist(payload)
+            check(f"bad input rejected ({label})", False)
+        except adapter.AdapterError as e:
+            check(f"bad input rejected ({label})", e.code == "bad_request" and e.status == 400)
+
+    # ── string kind from JSON is coerced ──
+    adapter._client = lambda token=None: RecordingClient(detail=detail)
+    try:
+        result = adapter.action_public_playlist({"user_id": "music.partners", "kind": "1293"})
+        check("string kind coerced to int", result["kind"] == 1293)
+    finally:
+        adapter._client = orig_client
+
+    # ── action registered in dispatch ──
+    check("public_playlist registered in ACTIONS", callable(adapter.ACTIONS.get("public_playlist")))
+
+
 def test_account_action() -> None:
     print("account action:")
     client = FakeClient()
@@ -298,6 +393,7 @@ if __name__ == "__main__":
     test_error_mapping()
     test_playlist_mapping()
     test_playlist_tracks_mapping()
+    test_public_playlist_action()
     test_account_action()
     test_device_actions_dispatch()
     print(f"\n{PASS} passed, {FAIL} failed")

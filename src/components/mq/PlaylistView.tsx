@@ -17,6 +17,8 @@ import PlaylistActionsMenu from "./PlaylistActionsMenu";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import { hoverProps } from "@/lib/hoverCapability";
 import YandexImportFlow from "./yandex/YandexImportFlow";
+import PublicPlaylistImport from "./yandex/PublicPlaylistImport";
+import { parseYandexPlaylistUrl } from "@/lib/yandex/public-url";
 
 // ─── helpers ──────────────────────────────────────────────────────────────
 
@@ -99,6 +101,9 @@ export default function PlaylistView() {
   const [importProgress, setImportProgress] = useState("");
   const [importMode, setImportMode] = useState<"url" | "text">("url");
   const [importText, setImportText] = useState("");
+  /** PUBLIC Yandex import: when set, the URL-mode body is replaced by the
+   *  tokenless public flow (fetch → match → preview → import). */
+  const [publicImportUrl, setPublicImportUrl] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [coverUploadingId, setCoverUploadingId] = useState<string | null>(null);
@@ -377,6 +382,23 @@ export default function PlaylistView() {
 
   const triggerUrlImport = useCallback(async () => {
     if (!importUrl.trim() || importing) return;
+
+    // Yandex Music playlist URL → PUBLIC tokenless flow (no OAuth, no login).
+    if (parseYandexPlaylistUrl(importUrl.trim())) {
+      setPublicImportUrl(importUrl.trim());
+      return;
+    }
+
+    // A Yandex Music link in the WRONG shape (e.g. the short /playlist/N form
+    // or an album/track link) → explain the expected format up front, no request.
+    if (/music\.yandex\.(ru|com)|ya\.ru\/music|yandex\.ru\/music/i.test(importUrl.trim())) {
+      setImportError(
+        "Эта ссылка Яндекс.Музыки не подходит. Откройте плейлист → «Поделиться» → «Скопировать ссылку» — нужен адрес вида https://music.yandex.ru/users/имя/playlists/номер"
+      );
+      setImportHint("Публичный импорт работает со ссылками вида music.yandex.ru/users/…/playlists/…");
+      return;
+    }
+
     setImporting(true);
     setImportError("");
     setImportHint("");
@@ -928,7 +950,7 @@ export default function PlaylistView() {
             >
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>Импорт плейлиста</h3>
-                <button onClick={() => setShowImport(false)} style={{ color: "var(--mq-text-muted)" }}>
+                <button onClick={() => { setShowImport(false); setPublicImportUrl(""); }} style={{ color: "var(--mq-text-muted)" }}>
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -949,7 +971,7 @@ export default function PlaylistView() {
                   По ссылке
                 </button>
                 <button
-                  onClick={() => { setImportMode("text"); setImportError(""); setImportHint(""); }}
+                  onClick={() => { setImportMode("text"); setImportError(""); setImportHint(""); setPublicImportUrl(""); }}
                   className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
                   style={{
                     backgroundColor: importMode === "text" ? "var(--mq-accent)" : "transparent",
@@ -962,32 +984,46 @@ export default function PlaylistView() {
 
               {importMode === "url" ? (
                 <>
-                  <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-                    VK · Яндекс.Музыка · YouTube Music · Apple Music · SoundCloud
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      value={importUrl}
-                      onChange={(e) => { setImportUrl(e.target.value); setImportError(""); setImportHint(""); }}
-                      placeholder="https://music.yandex.ru/playlist/..."
-                      className="flex-1 rounded-xl px-3.5 py-2.5 text-sm outline-none"
-                      style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
-                      onKeyDown={(e) => e.key === "Enter" && triggerUrlImport()}
-                      autoFocus
-                    />
-                    <button
-                      onClick={triggerUrlImport}
-                      disabled={importing || !importUrl.trim()}
-                      className="px-4 py-2.5 rounded-xl text-sm font-medium"
-                      style={{
-                        backgroundColor: importUrl.trim() && !importing ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
-                        color: importUrl.trim() && !importing ? "#fff" : "var(--mq-text-muted)",
+                  {publicImportUrl ? (
+                    <PublicPlaylistImport
+                      url={publicImportUrl}
+                      onCancel={() => { setPublicImportUrl(""); setImportUrl(""); setImportError(""); setImportHint(""); }}
+                      onFinished={() => {
+                        setPublicImportUrl("");
+                        setImportUrl("");
+                        setShowImport(false);
                       }}
-                    >
-                      {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                    </button>
-                  </div>
+                    />
+                  ) : (
+                    <>
+                      <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                        VK · Яндекс.Музыка · YouTube Music · Apple Music · SoundCloud
+                      </p>
+                      <div className="flex gap-2">
+                        <input
+                          type="url"
+                          value={importUrl}
+                          onChange={(e) => { setImportUrl(e.target.value); setImportError(""); setImportHint(""); }}
+                          placeholder="https://music.yandex.ru/playlist/..."
+                          className="flex-1 rounded-xl px-3.5 py-2.5 text-sm outline-none"
+                          style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
+                          onKeyDown={(e) => e.key === "Enter" && triggerUrlImport()}
+                          autoFocus
+                        />
+                        <button
+                          onClick={triggerUrlImport}
+                          disabled={importing || !importUrl.trim()}
+                          className="px-4 py-2.5 rounded-xl text-sm font-medium"
+                          style={{
+                            backgroundColor: importUrl.trim() && !importing ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
+                            color: importUrl.trim() && !importing ? "#fff" : "var(--mq-text-muted)",
+                          }}
+                        >
+                          {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </>
               ) : (
                 <>

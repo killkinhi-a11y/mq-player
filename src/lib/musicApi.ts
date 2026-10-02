@@ -22,6 +22,15 @@ export interface Track {
   _reason?: string;
   /** Seed the recommendation engine actually used (real attribution only). */
   _seedArtist?: string;
+  /**
+   * Import source attribution (playlist import flows). Set when the track was
+   * found by matching an external catalog entry — never synthesized.
+   */
+  _src?: "yandex_music";
+  /** Original track id in the source catalog (e.g. Yandex track id). */
+  _srcTrackId?: string;
+  /** Source playlist kind (Yandex playlist id) the track was imported from. */
+  _srcPlaylistKind?: number;
 }
 
 export interface Playlist {

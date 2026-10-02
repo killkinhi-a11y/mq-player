@@ -41,6 +41,13 @@ Actions
                      returns {kind, uid, title, description, cover_url, track_count,
                               tracks: [{position, track_id, album_id, title, artists,
                                         album_title, album_id_full, duration_ms, available}]}
+  public_playlist -> tokenless Client().users_playlists(kind, user_id=...) — PUBLIC
+                     playlist by URL (no OAuth, no user token, no cookies).
+                     The TelegramBot User-Agent is applied for this action only
+                     (server-side; yandex-music otherwise forces "Yandex-Music-API").
+                     Same pagination + batch track normalization as playlist_tracks.
+                     Yandex geo-fences content: 451 from unsupported regions maps
+                     to the yandex_geo_blocked error code.
 
 Security rules
 --------------
@@ -100,6 +107,11 @@ PLAYLIST_PAGE_SIZE = 100            # Yandex pager page size for big playlists
 MAX_PLAYLIST_PAGES = 60             # hard safety cap (6000 tracks)
 TRACK_BATCH_SIZE = 100              # client.tracks(...) batch chunk
 COVER_SIZE = "300x300"
+
+# Public (tokenless) requests historically require a non-library User-Agent:
+# yandex-music otherwise forces "Yandex-Music-API" on every request via
+# RequestBase._prepare_kwargs. Server-side only — never sent from a browser.
+PUBLIC_USER_AGENT = "TelegramBot"
 
 # ── HMAC helpers (must mirror src/lib/yandex/adapter.ts exactly) ─────────────
 
@@ -172,6 +184,16 @@ def _map_yandex_error(exc: Exception) -> AdapterError:
     if isinstance(exc, NetworkError):
         if "429" in text or "too many requests" in low:
             return AdapterError("yandex_rate_limited", "Слишком много запросов к Яндекс.Музыке. Подождите немного.", 429)
+        # 451 Unavailable For Legal Reasons — Yandex geo-fences music CONTENT
+        # (playlists/tracks/search) by the caller's region. Verified factually:
+        # HK + US egress both receive 451 while /genres works from the same IP.
+        if "451" in text or "unavailable for legal reasons" in low:
+            return AdapterError(
+                "yandex_geo_blocked",
+                "Яндекс.Музыка ограничивает доступ к плейлистам по региону. "
+                "Импорт по ссылке временно недоступен с нашего сервера — попробуйте позже.",
+                503,
+            )
         if isinstance(exc, BadRequestError):
             if "playlist" in low or "not found" in low or "404" in text:
                 return AdapterError(
@@ -423,6 +445,97 @@ def action_playlist_tracks(payload: Dict[str, Any]) -> Dict[str, Any]:
         raise _map_yandex_error(exc) from exc
 
 
+def action_public_playlist(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Fetch a PUBLIC playlist by (user_id, kind) with NO token and NO auth.
+
+    Mirrors action_playlist_tracks (same pagination, same track normalization)
+    but calls the tokenless client.users_playlists(kind, user_id=...). The
+    TelegramBot User-Agent is applied only for the duration of this action.
+    """
+    user_id = payload.get("user_id")
+    kind = payload.get("kind")
+    user_id = str(user_id).strip() if user_id is not None else ""
+    if not user_id or len(user_id) > 64 or not user_id.replace(".", "").replace("-", "").replace("_", "").isalnum():
+        raise AdapterError("bad_request", "Некорректный владелец плейлиста.", 400)
+    if kind is None or str(kind).strip() == "" or not str(kind).isdigit() or int(str(kind)) <= 0:
+        raise AdapterError("bad_request", "Некорректный идентификатор плейлиста.", 400)
+
+    client = _client()  # tokenless — public access, no OAuth, no cookies
+
+    # Apply the public User-Agent for this action only (restored afterwards).
+    import yandex_music.utils.request_base as _request_base
+
+    previous_ua = _request_base.USER_AGENT
+    try:
+        _request_base.USER_AGENT = PUBLIC_USER_AGENT
+        playlist = client.users_playlists(int(str(kind)), user_id=user_id)
+        if playlist is None:
+            raise AdapterError(
+                "yandex_not_found",
+                "Плейлист не найден. Проверьте ссылку — плейлист может быть приватным или удалённым.",
+                404,
+            )
+
+        shorts: List[Any] = list(playlist.tracks or [])
+
+        # Same pagination contract as playlist_tracks.
+        pager = getattr(playlist, "pager", None)
+        if pager is not None and pager.total and pager.total > len(shorts):
+            page = 1
+            while len(shorts) < pager.total and page < MAX_PLAYLIST_PAGES:
+                try:
+                    extra_pl = client.users_playlists(
+                        int(str(kind)), user_id=user_id, params={"page": page, "pagePageSize": PLAYLIST_PAGE_SIZE}
+                    )
+                except Exception as exc:
+                    logging.warning("public playlist page %s fetch failed: %s", page, _map_yandex_error(exc).code)
+                    break
+                if extra_pl is None or not extra_pl.tracks:
+                    break
+                shorts.extend(extra_pl.tracks)
+                page += 1
+
+        full_by_key = _fetch_full_tracks(client, shorts)
+
+        tracks: List[Dict[str, Any]] = []
+        for idx, s in enumerate(shorts):
+            full = full_by_key.get(_short_key(s))
+            if full is None:
+                embedded = getattr(s, "track", None)
+                if embedded is not None:
+                    full = _full_track_dict(embedded)
+            tracks.append(
+                {
+                    "position": idx,
+                    "track_id": str(s.id),
+                    "album_id": str(s.album_id) if getattr(s, "album_id", None) else None,
+                    "title": (full or {}).get("title") or "",
+                    "artists": (full or {}).get("artists") or [],
+                    "album_title": (full or {}).get("album_title") or "",
+                    "album_id_full": (full or {}).get("album_id_full"),
+                    "duration_ms": (full or {}).get("duration_ms") or 0,
+                    "available": (full or {}).get("available", True),
+                }
+            )
+
+        return {
+            "kind": playlist.kind,
+            "uid": playlist.uid,
+            "title": playlist.title or "",
+            "description": playlist.description or "",
+            "cover_url": _cover_url(playlist),
+            "owner_login": _owner_login(playlist),
+            "track_count": playlist.track_count or len(tracks),
+            "tracks": tracks,
+        }
+    except AdapterError:
+        raise
+    except Exception as exc:
+        raise _map_yandex_error(exc) from exc
+    finally:
+        _request_base.USER_AGENT = previous_ua
+
+
 # ── Action dispatch ──────────────────────────────────────────────────────────
 
 ACTIONS = {
@@ -432,6 +545,7 @@ ACTIONS = {
     "account": action_account,
     "playlists_list": action_playlists_list,
     "playlist_tracks": action_playlist_tracks,
+    "public_playlist": action_public_playlist,
 }
 
 
