@@ -8131,3 +8131,25 @@ Stage Summary:
 - LOCAL E2E (scripts/yandex/local_e2e.mjs, prod-mode next start + fake Yandex adapter + real local Turso file DB + real SoundCloud search): ALL PASS desktop 1440x900 + mobile 390x844 — 31 checks incl. device-code-no-leak, honest matching (Creep 0.94 -> ambiguous NOT auto-imported; user picked "Creep (slowed)" via UI -> appended), order preserved (Smells x2 dup + resolved), unmatchable playlist imported EMPTY with honest report, token encrypted v1: at rest, 0 page errors, V10.4.1 desktop hint zero-DOM intact. Screenshots: download/qa-yandex-e2e/ (11 shots).
 - YANDEX_RUNTIME_E2E (real account) = BLOCKED — no test Yandex account available; mocked-integration E2E = PASS (above).
 - Next: commit -> push main -> production deploy -> production E2E.
+
+---
+Task ID: yandex-import-prod
+Agent: main (Super Z)
+Task: Production deploy verification (mq-build-8400e870) + production E2E + V10.4.1 regression battery.
+
+Work Log:
+- Pushed 8400e870 -> main -> production deploy mq-build-8400e870 (commit verified via /version.json, releasedAt 2026-10-02T00:39:47Z).
+- PRODUCTION Python adapter LIVE: GET /api/yandex_adapter AND /api/yandex_adapter.py -> {"ok":true,"python":"3.12.14","yandex_music":"3.0.0"}; unsigned POST -> 401 missing_signature; stale timestamp -> 401 stale_timestamp (HMAC enforcement active).
+- REAL signed chain proven locally end-to-end (prod-mode server + REAL api/yandex_adapter.py + real Yandex): auth/start -> REAL user_code (u6k5gicm, then ljheysst) @ https://ya.ru/device, 300s TTL, device_code NOT in response; auth/poll -> {"status":"pending"} (real oauth.yandex.ru authorization_pending).
+- PRODUCTION session E2E = BLOCKED: /api/auth/register works (201, user created) but emailConfigured=true + emailSent=false — production email sending is currently failing, so no new account can be confirmed (no devCode in production NODE_ENV); no existing test credentials; Telegram/Google not configured. Documented as PROD_SESSION_E2E = BLOCKED.
+- YANDEX_RUNTIME_E2E (real account playlists fetch/import) = BLOCKED — no test Yandex account.
+- V10.4.1 PRODUCTION battery on mq-build-8400e870 (scripts/yandex/zz_v1041_prod.py, output download/qa-yandex-prod/prod-e2e.json):
+  * Desktop 1440x900: no double-tap hint; volume popup 200x54, value 70/27 INSIDE, slider/icon inside; drag 37; mute 0/unmute 37; Escape + outside-click close; 0 page errors.
+  * Capsule: trusted ArrowUp/Down = exactly ±5 (70->75->80->75->70).
+  * Mobile 390x844: popup 220x54 all inside; swipe-down exit = mqFtSlideDown live animation + unmount.
+- Production UI visuals: playlists view + import dialog with «Импортировать из Яндекс Музыки» entry + Yandex connect screen (demo session, 0 page errors) — download/qa-yandex-prod/06-08.
+- Final gates re-run on committed state: tests 701/701, tsc 18 pre-existing (0 src/), eslint new files 0 errors, adapter self-tests 26/26.
+
+Stage Summary:
+- SHIPPED: full Yandex Music import feature live on production mq1.vercel.app (mq-build-8400e870) — Python adapter deployed and secured, all 9 routes live, UI shipped.
+- BLOCKED (honest): real-account Yandex E2E (no account), production-session E2E (email sending down on prod), Android runtime E2E (no Android runtime in sandbox; Capacitor Android app loads the same web UI).

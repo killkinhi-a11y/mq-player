@@ -1,0 +1,104 @@
+{
+ "production": {
+  "version": "81",
+  "buildId": "mq-build-8400e870",
+  "commit": "8400e870149cc0bca98c07d7568a8a2566e939a0",
+  "releasedAt": "2026-10-02T00:39:47.520Z"
+ },
+ "desktop_classic_spatial": {
+  "case": "PROD-desktop-1440x900",
+  "demoLogin": true,
+  "classicHintAtOpen": false,
+  "classicHintAt4s": false,
+  "spatialMarks": 5,
+  "open": true,
+  "inside": {
+   "popup": {
+    "w": 200,
+    "h": 54,
+    "right": 866
+   },
+   "valueRight": 853,
+   "valueText": "70",
+   "valueInside": true,
+   "sliderRight": 817,
+   "sliderInside": true,
+   "iconLeft": 679,
+   "iconInside": true
+  },
+  "dragTo37": 37,
+  "popupStaysAfterDrag": true,
+  "mute": 0,
+  "unmuteRestores": 37,
+  "escapeCloses": true,
+  "playerStaysAfterEscape": true,
+  "outsideClickCloses": true,
+  "screenshotInside27": {
+   "popup": {
+    "w": 200,
+    "h": 54,
+    "right": 866
+   },
+   "valueRight": 853,
+   "valueText": "27",
+   "valueInside": true,
+   "sliderRight": 817,
+   "sliderInside": true,
+   "iconLeft": 679,
+   "iconInside": true
+  },
+  "pageErrors": []
+ },
+ "capsule": {
+  "case": "PROD-capsule-1440x900",
+  "trustedSequence": {
+   "start": 70,
+   "up1": 75,
+   "up2": 80,
+   "down1": 75,
+   "down2": 70
+  },
+  "exactly5each": true,
+  "net80_80": true,
+  "pageErrors": []
+ },
+ "mobile": {
+  "case": "PROD-mobile-390x844",
+  "playerOpen": true,
+  "open": true,
+  "inside": {
+   "popup": {
+    "w": 220,
+    "h": 54,
+    "right": 378
+   },
+   "valueRight": 365,
+   "valueText": "70",
+   "valueInside": true,
+   "sliderRight": 329,
+   "sliderInside": true,
+   "iconLeft": 171,
+   "iconInside": true
+  },
+  "dragTo37": 37,
+  "popupStaysAfterDrag": true,
+  "mute": 0,
+  "unmuteRestores": 37,
+  "escapeCloses": true,
+  "playerStaysAfterEscape": true,
+  "outsideClickCloses": true,
+  "swipeMidFlight": {
+   "rootAnim": "mqFtSlideDown",
+   "rootTransform": "matrix(1, 0, 0, 1, 0, 657.145)",
+   "liveAnims": [
+    "mqFtSlideDown"
+   ]
+  },
+  "swipeAnimLog": [
+   "mqFtSlideDown"
+  ],
+  "swipeHasSlideDown": true,
+  "swipeUnmounted": true,
+  "pageErrors": []
+ }
+}
