@@ -18,6 +18,7 @@ import sys
 import time
 import urllib.request
 import urllib.error
+from pathlib import Path
 
 BASE = "https://mq1.vercel.app"
 EXPECT_COMMIT = "27a67532"
@@ -48,16 +49,48 @@ def http(method, url, body=None, timeout=TIMEOUT):
         return e.code, e.read().decode(), dict(e.headers), int((time.time() - t0) * 1000)
 
 
+def local_head() -> str:
+    """Current repo HEAD (the smoke runs from the repo that was just pushed)."""
+    try:
+        import subprocess
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=str(Path(__file__).resolve().parents[2]), text=True
+        ).strip()
+    except Exception:
+        return ""
+
+
+def fetch_public_playlist(url: str, attempts: int = 3):
+    """POST /api/yandex/public-playlist with retries on chain-transient failures.
+
+    Public relays swing by the minute — a 503 yandex_proxy_error / 504
+    yandex_timeout is a POOL phase, not a code regression; each retry is a
+    fresh parallel race with fresh relay phases (exactly what a user retry
+    does). Any 4xx verdict is final (real Yandex answer) and returned as-is.
+    """
+    last = None
+    for i in range(attempts):
+        st, body, hdrs, ms = http("POST", f"{BASE}/api/yandex/public-playlist", {"url": url})
+        last = (st, body, hdrs, ms)
+        if st < 500:
+            return last
+        if i < attempts - 1:
+            print(f"  (attempt {i + 1} got {st} — chain phase, retrying)"),
+            time.sleep(3)
+    return last
+
+
 def main():
     print(f"=== production API smoke: {BASE} ===")
-    print(f"expected commit: {EXPECT_COMMIT}")
+    expected = local_head() or EXPECT_COMMIT
+    print(f"expected commit: {expected}")
 
     st, body, _, _ = http("GET", f"{BASE}/version.json", timeout=15)
     ver = json.loads(body)
     build = ver.get("buildId", "")
     commit = ver.get("commit", "")
     print(f"version.json: build={build} commit={commit} version={ver.get('version')}")
-    check("deployed build is the chain commit", commit.startswith(EXPECT_COMMIT), f"commit={commit}")
+    check("deployed build is the repo HEAD (auto-deploy in sync)", commit.startswith(expected[:8]), f"commit={commit}")
 
     print("\n--- adapter probe ---")
     st, body, _, ms = http("GET", f"{BASE}/api/yandex_adapter", timeout=20)
@@ -70,8 +103,7 @@ def main():
           probe.get("default_egress_active") is True and probe.get("proxy_configured") is False)
 
     print("\n--- 1293 owner+kind (CONTROL) ---")
-    st, body, hdrs, ms = http("POST", f"{BASE}/api/yandex/public-playlist",
-                              {"url": "https://music.yandex.ru/users/music.partners/playlists/1293"})
+    st, body, hdrs, ms = fetch_public_playlist("https://music.yandex.ru/users/music.partners/playlists/1293")
     print(f"HTTP {st} ({ms}ms)")
     out = json.loads(body) if body.startswith("{") else {}
     pl = out.get("playlist") or {}
@@ -92,16 +124,14 @@ def main():
         check("1293 -> track fields real", bool(t0.get("title")) and bool(t0.get("artists")))
 
     print("\n--- 1293 UUID form ---")
-    st, body, _, ms = http("POST", f"{BASE}/api/yandex/public-playlist",
-                           {"url": "https://music.yandex.ru/playlist/1ccd74db-792b-4756-60f7-96b22f024a4e"})
+    st, body, _, ms = fetch_public_playlist("https://music.yandex.ru/playlist/1ccd74db-792b-4756-60f7-96b22f024a4e")
     out = json.loads(body) if body.startswith("{") else {}
     pl = out.get("playlist") or {}
     print(f"HTTP {st} ({ms}ms) title={pl.get('title')!r} tracks={len(out.get('tracks') or [])}")
     check("UUID link -> 200 + same playlist", st == 200 and pl.get("title") == "Лучшие новые песни 2015 года")
 
     print("\n--- rsljst/1100 (FACTUAL) ---")
-    st, body, _, ms = http("POST", f"{BASE}/api/yandex/public-playlist",
-                           {"url": "https://music.yandex.ru/users/rsljst/playlists/1100"})
+    st, body, _, ms = fetch_public_playlist("https://music.yandex.ru/users/rsljst/playlists/1100")
     out = json.loads(body) if body.startswith("{") else {}
     err_code = out.get("error") if isinstance(out.get("error"), str) else (out.get("error") or {}).get("code")
     print(f"HTTP {st} ({ms}ms) error={err_code} message={out.get('message')!r}")

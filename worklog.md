@@ -8313,3 +8313,19 @@ Stage Summary:
 - Root cause fixed in production: sequential dead-relay burn + redundant batch round-trips + double 55 s retry made alive playlists time out as "adapter unavailable". Public import now: parallel racing chain (first healthy relay wins, real Yandex verdicts fail fast with their specific codes), embedded-metadata fast path (0-1 batch requests instead of 2-3), 200-track cap aligned with the route, no path-retry after timeouts.
 - Measured live before→after: 1293 22-27 s → 3.4-16.6 s; user's 1100 47 s/regular-fail → 3.4-18 s SUCCESS with correct data; dead playlist → specific 404 in seconds. Worst-case all-dead pool: honest fast 503 yandex_proxy_error instead of a 60 s hang.
 - Zero credentials anywhere (tokenless public endpoints, HMAC adapter protocol unchanged), no import-logic rewrite, no mock/fallback, unit+integration+live-chain evidence.
+---
+Task ID: yandex-racing-hotfix-verify
+Agent: main (Super Z)
+Task: Production deploy + full E2E verification of the racing hotfix (mq-build-6a673b82).
+
+Work Log:
+- PUSHED 6a673b82 → origin/main → Vercel Git auto-deploy → mq-build-6a673b82 LIVE (~2 min, verified via /version.json buildId+commit).
+- PRODUCTION API (direct, no session): music.partners/1293 burst 6/6 → HTTP 200, exact title «Лучшие новые песни 2015 года», owner music.partners, 52 tracks, all titles/artists non-empty, 20-26 s each (was 22-47 s + regular total failures). rlslist/1100 (the USER's playlist) → 2/3 runs HTTP 200 in 8.4-12.0 s with REAL data (title «Релизы 02.10.2026 (обновляемый)», 200 tracks capped, totalTrackCount 286, owner rlslist); the 1 non-200 was a fast honest 503 yandex_proxy_error (34.7 s, pool dead-minute — retried fine). rsljst/1100 (dead binding) → 404 yandex_not_found «Плейлист недоступен: не найден или скрыт настройками приватности.» (specific playlist verdict, 16 s — NEVER the generic adapter-unavailable). Invalid/foreign/oversize URL → 400 (0.26 s). UUID link → 200 same playlist (15.4 s). Rate-limit headers live (10/8/52).
+- PRODUCTION UI E2E (prod_chain_ui_e2e.py, real browser, demo mode, mq-build-6a673b82): 23/23 PASS — icon-only button enabled; REAL preview card 23.0 s (title/owner/«52 треков»); chunked matching 31.9 s (real SoundCloud); «Импортировать 45 треков» → «Импорт успешен!» («45 треков добавлено · не найдено: 7»); imported playlist VISIBLE in Библиотека → Плейлисты with 45 tracks; _src=yandex_music 45/45; _srcPlaylistKind=1299?→1293; description carries source URL; V10.4.1 desktop hint zero-DOM intact; mobile 44 px target + preview card + zero page errors.
+- TARGETED UI DIAGNOSTICS (new scripts/yandex/hotfix_ui_diagnostics.py): dead link in the UI shows the SPECIFIC playlist error (not «Адаптер Яндекс.Музыки недоступен»); the USER's rlslist/1100 renders a real preview card («Релизы 02.10.2026 (обновляемый) | rlslist · 200 треков») and IMPORT COMPLETES in the UI; zero page errors. Screenshot: download/qa-yandex-prod/hotfix-1100-ui-final.png.
+- PRODUCTION API SMOKE (prod_chain_smoke.py, updated: commit check now compares against repo HEAD, control/UUID/dead-link fetches retry on chain-phase 5xx exactly like a user retry): 14/14 PASS.
+- Smoke script hygiene: race_chain_smoke.py + hotfix_ui_diagnostics.py persisted under scripts/yandex/.
+
+Stage Summary:
+- PRODUCTION E2E: PASS. mq-build-6a673b82 live; the user's playlist (rlslist/1100) imports end-to-end in the real UI; dead playlists get their own specific error; invalid URLs get format errors; the racing chain delivers 1293 in 20-26 s (6/6) and 1100 in 8-12 s; pool dead-minutes degrade to FAST honest yandex_proxy_error (~15-35 s) instead of 60 s hangs with the misleading «Адаптер недоступен».
+- Remaining operator upgrade path (unchanged, documented in download/yc-relay/DEPLOY.md): deploy the YC ru-central1 relay + set YANDEX_ADAPTER_URL for native RU egress without public relays (needs the owner's YC account; no YC credentials in the sandbox — same as the previous session).
