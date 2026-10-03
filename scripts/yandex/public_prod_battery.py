@@ -6,8 +6,8 @@ NO session anywhere (demo mode — that is the public contract):
     1. POST /api/yandex/public-playlist invalid URL → 400 bad_request
     2. evil host (SSRF probe) → 400
     3. rsljst/1100 → 404 yandex_not_found (dead link, factual)
-    4. music.partners/1293 → 503 yandex_geo_blocked (Yandex geo-fences
-       content from US egress — factual, documented)
+    4. music.partners/1293 → 200 + REAL playlist via the built-in RU/CIS
+       egress chain (updated 2026-10-03: chain live on mq-build-a6f3778f)
     5. rate limit headers present (10/min)
   UI desktop 1440x900 (demo):
     6. version.json commit == deployed commit
@@ -102,16 +102,20 @@ def main():
     st, body, _ = http("POST", f"{BASE}/api/yandex/public-playlist", {"url": "https://music.yandex.ru/users/rsljst/playlists/1100"})
     d = json.loads(body)
     ok(f"rsljst/1100 → 404 yandex_not_found (got {st} {d.get('error')})") if st == 404 and d.get("error") == "yandex_not_found" else bad(f"rsljst: {st} {body[:100]}")
-    # real public URL (geo-blocked from US egress — the factual result)
+    # real public URL — NOW SERVED via the built-in RU/CIS egress chain
     st, body, hdrs = http("POST", f"{BASE}/api/yandex/public-playlist", {"url": "https://music.yandex.ru/users/music.partners/playlists/1293"})
     d = json.loads(body)
-    if st == 503 and d.get("error") == "yandex_geo_blocked":
-        ok(f"music.partners/1293 → 503 yandex_geo_blocked (honest geo error, factual)")
-    elif st == 200:
-        ok("music.partners/1293 → 200 REAL PUBLIC FETCH WORKS")
+    pl = d.get("playlist") or {}
+    n_tracks = len(d.get("tracks") or [])
+    if st == 200 and pl.get("title") == "Лучшие новые песни 2015 года" and n_tracks >= 50:
+        ok(f"music.partners/1293 → 200 REAL fetch via RU/CIS chain ({n_tracks} tracks)")
+    elif st == 503 and d.get("error") == "yandex_geo_blocked":
+        ok("music.partners/1293 → 503 honest geo error (chain candidates all fenced)")
     else:
         bad(f"music.partners/1293: unexpected {st} {body[:150]}")
-    ok(f"rate-limit headers present: {hdrs.get('x-ratelimit-limit', 'MISSING')}")
+    rl = {k.lower(): v for k, v in (hdrs or {}).items()}
+    rl_present = rl.get("x-ratelimit-limit")
+    ok(f"rate-limit headers present: {rl_present}") if rl_present else bad("rate-limit headers MISSING")
 
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -140,10 +144,10 @@ def main():
         icon = page.locator('input[type="url"] + button')
         ok(f"icon-only button enabled: {icon.is_enabled()}")
         icon.click()
-        found = page.get_by_text("регион", exact=False).first.wait_for(timeout=30000)
-        ok(f"honest «регион» error rendered in UI: {found}")
-        page.screenshot(path=f"{OUT}/09-PROD-desktop-geo.png")
-        page.get_by_role("button", name="Назад").click()
+        found = page.get_by_text("Лучшие новые песни 2015 года").first.wait_for(timeout=60000)
+        ok(f"REAL preview card via RU/CIS chain: {found}")
+        page.screenshot(path=f"{OUT}/09-PROD-desktop-real-preview.png")
+        page.get_by_role("button", name="Отмена").first.click()
         wait(400)
 
         # V10.4.1: hint zero-DOM
@@ -208,12 +212,16 @@ def main():
         wait(400)
         mi = mpage.locator('input[type="url"] + button')
         mi.click()
-        mfound = mpage.get_by_text("регион", exact=False).first.wait_for(timeout=30000)
-        ok(f"mobile: honest geo error rendered: {mfound}")
-        back = mpage.get_by_role("button", name="Назад")
-        bb = back.bounding_box()
-        ok(f"mobile: «Назад» target ≥40px height ({bb['height']:.0f}px)") if bb and bb["height"] >= 40 else bad(f"mobile back button {bb}")
-        mpage.screenshot(path=f"{OUT}/10-PROD-mobile-geo.png")
+        mfound = mpage.get_by_text("Лучшие новые песни 2015 года").first.wait_for(timeout=60000)
+        ok(f"mobile: REAL preview card via chain: {mfound}")
+        # matching phase renders «Отменить»; preview phase renders «Отмена» —
+        # both are full-width py-2.5 targets; accept either.
+        cancel = mpage.get_by_role("button", name="Отмена")
+        if not cancel.count():
+            cancel = mpage.get_by_role("button", name="Отменить")
+        cb = cancel.first.bounding_box() if cancel.count() else None
+        ok(f"mobile: cancel target ≥40px height ({cb['height']:.0f}px)") if cb and cb["height"] >= 40 else bad(f"mobile cancel button {cb}")
+        mpage.screenshot(path=f"{OUT}/10-PROD-mobile-real-preview.png")
         ok(f"mobile zero page errors: {len(merrors) == 0} {merrors[:1]}")
         mctx.close()
         browser.close()
