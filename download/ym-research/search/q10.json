@@ -1,0 +1,29 @@
+[
+  {
+    "url": "https://github.com",
+    "name": "Yandex music support · music-assistant · Discussion #2742",
+    "snippet": "But I don't get how to play entire folder or playlist of Yandex but not single track. For example, when I play single track there is call_service event:.",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://pypi.org",
+    "name": "yandex-music",
+    "snippet": "Apr 18, 2026 — Неофициальная Python библиотека для работы с API сервиса Яндекс.Музыка. pip install yandex - music",
+    "host_name": "pypi.org",
+    "rank": 1,
+    "date": "Apr 18, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://gitflic.ru",
+    "name": "gerasimovtltsu/ym-playlist-sorter: Effortlessly organize your",
+    "snippet": "This repository contains a Python program called “ Yandex Music Playlist Sorter” that allows you to sort tracks in your Yandex . Music “Liked” playlist based on ...",
+    "host_name": "gitflic.ru",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  }
+]

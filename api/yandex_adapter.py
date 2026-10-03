@@ -92,6 +92,7 @@ import hmac
 import json
 import logging
 import os
+import re
 import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -130,6 +131,9 @@ COVER_SIZE = "300x300"
 # yandex-music otherwise forces "Yandex-Music-API" on every request via
 # RequestBase._prepare_kwargs. Server-side only — never sent from a browser.
 PUBLIC_USER_AGENT = "TelegramBot"
+PLAYLIST_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+)
 
 # Optional egress proxy for ALL Yandex API traffic (YANDEX_PROXY_URL env var).
 # api.music.yandex.net geo-fences music CONTENT (451) for non-RU/CIS egress —
@@ -539,19 +543,34 @@ def action_playlist_tracks(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def action_public_playlist(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Fetch a PUBLIC playlist by (user_id, kind) with NO token and NO auth.
+    """Fetch a PUBLIC playlist with NO token and NO auth.
 
-    Mirrors action_playlist_tracks (same pagination, same track normalization)
-    but calls the tokenless client.users_playlists(kind, user_id=...). The
-    TelegramBot User-Agent is applied only for the duration of this action.
+    Two mutually exclusive inputs (exactly one must be present):
+      - {"user_id": "<login|uid>", "kind": "<int>"}  — classic links
+        (tokenless client.users_playlists(kind, user_id=...))
+      - {"playlist_uuid": "<uuid>"}                     — new-player links
+        (tokenless client.playlist(playlist_uuid) → GET /playlist/{uuid})
+
+    Mirrors action_playlist_tracks (same pagination, same track normalization).
+    The TelegramBot User-Agent is applied only for the duration of this action.
     """
     user_id = payload.get("user_id")
     kind = payload.get("kind")
+    playlist_uuid = payload.get("playlist_uuid")
     user_id = str(user_id).strip() if user_id is not None else ""
-    if not user_id or len(user_id) > 64 or not user_id.replace(".", "").replace("-", "").replace("_", "").isalnum():
-        raise AdapterError("bad_request", "Некорректный владелец плейлиста.", 400)
-    if kind is None or str(kind).strip() == "" or not str(kind).isdigit() or int(str(kind)) <= 0:
-        raise AdapterError("bad_request", "Некорректный идентификатор плейлиста.", 400)
+    playlist_uuid = str(playlist_uuid).strip().lower() if playlist_uuid is not None else ""
+
+    by_uuid = bool(playlist_uuid)
+    if by_uuid:
+        if user_id or kind is not None:
+            raise AdapterError("bad_request", "Некорректный запрос: укажите только UUID плейлиста.", 400)
+        if not PLAYLIST_UUID_RE.match(playlist_uuid):
+            raise AdapterError("bad_request", "Некорректный идентификатор плейлиста.", 400)
+    else:
+        if not user_id or len(user_id) > 64 or not user_id.replace(".", "").replace("-", "").replace("_", "").isalnum():
+            raise AdapterError("bad_request", "Некорректный владелец плейлиста.", 400)
+        if kind is None or str(kind).strip() == "" or not str(kind).isdigit() or int(str(kind)) <= 0:
+            raise AdapterError("bad_request", "Некорректный идентификатор плейлиста.", 400)
 
     client = _client()  # tokenless — public access, no OAuth, no cookies
 
@@ -561,7 +580,10 @@ def action_public_playlist(payload: Dict[str, Any]) -> Dict[str, Any]:
     previous_ua = _request_base.USER_AGENT
     try:
         _request_base.USER_AGENT = PUBLIC_USER_AGENT
-        playlist = client.users_playlists(int(str(kind)), user_id=user_id)
+        if by_uuid:
+            playlist = client.playlist(playlist_uuid)
+        else:
+            playlist = client.users_playlists(int(str(kind)), user_id=user_id)
         if playlist is None:
             raise AdapterError(
                 "yandex_not_found",
@@ -571,9 +593,10 @@ def action_public_playlist(payload: Dict[str, Any]) -> Dict[str, Any]:
 
         shorts: List[Any] = list(playlist.tracks or [])
 
-        # Same pagination contract as playlist_tracks.
+        # Same pagination contract as playlist_tracks (owner+kind form only:
+        # the /playlist/{uuid} endpoint returns the full snapshot at once).
         pager = getattr(playlist, "pager", None)
-        if pager is not None and pager.total and pager.total > len(shorts):
+        if pager is not None and pager.total and pager.total > len(shorts) and not by_uuid:
             page = 1
             while len(shorts) < pager.total and page < MAX_PLAYLIST_PAGES:
                 try:

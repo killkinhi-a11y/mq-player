@@ -19,8 +19,32 @@ describe("parseYandexPlaylistUrl — valid URLs", () => {
     expect(parseYandexPlaylistUrl("https://music.yandex.ru/users/music.partners/playlists/1293")).toEqual({
       ownerLogin: "music.partners",
       kind: 1293,
+      playlistUuid: null,
       normalizedUrl: "https://music.yandex.ru/users/music.partners/playlists/1293",
     });
+  });
+
+  it("parses new-player UUID links (/playlist/{uuid})", () => {
+    expect(
+      parseYandexPlaylistUrl("https://music.yandex.ru/playlist/1ccd74db-792b-4756-60f7-96b22f024a4e")
+    ).toEqual({
+      ownerLogin: null,
+      kind: null,
+      playlistUuid: "1ccd74db-792b-4756-60f7-96b22f024a4e",
+      normalizedUrl: "https://music.yandex.ru/playlist/1ccd74db-792b-4756-60f7-96b22f024a4e",
+    });
+  });
+
+  it("parses the alt UUID form (/playlists/{uuid}) and lowercases the uuid", () => {
+    expect(
+      parseYandexPlaylistUrl("https://music.yandex.com/playlists/1CCD74DB-792B-4756-60F7-96B22F024A4E")
+    ).toMatchObject({ playlistUuid: "1ccd74db-792b-4756-60f7-96b22f024a4e" });
+  });
+
+  it("accepts UUID links with query/hash and trailing slash", () => {
+    expect(
+      parseYandexPlaylistUrl("https://music.yandex.ru/playlist/1ccd74db-792b-4756-60f7-96b22f024a4e/?utm=1#x")
+    ).toMatchObject({ playlistUuid: "1ccd74db-792b-4756-60f7-96b22f024a4e" });
   });
 
   it("parses the secondary task URL (rsljst/1100)", () => {
@@ -79,7 +103,10 @@ describe("parseYandexPlaylistUrl — invalid URLs", () => {
     ["https://music.yandex.ru/users/x/playlists/0", "zero kind"],
     ["https://music.yandex.ru/users/x/playlists/-1", "negative kind"],
     ["https://music.yandex.ru/users/x/playlists/99999999999", "kind too large"],
-    ["https://music.yandex.ru/playlist/1293", "short /playlist/ form (owner unknown)"],
+    ["https://music.yandex.ru/playlist/1293", "short /playlist/ form (numeric id, not a uuid)"],
+    ["https://music.yandex.ru/playlist/1ccd74db-792b-4756-60f7-96b22f024a4e/extra", "uuid link with extra path segment"],
+    ["https://music.yandex.ru/playlist/not-a-uuid", "/playlist/ with non-uuid payload"],
+    ["https://music.yandex.ru/playlist/", "/playlist/ with empty uuid"],
     ["https://music.yandex.ru/users/x", "missing playlists segment"],
     ["https://music.yandex.ru/users/x/albums/1", "wrong segment name"],
     ["https://music.yandex.ru/users/../playlists/1", "traversal login"],
@@ -115,6 +142,11 @@ describe("isYandexPlaylistUrl", () => {
     expect(isYandexPlaylistUrl("https://music.yandex.ru/users/a/playlists/1")).toBe(true);
     expect(isYandexPlaylistUrl("https://vk.com/playlist")).toBe(false);
     expect(isYandexPlaylistUrl("https://music.yandex.ru/album/1")).toBe(false);
+  });
+
+  it("true for new-player UUID links", () => {
+    expect(isYandexPlaylistUrl("https://music.yandex.ru/playlist/1ccd74db-792b-4756-60f7-96b22f024a4e")).toBe(true);
+    expect(isYandexPlaylistUrl("https://music.yandex.ru/playlist/1293")).toBe(false);
   });
 });
 

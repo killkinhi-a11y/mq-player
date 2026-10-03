@@ -1,0 +1,62 @@
+{
+  "test": "FORMAL TOKENLESS SMOKE TEST — public Yandex Music playlist via RU/CIS egress",
+  "date": "2026-10-03",
+  "target_endpoint": "https://api.music.yandex.net/users/music.partners/playlists/1293",
+  "credentials_sent": "NONE — client never sets Authorization / OAuth token / Cookie / QR-session headers",
+  "negative_control": {
+    "local_egress_hk": { "http_code": 451, "note": "fence confirmed live from non-RU egress" }
+  },
+  "egress": {
+    "source": "public RU proxy 62.182.159.194:3128 (HTTP CONNECT, TLS end-to-end to api.music.yandex.net)",
+    "egress_ip": "62.182.159.194",
+    "egress_country": "Russian Federation",
+    "egress_city": "Saint Petersburg",
+    "verdict": "RU egress -> HTTP 200; non-RU egress -> HTTP 451 (fence is GeoIP-based)"
+  },
+  "http_code": 200,
+  "body_bytes": 151357,
+  "api_envelope": "invocationInfo + result",
+  "invocationInfo": {
+    "req-id": "1790989418726451-3969379412201122975",
+    "hostname": "music-web-default-production-music-99.klg.yp-c.yandex.net",
+    "exec-duration-millis": 91
+  },
+  "playlist": {
+    "title": "Лучшие новые песни 2015 года",
+    "owner_login": "music.partners",
+    "owner_name": "Музыкальная редакция",
+    "owner_uid": 139954184,
+    "kind": "1293",
+    "playlistUuid": "1ccd74db-792b-4756-60f7-96b22f024a4e",
+    "visibility": "public",
+    "trackCount": 52,
+    "tracks_returned": 52,
+    "tracks_sample_first_8": [
+      { "artist": "The Weeknd", "title": "Earned It", "album": "«Пятьдесят оттенков серого»" },
+      { "artist": "Charli XCX, Rita Ora", "title": "Doing It", "album": "Doing It" },
+      { "artist": "Black Coast, M. Maggie", "title": "Enough", "album": "Enough" },
+      { "artist": "FKA twigs", "title": "Pendulum", "album": "LP1" },
+      { "artist": "MisterWives", "title": "Our Own House", "album": "Our Own House" },
+      { "artist": "Purity Ring", "title": "Begin Again", "album": "Another Eternity" },
+      { "artist": "Ty Dolla $ign, Charli XCX, Tinashe", "title": "Drop That Kitty", "album": "Drop That Kitty" },
+      { "artist": "Toro Y Moi", "title": "Buffalo", "album": "Buffalo" }
+    ]
+  },
+  "checks": {
+    "http_200": "PASS",
+    "json": "PASS",
+    "title": "PASS",
+    "owner": "PASS",
+    "trackCount>0": "PASS (52)",
+    "tracks[]": "PASS (52)",
+    "no_credentials_needed": "PASS — anonymous GET succeeded end-to-end"
+  },
+  "verdict": "PASS: tokenless public playlist fetched with real data from RU egress",
+  "evidence": [
+    "download/ym-research/bodies/smoke_ru_body.json — full live 151,357-byte API response",
+    "scripts/ym_smoke_ru_egress.py — runnable test (re-fetches live; public proxies are flaky, retry until a RU node answers)",
+    "download/ym-research/checkhost_ru_test.json — independent monitoring-node corroboration (3x RU 200, KZ 200, MD 200, AT/AU/BG/BR 451)",
+    "yc-smoke/index.py + DEPLOY.md — ready-to-deploy Yandex Cloud Function artifact for the final ru-central1 confirmation run"
+  ],
+  "note_yc": "Yandex Cloud deploy itself was not possible from this sandbox (no `yc` CLI, no YC credentials — requires the user's YC account). Per the user's fallback rule the proof was produced from another RU egress. The yc-smoke artifact (updated with the result-envelope parser) is ready for a 5-command deploy to ru-central1 for the official in-cloud confirmation."
+}

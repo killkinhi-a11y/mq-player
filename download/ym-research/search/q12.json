@@ -1,0 +1,38 @@
+[
+  {
+    "url": "https://yandex.cloud",
+    "name": "Cloud Functions Service, REST: Network",
+    "snippet": "Oct 17, 2024 — A set of methods for managing VPC networks connected to serverless resources. Yandex Cloud Functions . A set of methods for managing VPC ...",
+    "host_name": "yandex.cloud",
+    "rank": 0,
+    "date": "Oct 17, 2024",
+    "favicon": ""
+  },
+  {
+    "url": "https://discuss.google.dev",
+    "name": "Google Cloud Function IP Address setting",
+    "snippet": "Nov 30, 2022 — Hi there, I have some google cloud functions running well until last night they broke. It turned out that the API provider (Binance in my case) ... Read more",
+    "host_name": "discuss.google.dev",
+    "rank": 1,
+    "date": "Nov 30, 2022",
+    "favicon": ""
+  },
+  {
+    "url": "https://gist.github.com",
+    "name": "Cloud functions static outbound IP address",
+    "snippet": "1. Find the name of your VPC network: · 2. Create a new Cloud Router to program a NAT gateway: · 3. Reserve a static IP address . · 4. Create a Cloud NAT gateway ... Read more",
+    "host_name": "gist.github.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com",
+    "name": "sergeyzwezdin/yandex-cloud-functions-router",
+    "snippet": "is a Node router for Yandex Cloud Function platform . Provides an easy way to create Node-based handlers either for HTTP invocations and standard triggers.",
+    "host_name": "github.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  }
+]

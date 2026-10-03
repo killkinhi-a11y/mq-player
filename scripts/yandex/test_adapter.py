@@ -216,6 +216,11 @@ class FakeClient:
     def users_playlists(self, kind, user_id=None, **kwargs):
         return self._detail
 
+    def playlist(self, playlist_uuid, *args, **kwargs):
+        """New-player UUID form (client.playlist(uuid) → GET /playlist/{uuid})."""
+        self._last_uuid = playlist_uuid
+        return self._detail
+
     def tracks(self, track_ids):
         return self._tracks
 
@@ -351,6 +356,41 @@ def test_public_playlist_action() -> None:
         check("string kind coerced to int", result["kind"] == 1293)
     finally:
         adapter._client = orig_client
+
+    # ── UUID form (new-player /playlist/{uuid} links) ──
+    class UuidRecordingClient(FakeClient):
+        def playlist(self, playlist_uuid, *args, **kwargs):
+            self._last_uuid = playlist_uuid
+            return self._detail
+
+        def users_playlists(self, kind, user_id=None, **kwargs):  # must NOT run
+            raise AssertionError("users_playlists must not be called for uuid form")
+
+    short2 = FakeShort("222", "556")
+    detail2 = FakePlaylist(kind=1293, title="По UUID", track_count=1, tracks=[short2])
+    full2 = FakeTrack(id="222", title="Beta", artists=[FakeArtist("B1")], albums=[FakeAlbum(556, "Album2")])
+    uclient = UuidRecordingClient(detail=detail2, tracks=[full2])
+    adapter._client = lambda token=None: uclient
+    try:
+        result = adapter.action_public_playlist(
+            {"playlist_uuid": "1CCD74DB-792B-4756-60F7-96B22F024A4E"}
+        )
+        check("uuid passed lowercased to client.playlist", uclient._last_uuid == "1ccd74db-792b-4756-60f7-96b22f024a4e")
+        check("uuid form playlist fields mapped", result["kind"] == 1293 and result["title"] == "По UUID")
+        check("uuid form track normalized", result["tracks"][0]["track_id"] == "222" and result["tracks"][0]["title"] == "Beta")
+    finally:
+        adapter._client = orig_client
+
+    for payload, label in [
+        ({"playlist_uuid": "not-a-uuid"}, "malformed uuid"),
+        ({"playlist_uuid": "1ccd74db-792b-4756-60f7-96b22f024a4e", "user_id": "u", "kind": 1}, "ambiguous uuid+owner"),
+        ({"playlist_uuid": ""}, "empty uuid"),
+    ]:
+        try:
+            adapter.action_public_playlist(payload)
+            check(f"uuid bad input rejected ({label})", False)
+        except adapter.AdapterError as e:
+            check(f"uuid bad input rejected ({label})", e.code == "bad_request" and e.status == 400)
 
     # ── action registered in dispatch ──
     check("public_playlist registered in ACTIONS", callable(adapter.ACTIONS.get("public_playlist")))

@@ -19,6 +19,7 @@ process.env.TURSO_DATABASE_URL = `file:/tmp/mq-yandex-public-route-${process.pid
 
 const adapterMock = vi.hoisted(() => ({
   adapterPublicPlaylistTracks: vi.fn(),
+  adapterPublicPlaylistByUuid: vi.fn(),
 }));
 const soundcloudMock = vi.hoisted(() => ({
   searchSCTracks: vi.fn(),
@@ -88,6 +89,7 @@ function playlistTracksPayload() {
 
 beforeEach(() => {
   adapterMock.adapterPublicPlaylistTracks.mockReset();
+  adapterMock.adapterPublicPlaylistByUuid.mockReset();
   soundcloudMock.searchSCTracks.mockReset();
 });
 
@@ -132,6 +134,39 @@ describe("POST /api/yandex/public-playlist — URL validation (SSRF-safe)", () =
       1293,
       expect.anything()
     );
+  });
+
+  it("UUID links dispatch to the uuid adapter with ONLY the uuid", async () => {
+    adapterMock.adapterPublicPlaylistByUuid.mockResolvedValue(playlistTracksPayload());
+    const res = await publicPlaylistPOST(
+      postReq("/api/yandex/public-playlist", {
+        url: "https://music.yandex.ru/playlist/1ccd74db-792b-4756-60f7-96b22f024a4e?utm=1",
+      }),
+      undefined as never
+    );
+    expect(res.status).toBe(200);
+    expect(adapterMock.adapterPublicPlaylistByUuid).toHaveBeenCalledWith(
+      "1ccd74db-792b-4756-60f7-96b22f024a4e",
+      expect.anything()
+    );
+    expect(adapterMock.adapterPublicPlaylistTracks).not.toHaveBeenCalled();
+    const json = await res.json();
+    expect(json.sourceUrl).toBe("https://music.yandex.ru/playlist/1ccd74db-792b-4756-60f7-96b22f024a4e");
+  });
+
+  it("UUID links map adapter errors like classic links (geo blocked → 503)", async () => {
+    adapterMock.adapterPublicPlaylistByUuid.mockRejectedValue(
+      new YandexError("yandex_geo_blocked", "geo", 503)
+    );
+    const res = await publicPlaylistPOST(
+      postReq("/api/yandex/public-playlist", {
+        url: "https://music.yandex.ru/playlists/1ccd74db-792b-4756-60f7-96b22f024a4e",
+      }),
+      undefined as never
+    );
+    expect(res.status).toBe(503);
+    const json = await res.json();
+    expect(json.error).toBe("yandex_geo_blocked");
   });
 
   it("rejects malformed JSON body", async () => {

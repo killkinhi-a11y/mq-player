@@ -1,0 +1,38 @@
+[
+  {
+    "url": "https://composio.dev",
+    "name": "Yandex MCP Integration with LlamaIndex",
+    "snippet": "Get Music Genres Tool to retrieve the list of music genres from Yandex Music. Get Playlists by Tag Tool to retrieve playlist IDs associated with a specific tag.",
+    "host_name": "composio.dev",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com",
+    "name": "GitHub - punkpeye/awesome-mcp-servers at viden.ai",
+    "snippet": "A collection of MCP servers. Free, no auth required . no auth required. Uses X's public syndication endpoint — no auth, no rate limits on curated data.",
+    "host_name": "github.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://pkg.go.dev",
+    "name": "awesome-starred command",
+    "snippet": "Aug 6, 2026 — A fast CSV command line toolkit written in Rust. A GitHub action that uses Yamale for YAML schema validation … 30 new text objects for Neovim.",
+    "host_name": "pkg.go.dev",
+    "rank": 2,
+    "date": "Aug 6, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.qnap.com",
+    "name": "TVS-473 | Package Contents",
+    "snippet": "Music Station. Play or share music via web browser; Supports streaming music to multiple devices. Supports changing album covers via Google search or by ... Read more",
+    "host_name": "www.qnap.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  }
+]

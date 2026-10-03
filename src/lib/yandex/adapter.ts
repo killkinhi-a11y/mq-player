@@ -289,6 +289,28 @@ export async function adapterPublicPlaylistTracks(
   return normalizePlaylistTracks(data);
 }
 
+/**
+ * Fetch a PUBLIC playlist by its UUID (new-player /playlist/{uuid} links) —
+ * tokenless playlist(playlist_uuid) path. Same no-credentials contract as
+ * adapterPublicPlaylistTracks.
+ */
+export async function adapterPublicPlaylistByUuid(
+  playlistUuid: string,
+  req?: NextRequest
+): Promise<YandexPlaylistTracks> {
+  const data = await callAdapter<{
+    kind: number;
+    uid: number | null;
+    title: string;
+    description: string;
+    cover_url: string;
+    owner_login: string;
+    track_count: number;
+    tracks: Array<Record<string, unknown>>;
+  }>(req, "public_playlist", { playlist_uuid: playlistUuid });
+  return normalizePlaylistTracks(data);
+}
+
 /** Shared snake_case → camelCase normalization for playlist payloads. */
 function normalizePlaylistTracks(data: {
   kind: number;

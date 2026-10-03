@@ -1,0 +1,563 @@
+{
+  "nodes": {
+    "ru": [
+      {
+        "node": "ru1.node.check-host.net",
+        "ip": "185.130.104.238",
+        "cc": "ru",
+        "country": "Russia",
+        "city": "Moscow",
+        "asn": "AS14576"
+      },
+      {
+        "node": "ru2.node.check-host.net",
+        "ip": "194.26.229.20",
+        "cc": "ru",
+        "country": "Russia",
+        "city": "Moscow",
+        "asn": "AS210644"
+      },
+      {
+        "node": "ru3.node.check-host.net",
+        "ip": "185.221.199.82",
+        "cc": "ru",
+        "country": "Russia",
+        "city": "Saint Petersburg",
+        "asn": "AS210644"
+      }
+    ],
+    "cis": [
+      {
+        "node": "kz1.node.check-host.net",
+        "ip": "185.120.77.165",
+        "cc": "kz",
+        "country": "Kazakhstan",
+        "city": "Karaganda",
+        "asn": "AS203087"
+      },
+      {
+        "node": "md1.node.check-host.net",
+        "ip": "178.17.171.235",
+        "cc": "md",
+        "country": "Moldova",
+        "city": "Chisinau",
+        "asn": "AS43289"
+      }
+    ],
+    "other_used": [
+      {
+        "node": "at1.node.check-host.net",
+        "ip": "185.224.3.111",
+        "cc": "at",
+        "country": "Austria",
+        "city": "Vienna",
+        "asn": "AS64457"
+      },
+      {
+        "node": "au1.node.check-host.net",
+        "ip": "103.125.218.226",
+        "cc": "au",
+        "country": "Australia",
+        "city": "Sydney",
+        "asn": "AS36007"
+      },
+      {
+        "node": "bg1.node.check-host.net",
+        "ip": "93.123.16.89",
+        "cc": "bg",
+        "country": "Bulgaria",
+        "city": "Sofia",
+        "asn": "AS9028"
+      },
+      {
+        "node": "br1.node.check-host.net",
+        "ip": "45.162.230.209",
+        "cc": "br",
+        "country": "Brazil",
+        "city": "Sao Paulo",
+        "asn": "AS268581"
+      }
+    ]
+  },
+  "targets": {
+    "T1_playlist_target": {
+      "url": "https://api.music.yandex.net/users/music.partners/playlists/1293",
+      "results": {
+        "at1.node.check-host.net": [
+          [
+            0,
+            0.207237958908081,
+            "Client Error (451)",
+            "451",
+            "87.250.250.246"
+          ]
+        ],
+        "au1.node.check-host.net": [
+          [
+            0,
+            1.57197308540344,
+            "Client Error (451)",
+            "451",
+            "87.250.250.246"
+          ]
+        ],
+        "bg1.node.check-host.net": [
+          [
+            0,
+            0.317046880722046,
+            "Client Error (451)",
+            "451",
+            "87.250.250.246"
+          ]
+        ],
+        "br1.node.check-host.net": [
+          [
+            0,
+            1.005047082901,
+            "Client Error (451)",
+            "451",
+            "87.250.250.246"
+          ]
+        ],
+        "kz1.node.check-host.net": [
+          [
+            1,
+            0.590723991394043,
+            "OK",
+            "200",
+            "87.250.250.246"
+          ]
+        ],
+        "md1.node.check-host.net": [
+          [
+            1,
+            0.393545150756836,
+            "OK",
+            "200",
+            "87.250.250.246"
+          ]
+        ],
+        "ru1.node.check-host.net": [
+          [
+            1,
+            0.155348062515259,
+            "OK",
+            "200",
+            "87.250.250.246"
+          ]
+        ],
+        "ru2.node.check-host.net": [
+          [
+            1,
+            0.203414916992188,
+            "OK",
+            "200",
+            "87.250.250.246"
+          ]
+        ],
+        "ru3.node.check-host.net": [
+          [
+            1,
+            0.220461130142212,
+            "OK",
+            "200",
+            "87.250.250.246"
+          ]
+        ]
+      }
+    },
+    "T2_genres_control": {
+      "url": "https://api.music.yandex.net/genres",
+      "results": {
+        "at1.node.check-host.net": [
+          [
+            1,
+            0.293787002563477,
+            "OK",
+            "200",
+            "87.250.250.246"
+          ]
+        ],
+        "au1.node.check-host.net": [
+          [
+            1,
+            1.98028588294983,
+            "OK",
+            "200",
+            "87.250.250.246"
+          ]
+        ],
+        "bg1.node.check-host.net": [
+          [
+            1,
+            0.42716383934021,
+            "OK",
+            "200",
+            "87.250.250.246"
+          ]
+        ],
+        "br1.node.check-host.net": [
+          [
+            1,
+            1.30326819419861,
+            "OK",
+            "200",
+            "87.250.250.246"
+          ]
+        ],
+        "kz1.node.check-host.net": [
+          [
+            1,
+            0.481903076171875,
+            "OK",
+            "200",
+            "87.250.250.246"
+          ]
+        ],
+        "md1.node.check-host.net": [
+          [
+            1,
+            0.307276964187622,
+            "OK",
+            "200",
+            "87.250.250.246"
+          ]
+        ],
+        "ru1.node.check-host.net": [
+          [
+            1,
+            0.0378620624542236,
+            "OK",
+            "200",
+            "87.250.250.246"
+          ]
+        ],
+        "ru2.node.check-host.net": [
+          [
+            1,
+            0.0306470394134521,
+            "OK",
+            "200",
+            "87.250.250.246"
+          ]
+        ],
+        "ru3.node.check-host.net": [
+          [
+            1,
+            0.1143639087677,
+            "OK",
+            "200",
+            "87.250.250.246"
+          ]
+        ]
+      }
+    },
+    "T3_dummy_uuid": {
+      "url": "https://api.music.yandex.net/playlist/00000000-0000-0000-0000-000000000000",
+      "results": {
+        "at1.node.check-host.net": [
+          [
+            0,
+            0.206827878952026,
+            "Client Error (451)",
+            "451",
+            "87.250.250.246"
+          ]
+        ],
+        "au1.node.check-host.net": [
+          [
+            0,
+            1.49044609069824,
+            "Client Error (451)",
+            "451",
+            "87.250.250.246"
+          ]
+        ],
+        "bg1.node.check-host.net": [
+          [
+            0,
+            0.30770206451416,
+            "Client Error (451)",
+            "451",
+            "87.250.250.246"
+          ]
+        ],
+        "br1.node.check-host.net": [
+          [
+            0,
+            0.973840951919556,
+            "Client Error (451)",
+            "451",
+            "87.250.250.246"
+          ]
+        ],
+        "kz1.node.check-host.net": [
+          [
+            0,
+            0.382070064544678,
+            "Not Found",
+            "404",
+            "87.250.250.246"
+          ]
+        ],
+        "md1.node.check-host.net": [
+          [
+            0,
+            0.194139957427979,
+            "Not Found",
+            "404",
+            "87.250.250.246"
+          ]
+        ],
+        "ru1.node.check-host.net": [
+          [
+            0,
+            0.0327920913696289,
+            "Not Found",
+            "404",
+            "87.250.250.246"
+          ]
+        ],
+        "ru2.node.check-host.net": [
+          [
+            0,
+            0.0362441539764404,
+            "Not Found",
+            "404",
+            "87.250.250.246"
+          ]
+        ],
+        "ru3.node.check-host.net": [
+          [
+            0,
+            0.0657260417938232,
+            "Not Found",
+            "404",
+            "87.250.250.246"
+          ]
+        ]
+      }
+    }
+  },
+  "raw": {
+    "T1_playlist_target": {
+      "request_id": "4eb0cd13ke34",
+      "start": {
+        "nodes": {
+          "at1.node.check-host.net": [
+            "at",
+            "Austria",
+            "Vienna",
+            "185.224.3.111",
+            "AS64457"
+          ],
+          "au1.node.check-host.net": [
+            "au",
+            "Australia",
+            "Sydney",
+            "103.125.218.226",
+            "AS36007"
+          ],
+          "bg1.node.check-host.net": [
+            "bg",
+            "Bulgaria",
+            "Sofia",
+            "93.123.16.89",
+            "AS9028"
+          ],
+          "br1.node.check-host.net": [
+            "br",
+            "Brazil",
+            "Sao Paulo",
+            "45.162.230.209",
+            "AS268581"
+          ],
+          "kz1.node.check-host.net": [
+            "kz",
+            "Kazakhstan",
+            "Karaganda",
+            "185.120.77.165",
+            "AS203087"
+          ],
+          "md1.node.check-host.net": [
+            "md",
+            "Moldova",
+            "Chisinau",
+            "178.17.171.235",
+            "AS43289"
+          ],
+          "ru1.node.check-host.net": [
+            "ru",
+            "Russia",
+            "Moscow",
+            "185.130.104.238",
+            "AS14576"
+          ],
+          "ru2.node.check-host.net": [
+            "ru",
+            "Russia",
+            "Moscow",
+            "194.26.229.20",
+            "AS210644"
+          ],
+          "ru3.node.check-host.net": [
+            "ru",
+            "Russia",
+            "Saint Petersburg",
+            "185.221.199.82",
+            "AS210644"
+          ]
+        },
+        "ok": 1,
+        "permanent_link": "https://check-host.net/check-report/4eb0cd13ke34",
+        "request_id": "4eb0cd13ke34"
+      }
+    },
+    "T2_genres_control": {
+      "request_id": "4eb0cf69k17f",
+      "start": {
+        "nodes": {
+          "at1.node.check-host.net": [
+            "at",
+            "Austria",
+            "Vienna",
+            "185.224.3.111",
+            "AS64457"
+          ],
+          "au1.node.check-host.net": [
+            "au",
+            "Australia",
+            "Sydney",
+            "103.125.218.226",
+            "AS36007"
+          ],
+          "bg1.node.check-host.net": [
+            "bg",
+            "Bulgaria",
+            "Sofia",
+            "93.123.16.89",
+            "AS9028"
+          ],
+          "br1.node.check-host.net": [
+            "br",
+            "Brazil",
+            "Sao Paulo",
+            "45.162.230.209",
+            "AS268581"
+          ],
+          "kz1.node.check-host.net": [
+            "kz",
+            "Kazakhstan",
+            "Karaganda",
+            "185.120.77.165",
+            "AS203087"
+          ],
+          "md1.node.check-host.net": [
+            "md",
+            "Moldova",
+            "Chisinau",
+            "178.17.171.235",
+            "AS43289"
+          ],
+          "ru1.node.check-host.net": [
+            "ru",
+            "Russia",
+            "Moscow",
+            "185.130.104.238",
+            "AS14576"
+          ],
+          "ru2.node.check-host.net": [
+            "ru",
+            "Russia",
+            "Moscow",
+            "194.26.229.20",
+            "AS210644"
+          ],
+          "ru3.node.check-host.net": [
+            "ru",
+            "Russia",
+            "Saint Petersburg",
+            "185.221.199.82",
+            "AS210644"
+          ]
+        },
+        "ok": 1,
+        "permanent_link": "https://check-host.net/check-report/4eb0cf69k17f",
+        "request_id": "4eb0cf69k17f"
+      }
+    },
+    "T3_dummy_uuid": {
+      "request_id": "4eb0d0e4k693",
+      "start": {
+        "nodes": {
+          "at1.node.check-host.net": [
+            "at",
+            "Austria",
+            "Vienna",
+            "185.224.3.111",
+            "AS64457"
+          ],
+          "au1.node.check-host.net": [
+            "au",
+            "Australia",
+            "Sydney",
+            "103.125.218.226",
+            "AS36007"
+          ],
+          "bg1.node.check-host.net": [
+            "bg",
+            "Bulgaria",
+            "Sofia",
+            "93.123.16.89",
+            "AS9028"
+          ],
+          "br1.node.check-host.net": [
+            "br",
+            "Brazil",
+            "Sao Paulo",
+            "45.162.230.209",
+            "AS268581"
+          ],
+          "kz1.node.check-host.net": [
+            "kz",
+            "Kazakhstan",
+            "Karaganda",
+            "185.120.77.165",
+            "AS203087"
+          ],
+          "md1.node.check-host.net": [
+            "md",
+            "Moldova",
+            "Chisinau",
+            "178.17.171.235",
+            "AS43289"
+          ],
+          "ru1.node.check-host.net": [
+            "ru",
+            "Russia",
+            "Moscow",
+            "185.130.104.238",
+            "AS14576"
+          ],
+          "ru2.node.check-host.net": [
+            "ru",
+            "Russia",
+            "Moscow",
+            "194.26.229.20",
+            "AS210644"
+          ],
+          "ru3.node.check-host.net": [
+            "ru",
+            "Russia",
+            "Saint Petersburg",
+            "185.221.199.82",
+            "AS210644"
+          ]
+        },
+        "ok": 1,
+        "permanent_link": "https://check-host.net/check-report/4eb0d0e4k693",
+        "request_id": "4eb0d0e4k693"
+      }
+    }
+  }
+}

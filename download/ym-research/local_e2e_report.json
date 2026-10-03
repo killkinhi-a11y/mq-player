@@ -1,0 +1,53 @@
+{
+  "test": "RELAY E2E — MQ production stack ↔ REAL yc-relay artifact (RU body replay)",
+  "date": "2026-10-03",
+  "setup": {
+    "mq_server": "next start :3462 (production build of main + UUID extensions)",
+    "relay": "REAL yc-relay handler (download/yc-relay/index.py) over plain HTTP; ONLY _upstream_get patched to replay the live RU-egress body (151 KB, 52 tracks, captured 200 OK from 62.182.159.194, Saint Petersburg)",
+    "protocol": "MQ's own adapter protocol: HMAC X-MQ-Timestamp (unix s) / X-MQ-Signature = hex(HMAC-SHA256(derived, \"{ts}.{body}\")), derived = HMAC-SHA256(JWT_SECRET, \"mq-yandex-adapter-v1\")",
+    "matcher": "REAL SoundCloud search via /api/yandex/public-playlist/match"
+  },
+  "cases": [
+    {
+      "name": "owner+kind form — the REAL task URL",
+      "request": "POST /api/yandex/public-playlist {url: https://music.yandex.ru/users/music.partners/playlists/1293}",
+      "result": "HTTP 200 in 60ms",
+      "playlist": { "title": "Лучшие новые песни 2015 года", "ownerLogin": "music.partners", "kind": 1293 },
+      "tracks": "52/52",
+      "first_track": { "artists": ["The Weeknd"], "title": "Earned It" },
+      "verdict": "PASS"
+    },
+    {
+      "name": "UUID form — new-player link",
+      "request": "POST {url: https://music.yandex.ru/playlist/1ccd74db-792b-4756-60f7-96b22f024a4e}",
+      "result": "HTTP 200 — 52 tracks, sourceUrl canonical /playlist/{uuid}",
+      "verdict": "PASS"
+    },
+    {
+      "name": "chunked matching — REAL SoundCloud",
+      "request": "POST /api/yandex/public-playlist/match with the first 6 Yandex tracks",
+      "result": "HTTP 200 — 5/6 matched by the existing matching engine",
+      "verdict": "PASS"
+    },
+    {
+      "name": "relay credential/URL audit",
+      "request": "full relay request log scan",
+      "result": "0 SECURITY-VIOLATION lines; bodies contain ONLY structured params ({action, user_id, kind} / {action, playlist_uuid}); zero Authorization/Cookie headers; zero URLs relayed",
+      "verdict": "PASS"
+    }
+  ],
+  "verdict": "PASS — 4/4: the exact Yandex Cloud relay artifact is protocol- and data-compatible with the MQ production stack",
+  "regression_context": {
+    "their_public_import_e2e": "ALL CHECKS PASS (23 checks: happy path, private/geo/empty/invalid errors, zero auth calls, V10.4.1 invariants, mobile)",
+    "vitest": "806/806",
+    "adapter_selftests": "82/82 (incl. 6 new UUID checks)",
+    "relay_protocol_tests": "all PASS (HMAC, replay window, action surface, param validation, live-body data contract)",
+    "tsc": "18 pre-existing (0 new)",
+    "build": "Compiled successfully"
+  },
+  "production_enablement": [
+    "1. Deploy the relay: yc CLI commands in download/yc-relay/DEPLOY.md (ru-central1, env JWT_SECRET = MQ's Vercel JWT_SECRET)",
+    "2. Set YANDEX_ADAPTER_URL = https://functions.yandexcloud.net/<folder>/<function> in Vercel env → redeploy",
+    "No other code changes needed — the public flow already routes through YANDEX_ADAPTER_URL when set."
+  ]
+}

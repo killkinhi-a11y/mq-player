@@ -1,0 +1,20 @@
+[
+  {
+    "url": "https://github.com",
+    "name": "yandex_music.exceptions.BadRequest · Issue #20",
+    "snippet": "Aug 8, 2020 — Could you send playlist link, please? Import of such tracks are not supported. Fix handling of empty playlistsMarshalX/ yandex2spotify",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "Aug 8, 2020",
+    "favicon": ""
+  },
+  {
+    "url": "https://blog.csdn.net",
+    "name": "Spotify项目总结",
+    "snippet": "May 19, 2026 — 这篇博客总结一下我简历上第一个项目------Spotify。 Serverless. 这里我用腾讯云部署了网易云API。 Read more",
+    "host_name": "blog.csdn.net",
+    "rank": 1,
+    "date": "May 19, 2026",
+    "favicon": ""
+  }
+]

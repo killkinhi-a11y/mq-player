@@ -25,7 +25,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
-import { adapterPublicPlaylistTracks } from "@/lib/yandex/adapter";
+import { adapterPublicPlaylistTracks, adapterPublicPlaylistByUuid } from "@/lib/yandex/adapter";
 import { parseYandexPlaylistUrl } from "@/lib/yandex/public-url";
 import { PUBLIC_MAX_TRACKS } from "@/lib/yandex/public-import";
 import { yandexErrorResponse } from "@/lib/yandex/route-helpers";
@@ -63,13 +63,16 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
         {
           error: "bad_request",
           message:
-            "Неподдерживаемая ссылка. Ожидается публичная ссылка Яндекс.Музыки вида https://music.yandex.ru/users/имя/playlists/номер",
+            "Неподдерживаемая ссылка. Ожидается публичная ссылка Яндекс.Музыки вида https://music.yandex.ru/users/имя/playlists/номер или /playlist/идентификатор",
         },
         { status: 400 }
       );
     }
 
-    const fetched = await adapterPublicPlaylistTracks(parsed.ownerLogin, parsed.kind, req);
+    // Tokenless public fetch — owner+kind (classic links) or UUID (new player).
+    const fetched = parsed.playlistUuid
+      ? await adapterPublicPlaylistByUuid(parsed.playlistUuid, req)
+      : await adapterPublicPlaylistTracks(parsed.ownerLogin!, parsed.kind!, req);
 
     if (!fetched.tracks || fetched.tracks.length === 0) {
       return NextResponse.json(
@@ -81,8 +84,8 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
     const capped = fetched.tracks.slice(0, PUBLIC_MAX_TRACKS);
     return NextResponse.json({
       playlist: {
-        title: fetched.title || `Плейлист ${parsed.kind}`,
-        ownerLogin: fetched.ownerLogin || parsed.ownerLogin,
+        title: fetched.title || `Плейлист ${parsed.kind ?? parsed.playlistUuid}`,
+        ownerLogin: fetched.ownerLogin || parsed.ownerLogin || "",
         coverUrl: fetched.coverUrl || "",
         description: (fetched.description || "").slice(0, 300),
         kind: fetched.kind ?? parsed.kind,

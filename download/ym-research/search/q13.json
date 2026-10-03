@@ -1,0 +1,11 @@
+[
+  {
+    "url": "https://github.com",
+    "name": "transfer.py - miroslav-kungurov/yandex-music-to-spotify",
+    "snippet": "# Это нужно для метода playlist_add_items(), принимающего в качестве второго аргумента список. return track_id[' tracks ']['items'][0]['id'] ... Read more",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  }
+]

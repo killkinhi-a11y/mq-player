@@ -1,0 +1,56 @@
+[
+  {
+    "url": "https://huggingface.co",
+    "name": "README.md · lab260/Balalaika1000H at refs/pr/1",
+    "snippet": "Jul 22, 2025 — The processing scripts (punctuation, accents) should be run sequentially. You'll need: Yandex Music API key (How to get one); Hugging Face token ... Read more",
+    "host_name": "huggingface.co",
+    "rank": 0,
+    "date": "Jul 22, 2025",
+    "favicon": ""
+  },
+  {
+    "url": "https://gist.github.com",
+    "name": "dns - Gist - GitHub",
+    "snippet": "Select an option · Embed Embed this gist in your website. · Share Copy sharable link for this gist. · Clone via HTTPS Clone using the web URL. Read more",
+    "host_name": "gist.github.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://pkg.go.dev",
+    "name": "schema package - github.com/oklookat/goym",
+    "snippet": "Aug 5, 2023 — Learn and network with Go developers from around the world Go blog ( ApiUrl = \"https:// api . music . yandex .net\" ) жно обновить access token .",
+    "host_name": "pkg.go.dev",
+    "rank": 2,
+    "date": "Aug 5, 2023",
+    "favicon": ""
+  },
+  {
+    "url": "https://dl.acm.org",
+    "name": "Standardizing and Democratizing Access to Web APIs",
+    "snippet": "by T Alrashed · 2021 · Cited by 7 — This enables programmers to access data without learning the details of each API , and indeed allows them to use the same unchanged code for multiple web sites. Read more",
+    "host_name": "dl.acm.org",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.pulsemcp.com",
+    "name": "MCP Server Directory: 22070+ updated daily",
+    "snippet": "A daily-updated directory of all Model Context Protocol (MCP) servers available on the internet. Connect your AI apps to external data sources and services.",
+    "host_name": "www.pulsemcp.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.scribd.com",
+    "name": "Lavalink Server Configuration Guide | PDF",
+    "snippet": "The document outlines the configuration settings for a server that supports REST and WebSocket connections, including port and address settings. Read more",
+    "host_name": "www.scribd.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  }
+]
