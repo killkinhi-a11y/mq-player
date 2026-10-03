@@ -77,6 +77,21 @@ yandex_proxy_error code (never confused with Yandex downtime). The URL may
 embed credentials — it is read server-side only, never logged, never
 returned to clients (probe exposes only proxy_configured: true/false).
 
+Built-in RU/CIS egress chain (zero-config fallback)
+----------------------------------------------------
+When YANDEX_PROXY_URL is NOT set, the tokenless public_playlist action
+routes through a small built-in chain of PUBLIC no-credentials HTTP CONNECT
+relays with RU/CIS egress (canary-verified against Yandex's 451 content
+fence). Candidates are tried in order starting from the last known-good one
+(warm-start sticky); a dead/slow/fenced candidate fails over to the next.
+Real Yandex answers (404/400/429/401) fail fast. This makes the public URL
+import work out of the box from any Vercel region with zero configuration
+and ZERO Yandex credentials (the relay only ever makes anonymous GETs).
+Operator upgrade paths, both still one step each and BOTH override the
+chain completely: set YANDEX_PROXY_URL (private RU/CIS proxy) or wire
+YANDEX_ADAPTER_URL to a RU relay (download/yc-relay — HMAC-protocol
+identical, native RU egress).
+
 Local development
 -----------------
 Run standalone (same handler class as on Vercel):
@@ -145,6 +160,32 @@ PROXY_ENV = "YANDEX_PROXY_URL"
 MAX_PROXY_URL_LEN = 512
 ALLOWED_PROXY_SCHEMES = ("http", "https", "socks5", "socks5h", "socks4")
 
+# Built-in RU/CIS egress chain — the ZERO-CONFIG fallback used ONLY when
+# YANDEX_PROXY_URL is unset (and only for the tokenless public_playlist
+# action). Public no-credentials HTTP CONNECT relays, canary-verified against
+# Yandex's 451 content fence on 2026-10-03: each returned HTTP 200 + the real
+# playlist JSON for music.partners/1293 from non-RU hosting. The operator's
+# env var ALWAYS wins (validated, single proxy, byte-identical legacy path);
+# wiring YANDEX_ADAPTER_URL to a RU relay (download/yc-relay) bypasses this
+# adapter entirely. No credentials are involved anywhere in the chain.
+DEFAULT_EGRESS_PROXIES: Tuple[str, ...] = (
+    "http://193.37.71.46:10808",
+    "http://195.19.217.200:3128",
+    "http://194.186.246.22:8888",
+)
+# Public relays are slower than a private VPS proxy, and the library default
+# is only 5 s per request — raise the per-request budget for chain attempts.
+EGRESS_CHAIN_TIMEOUT_S = 15
+# Codes that mean "this CANDIDATE failed", not "Yandex answered": dead relay
+# (proxy_error), network trouble (unavailable), per-request timeout, or the
+# 451 fence (the relay stopped counting as RU egress). Real Yandex answers
+# (not found / bad request / rate limit / unauthorized) fail fast — retrying
+# them through another egress would only duplicate the same verdict.
+EGRESS_RETRYABLE_CODES = ("yandex_proxy_error", "yandex_unavailable", "yandex_timeout", "yandex_geo_blocked")
+# Module-level sticky index of the last working candidate (survives warm
+# starts) so subsequent invocations try the known-good relay first.
+_default_egress_index = 0
+
 # ── HMAC helpers (must mirror src/lib/yandex/adapter.ts exactly) ─────────────
 
 
@@ -204,16 +245,8 @@ def _raw_proxy_url() -> str:
     return (os.environ.get(PROXY_ENV) or "").strip()
 
 
-def _proxy_url() -> Optional[str]:
-    """Validated YANDEX_PROXY_URL or None.
-
-    Raises AdapterError(yandex_proxy_error) on malformed configuration so the
-    operator gets a distinct, actionable code instead of generic Yandex
-    downtime. Never logs or returns the URL itself (it may embed credentials).
-    """
-    raw = _raw_proxy_url()
-    if not raw:
-        return None
+def _validated_proxy_url(raw: str) -> str:
+    """Validate a proxy URL (scheme allowlist + real host). Raises on bad input."""
     if len(raw) > MAX_PROXY_URL_LEN:
         raise AdapterError("yandex_proxy_error", PROXY_BAD_CONFIG_MESSAGE, 503)
     try:
@@ -225,6 +258,19 @@ def _proxy_url() -> Optional[str]:
     if parts.scheme.lower() not in ALLOWED_PROXY_SCHEMES or not parts.hostname:
         raise AdapterError("yandex_proxy_error", PROXY_BAD_CONFIG_MESSAGE, 503)
     return raw
+
+
+def _proxy_url() -> Optional[str]:
+    """Validated YANDEX_PROXY_URL or None.
+
+    Raises AdapterError(yandex_proxy_error) on malformed configuration so the
+    operator gets a distinct, actionable code instead of generic Yandex
+    downtime. Never logs or returns the URL itself (it may embed credentials).
+    """
+    raw = _raw_proxy_url()
+    if not raw:
+        return None
+    return _validated_proxy_url(raw)
 
 
 def _map_yandex_error(exc: Exception) -> AdapterError:
@@ -281,7 +327,7 @@ def _map_yandex_error(exc: Exception) -> AdapterError:
     return AdapterError("yandex_error", "Ошибка обращения к Яндекс.Музыке. Попробуйте позже.", 502)
 
 
-def _client(token: Optional[str] = None) -> Client:
+def _client(token: Optional[str] = None, proxy_url: Optional[str] = None, timeout: Optional[float] = None) -> Client:
     """Build a Client. For authorized actions pass the token.
 
     When YANDEX_PROXY_URL is configured, the client's Request is constructed
@@ -290,13 +336,17 @@ def _client(token: Optional[str] = None) -> Client:
     ALL Yandex traffic traverses the proxy without any monkey-patching.
     Malformed proxy config raises AdapterError(yandex_proxy_error) before
     the first network call.
+
+    An explicit ``proxy_url`` (the built-in default egress chain) overrides
+    the env var for this client and pairs with ``timeout``; the default
+    ``None``/``None`` keeps the legacy env-driven path byte-identical.
     """
-    proxy = _proxy_url()  # None when unset; raises on malformed config
+    proxy = _validated_proxy_url(proxy_url) if proxy_url is not None else _proxy_url()  # None when unset; raises on malformed config
     try:
         if proxy:
             from yandex_music.utils.request import Request as _YmRequest
 
-            requester = _YmRequest(proxy_url=proxy)
+            requester = _YmRequest(proxy_url=proxy, timeout=timeout) if timeout is not None else _YmRequest(proxy_url=proxy)
             if token:
                 return Client(token, request=requester)
             return Client(request=requester)
@@ -307,6 +357,52 @@ def _client(token: Optional[str] = None) -> Client:
         raise
     except Exception as exc:  # pragma: no cover — Client() ctor is trivial
         raise _map_yandex_error(exc) from exc
+
+
+def _run_public_with_default_egress(fetch):
+    """Run the tokenless public fetch through the built-in RU/CIS egress chain.
+
+    ``fetch(proxy_url, timeout)`` performs the real network work with the
+    Client built from the given candidate. Behaviour matrix:
+
+    - YANDEX_PROXY_URL set  -> exactly one call ``fetch(None, None)`` — the
+      operator's proxy is used by ``_client`` via the env path (legacy
+      behaviour, no failover, byte-identical error mapping).
+    - env unset             -> try the built-in candidates in order, starting
+      from the last known-good one (warm-start sticky). Candidate failures
+      with egress-retryable codes (dead relay / network / timeout / 451)
+      move on to the next candidate; REAL Yandex answers (404 / 400 / 429 /
+      401) fail fast. On full exhaustion the last verdict is raised, with
+      generic network codes re-mapped to yandex_proxy_error (our egress
+      relays are down, not Yandex itself); an all-451 exhaustion keeps the
+      honest yandex_geo_blocked verdict.
+    """
+    if _raw_proxy_url():
+        return fetch(None, None)
+
+    global _default_egress_index
+    last_error: Optional[AdapterError] = None
+    for offset in range(len(DEFAULT_EGRESS_PROXIES)):
+        idx = (_default_egress_index + offset) % len(DEFAULT_EGRESS_PROXIES)
+        candidate = DEFAULT_EGRESS_PROXIES[idx]
+        try:
+            result = fetch(candidate, EGRESS_CHAIN_TIMEOUT_S)
+            _default_egress_index = idx  # sticky: warm starts reuse the good relay
+            return result
+        except AdapterError as exc:
+            if exc.code not in EGRESS_RETRYABLE_CODES:
+                raise
+            last_error = exc
+            sys.stderr.write(
+                "[%s] default egress candidate #%d failed: %s\n" % (SERVICE_NAME, idx, exc.code)
+            )
+    if last_error is not None:
+        if last_error.code in ("yandex_unavailable", "yandex_timeout"):
+            # All candidates exhausted with network trouble — this is OUR
+            # egress chain being down, not Yandex downtime.
+            raise AdapterError("yandex_proxy_error", PROXY_UNREACHABLE_MESSAGE, 503)
+        raise last_error
+    raise AdapterError("yandex_unavailable", "Яндекс.Музыка временно недоступна. Попробуйте позже.", 503)
 
 
 def _cover_url(playlist: Any) -> str:
@@ -333,6 +429,10 @@ def action_probe() -> Dict[str, Any]:
         "yandex_music": getattr(yandex_music, "__version__", "3.0.0"),
         # Presence only — the URL itself (possible credentials) never leaves.
         "proxy_configured": _raw_proxy_url() != "",
+        # The built-in RU/CIS egress chain (public_playlist, zero-config
+        # fallback) is active exactly when the operator has NOT configured a
+        # private proxy. Honest flag for E2E verification; leaks no hosts.
+        "default_egress_active": _raw_proxy_url() == "" and len(DEFAULT_EGRESS_PROXIES) > 0,
     }
 
 
@@ -487,8 +587,15 @@ def action_playlist_tracks(payload: Dict[str, Any]) -> Dict[str, Any]:
         # Pagination: big playlists come back paged. The library forwards
         # `params` to the underlying GET request (documented **kwargs
         # passthrough of users_playlists) and exposes `playlist.pager`.
+        # FACT (verified 2026-10-03, music.partners/1293): pager.total counts
+        # ALL track slots — including deleted/unavailable ones — while
+        # `tracks` carries only the available ones, and the endpoint IGNORES
+        # the page param (identical response for ?page=1/2). Extending with a
+        # re-fetched page would duplicate every track, so pages only append
+        # shorts whose (id, album_id) key is NEW.
         pager = getattr(playlist, "pager", None)
         if pager is not None and pager.total and pager.total > len(shorts):
+            seen_keys = {_short_key(s) for s in shorts}
             page = 1
             while len(shorts) < pager.total and page < MAX_PLAYLIST_PAGES:
                 try:
@@ -500,7 +607,11 @@ def action_playlist_tracks(payload: Dict[str, Any]) -> Dict[str, Any]:
                     break
                 if extra_pl is None or not extra_pl.tracks:
                     break
-                shorts.extend(extra_pl.tracks)
+                fresh = [t for t in extra_pl.tracks if _short_key(t) not in seen_keys]
+                if not fresh:
+                    break  # the page returned nothing new — paging is a no-op here
+                shorts.extend(fresh)
+                seen_keys.update(_short_key(t) for t in fresh)
                 page += 1
 
         full_by_key = _fetch_full_tracks(client, shorts)
@@ -572,84 +683,94 @@ def action_public_playlist(payload: Dict[str, Any]) -> Dict[str, Any]:
         if kind is None or str(kind).strip() == "" or not str(kind).isdigit() or int(str(kind)) <= 0:
             raise AdapterError("bad_request", "Некорректный идентификатор плейлиста.", 400)
 
-    client = _client()  # tokenless — public access, no OAuth, no cookies
+    def _fetch(proxy_url: Optional[str], timeout: Optional[float]) -> Dict[str, Any]:
+        client = _client(proxy_url=proxy_url, timeout=timeout)  # tokenless — public access, no OAuth, no cookies
+        import yandex_music.utils.request_base as _request_base
 
-    # Apply the public User-Agent for this action only (restored afterwards).
-    import yandex_music.utils.request_base as _request_base
+        previous_ua = _request_base.USER_AGENT
+        try:
+            _request_base.USER_AGENT = PUBLIC_USER_AGENT
+            if by_uuid:
+                playlist = client.playlist(playlist_uuid)
+            else:
+                playlist = client.users_playlists(int(str(kind)), user_id=user_id)
+            if playlist is None:
+                raise AdapterError(
+                    "yandex_not_found",
+                    "Плейлист не найден. Проверьте ссылку — плейлист может быть приватным или удалённым.",
+                    404,
+                )
 
-    previous_ua = _request_base.USER_AGENT
-    try:
-        _request_base.USER_AGENT = PUBLIC_USER_AGENT
-        if by_uuid:
-            playlist = client.playlist(playlist_uuid)
-        else:
-            playlist = client.users_playlists(int(str(kind)), user_id=user_id)
-        if playlist is None:
-            raise AdapterError(
-                "yandex_not_found",
-                "Плейлист не найден. Проверьте ссылку — плейлист может быть приватным или удалённым.",
-                404,
-            )
+            shorts: List[Any] = list(playlist.tracks or [])
 
-        shorts: List[Any] = list(playlist.tracks or [])
+            # Same pagination contract as playlist_tracks (owner+kind form only:
+            # the /playlist/{uuid} endpoint returns the full snapshot at once).
+            # pager.total counts deleted/unavailable slots too and the endpoint
+            # ignores ?page= (verified factually) — pages only append NEW keys.
+            pager = getattr(playlist, "pager", None)
+            if pager is not None and pager.total and pager.total > len(shorts) and not by_uuid:
+                seen_keys = {_short_key(s) for s in shorts}
+                page = 1
+                while len(shorts) < pager.total and page < MAX_PLAYLIST_PAGES:
+                    try:
+                        extra_pl = client.users_playlists(
+                            int(str(kind)), user_id=user_id, params={"page": page, "pagePageSize": PLAYLIST_PAGE_SIZE}
+                        )
+                    except Exception as exc:
+                        logging.warning("public playlist page %s fetch failed: %s", page, _map_yandex_error(exc).code)
+                        break
+                    if extra_pl is None or not extra_pl.tracks:
+                        break
+                    fresh = [t for t in extra_pl.tracks if _short_key(t) not in seen_keys]
+                    if not fresh:
+                        break  # page returned nothing new — paging is a no-op here
+                    shorts.extend(fresh)
+                    seen_keys.update(_short_key(t) for t in fresh)
+                    page += 1
 
-        # Same pagination contract as playlist_tracks (owner+kind form only:
-        # the /playlist/{uuid} endpoint returns the full snapshot at once).
-        pager = getattr(playlist, "pager", None)
-        if pager is not None and pager.total and pager.total > len(shorts) and not by_uuid:
-            page = 1
-            while len(shorts) < pager.total and page < MAX_PLAYLIST_PAGES:
-                try:
-                    extra_pl = client.users_playlists(
-                        int(str(kind)), user_id=user_id, params={"page": page, "pagePageSize": PLAYLIST_PAGE_SIZE}
-                    )
-                except Exception as exc:
-                    logging.warning("public playlist page %s fetch failed: %s", page, _map_yandex_error(exc).code)
-                    break
-                if extra_pl is None or not extra_pl.tracks:
-                    break
-                shorts.extend(extra_pl.tracks)
-                page += 1
+            full_by_key = _fetch_full_tracks(client, shorts)
 
-        full_by_key = _fetch_full_tracks(client, shorts)
+            tracks: List[Dict[str, Any]] = []
+            for idx, s in enumerate(shorts):
+                full = full_by_key.get(_short_key(s))
+                if full is None:
+                    embedded = getattr(s, "track", None)
+                    if embedded is not None:
+                        full = _full_track_dict(embedded)
+                tracks.append(
+                    {
+                        "position": idx,
+                        "track_id": str(s.id),
+                        "album_id": str(s.album_id) if getattr(s, "album_id", None) else None,
+                        "title": (full or {}).get("title") or "",
+                        "artists": (full or {}).get("artists") or [],
+                        "album_title": (full or {}).get("album_title") or "",
+                        "album_id_full": (full or {}).get("album_id_full"),
+                        "duration_ms": (full or {}).get("duration_ms") or 0,
+                        "available": (full or {}).get("available", True),
+                    }
+                )
 
-        tracks: List[Dict[str, Any]] = []
-        for idx, s in enumerate(shorts):
-            full = full_by_key.get(_short_key(s))
-            if full is None:
-                embedded = getattr(s, "track", None)
-                if embedded is not None:
-                    full = _full_track_dict(embedded)
-            tracks.append(
-                {
-                    "position": idx,
-                    "track_id": str(s.id),
-                    "album_id": str(s.album_id) if getattr(s, "album_id", None) else None,
-                    "title": (full or {}).get("title") or "",
-                    "artists": (full or {}).get("artists") or [],
-                    "album_title": (full or {}).get("album_title") or "",
-                    "album_id_full": (full or {}).get("album_id_full"),
-                    "duration_ms": (full or {}).get("duration_ms") or 0,
-                    "available": (full or {}).get("available", True),
-                }
-            )
+            return {
+                "kind": playlist.kind,
+                "uid": playlist.uid,
+                "title": playlist.title or "",
+                "description": playlist.description or "",
+                "cover_url": _cover_url(playlist),
+                "owner_login": _owner_login(playlist),
+                "track_count": playlist.track_count or len(tracks),
+                "tracks": tracks,
+            }
+        except AdapterError:
+            raise
+        except Exception as exc:
+            raise _map_yandex_error(exc) from exc
+        finally:
+            _request_base.USER_AGENT = previous_ua
 
-        return {
-            "kind": playlist.kind,
-            "uid": playlist.uid,
-            "title": playlist.title or "",
-            "description": playlist.description or "",
-            "cover_url": _cover_url(playlist),
-            "owner_login": _owner_login(playlist),
-            "track_count": playlist.track_count or len(tracks),
-            "tracks": tracks,
-        }
-    except AdapterError:
-        raise
-    except Exception as exc:
-        raise _map_yandex_error(exc) from exc
-    finally:
-        _request_base.USER_AGENT = previous_ua
+    # Zero-config RU/CIS egress chain when YANDEX_PROXY_URL is unset; the
+    # operator-configured env var keeps the exact legacy single-proxy path.
+    return _run_public_with_default_egress(_fetch)
 
 
 # ── Action dispatch ──────────────────────────────────────────────────────────

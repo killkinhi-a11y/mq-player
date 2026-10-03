@@ -165,6 +165,14 @@ class FakePlaylist:
         self.modified = ""
         self.collective = False
         self.is_banner = kw.get("is_banner", False)
+        self.pager = kw.get("pager", None)
+
+
+class FakePager:
+    def __init__(self, total):
+        self.total = total
+        self.page = 0
+        self.per_page = total
 
 
 class FakeArtist:
@@ -234,7 +242,7 @@ def test_playlist_mapping() -> None:
     ]
     client = FakeClient(playlists=pls)
     orig = adapter._client
-    adapter._client = lambda token=None: client
+    adapter._client = lambda token=None, proxy_url=None, timeout=None: client
     try:
         result = adapter.action_playlists_list({"token": "tok"})
         names = [p["title"] for p in result["playlists"]]
@@ -261,7 +269,7 @@ def test_playlist_tracks_mapping() -> None:
     full_b = FakeTrack(id="222", title="Beta", artists=[FakeArtist("B1"), FakeArtist("B2")], albums=[FakeAlbum(555, "Album")])
     client = FakeClient(detail=detail, tracks=[full_a, full_b])
     orig = adapter._client
-    adapter._client = lambda token=None: client
+    adapter._client = lambda token=None, proxy_url=None, timeout=None: client
     try:
         result = adapter.action_playlist_tracks({"token": "tok", "kind": 1001})
         check("kind/title passthrough", result["kind"] == 1001 and result["title"] == "Road")
@@ -294,7 +302,7 @@ def test_public_playlist_action() -> None:
     full = FakeTrack(id="111", title="Alpha", artists=[FakeArtist("A1")], albums=[FakeAlbum(555, "Album")])
     client = RecordingClient(detail=detail, tracks=[full])
     orig_client = adapter._client
-    adapter._client = lambda token=None: client
+    adapter._client = lambda token=None, proxy_url=None, timeout=None: client
     try:
         result = adapter.action_public_playlist({"user_id": "music.partners", "kind": 1293})
         check("user_id passed through", calls["user_ids"][0] == "music.partners")
@@ -321,7 +329,7 @@ def test_public_playlist_action() -> None:
         def users_playlists(self, kind, user_id=None, **kwargs):
             return None
 
-    adapter._client = lambda token=None: NoneClient()
+    adapter._client = lambda token=None, proxy_url=None, timeout=None: NoneClient()
     try:
         try:
             adapter.action_public_playlist({"user_id": "u", "kind": 5})
@@ -350,7 +358,7 @@ def test_public_playlist_action() -> None:
             check(f"bad input rejected ({label})", e.code == "bad_request" and e.status == 400)
 
     # ── string kind from JSON is coerced ──
-    adapter._client = lambda token=None: RecordingClient(detail=detail)
+    adapter._client = lambda token=None, proxy_url=None, timeout=None: RecordingClient(detail=detail)
     try:
         result = adapter.action_public_playlist({"user_id": "music.partners", "kind": "1293"})
         check("string kind coerced to int", result["kind"] == 1293)
@@ -370,7 +378,7 @@ def test_public_playlist_action() -> None:
     detail2 = FakePlaylist(kind=1293, title="По UUID", track_count=1, tracks=[short2])
     full2 = FakeTrack(id="222", title="Beta", artists=[FakeArtist("B1")], albums=[FakeAlbum(556, "Album2")])
     uclient = UuidRecordingClient(detail=detail2, tracks=[full2])
-    adapter._client = lambda token=None: uclient
+    adapter._client = lambda token=None, proxy_url=None, timeout=None: uclient
     try:
         result = adapter.action_public_playlist(
             {"playlist_uuid": "1CCD74DB-792B-4756-60F7-96B22F024A4E"}
@@ -400,7 +408,7 @@ def test_account_action() -> None:
     print("account action:")
     client = FakeClient()
     orig = adapter._client
-    adapter._client = lambda token=None: client
+    adapter._client = lambda token=None, proxy_url=None, timeout=None: client
     try:
         result = adapter.action_account({"token": "tok"})
         check(
@@ -521,6 +529,228 @@ def test_proxy_support() -> None:
             os.environ["YANDEX_PROXY_URL"] = saved
 
 
+def test_default_egress_chain() -> None:
+    """Built-in RU/CIS egress chain: constants, wiring, failover, stickiness, probe."""
+    print("default egress chain (zero-config RU/CIS fallback):")
+    from urllib.parse import urlsplit
+
+    saved = os.environ.get("YANDEX_PROXY_URL")
+    saved_idx = adapter._default_egress_index
+    try:
+        # ── every built-in candidate is a valid, credential-free URL ──
+        check("chain is non-empty", len(adapter.DEFAULT_EGRESS_PROXIES) > 0)
+        for cand in adapter.DEFAULT_EGRESS_PROXIES:
+            parts = urlsplit(adapter._validated_proxy_url(cand))
+            ok_url = parts.scheme == "http" and parts.hostname and parts.port and parts.username is None
+            check(f"candidate valid + no credentials ({parts.hostname})", ok_url)
+
+        # ── explicit candidate wires proxies AND the raised timeout ──
+        os.environ.pop("YANDEX_PROXY_URL", None)
+        c = adapter._client(proxy_url=adapter.DEFAULT_EGRESS_PROXIES[0], timeout=adapter.EGRESS_CHAIN_TIMEOUT_S)
+        check(
+            "chain client carries proxies + raised timeout",
+            c._request.proxies == {"http": adapter.DEFAULT_EGRESS_PROXIES[0], "https": adapter.DEFAULT_EGRESS_PROXIES[0]}
+            and c._request._timeout == adapter.EGRESS_CHAIN_TIMEOUT_S,
+        )
+        c2 = adapter._client()  # legacy signature untouched
+        check("legacy _client() stays proxy-free when env unset", c2._request.proxies is None)
+
+        # ── env set -> wrapper is a strict no-op passthrough ──
+        os.environ["YANDEX_PROXY_URL"] = "http://ru.example:8080"
+        calls = []
+
+        def fetch_env(proxy_url, timeout):
+            calls.append((proxy_url, timeout))
+            return {"ok": True}
+
+        adapter._run_public_with_default_egress(fetch_env)
+        check("env set -> exactly one fetch(None, None)", calls == [(None, None)])
+
+        # ── env unset -> failover across candidates, sticky success ──
+        os.environ.pop("YANDEX_PROXY_URL", None)
+        adapter._default_egress_index = 0
+        attempts = []
+
+        def fetch_fail_geo(proxy_url, timeout):
+            attempts.append(proxy_url)
+            if proxy_url == adapter.DEFAULT_EGRESS_PROXIES[0]:
+                raise adapter.AdapterError("yandex_geo_blocked", "fence", 503)
+            return {"data": "via-candidate-2"}
+
+        result = adapter._run_public_with_default_egress(fetch_fail_geo)
+        check("451 on #1 -> failover to #2 succeeds", result == {"data": "via-candidate-2"} and len(attempts) == 2)
+        check("sticky index points at the good candidate", adapter._default_egress_index == 1)
+
+        # next call starts from the sticky candidate
+        attempts.clear()
+
+        def fetch_ok(proxy_url, timeout):
+            attempts.append(proxy_url)
+            return {"ok": True}
+
+        adapter._run_public_with_default_egress(fetch_ok)
+        check("warm start reuses the sticky candidate first", attempts[0] == adapter.DEFAULT_EGRESS_PROXIES[1])
+
+        # ── real Yandex answers fail fast (no retry through another egress) ──
+        attempts.clear()
+
+        def fetch_not_found(proxy_url, timeout):
+            attempts.append(proxy_url)
+            raise adapter.AdapterError("yandex_not_found", "nf", 404)
+
+        try:
+            adapter._run_public_with_default_egress(fetch_not_found)
+            check("404 fails fast", False)
+        except adapter.AdapterError as e:
+            check("404 fails fast", e.code == "yandex_not_found" and len(attempts) == 1)
+
+        # ── full network exhaustion -> yandex_proxy_error (our egress down) ──
+        def fetch_all_dead(proxy_url, timeout):
+            raise adapter.AdapterError("yandex_unavailable", "down", 503)
+
+        try:
+            adapter._run_public_with_default_egress(fetch_all_dead)
+            check("all candidates dead -> yandex_proxy_error", False)
+        except adapter.AdapterError as e:
+            check(
+                "all candidates dead -> yandex_proxy_error",
+                e.code == "yandex_proxy_error" and e.status == 503,
+            )
+
+        def fetch_all_timeout(proxy_url, timeout):
+            raise adapter.AdapterError("yandex_timeout", "t", 504)
+
+        try:
+            adapter._run_public_with_default_egress(fetch_all_timeout)
+            check("all candidates timeout -> yandex_proxy_error", False)
+        except adapter.AdapterError as e:
+            check("all candidates timeout -> yandex_proxy_error", e.code == "yandex_proxy_error")
+
+        # ── all-451 exhaustion keeps the honest geo verdict ──
+        def fetch_all_geo(proxy_url, timeout):
+            raise adapter.AdapterError("yandex_geo_blocked", "fence", 503)
+
+        try:
+            adapter._run_public_with_default_egress(fetch_all_geo)
+            check("all candidates 451 -> honest yandex_geo_blocked", False)
+        except adapter.AdapterError as e:
+            check("all candidates 451 -> honest yandex_geo_blocked", e.code == "yandex_geo_blocked")
+
+        # ── probe honesty ──
+        probe = adapter.action_probe()
+        check("probe: default_egress_active True when env unset", probe["default_egress_active"] is True)
+        check(
+            "probe leaks no chain hosts",
+            all(cand.split("//", 1)[1] not in json.dumps(probe) for cand in adapter.DEFAULT_EGRESS_PROXIES),
+        )
+        os.environ["YANDEX_PROXY_URL"] = "http://ru.example:8080"
+        probe2 = adapter.action_probe()
+        check(
+            "probe: default_egress_active False when env set (operator proxy wins)",
+            probe2["default_egress_active"] is False and probe2["proxy_configured"] is True,
+        )
+
+        # ── public_playlist action actually routes through a chain candidate ──
+        os.environ.pop("YANDEX_PROXY_URL", None)
+        adapter._default_egress_index = 0
+        seen = {}
+
+        class ChainRecordingClient(FakeClient):
+            def users_playlists(self, kind, user_id=None, **kwargs):
+                return self._detail
+
+        short = FakeShort("111", "555")
+        detail = FakePlaylist(kind=1293, title="По цепочке", track_count=1, tracks=[short])
+        full = FakeTrack(id="111", title="Alpha", artists=[FakeArtist("A1")], albums=[FakeAlbum(555, "Album")])
+        chain_client = ChainRecordingClient(detail=detail, tracks=[full])
+        orig_client = adapter._client
+
+        def chain_stub(token=None, proxy_url=None, timeout=None):
+            seen.setdefault("proxy", []).append(proxy_url)
+            seen.setdefault("timeout", []).append(timeout)
+            return chain_client
+
+        adapter._client = chain_stub
+        try:
+            result = adapter.action_public_playlist({"user_id": "music.partners", "kind": 1293})
+            check(
+                "action_public_playlist uses a chain candidate + timeout",
+                seen["proxy"][0] in adapter.DEFAULT_EGRESS_PROXIES
+                and seen["timeout"][0] == adapter.EGRESS_CHAIN_TIMEOUT_S
+                and result["title"] == "По цепочке",
+            )
+        finally:
+            adapter._client = orig_client
+    finally:
+        if saved is None:
+            os.environ.pop("YANDEX_PROXY_URL", None)
+        else:
+            os.environ["YANDEX_PROXY_URL"] = saved
+        adapter._default_egress_index = saved_idx
+
+
+def test_pagination_dedupe() -> None:
+    """pager.total > len(tracks) + page-param ignored by the API -> no duplicates."""
+    print("pagination dedupe (pager.total counts unavailable slots):")
+
+    # pager.total=65 > 52 available: the page fetch returns the SAME tracks
+    # (endpoint ignores ?page=) — the adapter must not extend duplicates.
+    class PagedClient(FakeClient):
+        def __init__(self, detail):
+            super().__init__(detail=detail)
+            self._page_calls = 0
+
+        def users_playlists(self, kind, user_id=None, **kwargs):
+            if kwargs.get("params", {}).get("page") is not None:
+                self._page_calls += 1
+                return self._detail  # same snapshot again, exactly like the real API
+            return self._detail
+
+    short = FakeShort("111", "555")
+    detail = FakePlaylist(kind=1293, title="Пагинация", track_count=1, tracks=[short], pager=FakePager(total=65))
+    full = FakeTrack(id="111", title="Alpha", artists=[FakeArtist("A1")], albums=[FakeAlbum(555, "Album")])
+    pclient = PagedClient(detail=detail)
+    pclient._tracks = [full]
+    pclient.tracks = [full]
+    orig_client = adapter._client
+    adapter._client = lambda token=None, proxy_url=None, timeout=None: pclient
+    try:
+        result = adapter.action_public_playlist({"user_id": "music.partners", "kind": 1293})
+        check("no duplicate tracks from ignored paging", len(result["tracks"]) == 1)
+        check("page fetch attempted at most once then stopped", pclient._page_calls <= 1)
+    finally:
+        adapter._client = orig_client
+
+    # A page that returns GENUINELY new tracks still extends (big playlists).
+    class GrowingClient(FakeClient):
+        def __init__(self, detail, extra_detail):
+            super().__init__(detail=detail)
+            self._extra = extra_detail
+            self._page_calls = 0
+
+        def users_playlists(self, kind, user_id=None, **kwargs):
+            page = kwargs.get("params", {}).get("page")
+            if page is not None:
+                self._page_calls += 1
+                return self._extra
+            return self._detail
+
+    s1, s2 = FakeShort("111", "555"), FakeShort("222", "556")
+    d1 = FakePlaylist(kind=7, title="Большой", track_count=2, tracks=[s1], pager=FakePager(total=2))
+    d2 = FakePlaylist(kind=7, title="Большой", track_count=2, tracks=[s1, s2])
+    f1 = FakeTrack(id="111", title="A", artists=[FakeArtist("X")], albums=[FakeAlbum(555, "Al")])
+    f2 = FakeTrack(id="222", title="B", artists=[FakeArtist("Y")], albums=[FakeAlbum(556, "Al2")])
+    gclient = GrowingClient(detail=d1, extra_detail=d2)
+    gclient.tracks = [f1, f2]
+    adapter._client = lambda token=None, proxy_url=None, timeout=None: gclient
+    try:
+        result = adapter.action_public_playlist({"user_id": "u", "kind": 7})
+        ids = [t["track_id"] for t in result["tracks"]]
+        check("new tracks from a real page extend the list", ids == ["111", "222"])
+    finally:
+        adapter._client = orig_client
+
+
 if __name__ == "__main__":
     test_signature()
     test_error_mapping()
@@ -530,5 +760,7 @@ if __name__ == "__main__":
     test_account_action()
     test_device_actions_dispatch()
     test_proxy_support()
+    test_default_egress_chain()
+    test_pagination_dedupe()
     print(f"\n{PASS} passed, {FAIL} failed")
     sys.exit(1 if FAIL else 0)
