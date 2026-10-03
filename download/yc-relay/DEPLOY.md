@@ -1,5 +1,13 @@
 # MQ Yandex Relay — Yandex Cloud Function (ru-central1)
 
+> **Статус (2026-10-03):** прод-импорт публичных плейлистов УЖЕ работает без
+> этого релея — в `api/yandex_adapter.py` встроена zero-config цепочка
+> публичных RU/CIS egress-релеев (`DEFAULT_EGRESS_PROXIES`, проверено живьём:
+> mq1.vercel.app → 200 + 52 трека по music.partners/1293, ноль credentials).
+> Этот YC-релей остаётся ПРОВЕРЕННЫМ апгрейдом: собственный RU egress без
+> сторонних публичных прокси, активируется одной env-переменной
+> `YANDEX_ADAPTER_URL` (полностью переопределяет встроенную цепочку).
+
 Внутренний RU-egress релей MQ для tokenless импорта публичных плейлистов
 Яндекс.Музыки. Реализует **точный протокол адаптера MQ** (`api/yandex_adapter.py`
 + `src/lib/yandex/adapter.ts`): те же HMAC-заголовки, те же коды ошибок,

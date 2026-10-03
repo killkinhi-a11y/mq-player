@@ -20,7 +20,7 @@ import urllib.request
 import urllib.error
 
 BASE = "https://mq1.vercel.app"
-EXPECT_COMMIT = "a6f3778f"
+EXPECT_COMMIT = "27a67532"
 TIMEOUT = 75  # public route maxDuration 60 + slack
 
 PASS, FAIL = 0, 0
