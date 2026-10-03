@@ -22,6 +22,7 @@ import importlib.util
 import json
 import os
 import sys
+import time
 import types
 from pathlib import Path
 
@@ -403,6 +404,69 @@ def test_public_playlist_action() -> None:
     # ── action registered in dispatch ──
     check("public_playlist registered in ACTIONS", callable(adapter.ACTIONS.get("public_playlist")))
 
+    # ── embedded-track fast path: public pages carry full Track objects in
+    # every short, so the client.tracks() batch round-trip is SKIPPED when
+    # nothing is missing (saves slow relay hops); mixed lists only fetch the
+    # missing keys (batch still preferred when present) ──
+    class TracksCountingClient(FakeClient):
+        def __init__(self, detail):
+            super().__init__(detail=detail)
+            self.batch_calls = 0
+
+        def tracks(self, track_ids):
+            self.batch_calls += 1
+            return self._tracks
+
+    emb_track = FakeTrack(id="111", title="Embedded", artists=[FakeArtist("EA")], albums=[FakeAlbum(555, "EmbAlbum")])
+    emb_short = FakeShort("111", "555", embedded=emb_track)
+    emb_detail = FakePlaylist(kind=1293, title="Встроенные", track_count=1, tracks=[emb_short])
+    eclient = TracksCountingClient(detail=emb_detail)
+    adapter._client = lambda token=None, proxy_url=None, timeout=None: eclient
+    saved_env = os.environ.get("YANDEX_PROXY_URL")
+    os.environ["YANDEX_PROXY_URL"] = "http://ru.example:8080"  # single deterministic fetch
+    try:
+        result = adapter.action_public_playlist({"user_id": "music.partners", "kind": 1293})
+        check("all-embedded list skips the batch round-trip", eclient.batch_calls == 0)
+        check(
+            "embedded metadata used verbatim",
+            result["tracks"][0]["title"] == "Embedded"
+            and result["tracks"][0]["artists"] == ["EA"]
+            and result["tracks"][0]["album_title"] == "EmbAlbum",
+        )
+    finally:
+        adapter._client = orig_client
+        if saved_env is None:
+            os.environ.pop("YANDEX_PROXY_URL", None)
+        else:
+            os.environ["YANDEX_PROXY_URL"] = saved_env
+
+    mixed_shorts = [
+        FakeShort("111", "555", embedded=emb_track),
+        FakeShort("222", "556", embedded=None),
+    ]
+    mixed_detail = FakePlaylist(kind=1293, title="Смешанный", track_count=2, tracks=mixed_shorts)
+    batch_full = FakeTrack(id="222", title="BatchFetched", artists=[FakeArtist("BF")], albums=[FakeAlbum(556, "BatchAlbum")])
+    mclient = TracksCountingClient(detail=mixed_detail)
+    mclient._tracks = [batch_full]
+    mclient.tracks = lambda ids: (setattr(mclient, "batch_calls", mclient.batch_calls + 1), [batch_full])[1]
+    adapter._client = lambda token=None, proxy_url=None, timeout=None: mclient
+    saved_env = os.environ.get("YANDEX_PROXY_URL")
+    os.environ["YANDEX_PROXY_URL"] = "http://ru.example:8080"  # single deterministic fetch
+    try:
+        result = adapter.action_public_playlist({"user_id": "music.partners", "kind": 1293})
+        check("mixed list batch-fetches only the missing short", mclient.batch_calls == 1)
+        by_id = {t["track_id"]: t for t in result["tracks"]}
+        check(
+            "embedded + batch data merged correctly",
+            by_id["111"]["title"] == "Embedded" and by_id["222"]["title"] == "BatchFetched",
+        )
+    finally:
+        adapter._client = orig_client
+        if saved_env is None:
+            os.environ.pop("YANDEX_PROXY_URL", None)
+        else:
+            os.environ["YANDEX_PROXY_URL"] = saved_env
+
 
 def test_account_action() -> None:
     print("account action:")
@@ -566,43 +630,71 @@ def test_default_egress_chain() -> None:
         adapter._run_public_with_default_egress(fetch_env)
         check("env set -> exactly one fetch(None, None)", calls == [(None, None)])
 
-        # ── env unset -> failover across candidates, sticky success ──
+        # ── env unset -> parallel RACE across candidates, sticky winner ──
         os.environ.pop("YANDEX_PROXY_URL", None)
         adapter._default_egress_index = 0
         attempts = []
+        pool_size = len(adapter.DEFAULT_EGRESS_PROXIES)
 
         def fetch_fail_geo(proxy_url, timeout):
             attempts.append(proxy_url)
             if proxy_url == adapter.DEFAULT_EGRESS_PROXIES[0]:
                 raise adapter.AdapterError("yandex_geo_blocked", "fence", 503)
-            return {"data": "via-candidate-2"}
+            return {"data": "via-healthy-candidate"}
 
         result = adapter._run_public_with_default_egress(fetch_fail_geo)
-        check("451 on #1 -> failover to #2 succeeds", result == {"data": "via-candidate-2"} and len(attempts) == 2)
-        check("sticky index points at the good candidate", adapter._default_egress_index == 1)
+        check(
+            "451 on the favourite -> a healthy racer still wins",
+            result == {"data": "via-healthy-candidate"},
+        )
+        check("race attempts every candidate", len(attempts) == pool_size)
+        check("sticky index moves to a healthy winner", adapter._default_egress_index != 0)
 
-        # next call starts from the sticky candidate
+        # next race is answered (all candidates raced again; favourite merely
+        # starts first — warm starts are a tie-break, not an exclusion)
         attempts.clear()
 
         def fetch_ok(proxy_url, timeout):
             attempts.append(proxy_url)
             return {"ok": True}
 
-        adapter._run_public_with_default_egress(fetch_ok)
-        check("warm start reuses the sticky candidate first", attempts[0] == adapter.DEFAULT_EGRESS_PROXIES[1])
+        result = adapter._run_public_with_default_egress(fetch_ok)
+        check("warm start races all candidates too", result == {"ok": True} and len(attempts) == pool_size)
+
+        # a SLOW healthy candidate beats an instant retryable failure — the
+        # race waits for a winner instead of raising the first error
+        def fetch_slow_winner(proxy_url, timeout):
+            if proxy_url == adapter.DEFAULT_EGRESS_PROXIES[0]:
+                raise adapter.AdapterError("yandex_timeout", "t", 504)
+            time.sleep(0.3)
+            return {"data": "slow-but-alive"}
+
+        t0 = time.monotonic()
+        result = adapter._run_public_with_default_egress(fetch_slow_winner)
+        check(
+            "instant candidate failure -> race waits for the slow winner",
+            result == {"data": "slow-but-alive"} and time.monotonic() - t0 >= 0.3,
+        )
+
+        # an UNEXPECTED (non-AdapterError) candidate crash is tolerated the
+        # same way — treated as a candidate failure, others still race
+        def fetch_crasher(proxy_url, timeout):
+            if proxy_url == adapter.DEFAULT_EGRESS_PROXIES[0]:
+                raise RuntimeError("boom")
+            return {"data": "after-crash"}
+
+        result = adapter._run_public_with_default_egress(fetch_crasher)
+        check("unexpected candidate crash -> other racers still win", result == {"data": "after-crash"})
 
         # ── real Yandex answers fail fast (no retry through another egress) ──
-        attempts.clear()
-
         def fetch_not_found(proxy_url, timeout):
-            attempts.append(proxy_url)
             raise adapter.AdapterError("yandex_not_found", "nf", 404)
 
         try:
             adapter._run_public_with_default_egress(fetch_not_found)
             check("404 fails fast", False)
         except adapter.AdapterError as e:
-            check("404 fails fast", e.code == "yandex_not_found" and len(attempts) == 1)
+            check("404 fails fast", e.code == "yandex_not_found" and e.status == 404)
 
         # ── full network exhaustion -> yandex_proxy_error (our egress down) ──
         def fetch_all_dead(proxy_url, timeout):
@@ -635,6 +727,41 @@ def test_default_egress_chain() -> None:
             check("all candidates 451 -> honest yandex_geo_blocked", False)
         except adapter.AdapterError as e:
             check("all candidates 451 -> honest yandex_geo_blocked", e.code == "yandex_geo_blocked")
+
+        # ── mixed exhaustion: ANY observed 451 keeps the geo verdict ──
+        # (a relay that reached Yandex and hit the content fence is more
+        # informative than a sibling relay that merely timed out)
+        def fetch_mixed(proxy_url, timeout):
+            if proxy_url == adapter.DEFAULT_EGRESS_PROXIES[0]:
+                raise adapter.AdapterError("yandex_geo_blocked", "fence", 503)
+            raise adapter.AdapterError("yandex_timeout", "t", 504)
+
+        try:
+            adapter._run_public_with_default_egress(fetch_mixed)
+            check("mixed geo+timeout exhaustion -> geo verdict wins", False)
+        except adapter.AdapterError as e:
+            check("mixed geo+timeout exhaustion -> geo verdict wins", e.code == "yandex_geo_blocked")
+
+        # ── race ceiling: nothing may hang past EGRESS_RACE_MAX_WAIT_S ──
+        saved_ceiling = adapter.EGRESS_RACE_MAX_WAIT_S
+        adapter.EGRESS_RACE_MAX_WAIT_S = 0.3
+        try:
+
+            def fetch_hangs(proxy_url, timeout):
+                time.sleep(2.0)
+                return {"data": "too-late"}
+
+            t0 = time.monotonic()
+            try:
+                adapter._run_public_with_default_egress(fetch_hangs)
+                check("race ceiling stops the all-slow case", False)
+            except adapter.AdapterError as e:
+                check(
+                    "race ceiling stops the all-slow case",
+                    e.code == "yandex_proxy_error" and time.monotonic() - t0 < 1.5,
+                )
+        finally:
+            adapter.EGRESS_RACE_MAX_WAIT_S = saved_ceiling
 
         # ── probe honesty ──
         probe = adapter.action_probe()
@@ -717,9 +844,50 @@ def test_pagination_dedupe() -> None:
     try:
         result = adapter.action_public_playlist({"user_id": "music.partners", "kind": 1293})
         check("no duplicate tracks from ignored paging", len(result["tracks"]) == 1)
-        check("page fetch attempted at most once then stopped", pclient._page_calls <= 1)
+        # Each racing candidate thread runs its own _fetch on this shared
+        # fake client — allow one page attempt per candidate.
+        check(
+            "page fetch attempted at most once per racer then stopped",
+            pclient._page_calls <= len(adapter.DEFAULT_EGRESS_PROXIES),
+        )
     finally:
         adapter._client = orig_client
+
+    # Pagination cap: the public action stops collecting at PUBLIC_MAX_TRACKS
+    # (the Next.js route discards anything past it — no wasted relay hops).
+    class CappedClient(FakeClient):
+        def __init__(self):
+            super().__init__()
+            self._page_calls = 0
+
+        def users_playlists(self, kind, user_id=None, **kwargs):
+            page = kwargs.get("params", {}).get("page")
+            if page is None:
+                # first page: 100 embedded shorts
+                shorts = [FakeShort(str(1000 + i), None, embedded=FakeTrack(id=str(1000 + i), title=f"T{i}")) for i in range(100)]
+                return FakePlaylist(kind=3, title="Кап", track_count=250, tracks=shorts, pager=FakePager(total=250))
+            self._page_calls += 1
+            start = 100 * page
+            shorts = [FakeShort(str(1000 + start + i), None, embedded=FakeTrack(id=str(1000 + start + i), title=f"T{start + i}")) for i in range(100)]
+            return FakePlaylist(kind=3, title="Кап", track_count=250, tracks=shorts, pager=FakePager(total=250))
+
+    cclient = CappedClient()
+    adapter._client = lambda token=None, proxy_url=None, timeout=None: cclient
+    saved_env = os.environ.get("YANDEX_PROXY_URL")
+    os.environ["YANDEX_PROXY_URL"] = "http://ru.example:8080"  # single deterministic fetch
+    try:
+        result = adapter.action_public_playlist({"user_id": "u", "kind": 3})
+        check(
+            "pagination stops at PUBLIC_MAX_TRACKS",
+            len(result["tracks"]) == adapter.PUBLIC_MAX_TRACKS,
+        )
+        check("true playlist size still reported", result["track_count"] == 250)
+    finally:
+        adapter._client = orig_client
+        if saved_env is None:
+            os.environ.pop("YANDEX_PROXY_URL", None)
+        else:
+            os.environ["YANDEX_PROXY_URL"] = saved_env
 
     # A page that returns GENUINELY new tracks still extends (big playlists).
     class GrowingClient(FakeClient):

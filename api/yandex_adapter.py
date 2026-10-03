@@ -82,11 +82,14 @@ Built-in RU/CIS egress chain (zero-config fallback)
 When YANDEX_PROXY_URL is NOT set, the tokenless public_playlist action
 routes through a small built-in chain of PUBLIC no-credentials HTTP CONNECT
 relays with RU/CIS egress (canary-verified against Yandex's 451 content
-fence). Candidates are tried in order starting from the last known-good one
-(warm-start sticky); a dead/slow/fenced candidate fails over to the next.
-Real Yandex answers (404/400/429/401) fail fast. This makes the public URL
-import work out of the box from any Vercel region with zero configuration
-and ZERO Yandex credentials (the relay only ever makes anonymous GETs).
+fence). Candidates are RACED in parallel — the first successful one wins
+(and becomes the warm-start favourite); public relays die and degrade by
+the hour, so a sequential walk cannot be trusted with the caller's time
+budget. A REAL Yandex answer (404/400/429/401) fails fast with that exact
+verdict, so a dead or private playlist always reports its specific error,
+never a generic "adapter unavailable". This makes the public URL import
+work out of the box from any Vercel region with zero configuration and
+ZERO Yandex credentials (the relays only ever make anonymous GETs).
 Operator upgrade paths, both still one step each and BOTH override the
 chain completely: set YANDEX_PROXY_URL (private RU/CIS proxy) or wire
 YANDEX_ADAPTER_URL to a RU relay (download/yc-relay — HMAC-protocol
@@ -107,8 +110,10 @@ import hmac
 import json
 import logging
 import os
+import queue
 import re
 import sys
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Optional, Tuple
@@ -163,27 +168,49 @@ ALLOWED_PROXY_SCHEMES = ("http", "https", "socks5", "socks5h", "socks4")
 # Built-in RU/CIS egress chain — the ZERO-CONFIG fallback used ONLY when
 # YANDEX_PROXY_URL is unset (and only for the tokenless public_playlist
 # action). Public no-credentials HTTP CONNECT relays, canary-verified against
-# Yandex's 451 content fence on 2026-10-03: each returned HTTP 200 + the real
-# playlist JSON for music.partners/1293 from non-RU hosting. The operator's
-# env var ALWAYS wins (validated, single proxy, byte-identical legacy path);
-# wiring YANDEX_ADAPTER_URL to a RU relay (download/yc-relay) bypasses this
-# adapter entirely. No credentials are involved anywhere in the chain.
+# Yandex's 451 content fence on 2026-10-04 (live GET of music.partners/1293
+# through each relay: HTTP 200 + the full 52-track JSON; verified from
+# non-RU hosting). Ordered live-first: 62.182.159.194 (SPb) and 194.186.246.22
+# answered in ~11-13 s; the tail entries were alive at previous canaries and
+# are kept as spare capacity — the parallel race tolerates dead/slow/fenced
+# members (see _run_public_with_default_egress). The operator's env var
+# ALWAYS wins (validated, single proxy, byte-identical legacy path); wiring
+# YANDEX_ADAPTER_URL to a RU relay (download/yc-relay) bypasses this adapter
+# entirely. No credentials are involved anywhere in the chain.
 DEFAULT_EGRESS_PROXIES: Tuple[str, ...] = (
-    "http://193.37.71.46:10808",
-    "http://195.19.217.200:3128",
+    "http://62.182.159.194:3128",
     "http://194.186.246.22:8888",
+    "http://195.19.217.200:3128",
+    "http://193.37.71.46:10808",
 )
 # Public relays are slower than a private VPS proxy, and the library default
 # is only 5 s per request — raise the per-request budget for chain attempts.
 EGRESS_CHAIN_TIMEOUT_S = 15
+# Ceiling for the ALL-fail case of the parallel egress race. One raced
+# fetch may chain a few requests (first page + one pagination page + a
+# best-effort batch for shorts without embedded metadata), each capped at
+# EGRESS_CHAIN_TIMEOUT_S, and a slow-dripping public relay can stretch a
+# single request well past that per-read budget (observed 36.8 s live for
+# ONE request). A healthy winner normally answers in ~10-15 s; this bound
+# stops the race early enough to stay inside the caller's 55 s adapter
+# budget (route maxDuration 60 s) when every relay is dead or dripping.
+EGRESS_RACE_MAX_WAIT_S = 45
+# The Next.js public-playlist route caps its response at PUBLIC_MAX_TRACKS
+# (src/lib/yandex/public-import.ts, = 200) — everything past that cap is
+# discarded by the caller, so fetching further pages is pure latency through
+# slow public relays. The public action mirrors the cap: pagination stops
+# once this many shorts are collected (track_count still reports the full
+# playlist size from the playlist object itself).
+PUBLIC_MAX_TRACKS = 200
 # Codes that mean "this CANDIDATE failed", not "Yandex answered": dead relay
 # (proxy_error), network trouble (unavailable), per-request timeout, or the
 # 451 fence (the relay stopped counting as RU egress). Real Yandex answers
 # (not found / bad request / rate limit / unauthorized) fail fast — retrying
 # them through another egress would only duplicate the same verdict.
 EGRESS_RETRYABLE_CODES = ("yandex_proxy_error", "yandex_unavailable", "yandex_timeout", "yandex_geo_blocked")
-# Module-level sticky index of the last working candidate (survives warm
-# starts) so subsequent invocations try the known-good relay first.
+# Module-level sticky index of the last winning candidate (survives warm
+# starts). With the parallel race every candidate is launched, but the
+# sticky favourite is started first — in a photo-finish it wins the queue.
 _default_egress_index = 0
 
 # ── HMAC helpers (must mirror src/lib/yandex/adapter.ts exactly) ─────────────
@@ -368,41 +395,101 @@ def _run_public_with_default_egress(fetch):
     - YANDEX_PROXY_URL set  -> exactly one call ``fetch(None, None)`` — the
       operator's proxy is used by ``_client`` via the env path (legacy
       behaviour, no failover, byte-identical error mapping).
-    - env unset             -> try the built-in candidates in order, starting
-      from the last known-good one (warm-start sticky). Candidate failures
-      with egress-retryable codes (dead relay / network / timeout / 451)
-      move on to the next candidate; REAL Yandex answers (404 / 400 / 429 /
-      401) fail fast. On full exhaustion the last verdict is raised, with
-      generic network codes re-mapped to yandex_proxy_error (our egress
-      relays are down, not Yandex itself); an all-451 exhaustion keeps the
-      honest yandex_geo_blocked verdict.
+
+    - env unset -> RACE all built-in candidates in parallel and take the
+      first successful result. Public relays die and degrade by the hour
+      (factual: the 2026-10-03 sequential walk burned 15 s per dead relay
+      per request and multi-request playlist fetches regularly blew the
+      caller's 55 s budget, surfacing as a misleading "adapter unavailable"
+      for playlists that are perfectly alive). The race makes the healthy
+      relay answer in its own round-trip time regardless of dead pool
+      members; the sticky favourite is merely started first.
+
+      A REAL Yandex answer (404 / 400 / 429 / 401) from any candidate fails
+      fast — retrying a verdict through another egress would only duplicate
+      it, and it keeps dead-playlist diagnostics specific. Candidate
+      failures with egress-retryable codes (dead relay / network / timeout /
+      451) are tolerated while other candidates are still in flight. On
+      full exhaustion: any observed 451 keeps the honest yandex_geo_blocked
+      verdict (a relay DID reach Yandex and hit the content fence); other
+      network trouble maps to yandex_proxy_error — OUR egress relays being
+      down, not Yandex itself.
     """
     if _raw_proxy_url():
         return fetch(None, None)
 
     global _default_egress_index
-    last_error: Optional[AdapterError] = None
-    for offset in range(len(DEFAULT_EGRESS_PROXIES)):
-        idx = (_default_egress_index + offset) % len(DEFAULT_EGRESS_PROXIES)
-        candidate = DEFAULT_EGRESS_PROXIES[idx]
+    total = len(DEFAULT_EGRESS_PROXIES)
+    if total == 0:  # defensive — chain is non-empty by construction
+        return fetch(None, None)
+
+    outcomes: "queue.Queue" = queue.Queue()
+
+    def _attempt(idx: int, candidate: str) -> None:
         try:
             result = fetch(candidate, EGRESS_CHAIN_TIMEOUT_S)
-            _default_egress_index = idx  # sticky: warm starts reuse the good relay
-            return result
         except AdapterError as exc:
             if exc.code not in EGRESS_RETRYABLE_CODES:
-                raise
-            last_error = exc
+                outcomes.put(("fatal", idx, exc))
+                return
             sys.stderr.write(
                 "[%s] default egress candidate #%d failed: %s\n" % (SERVICE_NAME, idx, exc.code)
             )
-    if last_error is not None:
-        if last_error.code in ("yandex_unavailable", "yandex_timeout"):
-            # All candidates exhausted with network trouble — this is OUR
-            # egress chain being down, not Yandex downtime.
-            raise AdapterError("yandex_proxy_error", PROXY_UNREACHABLE_MESSAGE, 503)
-        raise last_error
-    raise AdapterError("yandex_unavailable", "Яндекс.Музыка временно недоступна. Попробуйте позже.", 503)
+            outcomes.put(("retryable", idx, exc))
+            return
+        except Exception as exc:  # unexpected — treat as a candidate failure
+            sys.stderr.write(
+                "[%s] default egress candidate #%d raised %s\n" % (SERVICE_NAME, idx, type(exc).__name__)
+            )
+            outcomes.put(
+                ("retryable", idx, AdapterError("yandex_error", "Сбой кандидата цепочки.", 502))
+            )
+            return
+        outcomes.put(("ok", idx, result))
+
+    # Sticky favourite first, then the rest — all in parallel (daemon
+    # threads so a lingering slow candidate can never wedge the invocation).
+    for offset in range(total):
+        idx = (_default_egress_index + offset) % total
+        threading.Thread(
+            target=_attempt, args=(idx, DEFAULT_EGRESS_PROXIES[idx]), daemon=True
+        ).start()
+
+    codes: List[str] = []
+    fatal: Optional[AdapterError] = None
+    answered = 0
+    deadline = time.monotonic() + EGRESS_RACE_MAX_WAIT_S
+    while answered < total:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        try:
+            kind, idx, payload = outcomes.get(timeout=remaining)
+        except queue.Empty:
+            break
+        answered += 1
+        if kind == "ok":
+            _default_egress_index = idx  # sticky: warm starts favour the winner
+            return payload
+        if kind == "fatal":
+            fatal = payload
+            break  # real Yandex verdict — fail fast, never re-asked
+        codes.append(payload.code)
+
+    if fatal is not None:
+        raise fatal
+    if "yandex_geo_blocked" in codes:
+        # At least one relay reached Yandex and hit the 451 content fence —
+        # the honest geo verdict beats a generic egress-chain error.
+        raise AdapterError(
+            "yandex_geo_blocked",
+            "Яндекс.Музыка ограничивает доступ к плейлистам по региону. "
+            "Импорт по ссылке временно недоступен с нашего сервера — попробуйте позже.",
+            503,
+        )
+    # All answered candidates failed with network trouble (or nothing
+    # answered within the ceiling) — our egress chain is down, not Yandex.
+    raise AdapterError("yandex_proxy_error", PROXY_UNREACHABLE_MESSAGE, 503)
 
 
 def _cover_url(playlist: Any) -> str:
@@ -685,92 +772,126 @@ def action_public_playlist(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     def _fetch(proxy_url: Optional[str], timeout: Optional[float]) -> Dict[str, Any]:
         client = _client(proxy_url=proxy_url, timeout=timeout)  # tokenless — public access, no OAuth, no cookies
-        import yandex_music.utils.request_base as _request_base
-
-        previous_ua = _request_base.USER_AGENT
         try:
-            _request_base.USER_AGENT = PUBLIC_USER_AGENT
             if by_uuid:
                 playlist = client.playlist(playlist_uuid)
             else:
                 playlist = client.users_playlists(int(str(kind)), user_id=user_id)
-            if playlist is None:
-                raise AdapterError(
-                    "yandex_not_found",
-                    "Плейлист не найден. Проверьте ссылку — плейлист может быть приватным или удалённым.",
-                    404,
-                )
-
-            shorts: List[Any] = list(playlist.tracks or [])
-
-            # Same pagination contract as playlist_tracks (owner+kind form only:
-            # the /playlist/{uuid} endpoint returns the full snapshot at once).
-            # pager.total counts deleted/unavailable slots too and the endpoint
-            # ignores ?page= (verified factually) — pages only append NEW keys.
-            pager = getattr(playlist, "pager", None)
-            if pager is not None and pager.total and pager.total > len(shorts) and not by_uuid:
-                seen_keys = {_short_key(s) for s in shorts}
-                page = 1
-                while len(shorts) < pager.total and page < MAX_PLAYLIST_PAGES:
-                    try:
-                        extra_pl = client.users_playlists(
-                            int(str(kind)), user_id=user_id, params={"page": page, "pagePageSize": PLAYLIST_PAGE_SIZE}
-                        )
-                    except Exception as exc:
-                        logging.warning("public playlist page %s fetch failed: %s", page, _map_yandex_error(exc).code)
-                        break
-                    if extra_pl is None or not extra_pl.tracks:
-                        break
-                    fresh = [t for t in extra_pl.tracks if _short_key(t) not in seen_keys]
-                    if not fresh:
-                        break  # page returned nothing new — paging is a no-op here
-                    shorts.extend(fresh)
-                    seen_keys.update(_short_key(t) for t in fresh)
-                    page += 1
-
-            full_by_key = _fetch_full_tracks(client, shorts)
-
-            tracks: List[Dict[str, Any]] = []
-            for idx, s in enumerate(shorts):
-                full = full_by_key.get(_short_key(s))
-                if full is None:
-                    embedded = getattr(s, "track", None)
-                    if embedded is not None:
-                        full = _full_track_dict(embedded)
-                tracks.append(
-                    {
-                        "position": idx,
-                        "track_id": str(s.id),
-                        "album_id": str(s.album_id) if getattr(s, "album_id", None) else None,
-                        "title": (full or {}).get("title") or "",
-                        "artists": (full or {}).get("artists") or [],
-                        "album_title": (full or {}).get("album_title") or "",
-                        "album_id_full": (full or {}).get("album_id_full"),
-                        "duration_ms": (full or {}).get("duration_ms") or 0,
-                        "available": (full or {}).get("available", True),
-                    }
-                )
-
-            return {
-                "kind": playlist.kind,
-                "uid": playlist.uid,
-                "title": playlist.title or "",
-                "description": playlist.description or "",
-                "cover_url": _cover_url(playlist),
-                "owner_login": _owner_login(playlist),
-                "track_count": playlist.track_count or len(tracks),
-                "tracks": tracks,
-            }
         except AdapterError:
             raise
         except Exception as exc:
+            # Map INSIDE the raced fetch so the chain sees proper codes
+            # (451 -> yandex_geo_blocked, timeouts -> yandex_timeout, ...)
+            # and can distinguish candidate failures from Yandex verdicts.
             raise _map_yandex_error(exc) from exc
-        finally:
-            _request_base.USER_AGENT = previous_ua
+        if playlist is None:
+            raise AdapterError(
+                "yandex_not_found",
+                "Плейлист не найден. Проверьте ссылку — плейлист может быть приватным или удалённым.",
+                404,
+            )
 
-    # Zero-config RU/CIS egress chain when YANDEX_PROXY_URL is unset; the
-    # operator-configured env var keeps the exact legacy single-proxy path.
-    return _run_public_with_default_egress(_fetch)
+        shorts: List[Any] = list(playlist.tracks or [])
+
+        # Same pagination contract as playlist_tracks (owner+kind form only:
+        # the /playlist/{uuid} endpoint returns the full snapshot at once).
+        # pager.total counts deleted/unavailable slots too and the endpoint
+        # ignores ?page= (verified factually) — pages only append NEW keys.
+        # Pagination additionally stops at PUBLIC_MAX_TRACKS: the Next.js
+        # public-playlist route discards everything past that cap anyway,
+        # and every extra page is another slow round-trip through a public
+        # relay (track_count below still reports the playlist's true size).
+        pager = getattr(playlist, "pager", None)
+        if pager is not None and pager.total and pager.total > len(shorts) and not by_uuid:
+            seen_keys = {_short_key(s) for s in shorts}
+            page = 1
+            while len(shorts) < pager.total and len(shorts) < PUBLIC_MAX_TRACKS and page < MAX_PLAYLIST_PAGES:
+                try:
+                    extra_pl = client.users_playlists(
+                        int(str(kind)), user_id=user_id, params={"page": page, "pagePageSize": PLAYLIST_PAGE_SIZE}
+                    )
+                except Exception as exc:
+                    logging.warning("public playlist page %s fetch failed: %s", page, _map_yandex_error(exc).code)
+                    break
+                if extra_pl is None or not extra_pl.tracks:
+                    break
+                fresh = [t for t in extra_pl.tracks if _short_key(t) not in seen_keys]
+                if not fresh:
+                    break  # page returned nothing new — paging is a no-op here
+                shorts.extend(fresh)
+                seen_keys.update(_short_key(t) for t in fresh)
+                page += 1
+
+        # Public playlist pages embed the FULL Track object in every short
+        # (verified against the live RU body: title / artists / albums /
+        # duration_ms / available are all present) — the separate
+        # client.tracks() batch round-trip is redundant when every short
+        # carries one. Batch-fetch ONLY the shorts WITHOUT embedded data
+        # (usually zero — saves 1-3 slow round-trips per public import;
+        # the normalization loop below already prefers batch data first,
+        # then embedded, so the output shape is identical either way).
+        missing = [s for s in shorts if getattr(s, "track", None) is None]
+        full_by_key = _fetch_full_tracks(client, missing) if missing else {}
+
+        # Mirror the route's PUBLIC_MAX_TRACKS slice: the first page alone
+        # can carry MORE than the cap (live fact: rlslist/1100 returns all
+        # 286 shorts in page 0), and the Next.js route discards the excess
+        # anyway — truncating here keeps the adapter response lean without
+        # touching track_count (the playlist's true size stays reported).
+        if len(shorts) > PUBLIC_MAX_TRACKS:
+            shorts = shorts[:PUBLIC_MAX_TRACKS]
+
+        tracks: List[Dict[str, Any]] = []
+        for idx, s in enumerate(shorts):
+            full = full_by_key.get(_short_key(s))
+            if full is None:
+                embedded = getattr(s, "track", None)
+                if embedded is not None:
+                    full = _full_track_dict(embedded)
+            tracks.append(
+                {
+                    "position": idx,
+                    "track_id": str(s.id),
+                    "album_id": str(s.album_id) if getattr(s, "album_id", None) else None,
+                    "title": (full or {}).get("title") or "",
+                    "artists": (full or {}).get("artists") or [],
+                    "album_title": (full or {}).get("album_title") or "",
+                    "album_id_full": (full or {}).get("album_id_full"),
+                    "duration_ms": (full or {}).get("duration_ms") or 0,
+                    "available": (full or {}).get("available", True),
+                }
+            )
+
+        return {
+            "kind": playlist.kind,
+            "uid": playlist.uid,
+            "title": playlist.title or "",
+            "description": playlist.description or "",
+            "cover_url": _cover_url(playlist),
+            "owner_login": _owner_login(playlist),
+            "track_count": playlist.track_count or len(tracks),
+            "tracks": tracks,
+        }
+
+    # The public User-Agent patch wraps the WHOLE egress race (set once,
+    # restored once). It used to live inside _fetch, which is now executed
+    # by several racing candidate threads concurrently — per-thread
+    # save/restore would have raced each other and leaked the patched value
+    # into later requests of the same warm instance.
+    import yandex_music.utils.request_base as _request_base
+
+    previous_ua = _request_base.USER_AGENT
+    _request_base.USER_AGENT = PUBLIC_USER_AGENT
+    try:
+        # Zero-config RU/CIS egress chain when YANDEX_PROXY_URL is unset; the
+        # operator-configured env var keeps the exact legacy single-proxy path.
+        return _run_public_with_default_egress(_fetch)
+    except AdapterError:
+        raise
+    except Exception as exc:
+        raise _map_yandex_error(exc) from exc
+    finally:
+        _request_base.USER_AGENT = previous_ua
 
 
 # ── Action dispatch ──────────────────────────────────────────────────────────

@@ -140,10 +140,14 @@ async function callAdapter<T>(
   try {
     return await postAction<T>(baseUrl, action, payload, "/api/yandex_adapter");
   } catch (err) {
-    const isRouteMiss =
-      err instanceof YandexError
-        ? err.code === "adapter_unreachable" || err.code === "adapter_bad_response"
-        : false;
+    // Route-miss ONLY: a 404/garbage body means the /api/yandex_adapter path
+    // may not be routed — retry once via the explicit .py path. A network/
+    // timeout failure (adapter_unreachable) is NOT retried: a different path
+    // on the SAME function cannot fix connectivity, and a second 55 s attempt
+    // would push the route past its 60 s maxDuration into a gateway 504
+    // (observed in production 2026-10-04: users waited >60 s only to get an
+    // opaque "adapter unavailable" for playlists that were alive).
+    const isRouteMiss = err instanceof YandexError ? err.code === "adapter_bad_response" : false;
     if (isRouteMiss && !process.env.YANDEX_ADAPTER_URL) {
       // Retry the alternate registered path before giving up.
       try {

@@ -250,6 +250,24 @@ describe("network failures", () => {
     fetchMock.mockRejectedValue(new DOMException("The operation was aborted due to timeout", "TimeoutError"));
     await expect(adapterAccount("tok")).rejects.toMatchObject({ code: "adapter_unreachable" });
   });
+
+  it("does NOT retry the .py path on network failure (double 55s would 504)", async () => {
+    // adapter_unreachable = network/timeout trouble with the SAME function —
+    // a different path cannot fix it, so exactly ONE fetch attempt is made
+    // (the retry is reserved for adapter_bad_response route misses).
+    const saved = process.env.YANDEX_ADAPTER_URL;
+    delete process.env.YANDEX_ADAPTER_URL;
+    (globalThis as { __ORIGIN__?: string }).__ORIGIN__ = undefined;
+    try {
+      fetchMock.mockRejectedValue(new TypeError("fetch failed"));
+      const fakeReq = { nextUrl: { origin: "https://mq1.vercel.app" } } as never;
+      await expect(adapterAccount("tok", fakeReq)).rejects.toMatchObject({ code: "adapter_unreachable" });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect((fetchMock.mock.calls[0]![0] as string).endsWith("/api/yandex_adapter")).toBe(true);
+    } finally {
+      if (saved) process.env.YANDEX_ADAPTER_URL = saved;
+    }
+  });
 });
 
 describe("adapterBaseUrl", () => {
