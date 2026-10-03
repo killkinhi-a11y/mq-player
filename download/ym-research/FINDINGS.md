@@ -100,53 +100,69 @@ ru-central1, stdlib-only, ноль credentials, один GET + самоотчё�
 
 ---
 
-# ДОПОЛНЕНИЕ: формальный smoke-test PASS + интеграция MQ (2026-10-03)
+# ДОПОЛНЕНИЕ: формальный smoke-test PASS + production-интеграция (2026-10-03)
 
-## Формальный smoke-test — PASS (tokenless, полный body)
+## 1. Формальный smoke-test — PASS (tokenless, полный живой body)
 
-YC-деплой из сессии невозможен (нет `yc` CLI / YC credentials — требуется аккаунт
-пользователя), поэтому по fallback-правилу доказательство получено с другого RU egress:
+YC-деплой из исследовательской сессии невозможен (нет `yc` CLI / YC credentials —
+требуется аккаунт владельца), поэтому по fallback-правилу доказательство получено
+с другого RU egress; артефакт yc-smoke обновлён (обёртка `result`) и готов к
+официальному подтверждению в облаке.
 
 | Критерий | Результат |
 |---|---|
-| egress | 62.182.159.194:3128, Санкт-Петербург, RU (публичный HTTP-прокси, TLS end-to-end) |
+| egress | 62.182.159.194:3128, Санкт-Петербург, RU (TLS end-to-end до api.music.yandex.net) |
 | HTTP | **200**, 151 357 байт |
-| JSON | да, обёртка `{invocationInfo, result}` (hostname: music-web-default-production-music-99.klg.yp-c.yandex.net) |
+| JSON | да, `{invocationInfo, result}` (hostname: music-web-default-production-music-99.klg.yp-c.yandex.net) |
 | title | «Лучшие новые песни 2015 года» |
 | owner | music.partners / Музыкальная редакция (uid 139954184) |
-| trackCount | 52, tracks[] 52 |
+| trackCount / tracks[] | 52 / 52 |
 | credentials | **НЕТ** (клиент физически не устанавливает Authorization/Cookie) |
 | негативный контроль | локальный не-RU egress → 451 (fence жив) |
-| независимое подтверждение | свежий check-host прогон: ru1/ru2/ru3/kz1/md1 → 200, at/au/bg/br → 451 (T1), dummy-uuid → 404 из RU |
+| независимое подтверждение | свежий check-host: ru1/ru2/ru3/kz1/md1 → 200; at/au/bg/br → 451; dummy-uuid из RU → 404 |
 
-Артефакты: `smoke_ru_egress.json`, `bodies/smoke_ru_body.json` (полный живой ответ),
-скрипт `scripts/ym_smoke_ru_egress.py`. yc-smoke/index.py обновлён (разворачивание
-обёртки `result`) — готов к деплою в ru-central1 для официального подтверждения в облаке.
+Артефакты: `smoke_ru_egress.json`, `bodies/smoke_ru_body.json` (полный живой
+ответ), `scripts/ym_smoke_ru_egress.py`, `local_e2e_report.json`.
 
-## Интеграция MQ — сделано (без изменений существующего matcher/YANDEX_PROXY)
+## 2. Интеграция MQ — сделано ПОВЕРХ существующего стека main (887ae440)
 
-- `src/lib/yandex/playlist.ts` — строгий парсер (whitelist music.yandex.ru/.com;
-  owner+kind / uuid), HMAC-протокол адаптера (X-MQ-Timestamp/X-MQ-Signature,
-  derived key HMAC(JWT_SECRET, "mq-yandex-adapter-v1"), replay ±5 мин),
-  нормализация playlist payload, клиент адаптера.
-- `src/app/api/yandex/public-playlist/route.ts` — POST {url}: сессия → strict parse →
-  relay → нормализация → существующий searchSCTracks → {source,name,owner,tracks}.
-  Произвольные URL не принимаются; relay URL из ответов не утекают.
-- `src/components/mq/PlaylistView.tsx` — Yandex URL направляются на новый endpoint
-  (UX прежний: вставил ссылку → Import); JSON-ошибки показываются аккуратно.
-- `download/yc-relay/` — релей для YC ru-central1: тот же HMAC, ТОЛЬКО {owner,kind}/
-  {uuid}, tokenless GET, подписанный ответ; DEPLOY.md (5 команд yc CLI).
-- Тесты: 66 юнит/интеграционных (parser/HMAC/нормализация/клиент/роут) + 14
-  протокольных relay-тестов (Python) + кросс-языковой HMAC-вектор.
-  Полный suite: 631/631 PASS. tsc = baseline (18). Build OK. Lint: 0 errors.
-- Локальный E2E (10/10 PASS): production build + РЕАЛЬНЫЙ код yc-relay (upstream
-  replays живой RU body) + РЕАЛЬНЫЙ SoundCloud matcher: 52 трека → 50 сматчено;
-  SSRF/негативы/rl/audit зелёные. Отчёт: `local_e2e_report.json`.
+Существующий стек (адаптер-протокол, public_playlist, YANDEX_PROXY_URL,
+matcher, UI) не тронут. Добавлено:
 
-## Включение в production (1 шаг за владельцем YC-аккаунта)
+- **UUID-ссылки нового плеера** (`/playlist/{uuid}`, `/playlists/{uuid}`):
+  парсер `public-url.ts` (owner+kind ЛИБО uuid — по требованию контракта),
+  роут `/api/yandex/public-playlist`, клиент `adapterPublicPlaylistByUuid`,
+  адаптер `api/yandex_adapter.py` (нативный `client.playlist(uuid)`,
+  взаимоисключающие параметры). Числовой id в uuid-слоте по-прежнему
+  отклоняется (их тест-кейс сохранён).
+- **YC-релей ru-central1** (`download/yc-relay/index.py` + DEPLOY.md):
+  точная реализация протокола адаптера на stdlib — те же HMAC-заголовки
+  (секунды, `"{ts}.{body}"`, derived `mq-yandex-adapter-v1`), те же коды
+  ошибок, тот же data-контракт `public_playlist`; только {user_id,kind}/
+  {playlist_uuid} (никаких URL), tokenless GET + пагинация; probe и
+  public_playlist; OAuth-действия честно отклоняются. Нативный RU egress —
+  включается одним env `YANDEX_ADAPTER_URL` (альтернатива YANDEX_PROXY_URL,
+  без сторонних прокси).
 
-1. `cd download/yc-relay && yc serverless function version create …` (DEPLOY.md, 5 команд)
-2. `vercel env add YANDEX_ADAPTER_URL` = URL функции → redeploy MQ.
+## 3. Регрессия (всё зелёное)
 
-До установки YANDEX_ADAPTER_URL endpoint отвечает 503 «временно недоступен» —
-никаких fallback-ов на OAuth/токены нет и не появится.
+- vitest **806/806** (797 + 9 UUID-кейсов), tsc 18 pre-existing (0 новых),
+  eslint 0 errors, build Compiled successfully;
+- адаптер self-tests **82/82** (76 + 6 UUID), relay-тесты (HMAC/replay/действия/
+  параметры/data-контракт на живом RU body) — все PASS;
+- их `public_import_e2e.mjs` (prod-mode + fake adapter + реальный SoundCloud):
+  **ALL CHECKS PASS** (23 проверки, включая zero-auth и V10.4.1);
+- relay E2E: прод-стек ↔ РЕАЛЬНЫЙ код yc-relay (replay живого RU body):
+  owner+kind 200/52 трека, UUID 200/52, match 5/6 реальных SoundCloud,
+  0 security-нарушений, релей получил только структурированные параметры;
+- прод `mq-build-887ae440`: battery **15/15**; 400 на чужие URL (SSRF),
+  честная 503 `yandex_geo_blocked` на валидные classic+UUID ссылки (до
+  включения RU-релея), адаптер-probe 200.
+
+## 4. Включение полного пути на проде (2 операторских шага)
+
+1. Деплой релея: `download/yc-relay/DEPLOY.md` (5 команд yc, JWT_SECRET как у MQ);
+2. `vercel env add YANDEX_ADAPTER_URL` = URL функции → redeploy.
+
+Код MQ больше не требует изменений: public-флоу уже маршрутизируется через
+YANDEX_ADAPTER_URL при его наличии. Никаких OAuth/токенов нигде в цепочке.

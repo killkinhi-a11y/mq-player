@@ -8272,3 +8272,23 @@ Stage Summary:
   byte-identical (verified live). The remaining step is OPERATOR-side: obtain
   any RU/CIS proxy (a ~$3/mo RU VPS running e.g. 3proxy/squid/dante works)
   and set the one env var.
+---
+Task ID: YM-PROD-INT
+Agent: main (Super Z)
+Task: Tokenless public Yandex playlist — formal RU smoke-test + production integration (UUID links + YC ru-central1 relay) on top of the existing adapter stack
+
+Work Log:
+- REBUILT ON TOP OF origin/main: discovered the parallel-session stack (adapter protocol, public_playlist action, YANDEX_PROXY_URL, 797 tests, deploys 7e8996af/7cf4f450) landed on origin/main; rebased my work to COMPLEMENT it (no duplication, nothing broken)
+- FORMAL SMOKE-TEST PASS (YC deploy impossible from the sandbox: no yc CLI/credentials — documented; user-approved fallback to another RU egress): public RU proxy 62.182.159.194 (Saint Petersburg) → GET /users/music.partners/playlists/1293 → HTTP 200, 151,357 bytes, JSON {invocationInfo, result}, title «Лучшие новые песни 2015 года», owner music.partners (uid 139954184), trackCount 52, tracks 52, ZERO credentials (client never sets Authorization/Cookie); negative control: local egress → 451; fresh independent check-host run: ru1/ru2/ru3/kz1/md1 → 200, at/au/bg/br → 451, dummy-uuid RU → 404 (smoke_ru_egress.json + bodies/smoke_ru_body.json + scripts/ym_smoke_ru_egress.py)
+- UUID LINKS (user contract: "owner + kind ЛИБО playlist UUID"): extended public-url.ts (/playlist/{uuid} + /playlists/{uuid}, strict UUID regex, lowercase; numeric-id-in-uuid-slot stays rejected), public-playlist route (uuid dispatch), adapter.ts adapterPublicPlaylistByUuid, api/yandex_adapter.py (native client.playlist(uuid) from yandex-music 3.0.0, mutually exclusive params, module-level PLAYLIST_UUID_RE, re import)
+- YC RELAY (download/yc-relay/index.py + DEPLOY.md): EXACT adapter-protocol implementation on stdlib for Yandex Cloud Function ru-central1 — same HMAC (unix seconds, "{ts}.{body}", derived HMAC(JWT_SECRET,"mq-yandex-adapter-v1"), ±300 s window), same error codes, same public_playlist data contract; actions probe + public_playlist only ({user_id,kind}/{playlist_uuid}, NEVER a URL — SSRF-safe by construction; OAuth family → unsupported_action); tokenless GET + pager pagination; GET health probe; native RU egress — no proxy needed; enabled in prod with a single YANDEX_ADAPTER_URL env var (existing YANDEX_PROXY_URL path untouched)
+- TESTS: vitest 806/806 (+9: parser UUID accept/reject, route uuid dispatch + geo mapping); adapter self-tests 82/82 (+6 UUID); relay protocol/data-contract tests all PASS (incl. replay of the LIVE RU body → exact adapter data shape, cross-language HMAC vector); tsc 18 pre-existing (0 new); eslint 0 errors; prisma generate re-run (their new models)
+- LOCAL E2E: their public_import_e2e.mjs (prod build + fake adapter + real SoundCloud) — ALL 23 CHECKS PASS after my changes (first run failed on a STALE .next from my earlier duplicate branch — rebuilt, root-caused, not a code issue); relay E2E: prod stack ↔ REAL yc-relay code (upstream replayed from the captured RU body) — owner+kind 200/52 tracks in 60 ms, UUID 200/52, /match 5/6 real SoundCloud matches, relay log audit: 0 credential headers, 0 URLs relayed
+- DEPLOY: commit 887ae440 → mq-build-887ae440 LIVE (verified via /version.json). Production: invalid/foreign URL → 400; valid classic AND UUID URLs → honest 503 yandex_geo_blocked (RU relay not wired yet — expected); /api/yandex_adapter probe 200 (yandex_music 3.0.0, proxy_configured false); production battery 15/15 PASS
+- Updated download/ym-research/FINDINGS.md (formal addendum), local_e2e_report.json, yc-smoke/index.py (result-envelope parser fix)
+
+Stage Summary:
+- RU egress smoke-test: PASS (tokenless 200 + full 52-track body from RU; YC in-cloud confirmation pending the owner's account — artifact ready, 5 commands)
+- Full production code path shipped: paste public URL (owner+kind OR new-player UUID) → /api/yandex/public-playlist → HMAC adapter protocol → (YANDEX_ADAPTER_URL →) YC ru-central1 relay → api.music.yandex.net — zero Yandex credentials anywhere
+- Regression fully green: 806/806 vitest, 82/82 py, relay tests PASS, 23/23 local E2E, 15/15 prod battery, build/tsc/lint clean
+- Remaining OPERATOR steps (no code): deploy the relay (DEPLOY.md) + set YANDEX_ADAPTER_URL in Vercel → public import goes live; until then prod honestly answers 503 yandex_geo_blocked
