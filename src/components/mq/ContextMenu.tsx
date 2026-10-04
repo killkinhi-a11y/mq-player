@@ -295,6 +295,12 @@ export default function ContextMenu({
         id: "download",
         icon: Download,
         label: "Скачать",
+        // keepOpen: the DownloadMenu REPLACES this menu's surface (see the
+        // `if (downloadOpen)` branch below). Without it, MenuCore's close()
+        // unmounts the whole ContextMenu before the picker renders — the
+        // item appeared dead on TrackCard/similar surfaces (pre-v11.2 gap;
+        // the Full Player More menu used its own state and worked).
+        keepOpen: true,
         onSelect: () => {
           setDownloadOpen(true);
         },
