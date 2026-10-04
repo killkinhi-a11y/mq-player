@@ -42,6 +42,9 @@
   max-height: none;
 }
 
+/* ── v11: FOCUS variant (fullscreen lyrics spotlight) — big centered type,
+   aggressive dimming of non-active lines. Used only inside FullscreenLyrics. */
+
 /* ── Lines ─────────────────────────────────────────────────────────── */
 
 .ll-line {
@@ -62,10 +65,13 @@
   border-radius: 12px;
   cursor: pointer;
   text-align: left;
-  font-size: var(--ll-size);
-  line-height: 1.52;
+  /* v11 custom-font plumbing: store prefs → --ll-* vars on <html> (see
+     lib/lyricsAppearance.ts). Unset vars fall back to the MQ defaults. */
+  font-family: var(--ll-font-family, inherit);
+  font-size: var(--ll-font-size, var(--ll-size));
   font-weight: 600;
-  letter-spacing: 0.004em;
+  line-height: var(--ll-line-height, 1.52);
+  letter-spacing: var(--ll-letter-spacing, 0.004em);
   color: color-mix(in srgb, var(--mq-text) 42%, transparent);
   transform-origin: left center;
   transform: scale(0.985);
@@ -99,6 +105,50 @@
   color: color-mix(in srgb, var(--mq-text) 34%, transparent);
   transform: scale(0.985);
 }
+
+/* ── v11: custom weight — applies to ALL lines uniformly when the user
+   picked one (active still differs by color/scale); auto keeps 600/800. */
+.ll-scroll[data-custom-weight] .ll-line,
+.ll-scroll[data-custom-weight] .ll-line.ll-on {
+  font-weight: var(--ll-font-weight, 600);
+}
+
+/* ── v11: FOCUS variant (fullscreen lyrics spotlight) — big centered type,
+   aggressive dimming/blur of non-active lines. FullscreenLyrics only. */
+.ll-focus {
+  --ll-size: clamp(24px, 4.4vw, 40px);
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  padding: 28% 2px 34%;
+  text-align: center;
+}
+.ll-focus .ll-line {
+  width: 100%;
+  text-align: center;
+  transform-origin: center center;
+  color: color-mix(in srgb, var(--mq-text) 24%, transparent);
+}
+.ll-focus .ll-line.ll-on {
+  transform: scale(1.06);
+}
+.ll-focus .ll-line:not(.ll-on) {
+  opacity: 0.5;
+  filter: blur(1.1px);
+}
+.ll-focus .ll-line[data-past] {
+  color: color-mix(in srgb, var(--mq-text) 16%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ll-focus .ll-line:not(.ll-on) { filter: none; }
+}
+
+/* ── v11: static mode (animated lyrics OFF — accessibility, spec §11).
+   No water layer at all: the active line is a solid accent-tinted
+   highlight, everything stays perfectly calm. */
+.ll-static .ll-line.ll-on .ll-w::before { content: none; }
+.ll-static .ll-line.ll-on .ll-w { color: var(--mq-accent); }
+.ll-static .ll-line[data-after] .ll-w { color: color-mix(in srgb, var(--mq-text) 34%, transparent); }
 
 /* Hover affordance — desktop pointers only, non-active lines only */
 @media (hover: hover) and (pointer: fine) {

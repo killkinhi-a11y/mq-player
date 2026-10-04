@@ -5145,3 +5145,60 @@ html[data-mq-desktop] {
   .mq-liquid[data-motion] .mq-liquid-flow { filter: none !important; }
   .mq-topbar-search:hover, .mq-topbar-icon:hover { transform: none !important; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   v11 Player extension — lyrics appearance slider + custom-font plumbing.
+   The typography itself is driven by --ll-* custom properties set on <html>
+   from store prefs (see lib/lyricsAppearance.ts); liquid-lyrics.css consumes
+   them with fallbacks.
+   ════════════════════════════════════════════════════════════════════════ */
+.mq-lyr-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 24px;
+  background: transparent;
+  cursor: pointer;
+}
+.mq-lyr-slider:focus-visible {
+  outline: 2px solid var(--mq-accent);
+  outline-offset: 3px;
+  border-radius: 999px;
+}
+.mq-lyr-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--mq-accent) 0%,
+    var(--mq-accent) var(--mq-seek-pct, 0%),
+    var(--mq-glass-active) var(--mq-seek-pct, 0%),
+    var(--mq-glass-active) 100%
+  );
+}
+.mq-lyr-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--mq-glass-active);
+}
+.mq-lyr-slider::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--mq-accent);
+}
+.mq-lyr-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 4px;
+  background: var(--mq-card, #1a1a1a);
+  border: 2px solid var(--mq-accent);
+}
+.mq-lyr-slider::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 4px;
+  background: var(--mq-card, #1a1a1a);
+  border: 2px solid var(--mq-accent);
+}

@@ -41,6 +41,11 @@ export function getLastVolume(): number {
 const STORE_VERSION = 12;
 const STORAGE_KEY = "mq-store-v8";
 
+/** v11: numeric clamp helper for lyrics-appearance setters. */
+function clampNum(v: number, min: number, max: number, fallback: number): number {
+  return typeof v === "number" && isFinite(v) ? Math.min(max, Math.max(min, v)) : fallback;
+}
+
 // Nuke stale data BEFORE Zustand tries to hydrate.
 // This runs at module-import time, so there is no React error boundary to catch failures.
 if (typeof window !== "undefined") {
@@ -176,6 +181,24 @@ interface AppState {
    *  reference. Local-only preference (persisted via partialize; NOT synced
    *  to server). Switching must never touch playback/track/queue state. */
   spatialActionsPosition: "left" | "right";
+
+  // ── v11 Player extension: lyrics appearance + waveform prefs ──
+  /** Local-only (like fullPlayerMode). Custom lyrics font internal family
+   *  ("" = MQ default; "MQFont_<id>" = user-uploaded font). */
+  lyricsFontFamily: string;
+  /** Lyrics font size px (0 = auto per variant). */
+  lyricsFontSize: number;
+  /** Lyrics font weight (0 = auto; else 300..900 — applies to ALL lines). */
+  lyricsFontWeight: number;
+  /** Lyrics line-height multiplier (0 = auto; else 1.0..2.4). */
+  lyricsLineHeight: number;
+  /** Lyrics letter-spacing em (0 = auto; else -0.05..0.2). */
+  lyricsLetterSpacing: number;
+  /** Animated (water-fill karaoke) lyrics — false = static active highlight
+   *  (accessibility: a way to disable animated lyrics, spec §11). */
+  lyricsAnimated: boolean;
+  /** Waveform visualization in full players (spec §5). */
+  waveformEnabled: boolean;
 
   // Player
   currentTrack: Track | null;
@@ -347,6 +370,15 @@ interface AppState {
   /** v9 — pure UI preference write; must not touch currentTrack/queue/
    *  queueIndex/progress/volume/lyrics state (pinned by tests). */
   setSpatialActionsPosition: (position: "left" | "right") => void;
+
+  // ── v11 Player extension: lyrics appearance + waveform ──
+  setLyricsFontFamily: (family: string) => void;
+  setLyricsFontSize: (size: number) => void;
+  setLyricsFontWeight: (weight: number) => void;
+  setLyricsLineHeight: (lh: number) => void;
+  setLyricsLetterSpacing: (ls: number) => void;
+  setLyricsAnimated: (animated: boolean) => void;
+  setWaveformEnabled: (enabled: boolean) => void;
   setCompactMode: (compact: boolean) => void;
   setFontSize: (size: number) => void;
   setLiquidGlassEnabled: (enabled: boolean) => void;
@@ -637,6 +669,14 @@ const initialState = {
   // see the Full Player change suddenly. Spatial is strictly opt-in.
   fullPlayerMode: "classic" as "classic" | "spatial",
   spatialActionsPosition: "left" as "left" | "right",
+  // v11 Player extension — lyrics appearance + waveform (local-only prefs)
+  lyricsFontFamily: "",
+  lyricsFontSize: 0,
+  lyricsFontWeight: 0,
+  lyricsLineHeight: 0,
+  lyricsLetterSpacing: 0,
+  lyricsAnimated: true,
+  waveformEnabled: true,
   compactMode: false,
   fontSize: 16,
   liquidGlassEnabled: false,
@@ -1117,6 +1157,15 @@ export const useAppStore = create<AppState>()(
       setFullPlayerMode: (mode) => set({ fullPlayerMode: mode }),
       // v9: pure UI preference — writes ONE field (action rail side).
       setSpatialActionsPosition: (position) => set({ spatialActionsPosition: position }),
+
+      // ── v11 Player extension setters (all shallow, playback-neutral) ──
+      setLyricsFontFamily: (family) => set({ lyricsFontFamily: family }),
+      setLyricsFontSize: (size) => set({ lyricsFontSize: clampNum(size, 0, 72, 0) }),
+      setLyricsFontWeight: (weight) => set({ lyricsFontWeight: clampNum(weight, 0, 900, 0) }),
+      setLyricsLineHeight: (lh) => set({ lyricsLineHeight: clampNum(lh, 0, 3, 0) }),
+      setLyricsLetterSpacing: (ls) => set({ lyricsLetterSpacing: clampNum(ls, -0.1, 0.3, 0) }),
+      setLyricsAnimated: (animated) => set({ lyricsAnimated: animated }),
+      setWaveformEnabled: (enabled) => set({ waveformEnabled: enabled }),
 
       setCompactMode: (compact) => set({ compactMode: compact }),
 
@@ -3019,6 +3068,14 @@ export const useAppStore = create<AppState>()(
           reduceMotion: persistent.reduceMotion,
           fullPlayerMode: persistent.fullPlayerMode === "spatial" ? "spatial" : "classic",
           spatialActionsPosition: persistent.spatialActionsPosition === "right" ? "right" : "left",
+          // v11 Player extension — lyrics appearance + waveform (local-only)
+          lyricsFontFamily: typeof persistent.lyricsFontFamily === "string" ? persistent.lyricsFontFamily : "",
+          lyricsFontSize: typeof persistent.lyricsFontSize === "number" ? persistent.lyricsFontSize : 0,
+          lyricsFontWeight: typeof persistent.lyricsFontWeight === "number" ? persistent.lyricsFontWeight : 0,
+          lyricsLineHeight: typeof persistent.lyricsLineHeight === "number" ? persistent.lyricsLineHeight : 0,
+          lyricsLetterSpacing: typeof persistent.lyricsLetterSpacing === "number" ? persistent.lyricsLetterSpacing : 0,
+          lyricsAnimated: persistent.lyricsAnimated !== false,
+          waveformEnabled: persistent.waveformEnabled !== false,
           compactMode: persistent.compactMode,
           fontSize: persistent.fontSize,
           liquidGlassEnabled: persistent.liquidGlassEnabled,
@@ -3116,6 +3173,14 @@ export const useAppStore = create<AppState>()(
             customAccent: old?.customAccent ?? initialState.customAccent,
             animationsEnabled: old?.animationsEnabled ?? initialState.animationsEnabled,
             reduceMotion: old?.reduceMotion ?? initialState.reduceMotion,
+            // v11 Player extension — preserved across version migrations
+            lyricsFontFamily: old?.lyricsFontFamily ?? initialState.lyricsFontFamily,
+            lyricsFontSize: old?.lyricsFontSize ?? initialState.lyricsFontSize,
+            lyricsFontWeight: old?.lyricsFontWeight ?? initialState.lyricsFontWeight,
+            lyricsLineHeight: old?.lyricsLineHeight ?? initialState.lyricsLineHeight,
+            lyricsLetterSpacing: old?.lyricsLetterSpacing ?? initialState.lyricsLetterSpacing,
+            lyricsAnimated: old?.lyricsAnimated ?? initialState.lyricsAnimated,
+            waveformEnabled: old?.waveformEnabled ?? initialState.waveformEnabled,
             fullPlayerMode: old?.fullPlayerMode === "spatial" ? "spatial" : "classic",
             spatialActionsPosition: old?.spatialActionsPosition === "right" ? "right" : "left",
             compactMode: old?.compactMode ?? initialState.compactMode,

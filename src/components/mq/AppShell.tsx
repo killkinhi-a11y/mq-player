@@ -14,6 +14,9 @@ import { captureLinkResultFromLocation } from "@/lib/link-result";
 import dynamic from "next/dynamic";
 import CobaltTurnstile from "@/components/mq/CobaltTurnstile";
 import { OfflineBanner } from "@/components/mq/OfflineBanner";
+import { WaveformController } from "@/components/mq/WaveformController";
+import { ensureFontsLoaded } from "@/lib/customFonts";
+import { useLyricsAppearanceSync } from "@/lib/lyricsAppearance";
 import "@/styles/ipod-2001.css";
 import "@/styles/japan.css";
 import "@/styles/swag.css";
@@ -664,6 +667,20 @@ export default function AppShell() {
     setMiniPlayerHidden: _setMiniPlayerHidden,
   });
 
+  // ── v11 Player extension boot ──
+  // Waveform live-sampling controller (real analyser data for undecodable
+  // tracks) — one global mount, zero renders.
+  const _waveformController = useMemo(
+    () => (typeof window !== "undefined" ? <WaveformController /> : null),
+    [],
+  );
+  // Custom lyrics fonts: register stored FontFaces + keep appearance CSS
+  // vars in sync with store prefs.
+  useEffect(() => {
+    void ensureFontsLoaded().catch(() => {});
+  }, []);
+  useLyricsAppearanceSync();
+
   // MediaSession API — required for lock screen / notification / Android Auto controls
   const _progress = useAppStore((s) => s.progress);
   const _duration = useAppStore((s) => s.duration);
@@ -879,6 +896,7 @@ export default function AppShell() {
       {/* PlayerBar (desktop only — mobile uses MobileDock which combines player + nav) */}
       <Suspense fallback={null}><PlayerBar /></Suspense>
       <Suspense fallback={null}><FullPlayer /></Suspense>
+      {_waveformController}
       {/* Global share sheet — every share surface opens this ONE dialog
           (QR + copy link + native share, canonical URLs from lib/share-urls) */}
       <GlobalShareSheet />

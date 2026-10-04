@@ -469,7 +469,11 @@ describe("v10 mobile player mode — normal mobile player", () => {
       expect(identity.querySelector('button[aria-label="Нравится"]')).toBeTruthy();
       expect(identity.querySelector('button[aria-label="Не нравится"]')).toBeTruthy();
       const controls = root.querySelector('[data-mq-spatial="controls"]')!;
-      expect(controls.querySelector('input[aria-label="Позиция воспроизведения"]')).toBeTruthy();
+      // v11: seek control = classic input OR waveform canvas slider.
+      const seek =
+        controls.querySelector('input[aria-label="Позиция воспроизведения"]') ??
+        controls.querySelector('[data-mq-waveform] canvas[role="slider"]');
+      expect(seek).toBeTruthy();
       expect(controls.querySelector('button[aria-label="Предыдущий трек"]')).toBeTruthy();
       expect(controls.querySelector('button[aria-label="Играть"]')).toBeTruthy();
       expect(controls.querySelector('button[aria-label="Следующий трек"]')).toBeTruthy();

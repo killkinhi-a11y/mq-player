@@ -11,12 +11,14 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Play, Pause, SkipBack, SkipForward, ChevronDown, ChevronUp, Heart, Shuffle, Repeat, Repeat1, Music, ListMusic, Share2, Loader2, Mic2, ThumbsDown, History, X, MoreHorizontal, Volume2, Volume1, VolumeX, Timer, Gauge, AirVent, ListPlus, Sliders, User as UserIcon, Users, Copy, Download } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
-import { LyricsView, type LyricLine } from "./LyricsView";
+import { LyricsView, type LyricLine, type LyricsError } from "./LyricsView";
 import { shareTrackUrl } from "@/lib/share-urls";
 import MenuCore, { MenuHeader, backLabelSpec, type MenuElement } from "./ui/MenuCore";
 import { TextSwap } from "./ui/TextSwap";
 import VolumeSlider from "@/components/ui/volume-slider";
 import { ArtworkImage } from "./ui/ArtworkImage";
+import { WaveformView } from "./WaveformView";
+import { DownloadMenu } from "./ui/DownloadMenu";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — MOBILE (2026-09 redesign)
@@ -62,6 +64,8 @@ function FullTrackViewMobileInner() {
   const currentTrack = useAppStore((s) => s.currentTrack);
   const isPlaying = useAppStore((s) => s.isPlaying);
   const duration = useAppStore((s) => s.duration);
+  // v11: waveform preference
+  const waveformEnabled = useAppStore((s) => s.waveformEnabled);
   const volume = useAppStore((s) => s.volume);
   const shuffle = useAppStore((s) => s.shuffle);
   const repeat = useAppStore((s) => s.repeat);
@@ -103,7 +107,7 @@ function FullTrackViewMobileInner() {
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
   const [plainLyrics, setPlainLyrics] = useState("");
   const [lyricsLoading, setLyricsLoading] = useState(false);
-  const [lyricsError, setLyricsError] = useState<string | null>(null);
+  const [lyricsError, setLyricsError] = useState<string | LyricsError | null>(null);
   // v10.1: unified MenuCore More (bottom sheet on mobile) replaces the
   // custom inline sheet — same actions as desktop Classic + the v10
   // audited additions, one menu engine for the whole app.
@@ -261,17 +265,28 @@ function FullTrackViewMobileInner() {
     let cancelled = false;
     // Client-side fetch directly from lrclib.net (CORS-enabled) — bypasses
     // Vercel serverless which is IP-blocked by lrclib.net's WAF.
-    import("@/lib/lyrics-client").then(({ fetchLyrics }) => {
-      if (cancelled) return;
-      return fetchLyrics(currentTrack.artist, currentTrack.title);
-    }).then(d => {
-      if (cancelled || !d) return;
-      if (d.lyrics.length > 0) {
-        setLyrics(d.lyrics);
+    // v11: full query (artist+title+album+duration) + normalized result.
+    Promise.all([
+      import("@/lib/lyrics-client"),
+      import("@/lib/lyrics/types"),
+    ]).then(([{ fetchLyrics }, { normalizeLegacyLines }]) => {
+      if (cancelled) return null;
+      return fetchLyrics({
+        artist: currentTrack.artist,
+        title: currentTrack.title,
+        album: currentTrack.album || undefined,
+        duration: currentTrack.duration || undefined,
+      }).then(d => ({ d, normalizeLegacyLines }));
+    }).then(res => {
+      if (cancelled || !res) return;
+      const { d, normalizeLegacyLines } = res;
+      const syncedLines = d.lines?.length ? d.lines : normalizeLegacyLines(d.lyrics);
+      if (syncedLines.length > 0) {
+        setLyrics(syncedLines);
       } else if (d.plainText) {
         setPlainLyrics(d.plainText);
       } else {
-        setLyricsError("Текст не найден");
+        setLyricsError(d.error ?? "Текст не найден");
       }
     }).catch(() => {
       if (!cancelled) setLyricsError("Ошибка загрузки текста");
@@ -321,30 +336,9 @@ function FullTrackViewMobileInner() {
     toast({ title: "Название скопировано" });
   }, [currentTrack]);
 
-  const handleDownload = useCallback(async () => {
-    const audio = getAudioElement();
-    if (!currentTrack || !audio || !audio.src) return;
-    const name = `${currentTrack.artist} - ${currentTrack.title}.mp3`;
-    try {
-      const res = await fetch(audio.src);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch {
-      const a = document.createElement("a");
-      a.href = audio.src;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }
-  }, [currentTrack]);
+  // v11: the old naive handleDownload (element.src blob-dump) is replaced
+  // by the honest DownloadMenu format picker — see the render below.
+  const [downloadMenu, setDownloadMenu] = useState<{ x: number; y: number } | null>(null);
 
   // Same insertion semantics as the unified ContextMenu: right after
   // the currently playing track.
@@ -443,7 +437,7 @@ function FullTrackViewMobileInner() {
           { type: "label", text: "Трек" },
           { type: "item", id: "share", icon: Share2, label: "Поделиться", onSelect: handleShare },
           { type: "item", id: "copy", icon: Copy, label: "Копировать название", onSelect: handleCopyName },
-          { type: "item", id: "download", icon: Download, label: "Скачать", onSelect: () => { void handleDownload(); } },
+          { type: "item", id: "download", icon: Download, label: "Скачать", onSelect: () => { setMoreMenu(null); setDownloadMenu(moreMenu); } },
           { type: "separator" },
           { type: "item", id: "artist", icon: UserIcon, label: "К исполнителю", onSelect: handleArtist },
           {
@@ -851,20 +845,33 @@ function FullTrackViewMobileInner() {
                 <span ref={timeCurrentRef} className="text-[26px] tabular-nums font-bold leading-none tracking-tight shrink-0" style={{ color: "var(--mq-text)" }}>0:00</span>
                 <span ref={timeRemainingRef} className="mq-t-body tabular-nums shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)" }}>{duration > 0 ? `−${formatDuration(duration)}` : "—"}</span>
               </div>
-              <input
-                ref={seekInputRef}
-                type="range"
-                min={0}
-                max={100}
-                step={0.1}
-                defaultValue={0}
-                onChange={handleSeekChange}
-                onPointerDown={() => { isDraggingRef.current = true; }}
-                onPointerUp={commitSeek}
-                onPointerCancel={() => { isDraggingRef.current = false; }}
-                aria-label="Позиция воспроизведения"
-                className="mq-ft-seek-input"
-              />
+              {waveformEnabled && duration > 0 ? (
+                /* v11: real-signal waveform replaces the range input
+                   (labels above stay RAF-driven; the input's RAF writes
+                   are null-guarded when unmounted). */
+                <WaveformView
+                  track={currentTrack}
+                  duration={duration}
+                  height={44}
+                  onSeek={seekToTime}
+                  
+                />
+              ) : (
+                <input
+                  ref={seekInputRef}
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={0.1}
+                  defaultValue={0}
+                  onChange={handleSeekChange}
+                  onPointerDown={() => { isDraggingRef.current = true; }}
+                  onPointerUp={commitSeek}
+                  onPointerCancel={() => { isDraggingRef.current = false; }}
+                  aria-label="Позиция воспроизведения"
+                  className="mq-ft-seek-input"
+                />
+              )}
             </div>
 
             {/* transport: shuffle 44 · prev 56 · PLAY 76 · next 56 · repeat 44 */}
@@ -1044,6 +1051,8 @@ function FullTrackViewMobileInner() {
                   cover={currentTrack?.cover}
                   duration={duration}
                   variant="full"
+                  trackTitle={currentTrack?.title}
+                  trackArtist={currentTrack?.artist}
                 />
               )}
               {panel === "queue" && (upcoming.length ? upcoming.map((t, i) => (
@@ -1105,6 +1114,15 @@ function FullTrackViewMobileInner() {
           onClose={() => setTrackMenu(null)}
           side="above"
           bottomInset={120}
+        />
+      )}
+
+      {/* v11: download format picker (bottom sheet on mobile) */}
+      {downloadMenu && currentTrack && (
+        <DownloadMenu
+          track={currentTrack}
+          anchor={downloadMenu}
+          onClose={() => setDownloadMenu(null)}
         />
       )}
     </>

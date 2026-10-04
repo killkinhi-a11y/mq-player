@@ -10,7 +10,7 @@ import {
   Volume2, Moon, Type, Minimize2, Sparkles, Zap,
   RefreshCw, Cloud, Trash2, LogOut, Download, Upload,
   Smartphone, Monitor, Apple, Info, ChevronRight, ChevronDown, X, Check, Loader2, Music2,
-  AlertTriangle, Sliders, Gauge, Terminal, Cpu, Keyboard as KeyboardIcon,
+  AlertTriangle, Sliders, Gauge, Terminal, Cpu, Keyboard as KeyboardIcon, Mic2, AudioWaveform,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import VolumeSlider from "@/components/ui/volume-slider";
@@ -26,6 +26,7 @@ import {
 } from "@/lib/androidRelease";
 import { hoverProps } from "@/lib/hoverCapability";
 import { WEB_RELEASE_NOTES } from "@/lib/releaseNotes";
+import { LyricsAppearanceControls } from "@/components/mq/lyrics/LyricsAppearanceControls";
 import AccountLinkingCard from "./AccountLinkingCard";
 
 // v72: hotkeys reference for the About tab — the exact bindings
@@ -413,6 +414,9 @@ export default function SettingsView() {
   const setWasmEngineEnabled = useAppStore((s) => s.setWasmEngineEnabled);
   const playbackRate = useAppStore((s) => s.playbackRate);
   const setPlaybackRate = useAppStore((s) => s.setPlaybackRate);
+  // v11 Player extension
+  const waveformEnabled = useAppStore((s) => s.waveformEnabled);
+  const setWaveformEnabled = useAppStore((s) => s.setWaveformEnabled);
   const aiRecsHidden = useAppStore((s) => s.aiRecsHidden);
   const setAiRecsHidden = useAppStore((s) => s.setAiRecsHidden);
   const syncToServer = useAppStore((s) => s.syncToServer);
@@ -881,6 +885,16 @@ export default function SettingsView() {
               <SettingToggle icon={Minimize2} label="Компактный режим" subtitle="Меньше отступов" value={compactMode} onCheckedChange={setCompactMode} />
             </Card>
 
+            {/* §v11 LYRICS APPEARANCE — custom fonts + typography for the
+                synced-lyrics view. Prefs are local-only (store persist),
+                font FILES live in IndexedDB (mq-custom-fonts). */}
+            <Card data-mq-setting="lyrics-appearance">
+              <CardTitle icon={Mic2} title="Текст песни" />
+              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
+                <LyricsAppearanceControls variant="settings" />
+              </div>
+            </Card>
+
             {/* §V8 FULL PLAYER APPEARANCE — two live mini-previews; click to
                 choose. Persisted locally (store persist); never auto-opens
                 the player; existing users stay on Classic until they opt in. */}
@@ -1075,6 +1089,8 @@ export default function SettingsView() {
                 value={eqEnabled ? "ВКЛ" : "ВЫКЛ"}
                 onClick={() => setEqOpen(true)}
               />
+              {/* §v11: waveform visualization toggle (full players). */}
+              <SettingToggle icon={AudioWaveform} label="Волна в плеере" subtitle={waveformEnabled ? "Волновая дорожка вместо полосы прогресса" : "Обычная полоса прогресса"} value={waveformEnabled} onCheckedChange={setWaveformEnabled} />
               <SettingToggle icon={Headphones} label="Пространственное аудио" subtitle="3D-звучание" value={spatialAudioEnabled} onCheckedChange={setSpatialAudioEnabled} />
               <SettingToggle icon={Zap} label="Gapless" subtitle="Без пауз между треками" value={gaplessEnabled} onCheckedChange={setGaplessEnabled} />
               <SettingToggle icon={Cpu} label="WASM-движок (эксперимент)" subtitle={wasmEngineEnabled ? "Rust-декодер + DSP · возможны щелчки на стыках" : "Стандартный браузерный декодер (рекомендуется)"} value={wasmEngineEnabled} onCheckedChange={setWasmEngineEnabled} />

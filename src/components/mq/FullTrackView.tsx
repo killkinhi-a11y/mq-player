@@ -19,11 +19,14 @@ import { toast } from "@/hooks/use-toast";
 import VolumeSlider from "@/components/ui/volume-slider";
 import { ArtworkImage } from "./ui/ArtworkImage";
 import { fetchLyrics } from "@/lib/lyrics-client";
-import { LyricsView, type LyricLine } from "./LyricsView";
+import { normalizeLegacyLines, type LyricsError, type LyricLine } from "@/lib/lyrics/types";
+import { LyricsView } from "./LyricsView";
 import { shareTrackUrl, openInAppTrackUrl } from "@/lib/share-urls";
 import { AudioVisualizer } from "./AudioVisualizer";
+import { WaveformView } from "./WaveformView";
 import { waveReasonText } from "./MainView";
 import MenuCore, { MenuHeader, type MenuElement } from "./ui/MenuCore";
+import { DownloadMenu } from "./ui/DownloadMenu";
 import { TextSwap } from "./ui/TextSwap";
 import LiquidTitle from "./LiquidTitle";
 import ContextMenu from "./ContextMenu";
@@ -46,6 +49,8 @@ export default function FullTrackView() {
   const isPlaying = useAppStore((s) => s.isPlaying);
   const progress = useAppStore((s) => s.progress);
   const duration = useAppStore((s) => s.duration);
+  // v11: waveform preference (Settings → Воспроизведение → Волна в плеере)
+  const waveformEnabled = useAppStore((s) => s.waveformEnabled);
   // v72: liquid title motion kill-switch (respects user setting + OS)
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
   const reduceMotion = useAppStore((s) => s.reduceMotion);
@@ -114,7 +119,7 @@ export default function FullTrackView() {
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
   const [plainLyrics, setPlainLyrics] = useState<string>("");
   const [lyricsLoading, setLyricsLoading] = useState(false);
-  const [lyricsError, setLyricsError] = useState<string | null>(null);
+  const [lyricsError, setLyricsError] = useState<string | LyricsError | null>(null);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showSleepMenu, setShowSleepMenu] = useState(false);
   // v10.1: artwork skeleton — <ArtworkImage> is keyed by track id in
@@ -122,6 +127,8 @@ export default function FullTrackView() {
   // v68: More menu = unified MenuCore (portal, keyboard, flip). Anchor at
   // trigger position; null = closed. Replaces the inline absolute menu.
   const [moreMenu, setMoreMenu] = useState<{ x: number; y: number } | null>(null);
+  // v11: download format picker (DownloadMenu) — opens from the More menu.
+  const [downloadMenu, setDownloadMenu] = useState<{ x: number; y: number } | null>(null);
   const [showDoubleTapHint, setShowDoubleTapHint] = useState(true);
   const [showVisualizer, setShowVisualizer] = useState(false);
   const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
@@ -498,15 +505,26 @@ export default function FullTrackView() {
     let cancelled = false;
     // Direct client-side fetch from lrclib.net (CORS-enabled) — bypasses
     // Vercel serverless which is IP-blocked by lrclib.net's WAF.
-    fetchLyrics(currentTrack.artist, currentTrack.title)
+    // v11: full query — artist + title + album + duration sharpen LRCLIB
+    // matching; result normalizes to the ms-timing internal format.
+    fetchLyrics({
+      artist: currentTrack.artist,
+      title: currentTrack.title,
+      album: currentTrack.album || undefined,
+      duration: duration > 0 ? duration : currentTrack.duration || undefined,
+    })
       .then(result => {
         if (cancelled || !result) return;
-        if (result.lyrics.length > 0) {
-          setLyrics(result.lyrics);
+        // New normalized shape first; legacy mocks/server shapes via fallback.
+        const syncedLines = result.lines?.length
+          ? result.lines
+          : normalizeLegacyLines(result.lyrics);
+        if (syncedLines.length > 0) {
+          setLyrics(syncedLines);
         } else if (result.plainText) {
           setPlainLyrics(result.plainText);
         } else {
-          setLyricsError("Текст не найден");
+          setLyricsError(result.error ?? "Текст не найден");
         }
       })
       .catch((e) => {
@@ -519,7 +537,7 @@ export default function FullTrackView() {
         if (!cancelled) setLyricsLoading(false);
       });
     return () => { cancelled = true; };
-  }, [activePanel, isOpen, currentTrack, lyricsRetryKey]);
+  }, [activePanel, isOpen, currentTrack, duration, lyricsRetryKey]);
 
   // Reset lyrics when track changes
   useEffect(() => {
@@ -804,31 +822,11 @@ export default function FullTrackView() {
               id: "download",
               icon: Music,
               label: "Скачать",
-              onSelect: async () => {
+              // v11: opens the honest format picker (MP3/FLAC + real
+              // bitrate/size) instead of the old element.src blob-dump.
+              onSelect: () => {
                 setMoreMenu(null);
-                const audio = getAudioElement();
-                if (audio && audio.src) {
-                  const name = `${currentTrack.artist} - ${currentTrack.title}.mp3`;
-                  try {
-                    const res = await fetch(audio.src);
-                    const blob = await res.blob();
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = name;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                  } catch {
-                    const a = document.createElement("a");
-                    a.href = audio.src;
-                    a.download = name;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                  }
-                }
+                setDownloadMenu(moreMenu);
               },
             },
             { type: "separator" },
@@ -892,6 +890,15 @@ export default function FullTrackView() {
               },
             },
           ] satisfies MenuElement[]}
+        />
+      )}
+
+      {/* v11: download format picker — honest MP3/FLAC + real metadata */}
+      {downloadMenu && currentTrack && (
+        <DownloadMenu
+          track={currentTrack}
+          anchor={downloadMenu}
+          onClose={() => setDownloadMenu(null)}
         />
       )}
 
@@ -1035,6 +1042,8 @@ export default function FullTrackView() {
               onSeek={seekToTime}
               cover={currentTrack?.cover}
               duration={duration}
+              trackTitle={currentTrack?.title}
+              trackArtist={currentTrack?.artist}
             />
           </motion.div>
         )}
@@ -1126,7 +1135,22 @@ export default function FullTrackView() {
   );
   const progressNode = (
     <>
-      {/* ═══ PROGRESS BAR ═══ */}
+      {/* ═══ PROGRESS: waveform (v11) or the classic thin bar ═══ */}
+      {waveformEnabled && duration > 0 ? (
+        <div className="w-full mb-4">
+          <WaveformView
+            track={currentTrack}
+            duration={duration}
+            height={isMobile ? 44 : 52}
+            onSeek={seekToTime}
+            
+          />
+          <div className="flex items-center justify-between gap-2 mt-1.5">
+            <span className="mq-t-time shrink-0" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(Math.max(0, progress))}</span>
+            <span className="mq-t-time shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)" }}>{duration > 0 ? formatDuration(duration) : "—"}</span>
+          </div>
+        </div>
+      ) : (
       <div className="w-full mb-4">
         <div
           ref={progressBarRef}
@@ -1185,6 +1209,7 @@ export default function FullTrackView() {
           <span className="mq-t-time shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)" }}>{duration > 0 ? formatDuration(duration) : "—"}</span>
         </div>
       </div>
+      )}
 
     </>
   );
@@ -1619,6 +1644,8 @@ export default function FullTrackView() {
                               cover={currentTrack?.cover}
                               duration={duration}
                               variant="full"
+                              trackTitle={currentTrack?.title}
+                              trackArtist={currentTrack?.artist}
                             />
                           </div>
                         )}

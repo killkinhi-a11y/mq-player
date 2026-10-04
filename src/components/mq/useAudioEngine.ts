@@ -119,20 +119,9 @@ if (typeof window !== "undefined") {
   }
 }
 
-// ── Waveform peak generator ──
-export function generateWaveformPeaks(trackId: string, count: number = 100): number[] {
-  let seed = 0;
-  for (let i = 0; i < trackId.length; i++) seed = ((seed << 5) - seed + trackId.charCodeAt(i)) | 0;
-  const peaks: number[] = [];
-  for (let i = 0; i < count; i++) {
-    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-    const base = 0.3 + (seed % 50) / 100;
-    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-    const variation = (seed % 30) / 100;
-    peaks.push(Math.min(1, base + variation));
-  }
-  return peaks;
-}
+// v11: the old fake `generateWaveformPeaks` (seeded-random peaks, never a
+// real signal) was removed — real waveform generation lives in
+// src/lib/waveform/ (decode → peaks → IDB cache → canvas renderer).
 
 /** Resolve the playable URL for a stream — proxy through our CDN if needed */
 function proxyStreamUrl(url: string): string {

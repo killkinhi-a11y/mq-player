@@ -8329,3 +8329,71 @@ Work Log:
 Stage Summary:
 - PRODUCTION E2E: PASS. mq-build-6a673b82 live; the user's playlist (rlslist/1100) imports end-to-end in the real UI; dead playlists get their own specific error; invalid URLs get format errors; the racing chain delivers 1293 in 20-26 s (6/6) and 1100 in 8-12 s; pool dead-minutes degrade to FAST honest yandex_proxy_error (~15-35 s) instead of 60 s hangs with the misleading «Адаптер недоступен».
 - Remaining operator upgrade path (unchanged, documented in download/yc-relay/DEPLOY.md): deploy the YC ru-central1 relay + set YANDEX_ADAPTER_URL for native RU egress without public relays (needs the owner's YC account; no YC credentials in the sandbox — same as the previous session).
+
+---
+Task ID: v11.1-final
+Agent: main (Super Z)
+Task: Finish v11 (lyrics/waveform/downloads) — fix double keyboard seek, verify the full checklist, production deploy
+
+Work Log:
+- DOUBLE SEEK ROOT CAUSE: the previous session's E2E ran against a STALE
+  production build (next start on port 3777, mq-build-69d6bf59) whose cached
+  chunks still contained the OLD WaveformView React onKeyDown (no native
+  stopPropagation): waveform +5 AND player window-bubble +5 (+1s playback
+  = the observed +11). Current source (window-capture + native
+  stopPropagation, onKeyDown=undefined) was already architecturally correct:
+  exactly ONE keyboard-seek owner per context (focused canvas → slider
+  ±5/±1/Home/End; unfocused → player ±5; no player → global ±10; range
+  input → native step). Verified live on a fresh build: ±5 single, Home→0,
+  End→duration, trace shows propagation stopped at window-capture.
+  Added 2 single-owner regression tests (incl. pre-registered listener).
+- REAL BUGS FOUND & FIXED during verification:
+  1) liveSampler stopLiveSampling(): nulled `session` BEFORE flush(true) →
+     final flush was a silent no-op → up to 4s of sampled peaks lost.
+     Fixed: flush before nulling. +7 live-sampler tests (HLS/DRM honesty:
+     silence never marked, paused/buffering sample nothing, complete cache
+     entries immutable, coverage-honest flush).
+  2) Custom fonts NEVER visually applied: --ll-font-family was
+     `"MQFont_x", var(--mq-font-display, inherit)` — --mq-font-display does
+     not exist AND `inherit` inside a var() fallback invalidates the whole
+     font-family declaration at computed-value time → silent fallback to
+     Manrope. Fixed the chain to var(--mq-font-primary, sans-serif) in
+     lyricsAppearance.ts + LyricsAppearanceControls preview + FullscreenLyrics
+     plain-text path. +2 regression tests.
+  3) customFonts openDB: a DB existing WITHOUT the fonts store (external
+     no-version open / interrupted upgrade) bricked all font saves forever.
+     Added self-heal (delete + recreate, once per process). +1 test; fakeIDB
+     deleteDatabase now resets `created` (real IDB semantics).
+  4) WaveformView onPointerDown: setPointerCapture throws NotFoundError for
+     synthetic pointer ids → the seek path died before draggingRef was set.
+     Wrapped in try/catch (real pointers unaffected).
+- INFRA: found & killed a zombie next-server (pkill "next start" missed the
+  renamed child process "next-server (v16.2.6)" → port stayed bound, stale
+  HTML + fresh chunks = ChunkLoadError). Full clean rebuild verified
+  self-consistent (HTML-referenced chunks all on disk).
+- VERIFICATION E2E (scripts/qa_v111_verify.sh, build mq-build-32934e2b):
+  47/47 PASS, 0 page errors. Desktop 1440×900: waveform real decode, mouse
+  click+drag seek, keyboard matrix (±5/±1/Home/End single-seek), unified
+  audio clock (waveform ↔ time label ↔ lyric line at one instant), synced
+  lyrics + active line + click-line-seek, fullscreen+focus lyrics, custom
+  font upload (real woff2 bytes) → applied (computed font-family) → IDB
+  persisted → size pref var, DownloadMenu (MP3 row + FLAC honestly
+  disabled), Settings toggle → classic progress fallback, waveform back ON
+  (cache hit), resize invariant (backing store = CSS × DPR). Mobile 390×844:
+  waveform, touch tap (exact 60%) + drag seek, canvas keyboard single +5,
+  lyrics/fullscreen/focus, download sheet, font persisted; cleanup: fonts
+  deleted → var pruned → IDB empty.
+- GATES: tests 681/681 PASS (baseline 669 + 12 new), tsc 18 pre-existing
+  (= baseline, 0 in src/), eslint 57 errors = baseline (0 new), build PASS.
+- Git history cleaned: the two unpushed UUID-named commits squashed into
+  one readable commit; 11 accidental upload/pasted_image_* files unstaged
+  (left untracked); public/version.json build artifact reverted.
+
+Stage Summary:
+- Keyboard seek single-owner VERIFIED in production-grade E2E (the reported
+  double-seek was a stale-build artifact; the architecture was already the
+  intended fix).
+- 4 real bugs fixed (liveSampler flush data loss, font CSS var chain,
+  fonts DB self-heal, pointer-capture robustness) — all with regression tests.
+- v11 feature set fully verified on both viewports; ready to deploy.
+

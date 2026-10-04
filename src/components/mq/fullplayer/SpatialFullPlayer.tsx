@@ -70,10 +70,13 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "@/hooks/use-toast";
 import VolumeSlider from "@/components/ui/volume-slider";
 import { fetchLyrics } from "@/lib/lyrics-client";
+import { normalizeLegacyLines, type LyricsError } from "@/lib/lyrics/types";
 import { LyricsView, type LyricLine } from "@/components/mq/LyricsView";
 import LiquidTitle from "@/components/mq/LiquidTitle";
 import MenuCore, { MenuHeader, type MenuElement } from "@/components/mq/ui/MenuCore";
 import { shareTrackUrl, openInAppTrackUrl } from "@/lib/share-urls";
+import { WaveformView } from "@/components/mq/WaveformView";
+import { DownloadMenu } from "@/components/mq/ui/DownloadMenu";
 
 // ═════════════════════════════════════════════════════════════════════════
 // GEOMETRY — reference anatomy, fixed as numbers (pure + unit-tested)
@@ -261,6 +264,8 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
   const isPlaying = useAppStore((s) => s.isPlaying);
   const progress = useAppStore((s) => s.progress);
   const duration = useAppStore((s) => s.duration);
+  // v11: waveform preference
+  const waveformEnabled = useAppStore((s) => s.waveformEnabled);
   const volume = useAppStore((s) => s.volume);
   const queue = useAppStore((s) => s.queue);
   const queueIndex = useAppStore((s) => s.queueIndex);
@@ -378,7 +383,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
   //    only writes async fetch results). ──
   const [lyricsKey, setLyricsKey] = useState(0);
   const [lyricsData, setLyricsData] = useState<{
-    key: string; lines: LyricLine[]; plain: string; error: string | null;
+    key: string; lines: LyricLine[]; plain: string; error: string | LyricsError | null;
   }>({ key: "", lines: [], plain: "", error: null });
   const currentLyricsKey = `${currentTrack?.id ?? ""}#${lyricsKey}`;
   const lyricsForTrack = lyricsData.key === currentLyricsKey
@@ -389,15 +394,24 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
   useEffect(() => {
     if (!lyricsOpen || !currentTrack) return;
     let cancelled = false;
-    fetchLyrics(currentTrack.artist, currentTrack.title)
+    // v11: full query (artist+title+album+duration) + normalized result.
+    fetchLyrics({
+      artist: currentTrack.artist,
+      title: currentTrack.title,
+      album: currentTrack.album || undefined,
+      duration: duration > 0 ? duration : currentTrack.duration || undefined,
+    })
       .then((result) => {
         if (cancelled) return;
+        const syncedLines = result?.lines?.length
+          ? result.lines
+          : normalizeLegacyLines(result?.lyrics);
         setLyricsData({
           key: currentLyricsKey,
-          lines: result?.lyrics ?? [],
+          lines: syncedLines,
           plain: result?.plainText ?? "",
-          error: !result || (result.lyrics.length === 0 && !result.plainText)
-            ? "Текст не найден"
+          error: !result || (syncedLines.length === 0 && !result.plainText)
+            ? (result?.error ?? "Текст не найден")
             : null,
         });
       })
@@ -407,7 +421,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
         }
       });
     return () => { cancelled = true; };
-  }, [lyricsOpen, currentTrack, currentLyricsKey]);
+  }, [lyricsOpen, currentTrack, currentLyricsKey, duration]);
 
   // LyricsView retry button → bump the key → re-fetch
   useEffect(() => {
@@ -583,30 +597,9 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
     toast({ title: "Название скопировано" });
   }, [currentTrack]);
 
-  const handleDownload = useCallback(async () => {
-    const audio = getAudioElement();
-    if (!currentTrack || !audio || !audio.src) return;
-    const name = `${currentTrack.artist} - ${currentTrack.title}.mp3`;
-    try {
-      const res = await fetch(audio.src);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch {
-      const a = document.createElement("a");
-      a.href = audio.src;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }
-  }, [currentTrack]);
+  // v11: the old naive handleDownload (element.src blob-dump) is replaced
+  // by the honest DownloadMenu format picker — see the render below.
+  const [downloadMenu, setDownloadMenu] = useState<{ x: number; y: number } | null>(null);
 
   // Same insertion semantics as the unified ContextMenu: right after the
   // currently playing track.
@@ -736,7 +729,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
     { type: "label", text: "Трек" },
     { type: "item", id: "share", icon: Share2, label: "Поделиться", onSelect: handleShare },
     { type: "item", id: "copy", icon: Copy, label: "Копировать название", onSelect: handleCopyName },
-    { type: "item", id: "download", icon: Download, label: "Скачать", onSelect: () => { void handleDownload(); } },
+    { type: "item", id: "download", icon: Download, label: "Скачать", onSelect: () => { setMoreMenu(null); setDownloadMenu(moreMenu); } },
     { type: "separator" },
     { type: "item", id: "artist", icon: UserIcon, label: "К исполнителю", onSelect: handleArtist },
     {
@@ -1017,22 +1010,29 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
         >
           {/* mobile — progress ABOVE the panel (normal mobile player anatomy) */}
           {isMobile && (
-            <div className="flex items-center gap-2.5 mx-auto w-full" style={{ maxWidth: 400, paddingBottom: 10 }}>
-              <span ref={timeCurrentRef} className="text-[11px] tabular-nums flex-shrink-0" style={{ color: "var(--mq-text-muted)", minWidth: 36, textAlign: "left" }}>0:00</span>
-              <input
-                ref={seekInputRef}
-                type="range"
-                min={0}
-                max={100}
-                step={0.05}
-                defaultValue={0}
-                onChange={handleSeekChange}
-                onPointerUp={commitSeek}
-                onKeyUp={commitSeek}
-                aria-label="Позиция воспроизведения"
-                className="mq-sp-seek flex-1 min-w-0"
-              />
-              <span ref={timeRemainingRef} className="text-[11px] tabular-nums flex-shrink-0" style={{ color: "var(--mq-text-muted)", minWidth: 36, textAlign: "right" }}>−0:00</span>
+            <div className="mx-auto w-full" style={{ maxWidth: 400, paddingBottom: 10 }}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span ref={timeCurrentRef} className="text-[11px] tabular-nums flex-shrink-0" style={{ color: "var(--mq-text-muted)", minWidth: 36, textAlign: "left" }}>0:00</span>
+                <span ref={timeRemainingRef} className="text-[11px] tabular-nums flex-shrink-0" style={{ color: "var(--mq-text-muted)", minWidth: 36, textAlign: "right" }}>−0:00</span>
+              </div>
+              {waveformEnabled && duration > 0 ? (
+                /* v11: real-signal waveform replaces the slider. */
+                <WaveformView track={currentTrack} duration={duration} height={40} onSeek={seekToTime}  />
+              ) : (
+                <input
+                  ref={seekInputRef}
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={0.05}
+                  defaultValue={0}
+                  onChange={handleSeekChange}
+                  onPointerUp={commitSeek}
+                  onKeyUp={commitSeek}
+                  aria-label="Позиция воспроизведения"
+                  className="mq-sp-seek w-full min-w-0"
+                />
+              )}
             </div>
           )}
           <div
@@ -1051,6 +1051,15 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
             {/* row 1 — progress / track time: DESKTOP only (mobile moved it
                 above the panel); thin, minimal, integrated */}
             {!isMobile && (
+              waveformEnabled && duration > 0 ? (
+                <div className="flex items-center gap-2.5 py-1">
+                  <span ref={timeCurrentRef} className="text-[11px] tabular-nums flex-shrink-0" style={{ color: "var(--mq-text-muted)", minWidth: 36, textAlign: "left" }}>0:00</span>
+                  <div className="flex-1 min-w-0">
+                    <WaveformView track={currentTrack} duration={duration} height={34} onSeek={seekToTime}  />
+                  </div>
+                  <span ref={timeRemainingRef} className="text-[11px] tabular-nums flex-shrink-0" style={{ color: "var(--mq-text-muted)", minWidth: 36, textAlign: "right" }}>−0:00</span>
+                </div>
+              ) : (
               <div className="flex items-center gap-2.5">
                 <span ref={timeCurrentRef} className="text-[11px] tabular-nums flex-shrink-0" style={{ color: "var(--mq-text-muted)", minWidth: 36, textAlign: "left" }}>0:00</span>
                 <input
@@ -1068,6 +1077,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
                 />
                 <span ref={timeRemainingRef} className="text-[11px] tabular-nums flex-shrink-0" style={{ color: "var(--mq-text-muted)", minWidth: 36, textAlign: "right" }}>−0:00</span>
               </div>
+              )
             )}
 
             {/* row 2 — primary transport: prev · play/pause · next */}
@@ -1321,6 +1331,8 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
                   cover={currentTrack.cover || undefined}
                   duration={duration}
                   variant="full"
+                  trackTitle={currentTrack?.title}
+                  trackArtist={currentTrack?.artist}
                 />
               </div>
             </div>
@@ -1346,6 +1358,16 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
               fallbackIcon={Music}
             />
           }
+        />
+      )}
+
+      {/* v11: download format picker — honest MP3/FLAC + real metadata */}
+      {downloadMenu && currentTrack && (
+        <DownloadMenu
+          track={currentTrack}
+          anchor={downloadMenu}
+          onClose={() => setDownloadMenu(null)}
+          side="above"
         />
       )}
 

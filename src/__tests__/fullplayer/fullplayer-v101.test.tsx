@@ -202,8 +202,12 @@ describe("v10.1 §1/§2/§24 — restored player anatomy + player bar", () => {
     expect(cs).toContain("blur");
     expect(cs).toContain("--mq-edge-strong");
     expect(cs).toContain("box-shadow");
-    // progress INSIDE the bar (user structure §2)
-    expect(surface.querySelector('input[aria-label="Позиция воспроизведения"]')).toBeTruthy();
+    // progress INSIDE the bar (user structure §2) — v11: the seek control is
+    // either the classic range input or the waveform canvas slider.
+    const seek =
+      surface.querySelector('input[aria-label="Позиция воспроизведения"]') ??
+      surface.querySelector('[data-mq-waveform] canvas[role="slider"]');
+    expect(seek).toBeTruthy();
     expect(surface.querySelector('[data-mq-secondary]')).toBeTruthy();
     // 44px+ touch targets on every secondary button
     const secondary = surface.querySelectorAll('[data-mq-secondary] button');

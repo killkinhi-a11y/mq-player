@@ -1,17 +1,22 @@
 "use client";
 
 import { useState, useCallback, useEffect, memo } from "react";
+import { AnimatePresence } from "framer-motion";
+import { Maximize2 } from "lucide-react";
 import { LiquidLyrics } from "./LiquidLyrics";
 import type { LiquidLyricsProps } from "./LiquidLyrics";
+import { FullscreenLyrics } from "./lyrics/FullscreenLyrics";
+import type { LyricLine, LyricsError } from "@/lib/lyrics/types";
+import { lyricsErrorText } from "@/lib/lyrics/types";
 
 /**
  * LyricsView — premium synced lyrics container for MQ Player.
  *
- * v78: the synced view is now LiquidLyrics — MQ's signature
- * water-fill typography. The active line's glyphs fill with liquid in
- * sync with real playback progress (line-level timing from lrclib;
- * the per-word cascade is a deterministic distribution of that real
- * line progress — no invented timing). See LiquidLyrics.tsx.
+ * v11: consumes the normalized ms-timing format (LyricLine from
+ * lib/lyrics/types — legacy {time,text} arrays are normalized on entry so
+ * every mount site and old mock keeps working). Adds the fullscreen stage
+ * toggle (portal overlay with Fullscreen + Focus modes, spec §2) and
+ * normalized error mapping (spec §12 — no raw exceptions in the UI).
  *
  * Contract preserved from previous versions:
  * - Props: lines / plainText / currentTime / isLoading / error / onSeek / cover
@@ -20,23 +25,24 @@ import type { LiquidLyricsProps } from "./LiquidLyrics";
  * - Loading skeleton + empty state with retry
  */
 
-export interface LyricLine {
-  time: number;
-  text: string;
-}
+export type { LyricLine };
+export type { LyricsError };
 
 interface LyricsViewProps {
   lines: LyricLine[];
   plainText: string;
   currentTime: number;
   isLoading: boolean;
-  error: string | null;
+  error: string | LyricsError | null;
   onSeek: (time: number) => void;
   cover?: string;
   /** Track duration — bounds the last line's fill window. */
   duration?: number;
   /** panel = desktop inline card, full = wide aside / mobile overlay. */
   variant?: LiquidLyricsProps["variant"];
+  /** Track identity for the fullscreen stage header. */
+  trackTitle?: string;
+  trackArtist?: string;
 }
 
 // ─── Plain text lyrics (no sync — never a fake sync) ────────────────────────
@@ -83,12 +89,24 @@ function LyricsViewBase({
   isLoading,
   error,
   onSeek,
+  cover,
   duration,
   variant,
+  trackTitle,
+  trackArtist,
 }: LyricsViewProps) {
   const hasSynced = lines.length > 0;
   const hasPlain = plainText.length > 0;
   const [retryCount, setRetryCount] = useState(0);
+  // Fullscreen is KEYED by track identity — a track change naturally closes
+  // the stage (derived, no synchronous setState in effects).
+  const [fsFor, setFsFor] = useState<string | null>(null);
+  const trackKey = `${trackTitle ?? ""}|${trackArtist ?? ""}`;
+  const fullscreen = fsFor !== null && fsFor === trackKey;
+
+  // Normalized error text — accepts legacy string messages AND LyricsError
+  // codes (typed or as strings); codes always map to human RU text (spec §12).
+  const errorText = lyricsErrorText(error);
 
   // Retry handler — triggers parent to re-fetch by changing key
   const handleRetry = useCallback(() => {
@@ -121,6 +139,18 @@ function LyricsViewBase({
             </span>
           )}
         </p>
+        {(hasSynced || hasPlain) && (
+          <button
+            type="button"
+            onClick={() => setFsFor(trackKey)}
+            aria-label="Текст песни на весь экран"
+            title="На весь экран"
+            className="mq-icon-btn w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{ color: "var(--mq-text-muted)" }}
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -145,7 +175,7 @@ function LyricsViewBase({
             <span style={{ color: "var(--mq-accent)", fontSize: 18 }}>♪</span>
           </div>
           <p className="text-xs text-center" style={{ color: "var(--mq-text-muted)" }}>
-            {error || "Текст не найден"}
+            {errorText || "Текст не найден"}
           </p>
           <button
             onClick={handleRetry}
@@ -160,6 +190,23 @@ function LyricsViewBase({
           </button>
         </div>
       )}
+
+      {/* Fullscreen / Focus stage (portal above every player layer) */}
+      <AnimatePresence>
+        {fullscreen && (
+          <FullscreenLyrics
+            lines={lines}
+            plainText={plainText}
+            isLoading={isLoading}
+            errorText={errorText}
+            cover={cover}
+            title={trackTitle}
+            artist={trackArtist}
+            onSeek={onSeek}
+            onClose={() => setFsFor(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

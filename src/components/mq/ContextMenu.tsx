@@ -8,8 +8,8 @@ import {
 import { useAppStore } from "@/store/useAppStore";
 import { type Track, formatDuration } from "@/lib/musicApi";
 import { shareTrackUrl } from "@/lib/share-urls";
-import { getAudioElement } from "@/lib/audioEngine";
 import MenuCore, { backLabelSpec, MenuHeader, type MenuElement } from "./ui/MenuCore";
+import { DownloadMenu } from "./ui/DownloadMenu";
 
 /* ══════════════════════════════════════════════════════════════════════════
    ContextMenu — THE unified track actions menu (v68).
@@ -143,32 +143,9 @@ export default function ContextMenu({
     onClose();
   }, [track, onClose]);
 
-  const handleDownload = useCallback(async () => {
-    const audio = getAudioElement();
-    if (audio && audio.src) {
-      const name = `${track.artist} - ${track.title}.mp3`;
-      try {
-        const res = await fetch(audio.src);
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } catch {
-        const a = document.createElement("a");
-        a.href = audio.src;
-        a.download = name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
-    }
-    onClose();
-  }, [track, onClose]);
+  // v11: the old naive handleDownload (element.src blob-dump) is replaced
+  // by the honest DownloadMenu format picker (rendered below this menu).
+  const [downloadOpen, setDownloadOpen] = useState(false);
 
   const handleQuickCreateAndAdd = useCallback(() => {
     const name = track.artist;
@@ -279,7 +256,9 @@ export default function ContextMenu({
         id: "download",
         icon: Download,
         label: "Скачать",
-        onSelect: handleDownload,
+        onSelect: () => {
+          setDownloadOpen(true);
+        },
       },
     ];
 
@@ -339,9 +318,25 @@ export default function ContextMenu({
   }, [
     page, playlists, track, isLiked, isDisliked, isSubscribed,
     handlePlay, handleAddToQueue, handleSimilar, handleGoToArtist,
-    handleToggleSubscribe, handleShare, handleDownload, handleQuickCreateAndAdd,
+    handleToggleSubscribe, handleShare, handleQuickCreateAndAdd,
     toggleLike, toggleDislike, context, onClose,
   ]);
+
+  // v11: download picker REPLACES the main menu surface while open; closing
+  // it closes the whole context menu (one menu at a time, same anchor).
+  if (downloadOpen) {
+    return (
+      <DownloadMenu
+        track={track}
+        anchor={{ x, y }}
+        onClose={() => {
+          setDownloadOpen(false);
+          onClose();
+        }}
+        side={side}
+      />
+    );
+  }
 
   return (
     <MenuCore
