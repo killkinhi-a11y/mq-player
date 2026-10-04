@@ -9,9 +9,9 @@
 #     / lyrics / font persisted / download sheet
 # ════════════════════════════════════════════════════════════════════════
 set -u
-AB="agent-browser --session v124"
-PAGE="http://localhost:3777/play"
-OUT="download/qa-v11.1"
+AB="agent-browser --session v125"
+PAGE="${MQ_E2E_PAGE:-http://localhost:3777/play}"
+OUT="${MQ_E2E_OUT:-download/qa-v11.1}"
 mkdir -p "$OUT"
 PASS=0; FAIL=0
 ok()   { PASS=$((PASS+1)); echo "  ✓ $1"; }

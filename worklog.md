@@ -8397,3 +8397,45 @@ Stage Summary:
   fonts DB self-heal, pointer-capture robustness) — all with regression tests.
 - v11 feature set fully verified on both viewports; ready to deploy.
 
+
+---
+Task ID: v11.1-deploy
+Agent: main (Super Z)
+Task: Rebase onto remote yandex hotfix line, deploy, production verification
+
+Work Log:
+- REMOTE HAD MOVED: origin/main gained 23 commits (v10.3/10.3.1/v11-a11y
+  switch semantics/v10.4.1 + the full Yandex import line through b0f2a441,
+  including the parallel egress-chain racing hotfix). Rebased the v11.1
+  commit onto b0f2a441 (only conflict: worklog.md — both sides kept;
+  11 colliding untracked pasted-image copies removed in favour of the
+  remote's tracked versions).
+- MERGED-TREE GATES: tests 923/923 PASS (remote 911 + v11.1's 12), tsc
+  31 errors — 13 src/ ALL in the remote's src/lib/yandex/store.ts
+  (pre-existing remote baseline, 0 from v11.1), eslint 57 = baseline
+  (0 new), build PASS, chunk integrity OK.
+- MERGED-TREE E2E: 47/47 PASS (mq-build-2dbaa2dc locally).
+- PUSHED 2dbaa2dc → Vercel → production mq1.vercel.app updated
+  b0f2a441 → mq-build-2dbaa2dc (~60 s).
+- PRODUCTION E2E on the live deploy (same 47-check matrix, PAGE
+  parameterized): 47/47 PASS — desktop 1440×900 (waveform decode, mouse
+  click+drag seek, keyboard single-seek ±5/±1/Home/End, unified audio
+  clock 3-way, synced lyrics + click-line-seek, fullscreen+focus, custom
+  font upload→applied(computed style)→IDB, DownloadMenu MP3+FLAC-honest,
+  settings toggle → classic fallback, resize invariant) + mobile 390×844
+  (touch tap/drag exact, keyboard single, lyrics, download sheet, font
+  lifecycle cleanup) + ZERO page errors. Evidence: download/qa-v11.1-prod/.
+- YANDEX REGRESSION on the new deploy: API smoke — control 1293
+  owner+kind 3/3 direct retries (200, «Лучшие новые песни 2015 года»,
+  52 tracks, 6.6–8.2 s; one earlier 503 window = the documented transient
+  relay-pool degradation, honest yandex_proxy_error), 1293 UUID form 200,
+  1100 dead binding → honest 404 yandex_not_found, guards 400×3.
+  UI E2E (prod_chain_ui_e2e.py): 23/23 PASS — full journey on 2dbaa2dc:
+  URL paste → REAL preview card (52 tracks) → SoundCloud matching
+  (45 found / 7 not) → «Импорт успешен!» → playlist in Library with
+  _src=yandex_music 45/45 + kind 1293 + source URL in description;
+  zero page errors; mobile preview + 44px target OK.
+
+Stage Summary:
+- v11.1 LIVE in production (mq-build-2dbaa2dc) alongside the yandex import
+  line; both verified together on the same build. Final checklist green.
