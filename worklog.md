@@ -8531,3 +8531,49 @@ Stage Summary:
 - Visual E2E: 390x844 PASS, 1440x900 PASS, 0 page errors both.
 - 1 real defect found & fixed (multi-instance hook duplication).
 - Gates after fix: build PASS (rebuilt), tsc 0 src errors.
+---
+Task ID: wave-3
+Agent: main (Super Z)
+Task: Production deploy + E2E + regression (§40–§42)
+
+Work Log:
+- Rebased onto remote main (v11.1 lyrics/waveform/downloads + yandex line landed
+  during implementation): ContextMenu deps-array conflict resolved (kept remote's
+  DownloadMenu removal of handleDownload + wave handlers), worklog merged both
+  sides. Merged-code gates: 1003/1003 tests PASS (645 mine incl. 80 wave +
+  358 v11.1), tsc 0 src errors (after prisma generate), eslint 55 = baseline,
+  build PASS (113 pages). No yandex history rewritten (single-commit rebase).
+- Pushed f5ee20c5 → Vercel → production mq-build-f5ee20c5 verified via
+  /version.json.
+- PRODUCTION E2E desktop 1440x900: demo → Запустить Волну → WaveHome live
+  (honest reason), like/skip/queue/recommendation-change all PASS; reason
+  evolution observed live: cold start «Новое для вас» → «Продолжение вашего
+  потока» (session layer adapting in real time). 0 page errors.
+- PRODUCTION E2E mobile 390x844: WaveHome 362px, overflowX=false, all controls
+  ≥44px, 5 next-up stocked, 0 page errors. Cross-session personalization
+  observed: fresh browser (same anonId) got «Продолжение вашего потока» from
+  the SERVER-side taste store persisting between sessions (§29 live proof).
+- PRE-EXISTING FINDING (not a Wave regression — download flow code diff-proven
+  byte-identical to remote v11.1): unified ContextMenu «Скачать» raced
+  MenuCore close() → parent unmounted ContextMenu before DownloadMenu could
+  render (v11.1 E2E had only verified the Full Player More-menu surface).
+  FIXED in 0312541f: keepOpen: true on the download item (matches the
+  documented "picker REPLACES menu surface" intent). Deployed mq-build-0312541f,
+  verified live: DownloadMenu opens from TrackCard ctx menu with honest rows —
+  «MP3 · 128 kbps · 3.1 МБ · оригинальный файл» + «FLAC недоступно — SoundCloud
+  не предоставляет lossless» (no fake lossless).
+- REGRESSION on production: Full Player opens with ВОЛНА badge (transport,
+  volume, kb hints intact); LRCLIB lyrics load real synced text («Take me down
+  like I'm a domino…»); queue drawer shows wave tracks; Esc layering OK;
+  0 console/page errors final sweep. Audio stream resolution + cache prewarm
+  verified via diagnostics; audible decode in headless stalls identically for
+  wave AND regular tracks (shared untouched pipeline — environment limitation,
+  see waveRuntime notes; bare <audio> element test loads the same MP3 URL
+  perfectly: readyState 4, duration 112.5s).
+
+Stage Summary:
+- Production: mq-build-0312541f live (Wave f5ee20c5 + download fix 0312541f).
+- E2E 1440x900 PASS, 390x844 PASS, 0 page errors both.
+- Regression: player PASS, lyrics PASS, downloads PASS (+fix), queue PASS,
+  fonts/yandex/soundcloud untouched-paths verified by diff + build + 1003/1003.
+- All evidence in download/qa-wave/ (33 screenshots).
