@@ -10,6 +10,7 @@ import {
   MoreHorizontal, X, Shuffle, ArrowUpRight,
 } from "lucide-react";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
+import WaveHome from "./WaveHome";
 import { useFriendsListening } from "@/hooks/useFriendsListening";
 import { useRecUpdates } from "@/hooks/useRecUpdates";
 import { type Track, formatDuration } from "@/lib/musicApi";
@@ -494,6 +495,20 @@ function MainView() {
           </button>
         </header>
       </ScrollReveal>
+
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {/* WAVE HOME (v1) — the dedicated Wave experience while the wave */}
+      {/* session is active: seed, now playing + honest reason, next up */}
+      {/* with reasons, like/skip/more/less controls. Hidden when the */}
+      {/* wave is off (the header pill + hero CTA already cover start). */}
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {wave.radioMode && (
+        <ScrollReveal direction="up" delay={0.01}>
+          <div className="mb-4 lg:mb-6">
+            <WaveHome />
+          </div>
+        </ScrollReveal>
+      )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
       {/* FEATURED — one dominant content block (new). Real data: the top */}
@@ -1234,6 +1249,22 @@ function ContinueListeningCard({
 // falls back to the generic "Волна · играет").
 export function waveReasonText(track: Track): string {
   switch (track._reason) {
+    // ── Wave engine v1 reasons (lib/wave — §15) ──
+    case "similar_track":
+      return track._seedArtist ? `Похоже на «${track._seedArtist}»` : "Волна · похожее";
+    case "similar_artist":
+      return track._seedArtist ? `В стиле ${track._seedArtist}` : "Похожий артист";
+    case "favorite_artist":
+      return track._seedArtist ? `Любимый артист · ${track._seedArtist}` : "Любимый артист";
+    case "favorite_genre":
+      return "Любимый жанр";
+    case "recent_listening":
+      return "Продолжение вашего потока";
+    case "taste_profile":
+      return "По вашему вкусу";
+    case "exploration":
+      return "Новое для вас";
+    // ── Legacy radio/recommendations reasons (fallback path) ──
     case "related_current":
       return track._seedArtist ? `Похоже на ${track._seedArtist}` : "Волна · похожее";
     case "related_history":

@@ -8439,3 +8439,95 @@ Work Log:
 Stage Summary:
 - v11.1 LIVE in production (mq-build-2dbaa2dc) alongside the yandex import
   line; both verified together on the same build. Final checklist green.
+---
+Task ID: wave-1
+Agent: main (Super Z)
+Task: Implement MQ Wave — personalized infinite radio (engine + API + store + hook + UI + tests)
+
+Work Log:
+- AUDIT: existing infra mapped — extractTasteProfile (lib/tasteProfile.ts), /api/music/radio v4,
+  /api/music/recommendations v14, feedback store, useWaveEngine v1, radioMode store state,
+  ContextMenu wave context, _reason/_seedArtist Track fields, RECOMMENDATIONS_CONFIG.
+- ENGINE (src/lib/wave/, 12 modules, pure + deterministic):
+  types.ts (WaveSeed/Reason/Event/Profile/Memory/Queue/Signals), config.ts (WAVE_CONFIG
+  all weights centralized + mergeWaveConfig), rng.ts (mulberry32 seeded PRNG), events.ts
+  (skip classification <10% strong_neg / 10-30 neg / 30-70 neutral / 70-95 pos / 95%+
+  strong_pos + event→signal mapping + replay detection), profile.ts (4 recency layers:
+  longTerm/mediumTerm/recent/session, session weight 1.35x, confidence→exploration,
+  builds on sanitizeGenre from existing tasteProfile), memory.ts (bounded TTL memory),
+  scoring.ts (full score fn + honest reason selection from breakdown), diversity.ts
+  (artist spacing + caps + album/genre caps + relaxation ladder + §35 graceful fallback,
+  cumulative counters), engine.ts (getWaveRecommendations pipeline + dedup by channel
+  priority + exploration injection + meta observability), queue.ts (Wave Queue Manager),
+  reasons.ts (ru texts), server.ts (resolveWaveUser session-cookie-first + anonId
+  fallback, per-user event store, user-scoped cache, 6-channel candidate fetching),
+  route-helpers.ts (runWave pipeline + parseSignals validation).
+- API: POST/GET /api/wave (start, session owned by server-resolved user), POST
+  /api/wave/next (medium rate limit), POST /api/wave/feedback (event validation,
+  write limit), GET /api/wave/session (ownership check — 404 on cross-user).
+- STORE: waveSession/waveQueue/waveMemory/waveSessionEvents/waveLoading/waveError +
+  10 actions (startWaveSession, enqueueWaveTracks, consumeWaveItem, removeWaveItems,
+  clearWave, pushWaveEvent, markWaveTracksServed, waveMoreLikeThis, waveLessLikeThis,
+  setWaveLoading/Error). recordSkip/recordComplete now emit wave events when session
+  active (single source of truth). All wave state in TRANSIENT_FIELDS (never persisted,
+  same policy as radioMode).
+- HOOK: useWaveEngine v2 — /api/wave first, legacy radio/recommendations fallback
+  (never stalls); Wave Queue Manager auto-refill (< minBuffer=5, throttled 8s,
+  in-flight dedup); play_started/track_replayed events; feedback shipper (3.5s flush);
+  more/lessLikeThis steering; startWaveWithSeed/FromArtist; v1 API surface preserved.
+- UI: WaveHome.tsx (seed chip, now playing + honest reason, unified-clock progress,
+  next-up list with reasons, like/play/skip/more/less/stop controls, 44px targets,
+  two-column desktop / stacked mobile) rendered on Home when radioMode; ContextMenu
+  +2 seed actions (Волна с этого трека / по артисту); MainView waveReasonText extended
+  with the 7 new engine reasons.
+- BUG FIXED during tests: diversity counters reset between ladder rungs (caps never
+  accumulated) — rewritten with cumulative counters + demand-driven relaxation
+  (relax only while batch < 60% viable; absolute fallback only for small/mono pools).
+
+Stage Summary:
+- TESTS: 645/645 PASS (baseline 565 + 80 new wave tests: engine/events/profile/queue/api,
+  scenarios A–F encoded). tsc 18 pre-existing (0 src) = baseline. eslint 55 = baseline
+  (0 in wave files). Build PASS, all 4 wave routes in the bundle.
+---
+Task ID: wave-2
+Agent: main (Super Z)
+Task: Local visual E2E (desktop 1440x900 + mobile 390x844) + live bug fix
+
+Work Log:
+- Ran standalone production server (node .next/standalone/server.js). NOTE:
+  `next start` exits under output:standalone; stale `next-server` pid held
+  port 3000 serving OLD chunks — killed, fresh standalone started (E2E
+  infra note for future sessions).
+- DESKTOP 1440x900 journey: demo mode → Запустить Волну → WaveHome renders
+  (seed chip ВОЛНА ПО ВАШЕМУ ВКУСУ, honest reason, 5 next-up with reasons,
+  real audio-clock progress). Like → track_liked. Skip → instant next
+  recommendation. More like this → steering + stats update ("Сессия: 3
+  треков · 1 пропущено"). Queue drawer shows wave tracks. Full player opens
+  with ВОЛНА badge, Esc closes. 0 page errors.
+- LIVE BUG FOUND+FIXED: useWaveEngine mounted by several components →
+  per-instance refs duplicated play_started events and feedback flushes
+  (observed 12 feedback POSTs after one start). Fix: module-level shared
+  waveRuntime (inflight/lastFetch/sentEvents/flushTimer/lastTrack +
+  session-generation reset). After fix: exactly 1 POST /api/wave + 2
+  feedback POSTs (wave_started + play_started). Rebuilt + re-verified.
+- MOBILE 390x844 journey: Wave CTA 102x44 → WaveHome 362px wide, fits
+  viewport, overflowX=false. All controls ≥44px (Лайк 44, Пауза 56x45,
+  Пропустить 44, Больше такого 138x44, Меньше 44, Остановить 44; next-up
+  rows 56px). Like + Skip + More like this PASS. ContextMenu live: «Волна
+  с этого трека» / «Волна по артисту» → artist seed verified (ВОЛНА ПО
+  АРТИСТУ THE LONG FACES + honest reason). Queue via player → wave tracks
+  visible → return → playback continues. 0 page errors.
+- API spot-checks: POST /api/wave/next with likedArtists=[Nirvana] →
+  "All Apologies — Nirvana" with _reason=favorite_artist, _seedArtist=nirvana;
+  meta: 36 candidates (taste 20 + exploration 16), exploration_count 2,
+  duplicate_count 0, generation 1ms, deterministic via randomSeed.
+  GET /api/wave/session unknown id → {session:null}.
+- Media CDN in sandbox throttles progressive streams (resolveStream OK,
+  bytes slow → loading-timeout retries) — pre-existing environment
+  limitation, not Wave logic (one track reached 0:10 progress; pipeline
+  proven on production in previous sessions).
+
+Stage Summary:
+- Visual E2E: 390x844 PASS, 1440x900 PASS, 0 page errors both.
+- 1 real defect found & fixed (multi-instance hook duplication).
+- Gates after fix: build PASS (rebuilt), tsc 0 src errors.

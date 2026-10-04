@@ -3,9 +3,10 @@
 import { useCallback, useMemo, useState } from "react";
 import {
   Play, ListPlus, Heart, ThumbsDown, User, Copy, ListMusic, Plus, Download,
-  Users, Share2, Radio, Trash2, Ban, Music2,
+  Users, Share2, Radio, Trash2, Ban, Music2, Waves,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { useWaveEngine } from "@/hooks/useWaveEngine";
 import { type Track, formatDuration } from "@/lib/musicApi";
 import { shareTrackUrl } from "@/lib/share-urls";
 import MenuCore, { backLabelSpec, MenuHeader, type MenuElement } from "./ui/MenuCore";
@@ -74,6 +75,9 @@ export default function ContextMenu({
   const favoriteArtists = useAppStore((s) => s.favoriteArtists);
   const addFavoriteArtist = useAppStore((s) => s.addFavoriteArtist);
   const removeFavoriteArtist = useAppStore((s) => s.removeFavoriteArtist);
+  // MQ Wave v1 — seed actions (§6, §16): start a wave from THIS track or
+  // from the track's ARTIST, straight from any track surface.
+  const { startWaveWithSeed, startWaveFromArtist } = useWaveEngine();
 
   const [page, setPage] = useState<"root" | "playlists">("root");
 
@@ -106,6 +110,27 @@ export default function ContextMenu({
     requestShowSimilar();
     onClose();
   }, [playTrack, track, setFullTrackViewOpen, requestShowSimilar, onClose]);
+
+  // ── Wave seed actions (§6: «Волна от этого трека / артиста») ──
+  const handleWaveFromTrack = useCallback(() => {
+    startWaveWithSeed(
+      {
+        kind: "track",
+        trackId: track.id,
+        scTrackId: track.scTrackId,
+        artist: track.artist,
+        genre: track.genre,
+        label: track.title,
+      },
+      track,
+    );
+    onClose();
+  }, [startWaveWithSeed, track, onClose]);
+
+  const handleWaveFromArtist = useCallback(() => {
+    startWaveFromArtist(track.artist, track.genre);
+    onClose();
+  }, [startWaveFromArtist, track, onClose]);
 
   const handleGoToArtist = useCallback(() => {
     setSelectedArtist({ name: track.artist, avatar: track.cover || undefined });
@@ -197,6 +222,20 @@ export default function ContextMenu({
         onSelect: () => setPage("playlists"),
       },
       { type: "item", id: "similar", icon: Radio, label: "Похожие треки", onSelect: handleSimilar },
+      {
+        type: "item",
+        id: "wave-track",
+        icon: Waves,
+        label: "Волна с этого трека",
+        onSelect: handleWaveFromTrack,
+      },
+      {
+        type: "item",
+        id: "wave-artist",
+        icon: Waves,
+        label: `Волна по артисту`,
+        onSelect: handleWaveFromArtist,
+      },
       { type: "separator" },
       {
         type: "item",
@@ -317,8 +356,8 @@ export default function ContextMenu({
     return els;
   }, [
     page, playlists, track, isLiked, isDisliked, isSubscribed,
-    handlePlay, handleAddToQueue, handleSimilar, handleGoToArtist,
-    handleToggleSubscribe, handleShare, handleQuickCreateAndAdd,
+    handlePlay, handleAddToQueue, handleSimilar, handleWaveFromTrack, handleWaveFromArtist,
+    handleGoToArtist, handleToggleSubscribe, handleShare, handleQuickCreateAndAdd,
     toggleLike, toggleDislike, context, onClose,
   ]);
 
