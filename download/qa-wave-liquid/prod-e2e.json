@@ -1,0 +1,72 @@
+[
+  {
+    "label": "desktop-1440",
+    "off": {
+      "wrap": true,
+      "active": "false",
+      "rootWave": "off",
+      "rootBg": "rgb(14, 14, 14)"
+    },
+    "on": {
+      "active": "true",
+      "mode": "webgl",
+      "motion": "live",
+      "canvas": "634x396",
+      "rootWave": "on",
+      "rootBg": "rgba(0, 0, 0, 0)",
+      "vars": {
+        "c1": "#070b16",
+        "c2": "#122448"
+      },
+      "overflowX": 0,
+      "waveHomeVisible": true
+    },
+    "offAfter": {
+      "active": "false",
+      "rootWave": "off",
+      "rootBg": "rgb(14, 14, 14)"
+    },
+    "shot": "/home/z/my-project/download/qa-wave-liquid/prod-desktop-1440-wave-active.png",
+    "errs": [
+      "Loading the script 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad' violates the following Content S",
+      "Failed to load resource: the server responded with a status of 401 ()",
+      "Loading the script 'https://telegram.org/js/telegram-widget.js?22' violates the following Content Security Policy directive: \"scri",
+      "Failed to load resource: the server responded with a status of 400 ()"
+    ]
+  },
+  {
+    "label": "mobile-390",
+    "off": {
+      "wrap": true,
+      "active": "false",
+      "rootWave": "off",
+      "rootBg": "rgb(14, 14, 14)"
+    },
+    "on": {
+      "active": "true",
+      "mode": "webgl",
+      "motion": "live",
+      "canvas": "351x760",
+      "rootWave": "on",
+      "rootBg": "rgba(0, 0, 0, 0)",
+      "vars": {
+        "c1": "#0c130c",
+        "c2": "#234325"
+      },
+      "overflowX": 0,
+      "waveHomeVisible": true
+    },
+    "offAfter": {
+      "active": "false",
+      "rootWave": "off",
+      "rootBg": "rgb(14, 14, 14)"
+    },
+    "shot": "/home/z/my-project/download/qa-wave-liquid/prod-mobile-390-wave-active.png",
+    "errs": [
+      "Loading the script 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad' violates the following Content S",
+      "Loading the script 'https://telegram.org/js/telegram-widget.js?22' violates the following Content Security Policy directive: \"scri",
+      "Failed to load resource: the server responded with a status of 401 ()",
+      "Failed to load resource: the server responded with a status of 400 ()"
+    ]
+  }
+]

@@ -8639,3 +8639,75 @@ Stage Summary:
 - Production live: https://mq1.vercel.app (mq-build-d3180756).
 - All local gates green at push time: 1019/1019 tests, tsc 0 src errors, eslint 0 errors, build PASS.
 - Evidence: download/qa-wave-v2/ (before/after 4 viewports, e2e journeys, real-qa-20.json, prod-* screenshots).
+---
+Task ID: wave-liquid-ambient
+Agent: main (Super Z)
+Task: WAVE — Liquid Ambient Background: живой анимированный жидкий фон для режима «Волна» (WebGL liquid scene за всем UI, адаптация под artwork, 950ms переходы, reduced-motion static, production deploy)
+
+Work Log:
+- PART 1 research: AppShell layering, ambient CSS system, useWaveEngine,
+  useDominantColor (k-means), QA conventions. EMPIRICAL z-order proof
+  (scripts/wave-ambient/zorder-test.html): an opaque ancestor background
+  paints OVER z-index:-1 descendants → the fullscreen layer requires the
+  app root to cross-fade opaque⇄transparent in lockstep with the layer.
+- NEW src/components/mq/wave-ambient-palette.ts — pure artwork→DARK
+  palette derivation (hue preserved: blue→navy, red→burgundy, green→deep
+  teal; hard lightness caps c1≤40/c2≤78/c3≤56; achromatic→cold indigo;
+  DEFAULT_WAVE_PALETTE cold navy family).
+- NEW src/components/mq/WaveAmbientBackground.tsx — LiquidEngine (WebGL
+  fragment shader, domain-warped fbm): layer1 liquid light body (tA),
+  layer2 darker depth field (tB), layer3 noise-gated platinum streaks
+  (tC), layer4 atmospheric grain, vignette + edge darkening; CSS fallback
+  (5 radial-gradient layers, compositor-only drift) when WebGL is gone.
+  Perf: rAF outside React (zero re-renders), 30/24fps cap, adaptive
+  resolution governor 0.72→0.36 with 2-slow/8-healthy hysteresis,
+  alpha:false/low-power/desynchronized context, parks when off (1.2s) or
+  tab hidden; palette lerps inside the engine over 950ms (no hard cut);
+  reduced-motion → static composition + self-parking transition loop.
+  Palette published as --wave-color-1/2/3/--wave-highlight (@property
+  registered so the fallback cross-fades).
+- AppShell: root div → .mq-app-root + data-wave=on/off (background-color
+  950ms transition, CSS-owned instead of inline style); mounts
+  WaveAmbientBackground (dynamic, ssr:false) at the app level so route
+  navigation never tears it down.
+- TWO REAL BUGS FOUND AND FIXED DURING QA:
+  1) [data-motion] namespace collision — framer-motion contract
+     ([data-motion] * { transition: none !important }) killed the wrapper
+     fade; renamed to data-wave-motion.
+  2) Wave V2 (remote d3180756) ships its OWN .mq-wave-ambient class
+     (local hero wash) — two owners broke both (V2's later rules would
+     force position:absolute + strand inactive opacity at 0.85/0.6).
+     Renamed the fullscreen layer to .mq-wave-liquid; V2 class + its
+     deployed E2E references untouched.
+- Local QA (standalone :3112): 13 screenshots + behaviour matrix — wave
+  on/off, root bg handoff (CSSOM-verified: wrapper opacity 0.95s + root
+  background-color 0.95s, both RUNNING via document.getAnimations),
+  track-change colour dissolve (03 mid-fade), dark artwork (#412925
+  sat .43) vs colorful (#153c4e sat .73) palettes, route navigation
+  (Библиотека) ambient persists, mobile 390 overflowX=0, frozen 45%
+  fades via pause+seek technique (11/12), reduced-motion static
+  (html.mq-reduce-motion, engine parked, scene intact). FPS sampled at
+  1440×900 (19fps)/1920×1080 (13fps)/390×844 (15fps rAF) — SwiftShader
+  software-GL numbers in headless; governor stepped scale to 0.36 under
+  it (working as designed); real-GPU cost at 0.72 scale ≈ 5 GFLOP/s —
+  trivial for any hardware GPU. VLM PASS on all key shots.
+- Gates after rebase onto V2: 1040/1040 tests (21 new wave-ambient),
+  tsc src clean (yandex/store.ts errors were a stale prisma client,
+  fixed by build's prisma generate), eslint 0 new, build green.
+- Deploy: 967ece82 → Vercel mq-build-967ece82 live (version 85).
+  PRODUCTION E2E desktop 1440 + mobile 390: wave on (webgl live, root
+  transparent, palette vars, WaveHome visible, overflowX=0, mobile
+  artwork palette #234325 green family), wave off restore clean; console
+  shows only pre-existing CSP/turnstile noise. VLM PASS on prod shot.
+
+Stage Summary:
+- Волна получила ЖИВОЙ liquid-ambient: WebGL shader-сцена (liquid
+  glass/platinum, 5 слоёв с разными скоростями, без заметного цикла),
+  адаптация палитры под обложку текущего трека (всегда тёмная), 950ms
+  кроссфейды включения/выключения/смены трека, reduced-motion статика,
+  compositor-friendly + адаптивное качество, полный QA-контракт
+  (13 скриншотов + прод E2E) и 21 новый тест. Не тронуты: PlayerBar,
+  Full Player, audio engine, queue, lyrics, V2 relevance engine.
+- Artifacts: src/components/mq/WaveAmbientBackground.tsx,
+  wave-ambient-palette.ts, scripts/wave-ambient/* (QA),
+  download/qa-wave-liquid/* (evidence).
