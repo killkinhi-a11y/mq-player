@@ -500,8 +500,8 @@ export default function WaveHome() {
               artwork, vertically distributed across the artwork height —
               title up top, transport in the flow, progress anchored low) */}
           <div className="min-w-0 flex flex-col lg:min-h-[clamp(280px,26vw,400px)] lg:pt-2 lg:pb-2">
-            {/* V2.5 §3: no "Сейчас играет" status eyebrow — the title
-                IS the now; the reason line carries the context. */}
+            {/* V2.5 §3: no now-playing status eyebrow — the title IS
+                the now; the reason line carries the context. */}
             <div key={trackKey} className="mq-wave-meta-in min-w-0 text-center lg:text-left">
               <h3
                 className="font-extrabold leading-[1.12] tracking-[-0.02em] line-clamp-2 text-[clamp(1.35rem,4.6vw,2rem)] lg:text-[clamp(1.6rem,2.4vw,2.25rem)]"
@@ -721,7 +721,7 @@ export default function WaveHome() {
           anchor={moreAnchor}
           onClose={() => setMoreAnchor(null)}
           elements={moreMenu}
-          ariaLabel="Действия Волны"
+          ariaLabel="Действия WAVE"
         />
       )}
 

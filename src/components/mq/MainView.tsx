@@ -345,7 +345,7 @@ function MainView() {
 
   const featuredReason = useMemo(() => {
     if (!featuredTrack) return "";
-    // V2.5 §3: no "Сейчас играет" status label — the eyebrow carries the
+    // V2.5 §3: no now-playing status label — the eyebrow carries the
     // real category reason (or nothing).
     const cat = recCategories.find((c) => c.tracks.some((t) => t.id === featuredTrack.id));
     return cat ? reasonForRec(cat.id) : "Подобрано для тебя";
@@ -1247,7 +1247,7 @@ function ContinueListeningCard({
 // Honest "why this track" context — computed ONLY from the real reason
 // metadata the recommendation engine attached to the track (_reason /
 // _seedArtist). No synthesized explanations: unknown → empty (the caller
-// falls back to the generic "Волна · играет").
+// falls back to nothing — reason only, no status text).
 export function waveReasonText(track: Track): string {
   switch (track._reason) {
     // ── Wave engine reasons (lib/wave — §15, V2 tone) ──
