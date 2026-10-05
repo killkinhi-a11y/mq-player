@@ -686,7 +686,7 @@ export const WaveAmbientBackground = memo(function WaveAmbientBackground({
 
   return (
     <div
-      className="mq-wave-ambient"
+      className="mq-wave-liquid"
       data-active={active ? "true" : "false"}
       data-mode={mode}
       data-wave-motion={staticMode ? "static" : "live"}

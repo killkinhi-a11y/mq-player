@@ -26,7 +26,7 @@ await (async () => {
 
   await page.locator('[aria-label="Запустить Волну"]').first().click();
   await page.waitForFunction(
-    () => document.querySelector(".mq-wave-ambient")?.getAttribute("data-active") === "true",
+    () => document.querySelector(".mq-wave-liquid")?.getAttribute("data-active") === "true",
     null,
     { timeout: 60000 },
   );

@@ -46,7 +46,7 @@ async function demoLogin(page) {
 
 const waveState = (page) =>
   page.evaluate(() => {
-    const wrap = document.querySelector(".mq-wave-ambient");
+    const wrap = document.querySelector(".mq-wave-liquid");
     const root = document.querySelector(".mq-app-root");
     const canvas = document.querySelector(".mq-wave-canvas");
     const hook = window.__mqWaveAmbient;
@@ -131,7 +131,7 @@ const satOf = (hex) => {
     }
     // wait until ambient becomes active (radio mode on + a track playing)
     await page.waitForFunction(
-      () => document.querySelector(".mq-wave-ambient")?.getAttribute("data-active") === "true",
+      () => document.querySelector(".mq-wave-liquid")?.getAttribute("data-active") === "true",
       null,
       { timeout: 60000 },
     );
@@ -209,7 +209,7 @@ const satOf = (hex) => {
     if (!(await startBtn.count())) await page.locator('[aria-label="Волна"]').first().click();
     else await startBtn.click();
     await page.waitForFunction(
-      () => document.querySelector(".mq-wave-ambient")?.getAttribute("data-active") === "true",
+      () => document.querySelector(".mq-wave-liquid")?.getAttribute("data-active") === "true",
       null,
       { timeout: 60000 },
     );
@@ -228,7 +228,7 @@ const satOf = (hex) => {
     if (!(await startBtn.count())) await page.locator('[aria-label="Волна"]').first().click();
     else await startBtn.click();
     await page.waitForFunction(
-      () => document.querySelector(".mq-wave-ambient")?.getAttribute("data-active") === "true",
+      () => document.querySelector(".mq-wave-liquid")?.getAttribute("data-active") === "true",
       null,
       { timeout: 60000 },
     );

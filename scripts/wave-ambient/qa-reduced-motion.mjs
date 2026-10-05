@@ -21,14 +21,14 @@ const OUT = "/home/z/my-project/download/qa-wave-liquid";
 
   await page.locator('[aria-label="Запустить Волну"]').first().click();
   await page.waitForFunction(
-    () => document.querySelector(".mq-wave-ambient")?.getAttribute("data-active") === "true",
+    () => document.querySelector(".mq-wave-liquid")?.getAttribute("data-active") === "true",
     null,
     { timeout: 60000 },
   );
   await page.waitForTimeout(2500); // transition settles + parks
 
   const state = await page.evaluate(() => {
-    const wrap = document.querySelector(".mq-wave-ambient");
+    const wrap = document.querySelector(".mq-wave-liquid");
     return {
       motionAttr: wrap?.getAttribute("data-wave-motion"),
       mode: wrap?.getAttribute("data-mode"),

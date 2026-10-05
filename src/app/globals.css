@@ -4749,7 +4749,7 @@ html[data-mq-desktop] {
    Layering contract (empirically verified: an opaque ancestor background
    paints OVER z-index:-1 descendants — see scripts/wave-ambient/zorder-test):
      body (dark, never white)
-       → .mq-wave-ambient (fixed, z -1, opaque dark liquid scene)
+       → .mq-wave-liquid (fixed, z -1, opaque dark liquid scene)
          → .mq-app-root ([data-wave="on"] → background transparent)
            → all app UI (cards / bars / views paint above the scene).
    The app root's background cross-fades opaque↔transparent in lockstep
@@ -4763,7 +4763,7 @@ html[data-mq-desktop] {
 @property --wave-color-3 { syntax: "<color>"; inherits: true; initial-value: #261e54; }
 @property --wave-highlight { syntax: "<color>"; inherits: true; initial-value: #d6e2ff; }
 
-.mq-wave-ambient {
+.mq-wave-liquid {
   position: fixed;
   inset: 0;
   z-index: -1;
@@ -4773,7 +4773,7 @@ html[data-mq-desktop] {
   opacity: 0;
   transition: opacity 950ms cubic-bezier(0.4, 0, 0.2, 1);
 }
-.mq-wave-ambient[data-active="true"] { opacity: 1; }
+.mq-wave-liquid[data-active="true"] { opacity: 1; }
 .mq-wave-canvas {
   position: absolute;
   inset: 0;
@@ -4887,7 +4887,7 @@ html[data-mq-desktop] {
    light, depth), remove active movement. Mount fades remain (state
    changes, not decoration) but quick. */
 @media (prefers-reduced-motion: reduce) {
-  .mq-wave-ambient { transition-duration: 250ms; }
+  .mq-wave-liquid { transition-duration: 250ms; }
   .mq-app-root { transition-duration: 250ms; }
   .mq-wave-fallback .mq-wf-liquid,
   .mq-wave-fallback .mq-wf-depth,
@@ -4901,7 +4901,7 @@ html[data-mq-desktop] {
 .mq-wave-fallback[data-wave-motion="static"] .mq-wf-liquid,
 .mq-wave-fallback[data-wave-motion="static"] .mq-wf-depth,
 .mq-wave-fallback[data-wave-motion="static"] .mq-wf-streak { animation: none !important; }
-html.mq-reduce-motion .mq-wave-ambient { transition-duration: 250ms; }
+html.mq-reduce-motion .mq-wave-liquid { transition-duration: 250ms; }
 html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
 
 /* Mobile: calmer fallback drift (the WebGL path adapts resolution instead) */

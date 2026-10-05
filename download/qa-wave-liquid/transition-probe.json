@@ -12,37 +12,37 @@
       "property": "background-color",
       "duration": 950,
       "playState": "running",
-      "currentTime": 267
+      "currentTime": 233
     },
     {
-      "cls": "mq-wave-ambient",
+      "cls": "mq-wave-liquid",
       "type": "transition",
       "property": "opacity",
       "duration": 950,
       "playState": "running",
-      "currentTime": 267
+      "currentTime": 233
     }
   ],
   "fadeOutEvents": [
     {
-      "cls": "mq-wave-ambient",
+      "cls": "mq-wave-liquid",
       "property": "opacity",
-      "at": 14821.200000000186
+      "at": 15039
     },
     {
-      "cls": "mq-wave-ambient",
+      "cls": "mq-wave-liquid",
       "property": "opacity",
-      "at": 14821.200000000186
+      "at": 15039
     },
     {
       "cls": "mq-app-root min-h-[100dvh] mq-has-player",
       "property": "background-color",
-      "at": 14821.299999999814
+      "at": 15039.100000000093
     },
     {
       "cls": "mq-app-root min-h-[100dvh] mq-has-player",
       "property": "background-color",
-      "at": 14821.299999999814
+      "at": 15039.100000000093
     }
   ],
   "finalState": {

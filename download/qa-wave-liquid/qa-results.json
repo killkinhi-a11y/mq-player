@@ -40,6 +40,63 @@
     "active": "true",
     "mode": "webgl",
     "motion": "live",
+    "scale": "0.44",
+    "canvas": {
+      "w": 634,
+      "h": 396,
+      "cw": 1440,
+      "ch": 900
+    },
+    "rootWave": "on",
+    "rootBg": "rgba(0, 0, 0, 0)",
+    "rootBgTranslucent": true,
+    "vars": {
+      "c1": "#19110a",
+      "c2": "#4e2f15",
+      "c3": "#301f10",
+      "hl": "#dbd3cc"
+    },
+    "hook": {
+      "mode": "webgl",
+      "motion": "live",
+      "active": true,
+      "scale": 0.44,
+      "fps": 7,
+      "palette": {
+        "c1": "#19110a",
+        "c2": "#4e2f15",
+        "c3": "#301f10",
+        "hl": "#dbd3cc"
+      }
+    },
+    "overflowX": 0
+  },
+  "fps1440": {
+    "frames": 120,
+    "ms": 6196,
+    "avg": 52,
+    "p95": 66.8,
+    "max": 116.7,
+    "fps": 19
+  },
+  "hookAfterStart": {
+    "mode": "webgl",
+    "motion": "live",
+    "active": true,
+    "scale": 0.44,
+    "fps": 7,
+    "palette": {
+      "c1": "#19110a",
+      "c2": "#4e2f15",
+      "c3": "#301f10",
+      "hl": "#dbd3cc"
+    }
+  },
+  "transitionMid": {
+    "wrap": true,
+    "active": "true",
+    "mode": "webgl",
+    "motion": "live",
     "scale": "0.36",
     "canvas": {
       "w": 518,
@@ -51,48 +108,93 @@
     "rootBg": "rgba(0, 0, 0, 0)",
     "rootBgTranslucent": true,
     "vars": {
-      "c1": "#1a0b0d",
-      "c2": "#4e151e",
-      "c3": "#301015",
-      "hl": "#dbccce"
+      "c1": "#0b0c0f",
+      "c2": "#252b41",
+      "c3": "#191c27",
+      "hl": "#d1d2d6"
     },
     "hook": {
       "mode": "webgl",
       "motion": "live",
       "active": true,
       "scale": 0.36,
-      "fps": 19,
+      "fps": 14,
       "palette": {
-        "c1": "#1a0b0d",
-        "c2": "#4e151e",
-        "c3": "#301015",
-        "hl": "#dbccce"
+        "c1": "#0b0c0f",
+        "c2": "#252b41",
+        "c3": "#191c27",
+        "hl": "#d1d2d6"
       }
     },
     "overflowX": 0
   },
-  "fps1440": {
-    "frames": 120,
-    "ms": 5892,
-    "avg": 49.7,
-    "p95": 66.7,
-    "max": 83.4,
-    "fps": 20
+  "transitionFrom": {
+    "c1": "#19110a",
+    "c2": "#4e2f15",
+    "c3": "#301f10",
+    "hl": "#dbd3cc"
   },
-  "hookAfterStart": {
-    "mode": "webgl",
-    "motion": "live",
-    "active": true,
-    "scale": 0.36,
-    "fps": 19,
+  "colorfulArtwork": {
     "palette": {
-      "c1": "#1a0b0d",
-      "c2": "#4e151e",
-      "c3": "#301015",
-      "hl": "#dbccce"
-    }
+      "c1": "#140c12",
+      "c2": "#471f3e",
+      "c3": "#2b1526",
+      "hl": "#d8cfd6"
+    },
+    "c2sat": 0.56,
+    "skipIndex": 3
   },
-  "transitionMid": {
+  "skipPalettes": [
+    {
+      "c1": "#19110a",
+      "c2": "#4e2f15",
+      "c3": "#301f10",
+      "hl": "#dbd3cc"
+    },
+    {
+      "c1": "#0b0c0f",
+      "c2": "#252b41",
+      "c3": "#191c27",
+      "hl": "#d1d2d6"
+    },
+    {
+      "c1": "#0c130c",
+      "c2": "#234325",
+      "c3": "#172918",
+      "hl": "#d0d7d0"
+    },
+    {
+      "c1": "#120d0c",
+      "c2": "#412925",
+      "c3": "#281a18",
+      "hl": "#d7d1d0"
+    },
+    {
+      "c1": "#140c12",
+      "c2": "#471f3e",
+      "c3": "#2b1526",
+      "hl": "#d8cfd6"
+    },
+    {
+      "c1": "#0c0d10",
+      "c2": "#252b41",
+      "c3": "#191c27",
+      "hl": "#d1d2d6"
+    },
+    {
+      "c1": "#0b0c0f",
+      "c2": "#252b41",
+      "c3": "#191c27",
+      "hl": "#d1d2d6"
+    },
+    {
+      "c1": "#0b0c0f",
+      "c2": "#252b41",
+      "c3": "#191c27",
+      "hl": "#d1d2d6"
+    }
+  ],
+  "routeNav": {
     "wrap": true,
     "active": "true",
     "mode": "webgl",
@@ -108,124 +210,22 @@
     "rootBg": "rgba(0, 0, 0, 0)",
     "rootBgTranslucent": true,
     "vars": {
-      "c1": "#0b161b",
-      "c2": "#153c4e",
-      "c3": "#101930",
-      "hl": "#ccd7db"
+      "c1": "#0b0c0f",
+      "c2": "#252b41",
+      "c3": "#191c27",
+      "hl": "#d1d2d6"
     },
     "hook": {
       "mode": "webgl",
       "motion": "live",
       "active": true,
       "scale": 0.44,
-      "fps": 12,
+      "fps": 11,
       "palette": {
-        "c1": "#0b161b",
-        "c2": "#153c4e",
-        "c3": "#101930",
-        "hl": "#ccd7db"
-      }
-    },
-    "overflowX": 0
-  },
-  "transitionFrom": {
-    "c1": "#1a0b0d",
-    "c2": "#4e151e",
-    "c3": "#301015",
-    "hl": "#dbccce"
-  },
-  "colorfulArtwork": {
-    "palette": {
-      "c1": "#0b161b",
-      "c2": "#153c4e",
-      "c3": "#101930",
-      "hl": "#ccd7db"
-    },
-    "c2sat": 0.73,
-    "skipIndex": 0
-  },
-  "skipPalettes": [
-    {
-      "c1": "#1a0b0d",
-      "c2": "#4e151e",
-      "c3": "#301015",
-      "hl": "#dbccce"
-    },
-    {
-      "c1": "#0b161b",
-      "c2": "#153c4e",
-      "c3": "#101930",
-      "hl": "#ccd7db"
-    },
-    {
-      "c1": "#120f0c",
-      "c2": "#423024",
-      "c3": "#281e18",
-      "hl": "#d7d3d0"
-    },
-    {
-      "c1": "#0a1219",
-      "c2": "#15334e",
-      "c3": "#101430",
-      "hl": "#ccd4db"
-    },
-    {
-      "c1": "#0b0c0f",
-      "c2": "#252b41",
-      "c3": "#191c27",
-      "hl": "#d1d2d6"
-    },
-    {
-      "c1": "#100e0c",
-      "c2": "#413325",
-      "c3": "#272019",
-      "hl": "#d6d4d1"
-    },
-    {
-      "c1": "#14110c",
-      "c2": "#423624",
-      "c3": "#282218",
-      "hl": "#d8d5cf"
-    },
-    {
-      "c1": "#14100c",
-      "c2": "#403526",
-      "c3": "#282118",
-      "hl": "#d8d4cf"
-    }
-  ],
-  "routeNav": {
-    "wrap": true,
-    "active": "true",
-    "mode": "webgl",
-    "motion": "live",
-    "scale": "0.36",
-    "canvas": {
-      "w": 518,
-      "h": 324,
-      "cw": 1440,
-      "ch": 900
-    },
-    "rootWave": "on",
-    "rootBg": "rgba(0, 0, 0, 0)",
-    "rootBgTranslucent": true,
-    "vars": {
-      "c1": "#14100c",
-      "c2": "#403526",
-      "c3": "#282118",
-      "hl": "#d8d4cf"
-    },
-    "hook": {
-      "mode": "webgl",
-      "motion": "live",
-      "active": true,
-      "scale": 0.36,
-      "fps": 16,
-      "palette": {
-        "c1": "#14100c",
-        "c2": "#403526",
-        "c3": "#282118",
-        "hl": "#d8d4cf"
+        "c1": "#0b0c0f",
+        "c2": "#252b41",
+        "c3": "#191c27",
+        "hl": "#d1d2d6"
       }
     },
     "overflowX": 0
@@ -246,10 +246,10 @@
     "rootBg": "rgb(14, 14, 14)",
     "rootBgTranslucent": false,
     "vars": {
-      "c1": "#14100c",
-      "c2": "#403526",
-      "c3": "#282118",
-      "hl": "#d8d4cf"
+      "c1": "#0b0c0f",
+      "c2": "#252b41",
+      "c3": "#191c27",
+      "hl": "#d1d2d6"
     },
     "hook": {
       "mode": "webgl",
@@ -258,10 +258,10 @@
       "scale": 0.36,
       "fps": 17,
       "palette": {
-        "c1": "#14100c",
-        "c2": "#403526",
-        "c3": "#282118",
-        "hl": "#d8d4cf"
+        "c1": "#0b0c0f",
+        "c2": "#252b41",
+        "c3": "#191c27",
+        "hl": "#d1d2d6"
       }
     },
     "overflowX": 0
@@ -282,33 +282,33 @@
     "rootBg": "rgb(14, 14, 14)",
     "rootBgTranslucent": false,
     "vars": {
-      "c1": "#14100c",
-      "c2": "#403526",
-      "c3": "#282118",
-      "hl": "#d8d4cf"
+      "c1": "#0b0c0f",
+      "c2": "#252b41",
+      "c3": "#191c27",
+      "hl": "#d1d2d6"
     },
     "hook": {
       "mode": "webgl",
       "motion": "live",
       "active": false,
       "scale": 0.36,
-      "fps": 17,
+      "fps": 13,
       "palette": {
-        "c1": "#14100c",
-        "c2": "#403526",
-        "c3": "#282118",
-        "hl": "#d8d4cf"
+        "c1": "#0b0c0f",
+        "c2": "#252b41",
+        "c3": "#191c27",
+        "hl": "#d1d2d6"
       }
     },
     "overflowX": 0
   },
   "fps1920": {
     "frames": 120,
-    "ms": 9103,
-    "avg": 76.4,
-    "p95": 100,
-    "max": 166.7,
-    "fps": 13
+    "ms": 10042,
+    "avg": 84.2,
+    "p95": 116.7,
+    "max": 199.9,
+    "fps": 12
   },
   "state1920": {
     "wrap": true,
@@ -336,7 +336,7 @@
       "motion": "live",
       "active": true,
       "scale": 0.36,
-      "fps": 13,
+      "fps": 12,
       "palette": {
         "c1": "#190a0a",
         "c2": "#4e1515",
@@ -351,10 +351,10 @@
     "active": "true",
     "mode": "webgl",
     "motion": "live",
-    "scale": "0.72",
+    "scale": "0.56",
     "canvas": {
-      "w": 351,
-      "h": 760,
+      "w": 273,
+      "h": 591,
       "cw": 390,
       "ch": 844
     },
@@ -362,33 +362,33 @@
     "rootBg": "rgba(0, 0, 0, 0)",
     "rootBgTranslucent": true,
     "vars": {
-      "c1": "#1a0a0c",
-      "c2": "#4e151a",
-      "c3": "#301013",
-      "hl": "#dbcccd"
+      "c1": "#140c12",
+      "c2": "#471f3e",
+      "c3": "#2b1526",
+      "hl": "#d8cfd6"
     },
     "hook": {
       "mode": "webgl",
       "motion": "live",
       "active": true,
-      "scale": 0.72,
-      "fps": 14,
+      "scale": 0.56,
+      "fps": 12,
       "palette": {
-        "c1": "#1a0a0c",
-        "c2": "#4e151a",
-        "c3": "#301013",
-        "hl": "#dbcccd"
+        "c1": "#140c12",
+        "c2": "#471f3e",
+        "c3": "#2b1526",
+        "hl": "#d8cfd6"
       }
     },
     "overflowX": 0
   },
   "fps390": {
     "frames": 90,
-    "ms": 5985,
-    "avg": 66.9,
-    "p95": 83.4,
-    "max": 83.4,
-    "fps": 15
+    "ms": 1817,
+    "avg": 20.5,
+    "p95": 33.4,
+    "max": 33.4,
+    "fps": 49
   },
   "mobileOverflowX": 0,
   "consoleErrors": [
@@ -408,9 +408,20 @@
     "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
     "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
     "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
     "console.error: Loading the script 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-e",
     "console.error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
     "console.error: Failed to load resource: the server responded with a status of 400 (Bad Request)",
-    "console.error: Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+    "console.error: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
   ]
 }

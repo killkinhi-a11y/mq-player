@@ -275,7 +275,7 @@ describe("WaveAmbientBackground — component", () => {
   it("renders hidden when inactive", () => {
     const r = renderEl(<WaveAmbientBackground active={false} currentTrack={null} />);
     try {
-      const wrap = r.container.querySelector<HTMLElement>(".mq-wave-ambient");
+      const wrap = r.container.querySelector<HTMLElement>(".mq-wave-liquid");
       expect(wrap).not.toBeNull();
       expect(wrap?.dataset.active).toBe("false");
       expect(wrap?.getAttribute("aria-hidden")).toBe("true");
@@ -287,7 +287,7 @@ describe("WaveAmbientBackground — component", () => {
   it("CSS-fallback mode when WebGL is unavailable (jsdom): five layers + two scrims", () => {
     const r = renderEl(<WaveAmbientBackground active={true} currentTrack={null} />);
     try {
-      const wrap = r.container.querySelector<HTMLElement>(".mq-wave-ambient");
+      const wrap = r.container.querySelector<HTMLElement>(".mq-wave-liquid");
       expect(wrap?.dataset.active).toBe("true");
       expect(wrap?.dataset.mode).toBe("css");
       expect(r.container.querySelector(".mq-wave-fallback")).not.toBeNull();
@@ -366,7 +366,7 @@ describe("WaveAmbientBackground — component", () => {
     let r: ReturnType<typeof renderEl> | null = null;
     try {
       r = renderEl(<WaveAmbientBackground active={true} currentTrack={null} />);
-      expect(r.container.querySelector<HTMLElement>(".mq-wave-ambient")?.dataset.waveMotion).toBe("static");
+      expect(r.container.querySelector<HTMLElement>(".mq-wave-liquid")?.dataset.waveMotion).toBe("static");
       expect(r.container.querySelector<HTMLElement>(".mq-wave-fallback")?.dataset.waveMotion).toBe("static");
     } finally {
       act(() => {
@@ -457,7 +457,7 @@ describe("WaveAmbientBackground — WebGL engine", () => {
   it("uses WebGL when available and runs the rAF loop (outside React)", async () => {
     const r = renderEl(<WaveAmbientBackground active={true} currentTrack={null} />);
     try {
-      const wrap = r.container.querySelector<HTMLElement>(".mq-wave-ambient");
+      const wrap = r.container.querySelector<HTMLElement>(".mq-wave-liquid");
       expect(wrap?.dataset.mode).toBe("webgl");
       expect(r.container.querySelector("canvas.mq-wave-canvas")).not.toBeNull();
       // live mode: the loop keeps scheduling frames
@@ -478,7 +478,7 @@ describe("WaveAmbientBackground — WebGL engine", () => {
     let r: ReturnType<typeof renderEl> | null = null;
     try {
       r = renderEl(<WaveAmbientBackground active={true} currentTrack={null} />);
-      expect(r.container.querySelector<HTMLElement>(".mq-wave-ambient")?.dataset.waveMotion).toBe(
+      expect(r.container.querySelector<HTMLElement>(".mq-wave-liquid")?.dataset.waveMotion).toBe(
         "static",
       );
       // the 950 ms palette transition legitimately runs a short loop…

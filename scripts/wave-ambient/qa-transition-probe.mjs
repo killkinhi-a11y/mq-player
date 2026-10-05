@@ -28,7 +28,7 @@ const INSTALL_WATCHER = () => {
     const t = e.target;
     if (!(t instanceof Element)) return;
     const cls = t.className && typeof t.className === "string" ? t.className : "";
-    if (cls.includes("mq-wave-ambient") || cls.includes("mq-app-root")) {
+    if (cls.includes("mq-wave-liquid") || cls.includes("mq-app-root")) {
       window.__transitions.push({
         cls,
         property: e.propertyName,
@@ -69,7 +69,7 @@ const READ_ANIMS = () => {
   // CSSOM contract first: transitions registered on both elements
   const cssom = await page.evaluate(() => {
     const root = document.querySelector(".mq-app-root");
-    const wrap = document.querySelector(".mq-wave-ambient");
+    const wrap = document.querySelector(".mq-wave-liquid");
     return {
       rootTransition: root ? getComputedStyle(root).transitionProperty + " " + getComputedStyle(root).transitionDuration : null,
       wrapOpacityWhenOff: wrap ? getComputedStyle(wrap).opacity : null,
@@ -80,7 +80,7 @@ const READ_ANIMS = () => {
   // start wave → capture the FADE-IN transition running
   await page.locator('[aria-label="Запустить Волну"]').first().click();
   await page.waitForFunction(
-    () => document.querySelector(".mq-wave-ambient")?.getAttribute("data-active") === "true",
+    () => document.querySelector(".mq-wave-liquid")?.getAttribute("data-active") === "true",
     null,
     { timeout: 60000 },
   );
@@ -127,7 +127,7 @@ const READ_ANIMS = () => {
   // wait for settle, verify final state
   await page.waitForTimeout(1800);
   const finalState = await page.evaluate(() => {
-    const wrap = document.querySelector(".mq-wave-ambient");
+    const wrap = document.querySelector(".mq-wave-liquid");
     const root = document.querySelector(".mq-app-root");
     return {
       wrapActive: wrap?.getAttribute("data-active"),
