@@ -8577,3 +8577,48 @@ Stage Summary:
 - Regression: player PASS, lyrics PASS, downloads PASS (+fix), queue PASS,
   fonts/yandex/soundcloud untouched-paths verified by diff + build + 1003/1003.
 - All evidence in download/qa-wave/ (33 screenshots).
+
+---
+Task ID: wave-v2-audit
+Agent: main (Super Z)
+Task: MQ WAVE V2 — PART 1 audit (UI + engine) before redesign
+
+Work Log:
+- Read full engine: engine.ts (pipeline: dedup→filters→cap→scoring→exploration-inject(2 forced slots)→diversity→ranking — NO final relevance gate), scoring.ts (languageMatch only ADDS points; no cultural/mismatch penalty; quality priors 36pts+jitter10 can float zero-relevance candidates), diversity.ts (relaxation ladder + absolute fallback), profile.ts (4 layers, session×1.35), server.ts (exploration channel = bridge-genre SC searches — foreign-culture results possible), route-helpers.ts, config.ts, reasons.ts, queue.ts, events.ts.
+- Read UI: WaveHome.tsx (16KB, two-column card: 64px artwork + controls left, next-up list right — the "queue panel" look), MainView integration (WaveHome + FeaturedCard + MobileNowHero ALL render when radioMode → duplicate now-playing heroes), waveReasonText (MainView) + engineReasonText (reasons.ts).
+- Read store wave actions (enqueueWaveTracks/consumeWaveItem/pushWaveEvent/waveLessLikeThis — no album on events, no debug passthrough).
+- Baseline gates: 1003/1003 tests PASS, tsc 0 src errors, eslint wave files 0 errors (7 pre-existing warnings), working tree clean; prod = HEAD (mq-build-0312541f line, last commit = QA screenshots only).
+- BEFORE screenshots captured from production at 1440x900, 1920x1080, 390x844, 430x932 → download/qa-wave-v2/before-*.png (0 page errors). VLM critique confirms: 64px artwork not dominant, red reason tags noisy, two disconnected columns, thin technical controls, dead space, MVP-kit look.
+- ROOT CAUSE of "random Indian rap": exploration channel searches bridge genres on SoundCloud → results from any culture; scoring has NO cultural affinity signal; 2 guaranteed exploration slots FORCE weak candidates into the batch; quality priors (playability+cover+duration+popularity+jitter ≈ 46pts) let zero-anchor candidates outrank nothing-burgers; NO gate after ranking.
+
+Stage Summary:
+- Engine quality plan: TWO-TIER relevance — hard gate (positive anchor REQUIRED + hard negatives BLOCKED: foreign cultural cluster w/o user history, suppressed artist/cluster, disliked artist) with §35 relaxation ladder (rung3 only for degenerate pools); soft penalties for mild mismatches; personalized cluster affinity from likedTexts/historyTexts (NOT a blacklist — Indian/K-pop users keep their music).
+- explorationSlots 2→0 (no forced slots), exploration must be anchored (adjacent/bridge genre of a real user genre), share cap ≤30% of batch.
+- UI V2 plan: full-bleed hero (artwork dominant ~380-420px, ambient from dominant colors via --mq-ambient-*), transport ♥ ▶ ⏭ + secondary "Ещё" menu for more/less, up-next as visual flow (56px covers, quiet reasons), one progress line, crossfade artwork, reduced-motion support; hide FeaturedCard/MobileNowHero while radioMode (WaveHome becomes THE hero).
+
+---
+Task ID: wave-v2-implementation
+Agent: main (Super Z)
+Task: MQ WAVE V2 — hard relevance gate (PART 5-11) + full UI redesign (PART 2-4)
+
+Work Log:
+- NEW src/lib/wave/clusters.ts — cultural cluster detection (script ranges: Indic/Hangul/Kana/Han/Arabic/Thai/Hebrew/Greek/Georgian/Vietnamese/Turkish/Cyrillic + genre tokens + romanized-Hindi PHRASE markers "achi lagti|dil ki|meri jaan|…" — catches Latin-script Hindi with fake genre tags, the live-QA leak). NOT a blacklist: DEFAULT_CULTURAL_SPACE = latin/cyrillic, everything else is per-user (clusters with ≥2 signals are "own").
+- NEW src/lib/wave/relevance.ts — FINAL RELEVANCE GATE after ranking (PART 6): positive anchor required (artist/genre/track affinity, favorites, session context, seed channel, bridge-genre anchored exploration, boosted) + hard negatives blocked (foreign cluster w/o history, suppressed artist/cluster, disliked artist). Relaxation ladder: rung 0 strict (rich profile), rung 1 cold (anchor-less allowed, hard negatives still block), rung 2 degenerate pool §35. Fresh session negatives INVALIDATE stale long-term genre anchors (3 skips beat an old like — PART 10).
+- engine.ts v2: pipeline … → diversity → ranking → GATE → exploration share cap (≤30%, no back-fill from rejects ever) → queue. explorationSlots 2→0 (no forced slots, PART 7). dedupCandidates now also dedups by normalized artist+title (killed the live "судно/Судно" re-upload duplicate).
+- scoring.ts: culturalMismatch −130 (dominates all quality priors), clusterMatch +6, explorationAnchored +12 (bridge-genre only), sessionContext +8, suppressedAlbum −48, suppressedCluster −70; skipStreak throttles exploration rate ×0.35 (PART 10); reason seedRef enrichment (favorite_artist → artist name, exploration → anchor genre).
+- profile.ts: clusters affinity map (likes ×2) + skipStreak computation; applySessionEvent suppresses the whole feature cluster (artist hard, genre soft, album soft, cultural cluster hard-if-not-own — PART 10).
+- config.ts: relevance section (thresholds), culturalMismatchPenalty 130, maxSharePerBatch 0.3, skipStreak knobs.
+- server.ts: cold-profile exploration quality floor (playbackCount ≥1000 — cuts zero-plays re-uploads; searchSCTracks now MAPS playbackCount — it never did, which silently emptied the pool until fixed).
+- route-helpers.ts: likedTexts/historyTexts → cluster affinity (PART 8), history artists/genres → RECENT layer for first 8 (PART 9 — live context outweighs medium-term), debug flag → per-track _debug + gate_rejected meta (PART 11).
+- useWaveEngine.ts: sends likedTexts/historyTexts (≤12/16 ×120 chars) + debug (localStorage mq_wave_debug=1), _debug carried into queue items via toQueueItem helper; store: enqueueWaveTracks accepts debug, wave events carry album.
+- UI V2 (WaveHome.tsx complete rewrite, 645 lines): dominant artwork clamp(280-400px) with layered CROSSFADE + ambient shadow; ambient wash from --mq-ambient-* vars; identity block (Сейчас играет → title clamp up to 2.25rem → artist link → QUIET reason, muted, never red); transport ♥56/▶72/⏭56 + secondary ⋯ MenuCore (Больше/Меньше такого — PART 2 requirement); ONE progress line; UP NEXT = horizontal snap shelf on desktop (172px cards, endless-stream feel) / vertical rows on mobile; session stats; empty state; dev debug chips (anchor/final/scores per track); swipe-left on artwork = skip (mobile); reduced-motion via CSS guards.
+- globals.css: .mq-wave glass card + .mq-wave-ambient (radial gradients, no filters) + crossfade/motion primitives + prefers-reduced-motion kill-switch.
+- MainView: container narrow→lg:wide (1024px — killed the 640px empty-margins problem), FeaturedCard + MobileNowHero suppressed in radioMode (WaveHome IS the hero — no more duplicate now-playing), waveReasonText V2 tone («Потому что тебе нравится X», «Продолжение твоего потока»).
+- copy-standalone-assets.sh: fixed `cp -r public target` nesting bug (public/public) — demo songs/audio-engine assets now served.
+- 3 live defects found & fixed during QA: (1) share-cap back-fill re-admitted gate rejects → removed + invariant test; (2) searchSCTracks missing playbackCount → cold pool silently empty → legacy fallback dumped un-gated global content (Vietnamese/Tibetan zero-plays tracks) → mapped the field; (3) desktop 3-col grid overflowed the 640px container squeezing transport to 22px → container-wide + 2-col + shelf.
+
+Stage Summary:
+- Gates: 1019/1019 tests (baseline 1003 + 16 new: 10 mandatory PART 16 cases + detector/regression/no-back-fill invariants), tsc 0 src errors, eslint 0 errors, build PASS 113 pages.
+- Real QA (20 sequential recs, realistic RU/EU profile, live SoundCloud): 20/20 passed gate, 8 exploration all anchored, 0 foreign clusters, 0 duplicates; gate rejected 22 garbage candidates (slowed re-uploads, downtempo spam, trap/desecrate mashups, zero-plays junk) with reasons.
+- Visual QA: AFTER screenshots 1440×900/1920×1080/390×844/430×932 — artwork 374-400px desktop / 320-340px mobile dominant, 5 next-up everywhere, overflowX=false, all controls ≥44px, 0 page errors; VLM BEFORE/AFTER comparison: "переход из функционального минимализма в имиджевый медиаплеер".
+- E2E journey desktop+mobile: start → like → skip → next rec → ⋯/Больше такого → crossfade → stop — ALL PASS, 0 errors.

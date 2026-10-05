@@ -593,6 +593,8 @@ export async function searchSCTracks(
           scTrackId: t.id as number,
           scStreamPolicy: policy,
           scIsFull: policy === "ALLOW", // Only ALLOW = truly full playable track
+          playbackCount: (t.playback_count as number) || 0,
+          createdAt: (t.created_at as string) || "",
         };
       });
     } catch {

@@ -5202,3 +5202,140 @@ html[data-mq-desktop] {
   background: var(--mq-card, #1a1a1a);
   border: 2px solid var(--mq-accent);
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   WAVE V2 — the personal music station hero (WaveHome redesign).
+   Design language: premium glass, dominant artwork, ambient wash derived
+   from the CURRENT track's dominant colors (the --mq-ambient-* vars that
+   AmbientBackground publishes on <html> — @property-registered so they
+   cross-fade ~2.6s automatically), quiet secondary reasons, one progress
+   line. All motion is compositor-only (opacity/transform) and gated by
+   prefers-reduced-motion.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Section base — glass card over the app's ambient backdrop */
+.mq-wave {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--mq-card) 88%, transparent) 0%,
+      color-mix(in srgb, var(--mq-bg) 92%, var(--mq-card)) 100%);
+  border: 1px solid var(--mq-glass-border, var(--mq-border-thin));
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--mq-text) 4%, transparent) inset,
+    0 24px 48px -24px rgba(0, 0, 0, 0.55);
+}
+
+/* Local ambient wash — stronger than the app-wide backdrop, derived from
+   the current track's cover palette. Radial gradients only: no filters. */
+.mq-wave-ambient {
+  position: absolute;
+  inset: -18%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(46% 60% at 16% 12%,
+      color-mix(in srgb, var(--mq-ambient-1, #e03131) 26%, transparent) 0%,
+      transparent 68%),
+    radial-gradient(50% 64% at 88% 24%,
+      color-mix(in srgb, var(--mq-ambient-2, #5b3bd6) 20%, transparent) 0%,
+      transparent 70%),
+    radial-gradient(44% 56% at 62% 96%,
+      color-mix(in srgb, var(--mq-ambient-3, #1a1a2e) 22%, transparent) 0%,
+      transparent 72%);
+  opacity: 0.85;
+}
+@media (max-width: 767px) {
+  .mq-wave-ambient { opacity: 0.6; }
+}
+
+/* ── Artwork — dominant object ── */
+.mq-wave-art {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--mq-text) 8%, transparent),
+    0 30px 60px -18px rgba(0, 0, 0, 0.65),
+    0 12px 24px -12px color-mix(in srgb, var(--mq-ambient-1, #e03131) 28%, transparent);
+  transform: translateZ(0); /* own compositing layer for cheap crossfades */
+}
+/* Crossfade layers: newest on top fades IN, the previous one stays under
+   and is removed after the transition. Slight scale = "musical" feel. */
+.mq-wave-art-layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: scale(1.035);
+  transition: opacity 420ms ease, transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.mq-wave-art-layer[data-active="true"] {
+  opacity: 1;
+  transform: scale(1);
+}
+.mq-wave-art-layer img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ── Identity transitions (title / artist / reason) ── */
+.mq-wave-meta-in {
+  animation: mq-wave-meta-in 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes mq-wave-meta-in {
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Up-next rows — new rows slide in; promotion shift stays cheap ── */
+.mq-wave-next-row {
+  animation: mq-wave-row-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes mq-wave-row-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Progress — one quiet line with a soft accent glow ── */
+.mq-wave-progress-fill {
+  transition: width 260ms linear;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--mq-accent) 55%, transparent);
+  border-radius: 999px;
+}
+
+/* ── Transport press feedback (beyond active:scale utilities) ── */
+.mq-wave-btn {
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 160ms ease, box-shadow 160ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.mq-wave-btn:active { transform: scale(0.94); }
+.mq-wave-btn:hover { transform: translateY(-1px); }
+.mq-wave-btn:active:hover { transform: scale(0.94); }
+
+/* ── Reduced motion: decorative transitions OFF, states stay visible ── */
+@media (prefers-reduced-motion: reduce) {
+  .mq-wave-art-layer,
+  .mq-wave-art-layer[data-active="true"] {
+    transition: none;
+    transform: none;
+  }
+  .mq-wave-meta-in,
+  .mq-wave-next-row {
+    animation: none;
+  }
+  .mq-wave-progress-fill {
+    transition: none;
+    box-shadow: none;
+  }
+  .mq-wave-btn,
+  .mq-wave-btn:hover,
+  .mq-wave-btn:active {
+    transform: none;
+  }
+}

@@ -14,10 +14,10 @@ import {
   getWaveRecommendations,
   buildWaveProfile,
   createWaveMemory,
-  rememberWaveTrack,
+  countClusterAffinity,
+  detectCulturalCluster,
   type WaveSignals,
   type WaveProfile,
-  type TasteLayer,
   type WaveEvent,
 } from "@/lib/wave";
 import { WAVE_CONFIG } from "@/lib/wave/config";
@@ -65,6 +65,10 @@ function contextHash(signals: WaveSignals): string {
  * Merge client session events + server-side taste store into the profile
  * the engine scores with (§29 — server store supplements, never replaces,
  * the client profile).
+ *
+ * V2 (PART 8/9): history artists/genres now feed the RECENT layer (the last
+ * 10–20 plays define the live mood — weight 1.0 vs medium 0.6), and
+ * likedTexts/historyTexts build the personalized cultural-cluster map.
  */
 function buildMergedProfile(signals: WaveSignals, serverTaste: ReturnType<typeof getServerTaste>): WaveProfile {
   const sessionEvents = signals.sessionEvents || [];
@@ -75,6 +79,9 @@ function buildMergedProfile(signals: WaveSignals, serverTaste: ReturnType<typeof
       tasteGenres: Object.fromEntries((signals.tasteGenres || []).map((g) => [g, 100])),
       tasteArtists: Object.fromEntries((signals.tasteArtists || []).map((a) => [a, 100])),
       sessionEvents,
+      // V2: compact texts → cultural cluster affinity (PART 8).
+      likedTexts: signals.likedTexts,
+      historyTexts: signals.historyTexts,
     },
     WAVE_CONFIG,
   );
@@ -94,15 +101,37 @@ function buildMergedProfile(signals: WaveSignals, serverTaste: ReturnType<typeof
     const key = a.toLowerCase().trim();
     if (key) longArtists[key] = Math.min(longArtists[key] || 0, -0.5);
   }
+  // V2 (PART 9): the first 8 history artists/genres are the LIVE context →
+  // recent layer; the tail goes to medium as before.
+  const recentArtists: Record<string, number> = { ...profile.recent.artists };
+  const recentGenres: Record<string, number> = { ...profile.recent.genres };
   const mediumArtists: Record<string, number> = { ...profile.mediumTerm.artists };
-  for (const a of signals.historyArtists || []) {
-    const key = a.toLowerCase().trim();
-    if (key) mediumArtists[key] = Math.max(mediumArtists[key] || 0, 0.3);
-  }
   const mediumGenres: Record<string, number> = { ...profile.mediumTerm.genres };
-  for (const g of signals.historyGenres || []) {
+  (signals.historyArtists || []).forEach((a, i) => {
+    const key = a.toLowerCase().trim();
+    if (!key) return;
+    if (i < 8) recentArtists[key] = Math.max(recentArtists[key] || 0, 0.4);
+    else mediumArtists[key] = Math.max(mediumArtists[key] || 0, 0.3);
+  });
+  (signals.historyGenres || []).forEach((g, i) => {
     const key = g.toLowerCase().trim();
-    if (key) mediumGenres[key] = Math.max(mediumGenres[key] || 0, 0.25);
+    if (!key) return;
+    if (i < 8) recentGenres[key] = Math.max(recentGenres[key] || 0, 0.3);
+    else mediumGenres[key] = Math.max(mediumGenres[key] || 0, 0.25);
+  });
+
+  // V2 (PART 8): cultural clusters from compact texts (likes weigh ×2).
+  const clusters: Record<string, number> = { ...profile.clusters };
+  for (const [c, n] of Object.entries(countClusterAffinity(signals.likedTexts || [], 2))) {
+    clusters[c] = (clusters[c] || 0) + n;
+  }
+  for (const [c, n] of Object.entries(countClusterAffinity(signals.historyTexts || [], 1))) {
+    clusters[c] = (clusters[c] || 0) + n;
+  }
+  // Genre-declared clusters (k-pop slider, bollywood likes…).
+  for (const g of [...(signals.tasteGenres || []), ...(signals.likedGenres || []), ...(signals.historyGenres || [])]) {
+    const cluster = detectGenreCluster(g);
+    if (cluster) clusters[cluster] = (clusters[cluster] || 0) + 1;
   }
 
   // Server-side store → session layer supplement (anonymous persistence).
@@ -122,6 +151,8 @@ function buildMergedProfile(signals: WaveSignals, serverTaste: ReturnType<typeof
   const suppress = {
     artists: [...new Set([...profile.suppress.artists, ...serverTaste.suppressArtists])],
     genres: [...profile.suppress.genres],
+    albums: [...profile.suppress.albums],
+    clusters: [...profile.suppress.clusters],
   };
 
   const likedCount = (signals.likedScIds || []).length + (signals.likedArtists || []).length;
@@ -135,13 +166,41 @@ function buildMergedProfile(signals: WaveSignals, serverTaste: ReturnType<typeof
     ...profile,
     longTerm: { ...profile.longTerm, artists: longArtists, genres: longGenres },
     mediumTerm: { ...profile.mediumTerm, artists: mediumArtists, genres: mediumGenres },
+    recent: { ...profile.recent, artists: recentArtists, genres: recentGenres },
     session: { artists: sessionArtists, genres: sessionGenres, tracks: profile.session.tracks },
+    clusters,
     boost,
     suppress,
     confidence,
     language: signals.language || profile.language,
     recentTracks: signals.recentWaveTrackIds || profile.recentTracks,
   };
+}
+
+/** Genre-only cluster detection (compact server path). */
+function detectGenreCluster(genre: string): string | null {
+  return detectCulturalCluster(null, null, genre);
+}
+
+/**
+ * V2 (PART 11): a compact sample of gate-REJECTED candidates for the debug
+ * meta — id, title, artist, the blocking reason and the missing anchor.
+ * Lets us answer “ПОЧЕМУ этот странный трек не попал в Волну” — and, by
+ * diffing with served tracks, why another one DID.
+ */
+function gateRejectedSample(
+  result: ReturnType<typeof getWaveRecommendations>,
+): Array<Record<string, unknown>> {
+  return (result.gate || []).slice(0, 12).map(({ candidate, verdict }) => ({
+    id: candidate.track.id,
+    title: candidate.track.title,
+    artist: candidate.track.artist,
+    blockedBy: verdict.blockedBy,
+    reason: verdict.reason,
+    anchor: verdict.anchor,
+    score: Math.round(candidate.score),
+    finalScore: candidate.relevance?.finalScore ?? null,
+  }));
 }
 
 /** Rebuild a lightweight wave memory from the client's compact signals. */
@@ -252,7 +311,10 @@ export async function runWave(req: NextRequest, opts: RunWaveOptions): Promise<N
   });
 
   // ── Response (§29 shape) ──
-  const tracks = result.tracks.map((c) => scoredToTrackPayload(c));
+  const debug = signals.debug === true;
+  const tracks = result.tracks.map((c) =>
+    scoredToTrackPayload(debug ? c : { ...c, relevance: undefined }),
+  );
   const reasons = result.tracks.map((c) => c.reason);
 
   const payload: WaveHandlerResult = {
@@ -267,6 +329,10 @@ export async function runWave(req: NextRequest, opts: RunWaveOptions): Promise<N
         result.meta.ranked_count > 0
           ? Number((result.meta.exploration_count / result.tracks.length).toFixed(2))
           : 0,
+      // V2 (PART 11): gate observability — WHO was rejected and WHY (dev).
+      ...(debug
+        ? { gate_rejected: gateRejectedSample(result) }
+        : {}),
     },
   };
 
@@ -313,9 +379,9 @@ export function parseSignals(body: Record<string, unknown>): WaveSignals {
     likedGenres: strArr(body.likedGenres, 10),
     dislikedArtists: strArr(body.dislikedArtists, 10),
     likedScIds: numArr(body.likedScIds, 5),
-    historyScIds: numArr(body.historyScIds, 10),
-    historyArtists: strArr(body.historyArtists, 10),
-    historyGenres: strArr(body.historyGenres, 10),
+    historyScIds: numArr(body.historyScIds, 12),
+    historyArtists: strArr(body.historyArtists, 12),
+    historyGenres: strArr(body.historyGenres, 12),
     tasteGenres: strArr(body.tasteGenres, 6),
     tasteArtists: strArr(body.tasteArtists, 5),
     language,
@@ -326,6 +392,11 @@ export function parseSignals(body: Record<string, unknown>): WaveSignals {
     recentWaveGenres: strArr(body.recentWaveGenres, 15),
     recentWaveTrackIds: strArr(body.recentWaveTrackIds, 60),
     seed,
+    // V2 (PART 8): compact texts → cultural cluster affinity. Each entry is
+    // "title artist" ≤ 120 chars — no PII beyond what the music already is.
+    likedTexts: strArr(body.likedTexts, 12)?.map((t) => t.slice(0, 120)),
+    historyTexts: strArr(body.historyTexts, 16)?.map((t) => t.slice(0, 120)),
     randomSeed: typeof body.randomSeed === "number" ? body.randomSeed : undefined,
+    debug: body.debug === true,
   };
 }

@@ -1,0 +1,486 @@
+{
+  "desktop-1440": {
+    "wave": {
+      "x": 232,
+      "y": 196,
+      "w": 976,
+      "h": 814
+    },
+    "artwork": {
+      "w": 374,
+      "h": 374
+    },
+    "overflowX": false,
+    "buttons": [
+      {
+        "label": "Пауза",
+        "w": 44,
+        "h": 44
+      },
+      {
+        "label": "Остановить Волну",
+        "w": 44,
+        "h": 44
+      },
+      {
+        "label": "Открыть плеер: BUCKSHOT & FAKEMINK - FEVER (PROD. OSCAR18 + GRIMOIRE)",
+        "w": 374,
+        "h": 374
+      },
+      {
+        "label": "BUCKSHOT",
+        "w": 98,
+        "h": 27
+      },
+      {
+        "label": "Лайк",
+        "w": 56,
+        "h": 56
+      },
+      {
+        "label": "Пауза",
+        "w": 72,
+        "h": 72
+      },
+      {
+        "label": "Пропустить",
+        "w": 56,
+        "h": 56
+      },
+      {
+        "label": "Ещё",
+        "w": 44,
+        "h": 44
+      },
+      {
+        "label": "Lovers Rock — TV Girl",
+        "w": 188,
+        "h": 251
+      },
+      {
+        "label": "CHILL — GONE.Fludd",
+        "w": 188,
+        "h": 251
+      },
+      {
+        "label": "Chill — Wxoda",
+        "w": 188,
+        "h": 251
+      },
+      {
+        "label": "MONTAGEM ALQUIMIA (Slowed) /// h6itam — DILXC",
+        "w": 188,
+        "h": 251
+      },
+      {
+        "label": "Lovers Rock — TV Girl",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "label": "CHILL — GONE.Fludd",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "label": "Chill — Wxoda",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "label": "MONTAGEM ALQUIMIA (Slowed) /// h6itam — DILXC",
+        "w": 0,
+        "h": 0
+      }
+    ],
+    "nextRows": [
+      {
+        "h": 251
+      },
+      {
+        "h": 251
+      },
+      {
+        "h": 251
+      },
+      {
+        "h": 251
+      }
+    ],
+    "reasonText": "Новое рядом с electronic",
+    "upNextCount": 4
+  },
+  "desktop-1920": {
+    "wave": {
+      "x": 472,
+      "y": 196,
+      "w": 976,
+      "h": 840
+    },
+    "artwork": {
+      "w": 400,
+      "h": 400
+    },
+    "overflowX": false,
+    "buttons": [
+      {
+        "label": "Пауза",
+        "w": 44,
+        "h": 44
+      },
+      {
+        "label": "Остановить Волну",
+        "w": 44,
+        "h": 44
+      },
+      {
+        "label": "Открыть плеер: BUCKSHOT & FAKEMINK - FEVER (PROD. OSCAR18 + GRIMOIRE)",
+        "w": 400,
+        "h": 400
+      },
+      {
+        "label": "BUCKSHOT",
+        "w": 98,
+        "h": 27
+      },
+      {
+        "label": "Лайк",
+        "w": 56,
+        "h": 56
+      },
+      {
+        "label": "Пауза",
+        "w": 72,
+        "h": 72
+      },
+      {
+        "label": "Пропустить",
+        "w": 56,
+        "h": 56
+      },
+      {
+        "label": "Ещё",
+        "w": 44,
+        "h": 44
+      },
+      {
+        "label": "Came To Invade — ASAD NITE",
+        "w": 188,
+        "h": 251
+      },
+      {
+        "label": "Cool for the Summer (hardstyle remix, slowed) — Lxminal.wav",
+        "w": 188,
+        "h": 251
+      },
+      {
+        "label": "Hum - Murtaza Qizilbash — Musical Mind",
+        "w": 188,
+        "h": 251
+      },
+      {
+        "label": "goofy Crush x Burnt rice mix — 74jzi",
+        "w": 188,
+        "h": 251
+      },
+      {
+        "label": "Hello Juliet — Clarion",
+        "w": 188,
+        "h": 251
+      },
+      {
+        "label": "Came To Invade — ASAD NITE",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "label": "Cool for the Summer (hardstyle remix, slowed) — Lxminal.wav",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "label": "Hum - Murtaza Qizilbash — Musical Mind",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "label": "goofy Crush x Burnt rice mix — 74jzi",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "label": "Hello Juliet — Clarion",
+        "w": 0,
+        "h": 0
+      }
+    ],
+    "nextRows": [
+      {
+        "h": 251
+      },
+      {
+        "h": 251
+      },
+      {
+        "h": 251
+      },
+      {
+        "h": 251
+      },
+      {
+        "h": 251
+      }
+    ],
+    "reasonText": "Новое рядом с electronic",
+    "upNextCount": 5
+  },
+  "mobile-390": {
+    "wave": {
+      "x": 14,
+      "y": 123,
+      "w": 362,
+      "h": 1096
+    },
+    "artwork": {
+      "w": 320,
+      "h": 320
+    },
+    "overflowX": false,
+    "buttons": [
+      {
+        "label": "Пауза",
+        "w": 44,
+        "h": 44
+      },
+      {
+        "label": "Остановить Волну",
+        "w": 44,
+        "h": 44
+      },
+      {
+        "label": "Открыть плеер: Lovers Rock",
+        "w": 320,
+        "h": 320
+      },
+      {
+        "label": "TV Girl",
+        "w": 49,
+        "h": 22
+      },
+      {
+        "label": "Лайк",
+        "w": 56,
+        "h": 56
+      },
+      {
+        "label": "Пауза",
+        "w": 72,
+        "h": 72
+      },
+      {
+        "label": "Пропустить",
+        "w": 56,
+        "h": 56
+      },
+      {
+        "label": "Ещё",
+        "w": 44,
+        "h": 44
+      },
+      {
+        "label": "Cool for the Summer (hardstyle remix, slowed) — Lxminal.wav",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "label": "CHILL — GONE.Fludd",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "label": "Came To Invade — ASAD NITE",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "label": "Chill — Wxoda",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "label": "Prospa - Dreams — CircoLoco Records",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "label": "Cool for the Summer (hardstyle remix, slowed) — Lxminal.wav",
+        "w": 320,
+        "h": 72
+      },
+      {
+        "label": "CHILL — GONE.Fludd",
+        "w": 320,
+        "h": 72
+      },
+      {
+        "label": "Came To Invade — ASAD NITE",
+        "w": 320,
+        "h": 72
+      },
+      {
+        "label": "Chill — Wxoda",
+        "w": 320,
+        "h": 72
+      },
+      {
+        "label": "Prospa - Dreams — CircoLoco Records",
+        "w": 320,
+        "h": 72
+      }
+    ],
+    "nextRows": [
+      {
+        "h": 0
+      },
+      {
+        "h": 0
+      },
+      {
+        "h": 0
+      },
+      {
+        "h": 0
+      },
+      {
+        "h": 0
+      }
+    ],
+    "reasonText": "Новое рядом с electronic",
+    "upNextCount": 5
+  },
+  "mobile-430": {
+    "wave": {
+      "x": 14,
+      "y": 107,
+      "w": 402,
+      "h": 1116
+    },
+    "artwork": {
+      "w": 340,
+      "h": 340
+    },
+    "overflowX": false,
+    "buttons": [
+      {
+        "label": "Пауза",
+        "w": 44,
+        "h": 44
+      },
+      {
+        "label": "Остановить Волну",
+        "w": 44,
+        "h": 44
+      },
+      {
+        "label": "Открыть плеер: Kolter - Trapped",
+        "w": 340,
+        "h": 340
+      },
+      {
+        "label": "Kolter",
+        "w": 42,
+        "h": 22
+      },
+      {
+        "label": "Лайк",
+        "w": 56,
+        "h": 56
+      },
+      {
+        "label": "Пауза",
+        "w": 72,
+        "h": 72
+      },
+      {
+        "label": "Пропустить",
+        "w": 56,
+        "h": 56
+      },
+      {
+        "label": "Ещё",
+        "w": 44,
+        "h": 44
+      },
+      {
+        "label": "Hello Juliet — Clarion",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "label": "Hum - Murtaza Qizilbash — Musical Mind",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "label": "Jane! — The Long Faces",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "label": "Came To Invade — ASAD NITE",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "label": "animegirl88 - cannibalism — fishingoonrr",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "label": "Hello Juliet — Clarion",
+        "w": 360,
+        "h": 72
+      },
+      {
+        "label": "Hum - Murtaza Qizilbash — Musical Mind",
+        "w": 360,
+        "h": 72
+      },
+      {
+        "label": "Jane! — The Long Faces",
+        "w": 360,
+        "h": 72
+      },
+      {
+        "label": "Came To Invade — ASAD NITE",
+        "w": 360,
+        "h": 72
+      },
+      {
+        "label": "animegirl88 - cannibalism — fishingoonrr",
+        "w": 360,
+        "h": 72
+      }
+    ],
+    "nextRows": [
+      {
+        "h": 0
+      },
+      {
+        "h": 0
+      },
+      {
+        "h": 0
+      },
+      {
+        "h": 0
+      },
+      {
+        "h": 0
+      }
+    ],
+    "reasonText": "Новое рядом с electronic",
+    "upNextCount": 5
+  },
+  "page_errors": []
+}

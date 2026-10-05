@@ -422,7 +422,7 @@ function MainView() {
 
   return (
     <div
-      className={`${compactMode ? "p-3 lg:p-4" : "p-3.5 sm:p-4 lg:p-6"} max-w-[var(--mq-container-narrow)] mx-auto pb-32 lg:pb-28`}
+      className={`${compactMode ? "p-3 lg:p-4" : "p-3.5 sm:p-4 lg:p-6"} max-w-[var(--mq-container-narrow)] lg:max-w-[var(--mq-container-wide)] mx-auto pb-32 lg:pb-28`}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
@@ -497,10 +497,10 @@ function MainView() {
       </ScrollReveal>
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* WAVE HOME (v1) — the dedicated Wave experience while the wave */}
-      {/* session is active: seed, now playing + honest reason, next up */}
-      {/* with reasons, like/skip/more/less controls. Hidden when the */}
-      {/* wave is off (the header pill + hero CTA already cover start). */}
+      {/* WAVE HOME (V2) — while the wave session is active, WaveHome IS the */}
+      {/* hero: dominant artwork, transport, up-next flow. FeaturedCard and */}
+      {/* MobileNowHero are suppressed in radio mode — one now-playing       */}
+      {/* surface, not three competing ones.                                  */}
       {/* ════════════════════════════════════════════════════════════════ */}
       {wave.radioMode && (
         <ScrollReveal direction="up" delay={0.01}>
@@ -515,9 +515,10 @@ function MainView() {
       {/* personal recommendation or the currently playing track. No glow, */}
       {/* no decorative blur — flat split card with a hard accent edge. */}
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* Desktop featured card (mobile uses MobileNowHero below) */}
+      {/* Desktop featured card (mobile uses MobileNowHero below).
+          Suppressed while the Wave is active — WaveHome owns the hero. */}
       <div className="hidden lg:block">
-        {featuredTrack && (
+        {!wave.radioMode && featuredTrack && (
           <ScrollReveal direction="up" delay={0.02}>
             <FeaturedCard
               track={featuredTrack}
@@ -537,32 +538,34 @@ function MainView() {
       {/* CONTINUE LISTENING + QUICK ACTIONS — two-column band (new). Left: */}
       {/* real current track with progress; right: dense action grid. */}
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* ════════════════════════════════════════════════════════════════ */}
-      {/* MOBILE — new Home composition (Task 3): the NOW hero owns the */}
-      {/* first screen; desktop keeps Featured + ContinueListening below. */}
+      {/* MOBILE — the NOW hero owns the first screen when nothing else */}
+      {/* claims it; while the Wave is active, WaveHome already plays that */}
+      {/* role (dominant artwork + transport) — hide the duplicate row. */}
       {/* ════════════════════════════════════════════════════════════════ */}
       <div className="lg:hidden">
-        <ScrollReveal direction="up" delay={0.02}>
-          <MobileNowHero
-            track={currentTrack}
-            fallbackTrack={featuredTrack}
-            fallbackReason={featuredReason}
-            isPlaying={isPlaying}
-            progress={progress}
-            duration={duration}
-            radioMode={radioMode}
-            onToggle={togglePlay}
-            onPrev={radioMode ? () => wave.skipTrack() : prevTrack}
-            onNext={radioMode ? () => wave.skipTrack() : nextTrack}
-            onPlayFallback={() => featuredTrack && handlePlayRec(featuredTrack)}
-            onArtistClick={handleNavigateToArtist}
-            onOpenFull={() => {
-              if (currentTrack) setFullTrackViewOpen(true);
-              else if (featuredTrack) handlePlayRec(featuredTrack);
-            }}
-            onMore={(e) => openTrackMenu(currentTrack ?? featuredTrack!, e)}
-          />
-        </ScrollReveal>
+        {!wave.radioMode && (
+          <ScrollReveal direction="up" delay={0.02}>
+            <MobileNowHero
+              track={currentTrack}
+              fallbackTrack={featuredTrack}
+              fallbackReason={featuredReason}
+              isPlaying={isPlaying}
+              progress={progress}
+              duration={duration}
+              radioMode={radioMode}
+              onToggle={togglePlay}
+              onPrev={radioMode ? () => wave.skipTrack() : prevTrack}
+              onNext={radioMode ? () => wave.skipTrack() : nextTrack}
+              onPlayFallback={() => featuredTrack && handlePlayRec(featuredTrack)}
+              onArtistClick={handleNavigateToArtist}
+              onOpenFull={() => {
+                if (currentTrack) setFullTrackViewOpen(true);
+                else if (featuredTrack) handlePlayRec(featuredTrack);
+              }}
+              onMore={(e) => openTrackMenu(currentTrack ?? featuredTrack!, e)}
+            />
+          </ScrollReveal>
+        )}
         <MobileQuickRow
           likedCount={likedTrackIds.length}
           historyCount={history.length}
@@ -1249,21 +1252,21 @@ function ContinueListeningCard({
 // falls back to the generic "Волна · играет").
 export function waveReasonText(track: Track): string {
   switch (track._reason) {
-    // ── Wave engine v1 reasons (lib/wave — §15) ──
+    // ── Wave engine reasons (lib/wave — §15, V2 tone) ──
     case "similar_track":
-      return track._seedArtist ? `Похоже на «${track._seedArtist}»` : "Волна · похожее";
+      return track._seedArtist ? `Похоже на «${track._seedArtist}»` : "Похожий трек";
     case "similar_artist":
-      return track._seedArtist ? `В стиле ${track._seedArtist}` : "Похожий артист";
+      return track._seedArtist ? `В стиле ${track._seedArtist}` : "Похожее звучание";
     case "favorite_artist":
-      return track._seedArtist ? `Любимый артист · ${track._seedArtist}` : "Любимый артист";
+      return track._seedArtist ? `Потому что тебе нравится ${track._seedArtist}` : "Твой любимый артист";
     case "favorite_genre":
-      return "Любимый жанр";
+      return track._seedArtist ? `Тебе нравится ${track._seedArtist}` : "Твой любимый жанр";
     case "recent_listening":
-      return "Продолжение вашего потока";
+      return "Продолжение твоего потока";
     case "taste_profile":
-      return "По вашему вкусу";
+      return "По твоему вкусу";
     case "exploration":
-      return "Новое для вас";
+      return track._seedArtist ? `Новое рядом с ${track._seedArtist}` : "Новое для тебя";
     // ── Legacy radio/recommendations reasons (fallback path) ──
     case "related_current":
       return track._seedArtist ? `Похоже на ${track._seedArtist}` : "Волна · похожее";
@@ -1272,7 +1275,7 @@ export function waveReasonText(track: Track): string {
     case "related_to_liked":
       return "По твоим лайкам";
     case "liked_artist":
-      return track._seedArtist ? `Любимый артист · ${track._seedArtist}` : "Любимый артист";
+      return track._seedArtist ? `Твой артист · ${track._seedArtist}` : "Твой артист";
     case "artist_match":
       return "Твой артист";
     case "discovery":

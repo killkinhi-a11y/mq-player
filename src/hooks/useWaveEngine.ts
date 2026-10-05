@@ -46,6 +46,17 @@ function getAnonId(): string {
   }
 }
 
+/** V2 (PART 11): wave debug mode — set localStorage 'mq_wave_debug' = '1'
+ * to ship per-track relevance metadata and render debug chips in WaveHome. */
+function isWaveDebugMode(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem("mq_wave_debug") === "1";
+  } catch {
+    return false;
+  }
+}
+
 /** API response shape (§29). */
 interface WaveApiResponse {
   sessionId: string;
@@ -86,6 +97,22 @@ function resetRuntimeForSession(sessionId: string): void {
   }
 }
 
+/** Map an API track (+_reason/_seedArtist/_debug fields) to a queue item. */
+function toQueueItem(t: MQTrack, fallbackReason: string): {
+  track: MQTrack;
+  reason: string;
+  seedRef?: string;
+  debug?: import("@/lib/wave").WaveRelevanceDebug;
+} {
+  const x = t as MQTrack & { _reason?: string; _seedArtist?: string; _debug?: import("@/lib/wave").WaveRelevanceDebug };
+  return {
+    track: t,
+    reason: x._reason || fallbackReason,
+    seedRef: x._seedArtist,
+    debug: x._debug,
+  };
+}
+
 export function useWaveEngine() {
   const playTrack = useAppStore((s) => s.playTrack);
   const nextTrack = useAppStore((s) => s.nextTrack);
@@ -104,6 +131,8 @@ export function useWaveEngine() {
 
   /* ────────────────────────────────────────────────────────────────────
    * Signals — build the WaveSignals payload from live store state (§29).
+   * V2: likedTexts/historyTexts feed the personalized cultural-cluster
+   * map (PART 8) and history slices are wider for recent-context (PART 9).
    * ──────────────────────────────────────────────────────────────────── */
   const buildSignals = useCallback((seed: WaveSeed | null): WaveSignals => {
     const s = useAppStore.getState();
@@ -118,14 +147,24 @@ export function useWaveEngine() {
       ...(s.waveQueue || []).map((q) => q.track.id),
       ...(s.dislikedTrackIds || []),
     ];
+    // V2 (PART 8): compact "title artist" texts — the server computes the
+    // cultural-cluster affinity map from these (never a global blacklist).
+    const likedTexts = (s.likedTracksData || [])
+      .slice(0, 12)
+      .map((t) => `${t.title || ""} ${t.artist || ""}`.trim().slice(0, 120))
+      .filter(Boolean);
+    const historyTexts = (s.history || [])
+      .slice(0, 16)
+      .map((h) => `${h.track?.title || ""} ${h.track?.artist || ""}`.trim().slice(0, 120))
+      .filter(Boolean);
     return {
       likedArtists: [...new Set((s.likedTracksData || []).map((t) => t.artist).filter(Boolean))].slice(0, 10),
       likedGenres: [...new Set((s.likedTracksData || []).map((t) => t.genre).filter(Boolean))].slice(0, 10),
       dislikedArtists: [...new Set((s.dislikedTracksData || []).map((t) => t.artist).filter(Boolean))].slice(0, 10),
       likedScIds: (s.likedTracksData || []).map((t) => t.scTrackId).filter((id): id is number => !!id).slice(0, 5),
-      historyScIds: (s.history || []).map((h) => h.track?.scTrackId).filter((id): id is number => !!id).slice(0, 10),
-      historyArtists: (s.history || []).slice(0, 20).map((h) => h.track?.artist).filter(Boolean).slice(0, 10),
-      historyGenres: (s.history || []).slice(0, 30).map((h) => h.track?.genre).filter(Boolean).slice(0, 10),
+      historyScIds: (s.history || []).map((h) => h.track?.scTrackId).filter((id): id is number => !!id).slice(0, 12),
+      historyArtists: (s.history || []).slice(0, 20).map((h) => h.track?.artist).filter(Boolean).slice(0, 12),
+      historyGenres: (s.history || []).slice(0, 30).map((h) => h.track?.genre).filter(Boolean).slice(0, 12),
       tasteGenres: tp.topGenres.slice(0, 6),
       tasteArtists: [
         ...new Set([
@@ -141,6 +180,9 @@ export function useWaveEngine() {
       recentWaveGenres: (s.waveMemory?.genres || []).map((e) => e.value).slice(0, 15),
       recentWaveTrackIds: (s.waveMemory?.tracks || []).map((e) => e.value).slice(0, 60),
       seed: seed || undefined,
+      likedTexts,
+      historyTexts,
+      debug: isWaveDebugMode() || undefined,
     };
   }, []);
 
@@ -314,11 +356,7 @@ export function useWaveEngine() {
           queueIndex: idx,
         });
         useAppStore.getState().enqueueWaveTracks(
-          [seedTrack, ...tracks].map((t) => ({
-            track: t,
-            reason: (t as MQTrack & { _reason?: string })._reason || "similar_track",
-            seedRef: (t as MQTrack & { _seedArtist?: string })._seedArtist,
-          })),
+          [seedTrack, ...tracks].map((t) => toQueueItem(t, "similar_track")),
         );
         useAppStore.getState().markWaveTracksServed([seedTrack]);
       } else if (seedTrack) {
@@ -330,11 +368,7 @@ export function useWaveEngine() {
           radioSkipCount: 0,
         });
         useAppStore.getState().enqueueWaveTracks(
-          queueTracks.map((t) => ({
-            track: t,
-            reason: (t as MQTrack & { _reason?: string })._reason || "similar_track",
-            seedRef: (t as MQTrack & { _seedArtist?: string })._seedArtist,
-          })),
+          queueTracks.map((t) => toQueueItem(t, "similar_track")),
         );
         useAppStore.getState().markWaveTracksServed([seedTrack]);
         playTrack(seedTrack, queueTracks);
@@ -347,11 +381,7 @@ export function useWaveEngine() {
           radioSkipCount: 0,
         });
         useAppStore.getState().enqueueWaveTracks(
-          tracks.map((t) => ({
-            track: t,
-            reason: (t as MQTrack & { _reason?: string })._reason || "taste_profile",
-            seedRef: (t as MQTrack & { _seedArtist?: string })._seedArtist,
-          })),
+          tracks.map((t) => toQueueItem(t, "taste_profile")),
         );
         useAppStore.getState().markWaveTracksServed([first]);
         playTrack(first, tracks);
@@ -449,11 +479,7 @@ export function useWaveEngine() {
         return;
       }
       useAppStore.getState().enqueueWaveTracks(
-        fresh.map((t) => ({
-          track: t,
-          reason: (t as MQTrack & { _reason?: string })._reason || "taste_profile",
-          seedRef: (t as MQTrack & { _seedArtist?: string })._seedArtist,
-        })),
+        fresh.map((t) => toQueueItem(t, "taste_profile")),
       );
       useAppStore.setState({ queue: [...useAppStore.getState().queue, ...fresh] });
       nextTrack();
@@ -521,11 +547,7 @@ export function useWaveEngine() {
         const fresh = tracks.filter((t) => !existing.has(t.id));
         if (fresh.length === 0) return;
         s.enqueueWaveTracks(
-          fresh.map((t) => ({
-            track: t,
-            reason: (t as MQTrack & { _reason?: string })._reason || "taste_profile",
-            seedRef: (t as MQTrack & { _seedArtist?: string })._seedArtist,
-          })),
+          fresh.map((t) => toQueueItem(t, "taste_profile")),
         );
         useAppStore.setState({ queue: [...useAppStore.getState().queue, ...fresh] });
         const st = useAppStore.getState();

@@ -82,6 +82,7 @@ export interface WaveEvent {
   title?: string;
   artist?: string;
   genre?: string;
+  album?: string;
   position?: number;
   duration?: number;
   at: number;
@@ -113,6 +114,13 @@ export interface TasteLayer {
  * Four-layer taste profile. Session/recent weigh MORE than long-term
  * (weighting happens in `mergedAffinity`), but the long-term profile is
  * never discarded.
+ *
+ * V2 additions:
+ *   • clusters — personalized cultural-cluster affinity counts (PART 8):
+ *     a cluster with ≥ CLUSTER_MIN_SIGNALS is "user's own" and never
+ *     treated as foreign. NOT a blacklist — it certifies, not bans.
+ *   • skipStreak — trailing consecutive negative skips in the session
+ *     (PART 10): ≥2 throttles exploration and steers back to safe picks.
  */
 export interface WaveProfile {
   longTerm: TasteLayer;
@@ -124,10 +132,19 @@ export interface WaveProfile {
   language: "russian" | "english" | "mixed";
   /** 0..1 — how much listening signal we have; drives explorationRate. */
   confidence: number;
+  /** Cultural cluster → positive signal count (likes/history). */
+  clusters: Record<string, number>;
+  /** Trailing consecutive negative skips in this session. */
+  skipStreak: number;
   /** `more_like_this` targets (session-scoped boosts). */
   boost: { artists: string[]; genres: string[] };
   /** `less_like_this` / `not_interested` targets (session-scoped suppressions). */
-  suppress: { artists: string[]; genres: string[] };
+  suppress: {
+    artists: string[];
+    genres: string[];
+    albums: string[];
+    clusters: string[];
+  };
 }
 
 export interface WaveProfileInput {
@@ -145,6 +162,9 @@ export interface WaveProfileInput {
   sessionEvents?: WaveEvent[];
   favoriteArtists?: Array<{ username: string }>;
   now?: number;
+  /** Compact "title artist" texts (server path) — cluster affinity source. */
+  likedTexts?: string[];
+  historyTexts?: string[];
 }
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -192,6 +212,28 @@ export interface WaveCandidate<T extends WaveTrackMinimal = WaveTrackMinimal> {
  * Scoring / output
  * ──────────────────────────────────────────────────────────────────────── */
 
+/**
+ * FINAL RELEVANCE GATE debug metadata (V2 PART 11) — shipped per track
+ * when the request asks for `debug`. Explains WHY a track passed or was
+ * rejected: every sub-score, the verdict and a human-readable reason.
+ */
+export interface WaveRelevanceDebug {
+  score: number;
+  artistScore: number;
+  genreScore: number;
+  trackScore: number;
+  seedSimilarity: number;
+  sessionScore: number;
+  languageScore: number;
+  explorationScore: number;
+  negativeScore: number;
+  finalScore: number;
+  relevancePassed: boolean;
+  relevanceReason: string;
+  /** Which anchor held the candidate up ("genre_affinity", "seed_channel", …). */
+  anchor?: string;
+}
+
 export interface ScoredCandidate<T extends WaveTrackMinimal = WaveTrackMinimal> {
   track: T;
   score: number;
@@ -201,6 +243,9 @@ export interface ScoredCandidate<T extends WaveTrackMinimal = WaveTrackMinimal> 
   exploration: boolean;
   /** Per-signal contributions — testability + honest reason selection. */
   breakdown: Record<string, number>;
+  /** Final relevance gate verdict + sub-scores (V2). Always computed; only
+   *  shipped to the client when the request is in debug mode. */
+  relevance?: WaveRelevanceDebug;
 }
 
 export interface WaveEngineMeta {
@@ -212,11 +257,17 @@ export interface WaveEngineMeta {
   artist_fatigue_count: number;
   generation_ms: number;
   deterministic: boolean;
+  /** V2 relevance gate observability. */
+  relevance_rejected_count: number;
+  gate_rung: number;
+  gate_relaxed: boolean;
 }
 
 export interface WaveEngineResult<T extends WaveTrackMinimal = WaveTrackMinimal> {
   tracks: ScoredCandidate<T>[];
   meta: WaveEngineMeta;
+  /** V2 (PART 11): gate-rejected candidates with verdicts — observability. */
+  gate?: Array<{ candidate: ScoredCandidate<T>; verdict: import("./relevance").GateVerdict }>;
 }
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -250,6 +301,8 @@ export interface WaveQueueItem<T extends WaveTrackMinimal = WaveTrackMinimal> {
   reason: WaveReason;
   seedRef?: string;
   enqueuedAt: number;
+  /** V2 (PART 11): relevance debug metadata (dev mode only). */
+  debug?: WaveRelevanceDebug;
 }
 
 export interface WaveSessionState {
@@ -293,6 +346,12 @@ export interface WaveSignals {
   recentWaveGenres?: string[];
   recentWaveTrackIds?: string[];
   seed?: WaveSeed;
+  /** "title artist" texts of liked tracks (≤12) — cultural cluster affinity. */
+  likedTexts?: string[];
+  /** "title artist" texts of recent history (≤16) — cultural cluster affinity. */
+  historyTexts?: string[];
   /** Explicit deterministic test seed (never sent by the real client). */
   randomSeed?: number;
+  /** Dev/debug mode — per-track relevance metadata in the response. */
+  debug?: boolean;
 }

@@ -44,6 +44,13 @@ export interface WaveScoringConfig {
   popularityBonus: number;
   /** more_like_this boost (§17 — stronger than a like). */
   boostedBonus: number;
+  /** Cluster matches a cluster the user has real history with (PART 8). */
+  clusterMatchBonus: number;
+  /** Candidate genre is a bridge-genre of a user genre with real affinity —
+   *  the ONLY way an exploration candidate earns an anchor (PART 7). */
+  explorationAnchoredBonus: number;
+  /** Session context bonus — candidate continues the live session sound (PART 9). */
+  sessionContextBonus: number;
   // ── Negative signals ──
   /** Track id already played recently (memory) — near-hard penalty. */
   recentTrackPenalty: number;
@@ -59,6 +66,14 @@ export interface WaveScoringConfig {
   strongSkipPenalty: number;
   /** less_like_this / not_interested suppression (§18). */
   suppressedPenalty: number;
+  /** Album-level suppression (PART 10 — cluster includes albums). */
+  suppressedAlbumPenalty: number;
+  /** Cultural-cluster suppression (PART 10 — the whole cultural sound). */
+  suppressedClusterPenalty: number;
+  /** Candidate's cultural cluster is FOREIGN to this user (PART 8): no
+   *  history, no anchor — the "random Hindi rap" killer. Dominates every
+   *  quality prior combined so it can never be outscored. */
+  culturalMismatchPenalty: number;
   /** Seeded jitter amplitude (±) — variety without non-determinism. */
   maxJitter: number;
 }
@@ -92,10 +107,21 @@ export interface WaveExplorationConfig {
   coldStartRate: number;
   /** Confidence above which baseRate applies (else lerp to coldStartRate). */
   confidenceThreshold: number;
-  /** Guaranteed exploration picks injected into every batch. */
+  /** V2 (PART 7): exploration slots are NO LONGER guaranteed. 0 = every
+   *  exploration candidate must survive scoring + the relevance gate on
+   * its own merits. Kept as a knob for experiments. */
   explorationSlots: number;
   /** Position range in the batch where exploration picks may land (start index). */
   explorationInsertFrom: number;
+  /** V2 (PART 7): hard cap on the exploration share of a batch — novelty
+   *  must never dominate a personal wave. */
+  maxSharePerBatch: number;
+  /** V2 (PART 10): skip streak ≥ this → exploration rate is throttled
+   *  (steer back to what the user actually likes). */
+  skipStreakThrottleAt: number;
+  /** V2 (PART 10): multiplier applied to the exploration rate while the
+   *  skip streak is active. */
+  skipStreakRateMultiplier: number;
 }
 
 export interface WaveFeedbackConfig {
@@ -181,6 +207,45 @@ export interface WaveCacheConfig {
   maxEntries: number;
 }
 
+/**
+ * V2 — FINAL RELEVANCE GATE (PART 6). Runs AFTER ranking, BEFORE the queue:
+ *   profile → seed → candidates → hard filters → scoring → diversity →
+ *   exploration → ranking → **FINAL RELEVANCE GATE** → queue
+ *
+ * A candidate must hold at least one POSITIVE ANCHOR (a real taste/seed/
+ * session link) and carry NO HARD NEGATIVE (foreign cultural cluster without
+ * user history, suppressed artist/cluster, disliked artist). Anchor-less
+ * candidates are only allowed when the profile is cold (rung 1) — and hard
+ * negatives still block there. Rung 2 is the last-resort §35 degradation for
+ * degenerate pools (never an infinite loader).
+ */
+export interface WaveRelevanceConfig {
+  /** Min merged artist affinity that counts as an anchor. */
+  minArtistAffinity: number;
+  /** Min merged genre affinity that counts as an anchor. */
+  minGenreAffinity: number;
+  /** Min track affinity (liked/completed before) that counts as an anchor. */
+  minTrackAffinity: number;
+  /** Min session-layer artist/genre value that counts as an anchor. */
+  minSessionAffinity: number;
+  /** Bridge-genre anchor: user genre needs at least this merged affinity
+   *  for its bridge genres to count as exploration anchors. */
+  minAnchorGenreAffinity: number;
+  /** Cluster signal count for a cultural cluster to be "the user's own"
+   *  (likes count ×2). Below this the cluster is foreign → hard block for
+   *  non-anchored candidates. NOT a blacklist: the count is personal. */
+  clusterMinSignals: number;
+  /** Rung 1: profile richness below this = cold profile; anchor-less
+   *  candidates allowed (still no hard negatives). Richness = number of
+   *  distinct artists/genres/tracks with merged affinity ≥ 0.15. */
+  coldProfileRichness: number;
+  /** Rung 2 (§35 last resort): only when rung 0+1 left the batch EMPTY.
+   *  Allows anchor-less candidates that still have no hard negative. */
+  degeneratePoolFallback: boolean;
+  /** Disliked-artist threshold (longTerm artist ≤ this = hard negative). */
+  dislikedArtistThreshold: number;
+}
+
 export interface WaveOutputConfig {
   /** Default output batch size. */
   batchSize: number;
@@ -203,6 +268,7 @@ export interface WaveConfig {
   coldStart: WaveColdStartConfig;
   cache: WaveCacheConfig;
   output: WaveOutputConfig;
+  relevance: WaveRelevanceConfig;
 }
 
 export const WAVE_CONFIG: WaveConfig = {
@@ -225,6 +291,9 @@ export const WAVE_CONFIG: WaveConfig = {
     durationSweetSpot: 8,
     popularityBonus: 8,
     boostedBonus: 50,
+    clusterMatchBonus: 6,
+    explorationAnchoredBonus: 12,
+    sessionContextBonus: 8,
     recentTrackPenalty: 100,
     artistFatigue: 35,
     genreFatigue: 12,
@@ -232,6 +301,9 @@ export const WAVE_CONFIG: WaveConfig = {
     recentSkipPenalty: 45,
     strongSkipPenalty: 80,
     suppressedPenalty: 60,
+    suppressedAlbumPenalty: 48,
+    suppressedClusterPenalty: 70,
+    culturalMismatchPenalty: 130,
     maxJitter: 10,
   },
   fatigue: {
@@ -250,8 +322,13 @@ export const WAVE_CONFIG: WaveConfig = {
     baseRate: 0.15,
     coldStartRate: 0.35,
     confidenceThreshold: 0.6,
-    explorationSlots: 2,
+    // V2 (PART 7): no guaranteed exploration slots — every exploration
+    // candidate competes AND passes the relevance gate like everyone else.
+    explorationSlots: 0,
     explorationInsertFrom: 2,
+    maxSharePerBatch: 0.3,
+    skipStreakThrottleAt: 2,
+    skipStreakRateMultiplier: 0.35,
   },
   feedback: {
     skipStrongNegativeThreshold: 0.10,
@@ -334,6 +411,17 @@ export const WAVE_CONFIG: WaveConfig = {
     maxOutput: 20,
     minDuration: 45,
     maxDuration: 900,
+  },
+  relevance: {
+    minArtistAffinity: 0.15,
+    minGenreAffinity: 0.2,
+    minTrackAffinity: 0.25,
+    minSessionAffinity: 0.2,
+    minAnchorGenreAffinity: 0.3,
+    clusterMinSignals: 2,
+    coldProfileRichness: 3,
+    degeneratePoolFallback: true,
+    dislikedArtistThreshold: -0.4,
   },
 };
 

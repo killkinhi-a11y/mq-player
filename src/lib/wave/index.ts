@@ -17,6 +17,7 @@ export type {
   WaveTrackMinimal,
   WaveCandidate,
   ScoredCandidate,
+  WaveRelevanceDebug,
   WaveEngineMeta,
   WaveEngineResult,
   WaveMemory,
@@ -45,6 +46,7 @@ export {
   buildWaveProfile,
   buildSessionLayer,
   applySessionEvent,
+  computeSkipStreak,
   mergedAffinity,
   layerWeights,
   detectLanguageFromTracks,
@@ -66,12 +68,30 @@ export {
 export {
   scoreCandidate,
   effectiveExplorationRate,
+  isAdjacentToUserGenre,
+  reasonSeedRef,
 } from "./scoring";
 
 export {
   hardFilter,
   selectDiverseBatch,
 } from "./diversity";
+
+/* V2 (PART 6-8): cultural clusters + the FINAL RELEVANCE GATE. */
+export {
+  detectCulturalCluster,
+  trackCluster,
+  countClusterAffinity,
+  DEFAULT_CULTURAL_SPACE,
+} from "./clusters";
+export type { CulturalClusterId } from "./clusters";
+export {
+  evaluateRelevance,
+  applyRelevanceGate,
+  profileRichness,
+  isOwnCluster,
+} from "./relevance";
+export type { GateContext, GateVerdict, GateResult } from "./relevance";
 
 export {
   getWaveRecommendations,

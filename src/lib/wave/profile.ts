@@ -21,7 +21,8 @@ import { sanitizeGenre } from "@/lib/tasteProfile";
 import type { Track } from "@/lib/musicApi";
 import type { TasteLayer, WaveEvent, WaveProfile, WaveProfileInput } from "./types";
 import type { WaveConfig } from "./config";
-import { eventSignal } from "./events";
+import { classifySkip, eventSignal } from "./events";
+import { countClusterAffinity, detectCulturalCluster } from "./clusters";
 
 const EMPTY_LAYER: TasteLayer = { artists: {}, genres: {}, tracks: {} };
 
@@ -136,6 +137,38 @@ export function buildWaveProfile(input: WaveProfileInput, config: WaveConfig): W
 
   /* ── Session layer: live wave events (§11, §19) ── */
   const session = buildSessionLayer(input.sessionEvents || [], config);
+  const skipStreak = computeSkipStreak(input.sessionEvents || [], config);
+
+  /* ── Cultural cluster affinity (V2 PART 8) — personalized, never a blacklist.
+   * Likes weigh ×2 (explicit taste); history ×1. The count answers “does
+   * THIS user actually listen to this culture” — the gate only blocks a
+   * cluster the user has no signal for. */
+  const clusters: Record<string, number> = {};
+  const bumpCluster = (c: string | null, w: number) => {
+    if (!c) return;
+    clusters[c] = (clusters[c] || 0) + w;
+  };
+  for (const t of liked) {
+    bumpCluster(detectCulturalCluster(t.title, t.artist, t.genre), 2);
+  }
+  for (const h of history.slice(0, 40)) {
+    bumpCluster(detectCulturalCluster(h.track?.title, h.track?.artist, h.track?.genre), 1);
+  }
+  // Compact server path: pre-extracted “title artist” texts.
+  for (const [c, n] of Object.entries(countClusterAffinity(input.likedTexts || [], 2))) {
+    clusters[c] = (clusters[c] || 0) + n;
+  }
+  for (const [c, n] of Object.entries(countClusterAffinity(input.historyTexts || [], 1))) {
+    clusters[c] = (clusters[c] || 0) + n;
+  }
+  // Genre tokens count as cluster signals too (k-pop slider, bollywood likes…).
+  const genreClusterSignals = [
+    ...Object.keys(input.tasteGenres || {}),
+    ...liked.map((t) => t.genre || ""),
+  ];
+  for (const g of genreClusterSignals) {
+    bumpCluster(detectCulturalCluster(null, null, g), 1);
+  }
 
   /* ── Derived fields ── */
   const recentArtists: string[] = [];
@@ -161,8 +194,10 @@ export function buildWaveProfile(input: WaveProfileInput, config: WaveConfig): W
     recentTracks,
     language,
     confidence,
+    clusters,
+    skipStreak,
     boost: { artists: [], genres: [] },
-    suppress: { artists: [], genres: [] },
+    suppress: { artists: [], genres: [], albums: [], clusters: [] },
   };
 }
 
@@ -184,6 +219,45 @@ export function buildSessionLayer(events: WaveEvent[], config: WaveConfig): Tast
 }
 
 /**
+ * Trailing consecutive NEGATIVE skips in the session (V2 PART 10).
+ * Skip → Skip → Skip must visibly redirect the wave: the streak throttles
+ * exploration and every extra unit deepens the penalty for the skipped
+ * sound. A positive event (complete/like/more_like_this) resets the streak.
+ */
+export function computeSkipStreak(events: WaveEvent[], config: WaveConfig): number {
+  let streak = 0;
+  for (let i = events.length - 1; i >= 0; i--) {
+    const ev = events[i];
+    if (ev.type === "track_skipped") {
+      const strength = classifyFromEvent(ev, config);
+      if (strength === "strong_negative" || strength === "negative") {
+        streak++;
+        continue;
+      }
+      if (strength === null) {
+        // Unknown depth — count as a mild skip signal for the streak.
+        streak++;
+        continue;
+      }
+      break; // neutral/positive skip — not a rejection
+    }
+    if (
+      ev.type === "play_completed" || ev.type === "track_liked" ||
+      ev.type === "track_replayed" || ev.type === "more_like_this" ||
+      ev.type === "track_added_to_playlist"
+    ) {
+      break; // positive event ends the streak
+    }
+  }
+  return streak;
+}
+
+function classifyFromEvent(ev: WaveEvent, config: WaveConfig): import("./types").SkipStrength | null {
+  if (ev.type !== "track_skipped") return null;
+  return classifySkip(ev.position, ev.duration, config);
+}
+
+/**
  * Apply one live event to a profile immutably (real-time personalization,
  * §11). Returns a NEW profile — the input is never mutated.
  */
@@ -200,7 +274,12 @@ export function applySessionEvent(profile: WaveProfile, event: WaveEvent, config
   }
 
   const boost = { artists: [...profile.boost.artists], genres: [...profile.boost.genres] };
-  const suppress = { artists: [...profile.suppress.artists], genres: [...profile.suppress.genres] };
+  const suppress = {
+    artists: [...profile.suppress.artists],
+    genres: [...profile.suppress.genres],
+    albums: [...(profile.suppress.albums || [])],
+    clusters: [...(profile.suppress.clusters || [])],
+  };
   const artist = normArtist(event.artist);
   const genre = normGenre(event.genre);
 
@@ -210,12 +289,38 @@ export function applySessionEvent(profile: WaveProfile, event: WaveEvent, config
     if (genre && !boost.genres.includes(genre)) boost.genres.push(genre);
   }
   if (event.type === "less_like_this" || event.type === "not_interested") {
-    // §18 — suppress the feature cluster, never destroy long-term taste.
+    // §18 + V2 PART 10 — suppress the whole FEATURE CLUSTER of the track:
+    // artist (hard), genre (soft), album (soft) and — when the cluster is
+    // not part of the user's long-term taste — the cultural cluster (hard).
+    // Long-term taste is never destroyed: these lists are session-scoped.
     if (artist && !suppress.artists.includes(artist)) suppress.artists.push(artist);
     if (genre && !suppress.genres.includes(genre)) suppress.genres.push(genre);
+    const album = (event.album || "").trim().toLowerCase();
+    if (album && !suppress.albums.includes(album)) suppress.albums.push(album);
+    const cluster = detectCulturalCluster(event.title, event.artist, event.genre);
+    const clusterIsOwn = cluster ? (profile.clusters?.[cluster] || 0) >= 2 : false;
+    if (cluster && !clusterIsOwn && !suppress.clusters.includes(cluster)) {
+      suppress.clusters.push(cluster);
+    }
   }
 
-  return { ...profile, session, boost, suppress };
+  // Skip streak update (V2 PART 10) — incremental, event-driven: a negative
+  // skip extends the streak, any positive signal resets it.
+  let skipStreak = profile.skipStreak || 0;
+  if (event.type === "track_skipped") {
+    const strength = classifySkip(event.position, event.duration, config);
+    if (strength === null || strength === "strong_negative" || strength === "negative") {
+      skipStreak += 1;
+    }
+  } else if (
+    event.type === "play_completed" || event.type === "track_liked" ||
+    event.type === "track_replayed" || event.type === "more_like_this" ||
+    event.type === "track_added_to_playlist"
+  ) {
+    skipStreak = 0;
+  }
+
+  return { ...profile, session, boost, suppress, skipStreak };
 }
 
 /**

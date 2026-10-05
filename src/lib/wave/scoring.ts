@@ -28,6 +28,7 @@ import type { WaveConfig } from "./config";
 import type { WaveRng } from "./rng";
 import { mergedAffinity, normArtist, normGenre } from "./profile";
 import { artistAppearanceCount } from "./memory";
+import { DEFAULT_CULTURAL_SPACE, trackCluster } from "./clusters";
 
 export interface ScoreContext {
   profile: WaveProfile;
@@ -61,6 +62,26 @@ function trackLanguage(track: WaveTrackMinimal): "russian" | "english" | "other"
 }
 
 /**
+ * Bridge-genre relation (V2 PART 7): is `genre` adjacent to any user genre
+ * with real affinity? This is the ONLY path an exploration candidate can
+ * earn an anchor — novelty must hang off something the user actually likes.
+ */
+export function isAdjacentToUserGenre(
+  genre: string | null,
+  affinityGenres: Record<string, number>,
+  config: WaveConfig,
+  minAffinity: number,
+): string | null {
+  if (!genre) return null;
+  for (const [userGenre, value] of Object.entries(affinityGenres)) {
+    if (value < minAffinity) continue;
+    const bridges = config.coldStart.bridgeGenres[userGenre] || [];
+    if (bridges.includes(genre)) return userGenre;
+  }
+  return null;
+}
+
+/**
  * Score ONE candidate. Pure given (candidate, ctx) — the only randomness
  * is the seeded jitter drawn from ctx.rng (deterministic mode, §23).
  */
@@ -70,6 +91,7 @@ export function scoreCandidate<T extends WaveTrackMinimal>(
 ): ScoredCandidate<T> {
   const { config, profile, seed, memory, rng } = ctx;
   const S = config.scoring;
+  const R = config.relevance;
   const track = candidate.track;
   const artist = normArtist(track.artist);
   const genre = normGenre(track.genre);
@@ -114,11 +136,25 @@ export function scoreCandidate<T extends WaveTrackMinimal>(
   if (boostedArtist) breakdown.boosted = S.boostedBonus;
   else if (boostedGenre) breakdown.boosted = S.boostedBonus * 0.6;
 
-  /* ── less_like_this / not_interested suppression (§18) ── */
+  /* ── V2 PART 8: cultural cluster of the candidate — computed once, used
+   * by suppression + affinity below. NOT a blacklist — the penalty only
+   * fires for a cluster THIS user has no signal for. */
+  const cluster = trackCluster(track);
+
+  /* ── less_like_this / not_interested suppression (§18 + V2 PART 10) ──
+   * The whole FEATURE CLUSTER is suppressed: artist (strong), genre (soft),
+   * album (soft), cultural cluster (strong — but only when it isn't part
+   * of the user's long-term taste; see applySessionEvent). */
   const suppressedArtist = artist && profile.suppress.artists.includes(artist);
   const suppressedGenre = genre && profile.suppress.genres.includes(genre);
+  const suppressedAlbum =
+    !!(track.album || "").trim() &&
+    profile.suppress.albums?.includes((track.album || "").trim().toLowerCase());
+  const suppressedCluster = cluster ? profile.suppress.clusters?.includes(cluster) : false;
   if (suppressedArtist) breakdown.suppressed = -S.suppressedPenalty;
   else if (suppressedGenre) breakdown.suppressed = -S.suppressedPenalty * 0.6;
+  if (suppressedAlbum) breakdown.suppressedAlbum = -S.suppressedAlbumPenalty;
+  if (suppressedCluster) breakdown.suppressedCluster = -S.suppressedClusterPenalty;
 
   /* ── Novelty + exploration (§9, §38) ── */
   const seenArtist =
@@ -129,6 +165,37 @@ export function scoreCandidate<T extends WaveTrackMinimal>(
   const isExplorationChannel = candidate.channel === "exploration";
   if (!seenArtist) breakdown.novelty = S.noveltyBonus;
   if (isExplorationChannel) breakdown.exploration = S.explorationBonus;
+
+  /* ── V2 PART 7: ANCHORED exploration only. An exploration candidate whose
+   * genre is a bridge of a real user genre earns a bonus AND an anchor;
+   * anchor-less exploration gets nothing extra — the gate will drop it. */
+  const anchorGenre = isAdjacentToUserGenre(genre, affinity.genres, config, R.minAnchorGenreAffinity);
+  if (isExplorationChannel && anchorGenre) {
+    breakdown.explorationAnchored = S.explorationAnchoredBonus;
+  }
+
+  /* ── V2 PART 9: session context — the last 10–20 played tracks define the
+   * live mood; a candidate continuing that sound gets a direct bonus on top
+   * of the (already ×1.35) session layer. */
+  const sessionGenreValue = genre ? (profile.session.genres[genre] || 0) : 0;
+  if (sessionGenreValue >= 0.3) breakdown.sessionContext = S.sessionContextBonus;
+
+  /* ── V2 PART 8: personalized cultural relevance — affinity side. */
+  const clusterSignals = cluster ? (profile.clusters?.[cluster] || 0) : 0;
+  const clusterIsOwn = clusterSignals >= R.clusterMinSignals;
+  if (cluster && clusterIsOwn) {
+    breakdown.clusterMatch = S.clusterMatchBonus;
+  } else if (
+    cluster &&
+    !clusterIsOwn &&
+    !DEFAULT_CULTURAL_SPACE.has(cluster) &&
+    // A direct seed link (this IS the seed artist / seed track relation)
+    // still certifies the cluster — the user explicitly started here.
+    candidate.channel !== "similar_track" &&
+    candidate.channel !== "similar_artist"
+  ) {
+    breakdown.culturalMismatch = -S.culturalMismatchPenalty;
+  }
 
   /* ── Quality priors ── */
   if (track.scIsFull) breakdown.playability = S.playabilityBonus;
@@ -171,16 +238,26 @@ export function scoreCandidate<T extends WaveTrackMinimal>(
   if (S.maxJitter > 0) breakdown.jitter = rng.next() * 2 * S.maxJitter - S.maxJitter;
 
   const score = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
+  const reason = selectReason(candidate, breakdown, ctx);
 
   return {
     track,
     score,
-    reason: selectReason(candidate, breakdown, ctx),
+    reason,
     channel: candidate.channel,
-    seedRef: candidate.seedRef,
+    // Enriched attribution (V2): favorite_artist → the artist's own name,
+    // exploration → the anchor genre the novelty hangs off. Honest only.
+    seedRef: reasonSeedRef(candidate, reason, { artist, genre, anchorGenre }),
     exploration: isExplorationChannel,
     breakdown,
   };
+}
+
+/** Extra context the reason selector uses for honest attribution. */
+interface ReasonContext {
+  artist: string;
+  genre: string | null;
+  anchorGenre: string | null;
 }
 
 /**
@@ -223,16 +300,37 @@ function selectReason<T extends WaveTrackMinimal>(
   return reason;
 }
 
+/** Honest attribution target for a reason (V2): WHO/WHAT the reason points at. */
+export function reasonSeedRef<T extends WaveTrackMinimal>(
+  candidate: WaveCandidate<T>,
+  reason: WaveReason,
+  extra: ReasonContext,
+): string | undefined {
+  if (reason === "favorite_artist") return extra.artist || candidate.seedRef;
+  if (reason === "favorite_genre") return extra.genre || candidate.seedRef;
+  if (reason === "exploration") return extra.anchorGenre || candidate.seedRef;
+  return candidate.seedRef;
+}
+
 /**
  * Effective exploration rate for the profile (§9):
  * low confidence (cold start) → coldStartRate; confident → baseRate.
  */
 export function effectiveExplorationRate(profile: WaveProfile, config: WaveConfig): number {
-  const { baseRate, coldStartRate, confidenceThreshold } = config.exploration;
+  const { baseRate, coldStartRate, confidenceThreshold, skipStreakThrottleAt, skipStreakRateMultiplier } = config.exploration;
   const c = Math.min(1, Math.max(0, profile.confidence));
-  if (c >= confidenceThreshold) return baseRate;
-  const t = c / Math.max(0.01, confidenceThreshold);
-  return coldStartRate + (baseRate - coldStartRate) * t;
+  let rate: number;
+  if (c >= confidenceThreshold) rate = baseRate;
+  else {
+    const t = c / Math.max(0.01, confidenceThreshold);
+    rate = coldStartRate + (baseRate - coldStartRate) * t;
+  }
+  // V2 PART 10: Skip → Skip → Skip = steer home. The user is telling us the
+  // current direction is wrong — throttle novelty until they reward us again.
+  if ((profile.skipStreak || 0) >= skipStreakThrottleAt) {
+    rate *= skipStreakRateMultiplier;
+  }
+  return rate;
 }
 
 export type { TasteLayer };

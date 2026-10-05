@@ -347,7 +347,13 @@ export async function fetchWaveCandidates(input: ChannelFetchInput): Promise<{
 
   /* F. Exploration — adjacent genres (bridge map), deterministic picks.
    * Never random vibe queries (§36): every query is anchored to a real
-   * signal (user genre, seed genre, or curated fallback for cold start). */
+   * signal (user genre, seed genre, or curated fallback for cold start).
+   *
+   * V2 (PART 5/7): when the profile is COLD (no taste signals at all), the
+   * fallback-genre results are additionally quality-floored — only tracks
+   * with real traction (playbackCount ≥ coldStartMinPlays) enter the pool.
+   * With no personalization signal to vouch for a candidate, popularity is
+   * the honest quality proxy — it cuts zero-plays re-uploads and spam. */
   if (limitOf("exploration") > 0) {
     const anchorGenres = [
       ...(signals.tasteGenres || []),
@@ -357,6 +363,14 @@ export async function fetchWaveCandidates(input: ChannelFetchInput): Promise<{
       .filter((g): g is string => !!g);
     const seedGenre = normGenre(signals.seed?.genre);
     if (seedGenre) anchorGenres.push(seedGenre);
+
+    const isColdProfile =
+      anchorGenres.length === 0 &&
+      (signals.tasteArtists || []).length === 0 &&
+      (signals.likedArtists || []).length === 0 &&
+      (signals.historyArtists || []).length === 0 &&
+      (signals.historyScIds || []).length === 0;
+    const coldStartMinPlays = 1000;
 
     const bridges: string[] = [];
     for (const g of anchorGenres) {
@@ -372,7 +386,15 @@ export async function fetchWaveCandidates(input: ChannelFetchInput): Promise<{
       for (const genre of queries) {
         jobs.push(
           searchSCTracks(genre, channelsCfg.exploration.limit)
-            .then((ts) => push("exploration", ts, genre))
+            .then((ts) =>
+              push(
+                "exploration",
+                isColdProfile
+                  ? ts.filter((t) => (t.playbackCount || 0) >= coldStartMinPlays)
+                  : ts,
+                genre,
+              ),
+            )
             .catch(() => {}),
         );
       }
@@ -389,6 +411,7 @@ export function scoredToTrackPayload<T extends SCTrack>(c: {
   reason: string;
   seedRef?: string;
   score: number;
+  relevance?: import("./types").WaveRelevanceDebug;
 }): Record<string, unknown> & WaveTrackMinimal {
   return {
     id: c.track.id,
@@ -408,5 +431,7 @@ export function scoredToTrackPayload<T extends SCTrack>(c: {
     createdAt: c.track.createdAt,
     _reason: c.reason,
     _seedArtist: c.seedRef,
+    // V2 (PART 11): per-track relevance debug — only shipped in dev mode.
+    ...(c.relevance ? { _debug: c.relevance } : {}),
   };
 }

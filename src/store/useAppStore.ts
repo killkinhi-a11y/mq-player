@@ -584,7 +584,13 @@ interface AppState {
   /** Create/replace the wave session (start or seed change). */
   startWaveSession: (seed: import("@/lib/wave").WaveSeed) => string;
   /** Enqueue a scored batch into the logical wave queue (deduped, capped). */
-  enqueueWaveTracks: (batch: Array<{ track: Track; reason: string; seedRef?: string }>) => void;
+  enqueueWaveTracks: (batch: Array<{
+    track: Track;
+    reason: string;
+    seedRef?: string;
+    /** V2 (PART 11): per-track relevance debug metadata (dev mode). */
+    debug?: import("@/lib/wave").WaveRelevanceDebug;
+  }>) => void;
   /** Pop the next wave item + record it in wave memory. Null when empty. */
   consumeWaveItem: () => import("@/lib/wave").WaveQueueItem<Track> | null;
   /** Drop wave items matching ids (e.g. broken/unplayable tracks). */
@@ -2568,6 +2574,7 @@ export const useAppStore = create<AppState>()(
             track: b.track,
             reason: (VALID_REASONS.has(b.reason) ? b.reason : "taste_profile") as import("@/lib/wave").WaveReason,
             seedRef: b.seedRef,
+            debug: b.debug,
             enqueuedAt: Date.now(),
           }));
         set({ waveQueue: [...waveQueue, ...additions].slice(0, MAX_WAVE_QUEUE) });
@@ -2662,6 +2669,7 @@ export const useAppStore = create<AppState>()(
           title: track.title,
           artist: track.artist,
           genre: track.genre,
+          album: track.album,
           at: Date.now(),
         });
       },
@@ -2674,6 +2682,7 @@ export const useAppStore = create<AppState>()(
           title: track.title,
           artist: track.artist,
           genre: track.genre,
+          album: track.album,
           at: Date.now(),
         });
       },

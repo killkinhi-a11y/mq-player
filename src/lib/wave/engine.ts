@@ -1,9 +1,17 @@
 /**
  * Wave recommendation engine — the pure orchestrator (§2, §23, §24, §31).
  *
- * Pipeline:
- *   candidates → hard filters → dedup (channel merge)
- *   → scoring → exploration injection → diversity/fatigue → final ranking
+ * V2 PIPELINE (PART 6):
+ *   candidates → hard filters → dedup (channel merge) → scoring
+ *   → diversity/fatigue → final ranking
+ *   → **FINAL RELEVANCE GATE** (relevance.ts — anchor required, hard
+ *     negatives blocked, §35 relaxation ladder)
+ *   → exploration share cap (PART 7 — novelty never dominates)
+ *   → queue
+ *
+ * The guaranteed-exploration-slot injection of V1 is GONE (PART 7):
+ * exploration candidates compete on score and pass the SAME gate as
+ * everyone else. "Better 5 perfectly relevant tracks than 5 good + 1 junk."
  *
  * DETERMINISM (§23): given identical (seed, profile, candidates, memory,
  * randomSeed) the output is byte-identical. All randomness flows through
@@ -27,9 +35,10 @@ import type {
 import type { WaveConfig } from "./config";
 import { WAVE_CONFIG } from "./config";
 import { createRng, resolveRandomSeed } from "./rng";
-import { scoreCandidate, effectiveExplorationRate } from "./scoring";
+import { scoreCandidate } from "./scoring";
 import { selectDiverseBatch } from "./diversity";
-import { buildWaveProfile, mergedAffinity, normArtist, normGenre } from "./profile";
+import { buildWaveProfile, mergedAffinity } from "./profile";
+import { applyRelevanceGate } from "./relevance";
 import type { WaveProfileInput } from "./types";
 
 /** Channel priority for dedup — the first producer wins attribution. */
@@ -63,22 +72,37 @@ export interface WaveEngineInput<T extends WaveTrackMinimal = WaveTrackMinimal> 
 }
 
 /**
- * Dedup candidates by track id, merging channels: the highest-priority
- * channel provides attribution, seedRef is kept from that producer.
- * Duplicate arrivals are counted (observability §31).
+ * Dedup candidates by track id AND by normalized artist+title (V2: the same
+ * song re-uploaded under different ids — "судно" vs "Судно (Борис Рыжий)" —
+ * is still the same song to the listener). Merges channels: the
+ * highest-priority channel provides attribution, seedRef is kept from that
+ * producer. Duplicate arrivals are counted (observability §31).
  */
+function contentKey(artist: string | undefined, title: string | undefined): string {
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+  return `${norm(artist || "")}|${norm(title || "")}`;
+}
+
 export function dedupCandidates<T extends WaveTrackMinimal>(
   candidates: WaveCandidate<T>[],
 ): { unique: WaveCandidate<T>[]; duplicateCount: number } {
   const byId = new Map<string, WaveCandidate<T>>();
+  const byContent = new Set<string>();
   const priority = new Map<string, number>(
     CHANNEL_PRIORITY.map((ch, i) => [ch as string, i]),
   );
   let duplicateCount = 0;
   for (const c of candidates) {
+    const content = contentKey(c.track.artist, c.track.title);
     const existing = byId.get(c.track.id);
+    if (!existing && byContent.has(content)) {
+      // Same song, different id (re-upload / remaster casing) → duplicate.
+      duplicateCount++;
+      continue;
+    }
     if (!existing) {
       byId.set(c.track.id, c);
+      byContent.add(content);
       continue;
     }
     duplicateCount++;
@@ -147,8 +171,9 @@ export function getWaveRecommendations<T extends WaveTrackMinimal = WaveTrackMin
     if (memory.tracks.some((e) => e.value === c.track.id)) { filteredCount++; continue; }
     const dur = c.track.duration || 0;
     if (dur > 0 && (dur < config.output.minDuration || dur > config.output.maxDuration)) { filteredCount++; continue; }
-    // Suppressed artists (less_like_this/not_interested) are soft-penalized
-    // in scoring, NOT hard-removed (§18 — temporary downweight only).
+    // Suppressed artists (less_like_this/not_interested) are handled by the
+    // FINAL RELEVANCE GATE (V2): the user's explicit "меньше такого" is a
+    // hard block for the session, not a soft penalty.
     filtered.push(c);
   }
 
@@ -175,64 +200,69 @@ export function getWaveRecommendations<T extends WaveTrackMinimal = WaveTrackMin
     }),
   );
 
-  /* ── Stage 5: exploration injection (§9) ──
-   * A share of the batch is reserved for exploration-channel candidates
-   * (real novelty signals — never fake, §36). Rate adapts to profile
-   * confidence: cold users explore more. */
-  const rate = effectiveExplorationRate(profile, config);
+  /* ── Stage 5: ranking + diversity (V2: no forced exploration injection —
+   * exploration candidates compete by score and face the same gate). ── */
   const batchSize = input.batchSize ?? config.output.batchSize;
-  const explorationQuota = Math.min(
-    config.exploration.explorationSlots,
-    Math.round(batchSize * rate),
-  );
 
   scored.sort((a, b) => b.score - a.score);
 
-  const explorationPool = scored.filter((s) => s.exploration);
-  const exploitationPool = scored.filter((s) => !s.exploration);
-
-  // Deterministic exploration pick: top-scored exploration candidates
-  // (their scores already include the exploration bonus).
-  const explorationPicks = explorationPool.slice(0, explorationQuota);
-  const rest = [
-    ...exploitationPool,
-    ...explorationPool.slice(explorationQuota),
-  ];
-
-  /* ── Stage 6: diversity + final ranking ── */
-  const { batch, stats } = selectDiverseBatch<T>(rest, {
+  const { batch, stats } = selectDiverseBatch<T>(scored, {
     memory,
     config,
     now,
     batchSize,
   });
 
-  // Reinsert exploration picks into the front half of the batch (they were
-  // competing inside `rest` already; ensure at least the quota lands when
-  // the diversity pass dropped them — only if they exist).
-  let explorationLanded = batch.filter((b) => b.exploration).length;
-  if (explorationLanded < explorationPicks.length) {
-    for (const pick of explorationPicks) {
-      if (explorationLanded >= explorationQuota) break;
-      if (batch.some((b) => b.track.id === pick.track.id)) continue;
-      const insertAt = Math.min(batch.length, config.exploration.explorationInsertFrom + explorationLanded);
-      batch.splice(insertAt, 0, pick);
-      explorationLanded++;
+  /* ── Stage 6 (V2 PART 6): FINAL RELEVANCE GATE — after ranking, before
+   * the queue. Anchor required, hard negatives blocked, relaxation ladder
+   * keeps §35 alive (never an infinite loader). ── */
+  const gate = applyRelevanceGate<T>(batch, {
+    profile,
+    seed: input.seed,
+    memory,
+    config,
+    now,
+    affinity,
+  });
+
+  /* ── Stage 7 (V2 PART 7): exploration share cap — novelty may enrich the
+   * wave but never dominate it. Demotion only happens when there ARE
+   * non-exploration candidates to balance with; an all-exploration pool
+   * (cold start §10) passes through — the gate already vetted every pick.
+   * Deliberately NO back-fill from gate-rejected candidates: a track the
+   * relevance gate rejected NEVER re-enters the wave (PART 6 — better a
+   * slightly shorter batch than one questionable track). ── */
+  let finalBatch = gate.kept;
+  const maxExploration = Math.ceil(batchSize * config.exploration.maxSharePerBatch);
+  const hasBalancedPicks = finalBatch.some((b) => !b.exploration);
+  let explorationCount = finalBatch.filter((b) => b.exploration).length;
+  if (explorationCount > maxExploration && hasBalancedPicks) {
+    // Demote from the bottom of the batch (lowest-ranked exploration first).
+    const demotedIds = new Set<string>();
+    for (let i = finalBatch.length - 1; i >= 0 && explorationCount > maxExploration; i--) {
+      if (finalBatch[i].exploration) {
+        demotedIds.add(finalBatch[i].track.id);
+        explorationCount--;
+      }
     }
+    finalBatch = finalBatch.filter((b) => !demotedIds.has(b.track.id));
   }
 
   const meta: WaveEngineMeta = {
     candidate_count: input.candidates.length,
     filtered_count: filteredCount,
     ranked_count: scored.length,
-    exploration_count: batch.filter((b) => b.exploration).length,
+    exploration_count: finalBatch.filter((b) => b.exploration).length,
     duplicate_count: duplicateCount,
     artist_fatigue_count: stats.artist_fatigue_count,
     generation_ms: Date.now() - started,
     deterministic,
+    relevance_rejected_count: gate.rejected.length,
+    gate_rung: gate.rung,
+    gate_relaxed: gate.rung > 0,
   };
 
-  return { tracks: batch, meta };
+  return { tracks: finalBatch, meta, gate: gate.rejected };
 }
 
 export { buildWaveProfile };
