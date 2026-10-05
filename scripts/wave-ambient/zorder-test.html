@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+<style>
+  body { margin: 0; background: #111; }
+  .root {
+    min-height: 100vh;
+    background-color: #e03131; /* opaque --mq-bg stand-in */
+  }
+  .ambient {
+    position: fixed; inset: 0; z-index: -1;
+    background: linear-gradient(#0af, #faf);
+  }
+  .card {
+    background: #222; color: #fff; margin: 40px; padding: 40px;
+    border: 2px solid #fff;
+  }
+</style>
+</head>
+<body>
+  <div class="root">
+    <div class="ambient"></div>
+    <div class="card">CONTENT CARD — if readable on pink/blue, ambient paints ABOVE root bg</div>
+  </div>
+</body>
+</html>

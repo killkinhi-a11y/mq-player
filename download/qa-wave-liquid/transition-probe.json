@@ -1,0 +1,55 @@
+{
+  "cssom": {
+    "rootTransition": "background-color 0.95s",
+    "wrapOpacityWhenOff": "0",
+    "wrapTransition": "opacity 0.95s"
+  },
+  "fadeInAnims": [],
+  "fadeOutAnims": [
+    {
+      "cls": "mq-app-root min-h-[100dvh] mq-has-player",
+      "type": "transition",
+      "property": "background-color",
+      "duration": 950,
+      "playState": "running",
+      "currentTime": 267
+    },
+    {
+      "cls": "mq-wave-ambient",
+      "type": "transition",
+      "property": "opacity",
+      "duration": 950,
+      "playState": "running",
+      "currentTime": 267
+    }
+  ],
+  "fadeOutEvents": [
+    {
+      "cls": "mq-wave-ambient",
+      "property": "opacity",
+      "at": 14821.200000000186
+    },
+    {
+      "cls": "mq-wave-ambient",
+      "property": "opacity",
+      "at": 14821.200000000186
+    },
+    {
+      "cls": "mq-app-root min-h-[100dvh] mq-has-player",
+      "property": "background-color",
+      "at": 14821.299999999814
+    },
+    {
+      "cls": "mq-app-root min-h-[100dvh] mq-has-player",
+      "property": "background-color",
+      "at": 14821.299999999814
+    }
+  ],
+  "finalState": {
+    "wrapActive": "false",
+    "wrapOpacity": "0",
+    "rootWave": "off",
+    "rootBg": "rgb(14, 14, 14)"
+  },
+  "errors": []
+}

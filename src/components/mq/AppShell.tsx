@@ -90,6 +90,9 @@ const MqCat = dynamic(() => import("@/components/mq/MqCat"), { ssr: false });
 // desktop redesign (web UI rollback — desktop must not change the web look).
 const Sidebar = dynamic(() => import("@/components/mq/Sidebar"), { ssr: false });
 const AmbientBackground = dynamic(() => import("@/components/mq/AmbientBackground"), { ssr: false });
+// Wave Liquid Ambient — the living fullscreen liquid backdrop behind all UI
+// while the Wave (radio mode) is on. Web + desktop shells alike.
+const WaveAmbientBackground = dynamic(() => import("@/components/mq/WaveAmbientBackground"), { ssr: false });
 const TopBar = dynamic(() => import("@/components/mq/TopBar"), { ssr: false });
 const PlayerBar = dynamic(() => import("@/components/mq/PlayerBar"), { ssr: false });
 const ShareSheet = dynamic(() => import("@/components/mq/ShareSheet").then((m) => m.ShareSheet), { ssr: false });
@@ -173,6 +176,7 @@ export default function AppShell() {
   const notificationCount = useAppStore((s) => s.notificationCount);
   const currentStyle = useAppStore((s) => s.currentStyle);
   const currentTrack = useAppStore((s) => s.currentTrack);
+  const radioMode = useAppStore((s) => s.radioMode);
   const isFullTrackViewOpen = useAppStore((s) => s.isFullTrackViewOpen);
   const isEqOpen = useAppStore((s) => s.isEqOpen);
   const setEqOpen = useAppStore((s) => s.setEqOpen);
@@ -764,10 +768,8 @@ export default function AppShell() {
       transition={animationsEnabled ? undefined : { duration: 0.01 }}
     >
     <div
-      className={`min-h-[100dvh] ${showMiniPlayerSpacer ? 'mq-has-player' : ''}`}
-      style={{
-        backgroundColor: "var(--mq-bg)",
-      }}
+      className={`mq-app-root min-h-[100dvh] ${showMiniPlayerSpacer ? 'mq-has-player' : ''}`}
+      data-wave={radioMode ? "on" : "off"}
     >
       {/* web-accessibility rule: skip-to-content link for keyboard users.
           Visually hidden until focused, then jumps to #main-content. */}
@@ -784,6 +786,14 @@ export default function AppShell() {
       {/* WEB/DESKTOP SPLIT: the living ambient backdrop is desktop-only —
           the web app keeps its classic flat --mq-bg background. */}
       {desktopShell && <AmbientBackground />}
+      {/* WAVE LIQUID AMBIENT — fullscreen living liquid backdrop behind all
+          UI while the Wave is on (both shells). Mounted at the app level so
+          route navigation inside the app never tears it down. Fades in/out
+          with radioMode; the app root's opaque background cross-fades to
+          transparent in sync (see .mq-app-root in globals.css). */}
+      <Suspense fallback={null}>
+        <WaveAmbientBackground active={radioMode} currentTrack={currentTrack} />
+      </Suspense>
 
       <MaintenanceBanner />
       <OfflineBanner />

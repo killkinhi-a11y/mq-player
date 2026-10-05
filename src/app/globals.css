@@ -4742,6 +4742,174 @@ html[data-mq-desktop] {
   .mq-ambient-vignette { background: radial-gradient(130% 110% at 50% 42%, transparent 60%, rgba(0, 0, 0, 0.22) 100%); }
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   WAVE — LIQUID AMBIENT BACKGROUND (WaveAmbientBackground.tsx)
+   The living liquid scene behind ALL UI while the Wave (radio mode) is on.
+
+   Layering contract (empirically verified: an opaque ancestor background
+   paints OVER z-index:-1 descendants — see scripts/wave-ambient/zorder-test):
+     body (dark, never white)
+       → .mq-wave-ambient (fixed, z -1, opaque dark liquid scene)
+         → .mq-app-root ([data-wave="on"] → background transparent)
+           → all app UI (cards / bars / views paint above the scene).
+   The app root's background cross-fades opaque↔transparent in lockstep
+   with the wrapper's opacity — smooth handoff in BOTH directions.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Palette variables — registered so the CSS-fallback scene cross-fades
+   smoothly on track change (the WebGL path lerps uniforms in-engine). */
+@property --wave-color-1 { syntax: "<color>"; inherits: true; initial-value: #070b16; }
+@property --wave-color-2 { syntax: "<color>"; inherits: true; initial-value: #122448; }
+@property --wave-color-3 { syntax: "<color>"; inherits: true; initial-value: #261e54; }
+@property --wave-highlight { syntax: "<color>"; inherits: true; initial-value: #d6e2ff; }
+
+.mq-wave-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: #05070d; /* dark base behind the canvas during fades */
+  opacity: 0;
+  transition: opacity 950ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.mq-wave-ambient[data-active="true"] { opacity: 1; }
+.mq-wave-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* App root background handoff: opaque --mq-bg ⇄ transparent. Runs in
+   lockstep with the ambient wrapper's opacity — neither state ever pops. */
+.mq-app-root {
+  background-color: var(--mq-bg);
+  transition: background-color 950ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.mq-app-root[data-wave="on"] { background-color: transparent; }
+
+/* Readability scrims — darken ONLY where UI bars sit (top nav / bottom
+   player). Everything between keeps full scene intensity. */
+.mq-wave-scrim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+.mq-wave-scrim-top {
+  top: 0;
+  height: 96px;
+  background: linear-gradient(to bottom, rgba(3, 5, 10, 0.5), transparent);
+}
+.mq-wave-scrim-bottom {
+  bottom: 0;
+  height: 150px;
+  background: linear-gradient(to top, rgba(3, 5, 10, 0.55), transparent);
+}
+@media (max-width: 767px) {
+  .mq-wave-scrim-top { height: 72px; }
+  .mq-wave-scrim-bottom { height: 200px; } /* mobile dock + player live here */
+}
+
+/* ── CSS fallback (no WebGL): the same scene from soft radial gradients
+      + very slow compositor drift. Only animated DOM properties are
+      transform (compositor-friendly). Registered palette colors
+      cross-fade 950ms — same timing as the WebGL lerp. ── */
+.mq-wave-fallback {
+  position: absolute;
+  inset: 0;
+  transition:
+    --wave-color-1 950ms ease,
+    --wave-color-2 950ms ease,
+    --wave-color-3 950ms ease,
+    --wave-highlight 950ms ease;
+}
+.mq-wf-base {
+  position: absolute;
+  inset: 0;
+  background: var(--wave-color-1);
+}
+.mq-wf-liquid {
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(44% 56% at 22% 20%, color-mix(in srgb, var(--wave-color-2) 55%, transparent) 0%, transparent 68%),
+    radial-gradient(52% 64% at 84% 26%, color-mix(in srgb, var(--wave-color-3) 46%, transparent) 0%, transparent 72%),
+    radial-gradient(46% 58% at 55% 90%, color-mix(in srgb, var(--wave-color-2) 40%, transparent) 0%, transparent 70%);
+  animation: mq-wave-drift-a 76s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.mq-wf-depth {
+  position: absolute;
+  inset: -24%;
+  background:
+    radial-gradient(60% 70% at 70% 80%, rgba(0, 0, 0, 0.5) 0%, transparent 70%),
+    radial-gradient(55% 60% at 15% 85%, color-mix(in srgb, var(--wave-color-3) 26%, transparent) 0%, transparent 74%);
+  animation: mq-wave-drift-b 53s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.mq-wf-streak {
+  position: absolute;
+  inset: -30% -36%; /* oversized so the transform drift never reveals edges */
+  background: linear-gradient(115deg,
+    transparent 38%,
+    color-mix(in srgb, var(--wave-highlight) 17%, transparent) 47%,
+    color-mix(in srgb, var(--wave-highlight) 34%, transparent) 50%,
+    color-mix(in srgb, var(--wave-highlight) 17%, transparent) 53%,
+    transparent 62%);
+  animation: mq-wave-sheen 64s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.mq-wf-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+}
+@keyframes mq-wave-drift-a {
+  from { transform: translate3d(-1.6%, -1.2%, 0) rotate(-0.8deg); }
+  to   { transform: translate3d(1.8%, 1.4%, 0) rotate(0.7deg); }
+}
+@keyframes mq-wave-drift-b {
+  from { transform: translate3d(1.2%, -1.6%, 0) rotate(0.9deg); }
+  to   { transform: translate3d(-1.4%, 1.2%, 0) rotate(-0.6deg); }
+}
+@keyframes mq-wave-sheen {
+  from { transform: translate3d(-3%, -2%, 0); }
+  to   { transform: translate3d(3%, 2.5%, 0); }
+}
+
+/* Reduced motion (media query) — keep the static composition (gradients,
+   light, depth), remove active movement. Mount fades remain (state
+   changes, not decoration) but quick. */
+@media (prefers-reduced-motion: reduce) {
+  .mq-wave-ambient { transition-duration: 250ms; }
+  .mq-app-root { transition-duration: 250ms; }
+  .mq-wave-fallback .mq-wf-liquid,
+  .mq-wave-fallback .mq-wf-depth,
+  .mq-wave-fallback .mq-wf-streak { animation: none !important; }
+}
+/* Store-side motion settings (reduceMotion / animations off) reach the
+   fallback through [data-wave-motion="static"] (NOT data-motion — that
+   namespace is framer-motion's: [data-motion] * { transition: none } would
+   kill the colour cross-fade); the WebGL engine renders a single static
+   frame with the same composition. */
+.mq-wave-fallback[data-wave-motion="static"] .mq-wf-liquid,
+.mq-wave-fallback[data-wave-motion="static"] .mq-wf-depth,
+.mq-wave-fallback[data-wave-motion="static"] .mq-wf-streak { animation: none !important; }
+html.mq-reduce-motion .mq-wave-ambient { transition-duration: 250ms; }
+html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
+
+/* Mobile: calmer fallback drift (the WebGL path adapts resolution instead) */
+@media (max-width: 767px) {
+  .mq-wf-liquid, .mq-wf-depth { animation-duration: 90s; }
+}
+
+
 /* ── Sidebar (desktop ≥1024) — compact vertical rail ── */
 .mq-sidebar {
   position: fixed;

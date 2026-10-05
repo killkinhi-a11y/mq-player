@@ -1,0 +1,416 @@
+{
+  "waveOff": {
+    "wrap": true,
+    "active": "false",
+    "mode": "webgl",
+    "motion": "live",
+    "scale": "0.72",
+    "canvas": {
+      "w": 300,
+      "h": 150,
+      "cw": 1440,
+      "ch": 900
+    },
+    "rootWave": "off",
+    "rootBg": "rgb(14, 14, 14)",
+    "rootBgTranslucent": false,
+    "vars": {
+      "c1": "#190b0a",
+      "c2": "#4e1715",
+      "c3": "#301110",
+      "hl": "#dbcdcc"
+    },
+    "hook": {
+      "mode": "webgl",
+      "motion": "live",
+      "active": false,
+      "scale": 0.72,
+      "fps": 0,
+      "palette": {
+        "c1": "#190b0a",
+        "c2": "#4e1715",
+        "c3": "#301110",
+        "hl": "#dbcdcc"
+      }
+    },
+    "overflowX": 0
+  },
+  "waveOn": {
+    "wrap": true,
+    "active": "true",
+    "mode": "webgl",
+    "motion": "live",
+    "scale": "0.36",
+    "canvas": {
+      "w": 518,
+      "h": 324,
+      "cw": 1440,
+      "ch": 900
+    },
+    "rootWave": "on",
+    "rootBg": "rgba(0, 0, 0, 0)",
+    "rootBgTranslucent": true,
+    "vars": {
+      "c1": "#1a0b0d",
+      "c2": "#4e151e",
+      "c3": "#301015",
+      "hl": "#dbccce"
+    },
+    "hook": {
+      "mode": "webgl",
+      "motion": "live",
+      "active": true,
+      "scale": 0.36,
+      "fps": 19,
+      "palette": {
+        "c1": "#1a0b0d",
+        "c2": "#4e151e",
+        "c3": "#301015",
+        "hl": "#dbccce"
+      }
+    },
+    "overflowX": 0
+  },
+  "fps1440": {
+    "frames": 120,
+    "ms": 5892,
+    "avg": 49.7,
+    "p95": 66.7,
+    "max": 83.4,
+    "fps": 20
+  },
+  "hookAfterStart": {
+    "mode": "webgl",
+    "motion": "live",
+    "active": true,
+    "scale": 0.36,
+    "fps": 19,
+    "palette": {
+      "c1": "#1a0b0d",
+      "c2": "#4e151e",
+      "c3": "#301015",
+      "hl": "#dbccce"
+    }
+  },
+  "transitionMid": {
+    "wrap": true,
+    "active": "true",
+    "mode": "webgl",
+    "motion": "live",
+    "scale": "0.44",
+    "canvas": {
+      "w": 634,
+      "h": 396,
+      "cw": 1440,
+      "ch": 900
+    },
+    "rootWave": "on",
+    "rootBg": "rgba(0, 0, 0, 0)",
+    "rootBgTranslucent": true,
+    "vars": {
+      "c1": "#0b161b",
+      "c2": "#153c4e",
+      "c3": "#101930",
+      "hl": "#ccd7db"
+    },
+    "hook": {
+      "mode": "webgl",
+      "motion": "live",
+      "active": true,
+      "scale": 0.44,
+      "fps": 12,
+      "palette": {
+        "c1": "#0b161b",
+        "c2": "#153c4e",
+        "c3": "#101930",
+        "hl": "#ccd7db"
+      }
+    },
+    "overflowX": 0
+  },
+  "transitionFrom": {
+    "c1": "#1a0b0d",
+    "c2": "#4e151e",
+    "c3": "#301015",
+    "hl": "#dbccce"
+  },
+  "colorfulArtwork": {
+    "palette": {
+      "c1": "#0b161b",
+      "c2": "#153c4e",
+      "c3": "#101930",
+      "hl": "#ccd7db"
+    },
+    "c2sat": 0.73,
+    "skipIndex": 0
+  },
+  "skipPalettes": [
+    {
+      "c1": "#1a0b0d",
+      "c2": "#4e151e",
+      "c3": "#301015",
+      "hl": "#dbccce"
+    },
+    {
+      "c1": "#0b161b",
+      "c2": "#153c4e",
+      "c3": "#101930",
+      "hl": "#ccd7db"
+    },
+    {
+      "c1": "#120f0c",
+      "c2": "#423024",
+      "c3": "#281e18",
+      "hl": "#d7d3d0"
+    },
+    {
+      "c1": "#0a1219",
+      "c2": "#15334e",
+      "c3": "#101430",
+      "hl": "#ccd4db"
+    },
+    {
+      "c1": "#0b0c0f",
+      "c2": "#252b41",
+      "c3": "#191c27",
+      "hl": "#d1d2d6"
+    },
+    {
+      "c1": "#100e0c",
+      "c2": "#413325",
+      "c3": "#272019",
+      "hl": "#d6d4d1"
+    },
+    {
+      "c1": "#14110c",
+      "c2": "#423624",
+      "c3": "#282218",
+      "hl": "#d8d5cf"
+    },
+    {
+      "c1": "#14100c",
+      "c2": "#403526",
+      "c3": "#282118",
+      "hl": "#d8d4cf"
+    }
+  ],
+  "routeNav": {
+    "wrap": true,
+    "active": "true",
+    "mode": "webgl",
+    "motion": "live",
+    "scale": "0.36",
+    "canvas": {
+      "w": 518,
+      "h": 324,
+      "cw": 1440,
+      "ch": 900
+    },
+    "rootWave": "on",
+    "rootBg": "rgba(0, 0, 0, 0)",
+    "rootBgTranslucent": true,
+    "vars": {
+      "c1": "#14100c",
+      "c2": "#403526",
+      "c3": "#282118",
+      "hl": "#d8d4cf"
+    },
+    "hook": {
+      "mode": "webgl",
+      "motion": "live",
+      "active": true,
+      "scale": 0.36,
+      "fps": 16,
+      "palette": {
+        "c1": "#14100c",
+        "c2": "#403526",
+        "c3": "#282118",
+        "hl": "#d8d4cf"
+      }
+    },
+    "overflowX": 0
+  },
+  "waveOffMid": {
+    "wrap": true,
+    "active": "false",
+    "mode": "webgl",
+    "motion": "live",
+    "scale": "0.36",
+    "canvas": {
+      "w": 518,
+      "h": 324,
+      "cw": 1440,
+      "ch": 900
+    },
+    "rootWave": "off",
+    "rootBg": "rgb(14, 14, 14)",
+    "rootBgTranslucent": false,
+    "vars": {
+      "c1": "#14100c",
+      "c2": "#403526",
+      "c3": "#282118",
+      "hl": "#d8d4cf"
+    },
+    "hook": {
+      "mode": "webgl",
+      "motion": "live",
+      "active": false,
+      "scale": 0.36,
+      "fps": 17,
+      "palette": {
+        "c1": "#14100c",
+        "c2": "#403526",
+        "c3": "#282118",
+        "hl": "#d8d4cf"
+      }
+    },
+    "overflowX": 0
+  },
+  "waveOffAfter": {
+    "wrap": true,
+    "active": "false",
+    "mode": "webgl",
+    "motion": "live",
+    "scale": "0.36",
+    "canvas": {
+      "w": 518,
+      "h": 324,
+      "cw": 1440,
+      "ch": 900
+    },
+    "rootWave": "off",
+    "rootBg": "rgb(14, 14, 14)",
+    "rootBgTranslucent": false,
+    "vars": {
+      "c1": "#14100c",
+      "c2": "#403526",
+      "c3": "#282118",
+      "hl": "#d8d4cf"
+    },
+    "hook": {
+      "mode": "webgl",
+      "motion": "live",
+      "active": false,
+      "scale": 0.36,
+      "fps": 17,
+      "palette": {
+        "c1": "#14100c",
+        "c2": "#403526",
+        "c3": "#282118",
+        "hl": "#d8d4cf"
+      }
+    },
+    "overflowX": 0
+  },
+  "fps1920": {
+    "frames": 120,
+    "ms": 9103,
+    "avg": 76.4,
+    "p95": 100,
+    "max": 166.7,
+    "fps": 13
+  },
+  "state1920": {
+    "wrap": true,
+    "active": "true",
+    "mode": "webgl",
+    "motion": "live",
+    "scale": "0.36",
+    "canvas": {
+      "w": 691,
+      "h": 389,
+      "cw": 1920,
+      "ch": 1080
+    },
+    "rootWave": "on",
+    "rootBg": "rgba(0, 0, 0, 0)",
+    "rootBgTranslucent": true,
+    "vars": {
+      "c1": "#190a0a",
+      "c2": "#4e1515",
+      "c3": "#301010",
+      "hl": "#dbcdcd"
+    },
+    "hook": {
+      "mode": "webgl",
+      "motion": "live",
+      "active": true,
+      "scale": 0.36,
+      "fps": 13,
+      "palette": {
+        "c1": "#190a0a",
+        "c2": "#4e1515",
+        "c3": "#301010",
+        "hl": "#dbcdcd"
+      }
+    },
+    "overflowX": 0
+  },
+  "mobile": {
+    "wrap": true,
+    "active": "true",
+    "mode": "webgl",
+    "motion": "live",
+    "scale": "0.72",
+    "canvas": {
+      "w": 351,
+      "h": 760,
+      "cw": 390,
+      "ch": 844
+    },
+    "rootWave": "on",
+    "rootBg": "rgba(0, 0, 0, 0)",
+    "rootBgTranslucent": true,
+    "vars": {
+      "c1": "#1a0a0c",
+      "c2": "#4e151a",
+      "c3": "#301013",
+      "hl": "#dbcccd"
+    },
+    "hook": {
+      "mode": "webgl",
+      "motion": "live",
+      "active": true,
+      "scale": 0.72,
+      "fps": 14,
+      "palette": {
+        "c1": "#1a0a0c",
+        "c2": "#4e151a",
+        "c3": "#301013",
+        "hl": "#dbcccd"
+      }
+    },
+    "overflowX": 0
+  },
+  "fps390": {
+    "frames": 90,
+    "ms": 5985,
+    "avg": 66.9,
+    "p95": 83.4,
+    "max": 83.4,
+    "fps": 15
+  },
+  "mobileOverflowX": 0,
+  "consoleErrors": [
+    "console.error: Loading the script 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-e",
+    "console.error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "console.error: Failed to load resource: the server responded with a status of 400 (Bad Request)",
+    "console.error: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "console.error: Loading the script 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-e",
+    "console.error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "console.error: Failed to load resource: the server responded with a status of 400 (Bad Request)",
+    "console.error: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "console.error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "console.error: Loading the script 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-e",
+    "console.error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "console.error: Failed to load resource: the server responded with a status of 400 (Bad Request)",
+    "console.error: Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+  ]
+}
