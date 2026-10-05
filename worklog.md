@@ -8622,3 +8622,20 @@ Stage Summary:
 - Real QA (20 sequential recs, realistic RU/EU profile, live SoundCloud): 20/20 passed gate, 8 exploration all anchored, 0 foreign clusters, 0 duplicates; gate rejected 22 garbage candidates (slowed re-uploads, downtempo spam, trap/desecrate mashups, zero-plays junk) with reasons.
 - Visual QA: AFTER screenshots 1440×900/1920×1080/390×844/430×932 — artwork 374-400px desktop / 320-340px mobile dominant, 5 next-up everywhere, overflowX=false, all controls ≥44px, 0 page errors; VLM BEFORE/AFTER comparison: "переход из функционального минимализма в имиджевый медиаплеер".
 - E2E journey desktop+mobile: start → like → skip → next rec → ⋯/Больше такого → crossfade → stop — ALL PASS, 0 errors.
+
+---
+Task ID: wave-v2-production
+Agent: main (Super Z)
+Task: MQ WAVE V2 — production deploy + E2E (mq-build-d3180756, v85)
+
+Work Log:
+- Commit d3180756 "feat(wave): V2 — hard relevance gate + personal station UI" (58 files, +4078/-444) pushed to origin/main; Vercel deploy LIVE after 90s; /version.json = mq-build-d3180756 v85.
+- PRODUCTION API spot-check (realistic RU/EU profile): 8 tracks served, 4 gate-rejected, every pick anchored (favorite_artist/artist_affinity, exploration/genre_affinity + anchored_exploration bridge) — the gate runs in production.
+- PRODUCTION E2E desktop 1440x900: WaveHome live (artwork 374px dominant, 10 next-up), LIKE, SKIP → next recommendation, ⋯/Больше такого fired, queue drawer opens with wave tracks (VLM-verified screenshot), Full Player opens with ВОЛНА badge, stop → clean exit. 0 page errors.
+- PRODUCTION E2E mobile 390x844: same journey, artwork 320px, 10 next-up, all actions PASS. 0 page errors.
+- Cold-start production check: exploration pool quality-floored (1M+ plays tracks served), no Vietnamese/Tibetan zero-plays junk (the leak fixed by searchSCTracks playbackCount mapping + floor).
+
+Stage Summary:
+- Production live: https://mq1.vercel.app (mq-build-d3180756).
+- All local gates green at push time: 1019/1019 tests, tsc 0 src errors, eslint 0 errors, build PASS.
+- Evidence: download/qa-wave-v2/ (before/after 4 viewports, e2e journeys, real-qa-20.json, prod-* screenshots).
