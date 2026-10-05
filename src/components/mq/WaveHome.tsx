@@ -330,7 +330,7 @@ export default function WaveHome() {
   const debugMode = useWaveDebugMode();
 
   const seedChip = useMemo(() => {
-    if (!wave.waveSession) return "Волна";
+    if (!wave.waveSession) return "WAVE";
     return waveSeedLabel(wave.waveSession.seed.kind, wave.waveSession.seed.label);
   }, [wave.waveSession]);
 
@@ -404,7 +404,7 @@ export default function WaveHome() {
   return (
     <section
       className="mq-wave"
-      aria-label="Волна — персональное радио"
+      aria-label="WAVE — персональное радио"
       data-testid="wave-home"
     >
       {/* Ambient wash — derived from the current track's cover palette */}
@@ -413,30 +413,23 @@ export default function WaveHome() {
       {/* ── Header: identity + transport shortcuts ── */}
       <div className="relative flex items-center justify-between gap-3 px-5 sm:px-7 pt-5 pb-4">
         <div className="flex items-center gap-3 min-w-0">
-          <span
-            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-            style={{
-              background: "color-mix(in srgb, var(--mq-accent) 16%, transparent)",
-              boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--mq-accent) 28%, transparent)",
-            }}
-            aria-hidden="true"
-          >
-            <Radio className="w-[18px] h-[18px]" style={{ color: "var(--mq-accent)" }} />
-          </span>
+          {/* V2.5: bare identity icon (no chip-box) + LIQUID PLATINUM
+              wordmark — Wave identity as the rare material, quiet and cold. */}
+          <Radio className="w-[18px] h-[18px] shrink-0" style={{ color: "var(--mq-accent)" }} aria-hidden="true" />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h2
-                className="mq-t-label text-xs uppercase tracking-[0.14em] truncate"
-                style={{ color: "var(--mq-text)" }}
+                className="mq-platinum-text mq-t-label truncate"
+                style={{ fontSize: 13, letterSpacing: "0.34em", fontWeight: 700, textTransform: "none" }}
               >
-                Волна
+                WAVE
               </h2>
               {isPlaying && (
                 <span aria-hidden="true"><NowPlayingEqualizer size="xs" /></span>
               )}
             </div>
             <p className="mq-t-meta-2 truncate mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
-              {seedChip.replace(/^Волна\s*/, "") || "музыка, которая подстраивается под тебя"}
+              {seedChip.replace(/^WAVE\s*/, "") || "музыка, которая подстраивается под тебя"}
             </p>
           </div>
         </div>
@@ -463,7 +456,7 @@ export default function WaveHome() {
               backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)",
               color: "var(--mq-text-muted)",
             }}
-            aria-label="Остановить Волну"
+            aria-label="Остановить WAVE"
           >
             <X className="w-[18px] h-[18px]" />
           </button>
@@ -473,22 +466,42 @@ export default function WaveHome() {
       {/* ── Body ── */}
       {currentTrack ? (
         <div className="relative px-5 sm:px-7 pb-6 grid gap-6 lg:gap-7 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-start">
-          {/* ARTWORK — the dominant object */}
-          <div className="mx-auto w-full max-w-[340px] lg:mx-0 lg:w-[clamp(280px,26vw,400px)] lg:max-w-none">
+          {/* ARTWORK — the dominant object, framed in Liquid Glass,
+              with the huge editorial WAVE wordmark breathing behind it. */}
+          <div
+            className="relative mx-auto w-full max-w-[340px] lg:mx-0 lg:w-[clamp(280px,26vw,400px)] lg:max-w-none"
+            style={{ containerType: "inline-size" }}
+          >
+            <span
+              aria-hidden="true"
+              className="mq-t-display-xl absolute pointer-events-none select-none"
+              style={{
+                fontSize: "clamp(96px, 44cqw, 300px)",
+                left: "-14%",
+                top: "-11%",
+                color: "var(--mq-text)",
+                opacity: 0.04,
+                whiteSpace: "nowrap",
+                zIndex: 0,
+              }}
+            >
+              WAVE
+            </span>
+            <div className="relative" style={{ zIndex: 1 }}>
             <CrossfadeArtwork
               track={currentTrack}
               onOpen={openFullPlayer}
               onSwipeLeft={wave.skipTrack}
             />
+            </div>
           </div>
 
           {/* NOW — identity + transport + progress (desktop: right of the
               artwork, vertically distributed across the artwork height —
               title up top, transport in the flow, progress anchored low) */}
           <div className="min-w-0 flex flex-col lg:min-h-[clamp(280px,26vw,400px)] lg:pt-2 lg:pb-2">
-            <p className="mq-t-label mq-t-meta-2 uppercase tracking-[0.14em] mb-2.5 hidden lg:block" style={{ color: "var(--mq-text-muted)" }}>
-              Сейчас играет
-            </p>
+            {/* V2.5 §3: no "Сейчас играет" status eyebrow — the title
+                IS the now; the reason line carries the context. */}
             <div key={trackKey} className="mq-wave-meta-in min-w-0 text-center lg:text-left">
               <h3
                 className="font-extrabold leading-[1.12] tracking-[-0.02em] line-clamp-2 text-[clamp(1.35rem,4.6vw,2rem)] lg:text-[clamp(1.6rem,2.4vw,2.25rem)]"
@@ -514,7 +527,7 @@ export default function WaveHome() {
             <div className="flex-1 min-h-5" aria-hidden="true" />
 
             {/* TRANSPORT — correct hierarchy: one filled button, the rest quiet */}
-            <div className="mt-4 lg:mt-0 flex items-center justify-center lg:justify-start gap-3" role="group" aria-label="Управление Волной">
+            <div className="mt-4 lg:mt-0 flex items-center justify-center lg:justify-start gap-3" role="group" aria-label="Управление WAVE">
               <button
                 type="button"
                 onClick={wave.likeTrack}
@@ -535,16 +548,14 @@ export default function WaveHome() {
                 />
               </button>
 
+              {/* V2.5: LIQUID PLATINUM — the primary playback control as
+                  the rare premium material (dark silver + cold white specular
+                  + blue/violet reflection). */}
               <button
                 type="button"
                 onClick={() => (isPlaying ? wave.pauseWave() : wave.startWave())}
                 disabled={wave.waveLoading}
-                className="mq-wave-btn w-[72px] h-[72px] rounded-full flex items-center justify-center disabled:opacity-70"
-                style={{
-                  backgroundColor: "var(--mq-accent)",
-                  color: "var(--mq-text-on-accent, #fff)",
-                  boxShadow: "0 14px 34px -10px color-mix(in srgb, var(--mq-accent) 65%, transparent)",
-                }}
+                className="mq-platinum-btn w-[72px] h-[72px] rounded-full flex items-center justify-center disabled:opacity-70"
                 aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
               >
                 {wave.waveLoading ? (
@@ -606,7 +617,10 @@ export default function WaveHome() {
               >
                 <div
                   className="mq-wave-progress-fill h-full"
-                  style={{ width: `${pct}%`, backgroundColor: "var(--mq-accent)" }}
+                  style={{
+                    width: `${pct}%`,
+                    background: "linear-gradient(90deg, color-mix(in srgb, var(--mq-platinum-lift, #343947) 85%, transparent), #cfd6e4)",
+                  }}
                 />
               </div>
               <span className="mq-t-time tabular-nums" style={{ color: "var(--mq-text-muted)" }}>
@@ -627,7 +641,7 @@ export default function WaveHome() {
           <div className="min-w-0 lg:col-span-2 lg:mt-6">
             <div className="flex items-baseline justify-between gap-3 mb-3">
               <p className="mq-t-label uppercase tracking-[0.14em]" style={{ color: "var(--mq-text-muted)" }}>
-                Дальше в волне
+                Дальше в WAVE
               </p>
               <span className="mq-t-num" style={{ color: "var(--mq-text-muted)" }}>
                 {wave.waveQueueLength}
@@ -691,7 +705,7 @@ export default function WaveHome() {
             aria-hidden="true"
           />
           <p className="mq-t-body mt-4" style={{ color: "var(--mq-text-muted)" }}>
-            {wave.waveLoading ? "Подбираем музыку для тебя…" : "Волна остановлена"}
+            {wave.waveLoading ? "Подбираем музыку для тебя…" : "WAVE остановлена"}
           </p>
           {wave.waveError && (
             <p className="mq-t-meta mt-2" style={{ color: "#e5484d" }} role="alert">

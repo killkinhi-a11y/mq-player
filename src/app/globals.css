@@ -830,25 +830,30 @@ html.mq-theme-anim *::after {
   50% { box-shadow: 0 0 28px rgba(120,140,255,0.18), 0 0 56px rgba(180,120,255,0.1); }
 }
 
-/* Liquid Glass theme global */
+/* Liquid Glass theme — V2.5 REBUILD (from scratch).
+   The old implementation was the exact anti-pattern set: an animated
+   8-stop linear-gradient drifting via background-position, blanket
+   blur(40px) slapped onto every .fixed/nav element, and borders forced
+   onto EVERY rounded box regardless of role. All of it is gone.
+   The theme now expresses itself the V2.5 way:
+   - a STATIC deep navy-black light composition (the app-wide editorial
+     ambient handles motion and grain on top);
+   - glass lives ONLY where components opt in (.mq-glass2), content-aware
+     and edge-lit — never blanket-applied by shape selectors. */
+
 html.liquid-glass-theme body::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(
-    135deg,
-    #060a14 0%,
-    #0c0818 15%,
-    #0a0f20 30%,
-    #080e1a 45%,
-    #0d0a1e 60%,
-    #060a14 75%,
-    #0b0d1c 90%,
-    #060a14 100%
-  );
-  background-size: 200% 200%;
-  animation: liquid-glass-bg-drift 20s ease-in-out infinite;
+  /* Static composition: cold light pooling top-left, deep indigo floor.
+     No animation, no background-position tricks. */
+  background:
+    radial-gradient(120% 90% at 18% -10%,
+      rgba(84, 110, 170, 0.10) 0%, transparent 55%),
+    radial-gradient(100% 80% at 88% 110%,
+      rgba(60, 70, 120, 0.08) 0%, transparent 60%),
+    linear-gradient(180deg, #070b14 0%, #06080f 60%, #05070c 100%);
   pointer-events: none;
 }
 
@@ -862,69 +867,6 @@ html.liquid-glass-theme body::after {
   background-repeat: repeat;
   background-size: 256px 256px;
   pointer-events: none;
-}
-
-@keyframes liquid-glass-bg-drift {
-  0% { background-position: 0% 0%; }
-  25% { background-position: 100% 50%; }
-  50% { background-position: 50% 100%; }
-  75% { background-position: 0% 50%; }
-  100% { background-position: 0% 0%; }
-}
-
-.liquid-glass-theme .fixed,
-.liquid-glass-theme nav {
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-}
-
-.liquid-glass-theme .rounded-2xl,
-.liquid-glass-theme .rounded-xl {
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-  border: 1px solid rgba(255,255,255,0.1) !important;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06);
-}
-
-.liquid-glass-theme .rounded-2xl::before,
-.liquid-glass-theme .rounded-xl::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(120,140,255,0.04) 40%, transparent 70%);
-  pointer-events: none;
-}
-
-/* Liquid Glass nav buttons — iOS style */
-.liquid-glass-nav {
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 12px;
-  position: relative;
-  overflow: hidden;
-}
-
-.liquid-glass-nav::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.03) 40%, transparent 70%);
-  pointer-events: none;
-}
-
-.liquid-glass-nav:hover {
-  background: rgba(255,255,255,0.1);
-  border-color: rgba(255,255,255,0.15);
-}
-
-.liquid-glass-nav.active {
-  background: rgba(255,255,255,0.12);
-  border-color: rgba(255,255,255,0.2);
-  box-shadow: 0 0 20px rgba(255,255,255,0.05);
 }
 
 /* Phantom theme glow */
@@ -3924,9 +3866,17 @@ a:focus-visible {
      the -webkit- alias, which Chromium ignores — inline styles bypass
      that and keep both spellings. */
   border-radius: calc(var(--mq-r-card) + 4px);
-  background: color-mix(in srgb, var(--mq-surface-1) 84%, transparent);
-  border: 1px solid var(--mq-edge-strong);
-  box-shadow: var(--mq-elev-dialog);
+  /* V2.5: Liquid Glass v2 — backdrop-adaptive tint + veil + specular sheen;
+     flat border replaced by the edge-lit hairline (inset ring). */
+  background:
+    linear-gradient(165deg, var(--mq-g2-sheen, rgba(255,255,255,0.05)), transparent 44%),
+    var(--mq-g2-veil, rgba(0,0,0,0)),
+    color-mix(in srgb, var(--mq-surface-1) 78%, transparent);
+  border: 1px solid var(--mq-g2-edge-mid, var(--mq-edge-strong));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--mq-text) 9%, transparent),
+    inset 0 0 0 1px var(--mq-g2-edge-lo, transparent),
+    var(--mq-elev-dialog);
   z-index: 10001;
   -webkit-overflow-scrolling: touch;
 }
@@ -4670,25 +4620,14 @@ html[data-mq-desktop] .mq-card-track {
    .mq-has-player clearance for the capsule.
    ═════════════════════════════════════════════════════════════════════════ */
 
-/* ── Ambient runtime colors: registered so they can TRANSITION (2.6s).
-      Supporting engines cross-fade the whole backdrop smoothly when the
-      track changes; others switch instantly (graceful degradation).
-      Scoped to the desktop shell — on web the tokens stay transparent
-      (AmbientBackground never mounts there). ── */
-@property --mq-ambient-1 { syntax: "<color>"; inherits: true; initial-value: transparent; }
-@property --mq-ambient-2 { syntax: "<color>"; inherits: true; initial-value: transparent; }
-@property --mq-ambient-3 { syntax: "<color>"; inherits: true; initial-value: transparent; }
-html[data-mq-desktop] {
-  transition:
-    --mq-ambient-1 2.6s ease,
-    --mq-ambient-2 2.6s ease,
-    --mq-ambient-3 2.6s ease;
-}
-
-/* Ambient backdrop layers — fixed, non-interactive, zero blur filters.
-   z-index:-1 — above the body canvas background, below ALL app content.
-   NEVER raise this above content: views own their stacking (sticky headers,
-   fixed toolbars) and must not be trapped under an app-level layer. */
+/* ── V2.5 EDITORIAL AMBIENT — the NORMAL MQ backdrop identity.
+      CALM / REFINED / ATMOSPHERIC / EDITORIAL — the quiet counterpart of
+      the WAVE liquid scene. Deep black base, subtle graphite light, a
+      whisper of soft navy, barely-there grain, minutes-slow drift.
+      Deliberately NOT track-colored: personal color belongs to WAVE
+      (its WebGL scene publishes --wave-color-* for WaveHome's local wash);
+      the editorial shell owns its own calm identity. Fixed layers,
+      non-interactive, zero blur filters, zero JS after mount. ── */
 .mq-ambient-bg {
   position: fixed;
   inset: 0;
@@ -4701,27 +4640,30 @@ html[data-mq-desktop] {
   inset: 0;
   background:
     radial-gradient(120% 90% at 50% 0%,
-      color-mix(in srgb, var(--mq-text) 2.5%, transparent) 0%,
+      color-mix(in srgb, var(--mq-text) 2%, transparent) 0%,
       transparent 60%),
     var(--mq-bg);
 }
 .mq-ambient-blobs {
   position: absolute;
-  inset: -22%;
+  inset: -20%;
   background:
-    radial-gradient(42% 55% at 18% 14%,
-      color-mix(in srgb, var(--mq-ambient-1) 24%, transparent) 0%, transparent 70%),
-    radial-gradient(50% 62% at 86% 20%,
-      color-mix(in srgb, var(--mq-ambient-2) 18%, transparent) 0%, transparent 72%),
-    radial-gradient(46% 52% at 58% 90%,
-      color-mix(in srgb, var(--mq-ambient-3) 15%, transparent) 0%, transparent 70%);
-  animation: mq-ambient-drift 90s ease-in-out infinite alternate;
+    /* graphite light pooling upper-left */
+    radial-gradient(44% 52% at 22% 12%,
+      color-mix(in srgb, #9aa3b2 5%, transparent) 0%, transparent 70%),
+    /* soft navy whisper, right side */
+    radial-gradient(50% 60% at 84% 26%,
+      color-mix(in srgb, #3d4f78 6%, transparent) 0%, transparent 72%),
+    /* deep graphite floor glow, bottom */
+    radial-gradient(46% 50% at 55% 94%,
+      color-mix(in srgb, #6d7686 4%, transparent) 0%, transparent 70%);
+  animation: mq-ambient-drift 150s ease-in-out infinite alternate;
   will-change: transform;
 }
 .mq-ambient-grain {
   position: absolute;
   inset: 0;
-  opacity: 0.045;
+  opacity: 0.035;
   mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
   background-size: 160px 160px;
@@ -4732,13 +4674,13 @@ html[data-mq-desktop] {
   background: radial-gradient(125% 105% at 50% 42%, transparent 55%, rgba(0, 0, 0, 0.3) 100%);
 }
 @keyframes mq-ambient-drift {
-  from { transform: translate3d(-1.5%, -1%, 0) rotate(-0.6deg); }
-  to   { transform: translate3d(1.5%, 1.2%, 0) rotate(0.6deg); }
+  from { transform: translate3d(-1.8%, -1.2%, 0) rotate(-0.7deg); }
+  to   { transform: translate3d(1.8%, 1.4%, 0) rotate(0.7deg); }
 }
-/* Mobile: calmer intensity, no drift */
+/* Mobile: same calm identity, slightly quieter */
 @media (max-width: 767px) {
-  .mq-ambient-blobs { opacity: 0.65; animation: none; }
-  .mq-ambient-grain { opacity: 0.03; }
+  .mq-ambient-blobs { opacity: 0.8; }
+  .mq-ambient-grain { opacity: 0.028; }
   .mq-ambient-vignette { background: radial-gradient(130% 110% at 50% 42%, transparent 60%, rgba(0, 0, 0, 0.22) 100%); }
 }
 
@@ -4922,10 +4864,18 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
   flex-direction: column;
   gap: var(--mq-space-1);
   padding: var(--mq-space-4) var(--mq-space-3) var(--mq-space-3);
-  background: var(--mq-glass);
-  backdrop-filter: var(--mq-blur-md);
-  -webkit-backdrop-filter: var(--mq-blur-md);
-  border-right: 1px solid var(--mq-glass-border);
+  /* V2.5: backdrop-adaptive glass tint + veil (content-aware), edge-lit
+     right hairline replaces the flat border-right. */
+  background:
+    linear-gradient(165deg, var(--mq-g2-sheen, rgba(255,255,255,0.05)), transparent 44%),
+    var(--mq-g2-veil, rgba(0,0,0,0)),
+    var(--mq-g2-tint, color-mix(in srgb, var(--mq-text) 6%, transparent));
+  backdrop-filter: blur(var(--mq-g2-blur, 18px)) saturate(142%);
+  -webkit-backdrop-filter: blur(var(--mq-g2-blur, 18px)) saturate(142%);
+  /* Inner top light + right edge-lit hairline (replaces flat border) */
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--mq-text) 8%, transparent),
+    inset -1px 0 0 color-mix(in srgb, var(--mq-text) 7%, transparent);
 }
 .mq-sidebar[data-compact] { width: var(--mq-sidebar-w-compact); }
 
@@ -5386,15 +5336,10 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border-radius: 24px;
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--mq-card) 88%, transparent) 0%,
-      color-mix(in srgb, var(--mq-bg) 92%, var(--mq-card)) 100%);
-  border: 1px solid var(--mq-glass-border, var(--mq-border-thin));
-  box-shadow:
-    0 1px 0 color-mix(in srgb, var(--mq-text) 4%, transparent) inset,
-    0 24px 48px -24px rgba(0, 0, 0, 0.55);
+  /* V2.5 §9: NO card chrome — the old "one huge rounded card" is gone.
+     The wave content floats DIRECTLY on the living liquid scene; the only
+     local treatment left is the palette wash below (clipped to the
+     section) and the glass artwork frame. The mode IS the scene. */
 }
 
 /* Local ambient wash — stronger than the app-wide backdrop, derived from
@@ -5404,15 +5349,18 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
   inset: -18%;
   z-index: -1;
   pointer-events: none;
+  /* V2.5: washed from the WAVE scene's own palette (--wave-color-*, the
+     same vars the WebGL liquid scene publishes) — hero wash and backdrop
+     are ONE scene now, not two unrelated palettes. */
   background:
     radial-gradient(46% 60% at 16% 12%,
-      color-mix(in srgb, var(--mq-ambient-1, #e03131) 26%, transparent) 0%,
+      color-mix(in srgb, var(--wave-color-1, #122448) 30%, transparent) 0%,
       transparent 68%),
     radial-gradient(50% 64% at 88% 24%,
-      color-mix(in srgb, var(--mq-ambient-2, #5b3bd6) 20%, transparent) 0%,
+      color-mix(in srgb, var(--wave-color-2, #070b16) 24%, transparent) 0%,
       transparent 70%),
     radial-gradient(44% 56% at 62% 96%,
-      color-mix(in srgb, var(--mq-ambient-3, #1a1a2e) 22%, transparent) 0%,
+      color-mix(in srgb, var(--wave-color-3, #261e54) 26%, transparent) 0%,
       transparent 72%);
   opacity: 0.85;
 }
@@ -5425,10 +5373,20 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
   position: relative;
   border-radius: 20px;
   overflow: hidden;
+  /* V2.5: LIQUID GLASS v2 frame — the artwork sits IN glass, not on a
+     card: backdrop-adaptive tint (blurs the liquid scene behind the
+     rounded edges = real refraction feel), edge-lit hairline, inner top
+     light, one deep shadow dyed by the scene palette. */
+  background:
+    linear-gradient(165deg, var(--mq-g2-sheen, rgba(255,255,255,0.05)), transparent 44%),
+    var(--mq-g2-tint, color-mix(in srgb, var(--mq-text) 7%, transparent));
+  backdrop-filter: blur(var(--mq-g2-blur, 18px)) saturate(142%);
+  -webkit-backdrop-filter: blur(var(--mq-g2-blur, 18px)) saturate(142%);
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--mq-text) 8%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--mq-text) 10%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--mq-text) 7%, transparent),
     0 30px 60px -18px rgba(0, 0, 0, 0.65),
-    0 12px 24px -12px color-mix(in srgb, var(--mq-ambient-1, #e03131) 28%, transparent);
+    0 12px 24px -12px color-mix(in srgb, var(--wave-color-2, #122448) 42%, transparent);
   transform: translateZ(0); /* own compositing layer for cheap crossfades */
 }
 /* Crossfade layers: newest on top fades IN, the previous one stays under

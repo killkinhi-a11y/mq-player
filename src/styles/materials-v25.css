@@ -1,0 +1,382 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   MQ V2.5 MATERIAL SYSTEM — Liquid Glass rebuild + Liquid Platinum
+   + surface hierarchy (L0–L4) + motion scale + Wave ambient layers.
+
+   Principles (V2.5 spec):
+   - CONTENT > MATERIAL. Glass never competes with content.
+   - Glass is TRANSLUCENT / TINTED / DEPTH-AWARE / EDGE-LIT / CONTENT-AWARE.
+     It reacts to the backdrop: lighter backdrop → darker glass veil,
+     darker backdrop → slightly lighter tint. NOT "rgba(255,255,255,.1)+blur".
+   - Liquid Platinum is RARE: primary playback controls, selected state,
+     hero action, Wave identity. Dark silver + cold white + blue/violet
+     reflection + soft specular highlight. No chrome-effect.
+   - Motion: MICRO 80–160ms / STANDARD 180–300ms / SIGNATURE 500–1000ms,
+     one easing family.
+   - No cheap patterns: no blanket blur on every rounded box, no
+     background-position gradient drift, no neon glows.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Runtime input: measured backdrop luminance 0..1 ──────────────────
+     Written by WaveAmbientBackground (Wave palette luminance) and reset to
+     the dark editorial default otherwise. Glass reads this to adapt its
+     tint polarity. Default = deep dark editorial backdrop. */
+  --mq-backdrop-lum: 0.09;
+
+  /* ── Liquid Platinum palette (fixed, cold, premium) ─────────────────── */
+  --mq-platinum-base: #22252d;      /* dark silver */
+  --mq-platinum-lift: #343947;      /* lit silver edge */
+  --mq-platinum-hi: #e9edf5;        /* cold white specular */
+  --mq-platinum-refl: #8fa3c8;      /* blue reflection */
+  --mq-platinum-violet: #a48fc4;    /* violet reflection (secondary) */
+
+  /* ── Motion scale (V2.5) ────────────────────────────────────────────────
+     MICRO 80–160ms: hovers, presses, focus rings, small reveals.
+     STANDARD 180–300ms: menu open, surface state change, tab switch.
+     SIGNATURE 500–1000ms: mode transitions, artwork crossfade, wave scenes.
+     Ambient: minutes-slow (CSS/canvas, never React). */
+  --mq-mo-micro: 130ms;
+  --mq-mo-standard: 220ms;
+  --mq-mo-signature: 700ms;
+  --mq-ease-out: cubic-bezier(0.22, 1, 0.36, 1);      /* standard arrival */
+  --mq-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);   /* symmetric moves */
+  --mq-ease-press: cubic-bezier(0.4, 0, 0.2, 1);      /* tactile press */
+
+  /* ── Surface hierarchy tokens (V2.5) ───────────────────────────────────
+     L0 page canvas — nothing (theme bg + ambient).
+     L1 ambient surface — barely-there grouping, no border, no shadow.
+     L2 content surface — hairline edge, quiet fill.
+     L3 interactive surface — hover lift, edge brightens.
+     L4 floating control — Liquid Glass v2, real elevation. */
+  --mq-mat-1-bg: color-mix(in srgb, var(--mq-text) 2.5%, transparent);
+  --mq-mat-2-bg: color-mix(in srgb, var(--mq-text) 4%, transparent);
+  --mq-mat-2-edge: color-mix(in srgb, var(--mq-text) 6%, transparent);
+  --mq-mat-3-bg: color-mix(in srgb, var(--mq-text) 5.5%, transparent);
+  --mq-mat-3-bg-hover: color-mix(in srgb, var(--mq-text) 8%, transparent);
+  --mq-mat-3-edge: color-mix(in srgb, var(--mq-text) 9%, transparent);
+  --mq-mat-3-edge-hover: color-mix(in srgb, var(--mq-text) 14%, transparent);
+  --mq-mat-radius: 14px;
+  --mq-mat-radius-float: 18px;
+}
+
+/* ── Surface level classes ──────────────────────────────────────────────── */
+
+/* L1 — ambient grouping: no border, no shadow, melts into the page.
+   Use instead of a bordered card when you only need visual grouping. */
+.mq-mat-1 {
+  background: var(--mq-mat-1-bg);
+  border-radius: var(--mq-mat-radius);
+}
+
+/* L2 — content surface: hairline edge, quiet fill, no elevation. */
+.mq-mat-2 {
+  background: var(--mq-mat-2-bg);
+  border: 1px solid var(--mq-mat-2-edge);
+  border-radius: var(--mq-mat-radius);
+}
+
+/* L3 — interactive surface: hover lifts the fill and the edge (MICRO). */
+.mq-mat-3 {
+  background: var(--mq-mat-3-bg);
+  border: 1px solid var(--mq-mat-3-edge);
+  border-radius: var(--mq-mat-radius);
+  transition:
+    background-color var(--mq-mo-micro) var(--mq-ease-out),
+    border-color var(--mq-mo-micro) var(--mq-ease-out),
+    transform var(--mq-mo-micro) var(--mq-ease-out),
+    box-shadow var(--mq-mo-micro) var(--mq-ease-out);
+}
+.mq-mat-3:hover {
+  background: var(--mq-mat-3-bg-hover);
+  border-color: var(--mq-mat-3-edge-hover);
+}
+.mq-mat-3:active { transform: scale(0.985); }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   LIQUID GLASS v2 — content-aware, edge-lit, restrained.
+   Fallback first (ancient engines): a plain quiet tint. The @supports
+   block layers the real material: specular sheen, backdrop-adaptive veil,
+   tint, edge-lit hairline, inner light line, floating shadow.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.mq-glass2 {
+  /* Fallback (no color-mix / no calc-percent): simple translucent tint */
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.42), 0 2px 10px rgba(0, 0, 0, 0.24);
+}
+
+@supports (color: color-mix(in srgb, rgb(255 0 0) calc(1% + 1%), transparent)) {
+  :root {
+    /* Backdrop-adaptive formulas. lum 0 (black) → tint 10.5%, veil 0.
+       lum 1 (bright) → tint 6.5%, veil 14% (glass darkens over light). */
+    --mq-g2-alpha: calc(6.5% + (1 - var(--mq-backdrop-lum)) * 4%);
+    --mq-g2-tint: color-mix(in srgb, var(--mq-text) var(--mq-g2-alpha), transparent);
+    --mq-g2-veil: rgba(3, 5, 10, calc(var(--mq-backdrop-lum) * 0.14));
+    --mq-g2-sheen: color-mix(in srgb, var(--mq-text) 5.5%, transparent);
+    --mq-g2-edge-hi: color-mix(in srgb, var(--mq-text) 17%, transparent);
+    --mq-g2-edge-mid: color-mix(in srgb, var(--mq-text) 7%, transparent);
+    --mq-g2-edge-lo: color-mix(in srgb, var(--mq-text) 3%, transparent);
+    --mq-g2-inner:
+      inset 0 1px 0 color-mix(in srgb, var(--mq-text) 8%, transparent),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.16);
+    --mq-g2-blur: 18px;
+    --mq-g2-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.42),
+      0 2px 10px rgba(0, 0, 0, 0.24);
+  }
+
+  .mq-glass2 {
+    position: relative;
+    background:
+      linear-gradient(165deg, var(--mq-g2-sheen), transparent 44%),
+      var(--mq-g2-veil),
+      var(--mq-g2-tint);
+    backdrop-filter: blur(var(--mq-g2-blur)) saturate(142%);
+    -webkit-backdrop-filter: blur(var(--mq-g2-blur)) saturate(142%);
+    box-shadow: var(--mq-g2-inner), var(--mq-g2-shadow);
+  }
+
+  /* Edge-lit hairline — the signature of real glass: light pools on the
+     top-left edge, dies toward the bottom, faint return on the bottom-right.
+     Gradient border via mask trick (border-image can't follow radius). */
+  .mq-glass2::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(155deg,
+      var(--mq-g2-edge-hi) 0%,
+      var(--mq-g2-edge-mid) 26%,
+      transparent 55%,
+      var(--mq-g2-edge-lo) 100%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+/* Quiet variant — for surfaces that float but must whisper
+   (mini controls, chips over glass). Same language, less presence. */
+.mq-glass2-quiet {
+  backdrop-filter: blur(12px) saturate(130%);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
+  background: var(--mq-mat-3-bg);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--mq-text) 6%, transparent);
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   LIQUID PLATINUM — rare signature material.
+   Dark silver body, cold white specular top edge, blue/violet reflection
+   band, soft inner light. Use ONLY: primary playback control, selected
+   state, hero action, Wave identity, active seek fill.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.mq-platinum-btn {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: none;
+  cursor: pointer;
+  color: #f4f6fa;
+  background:
+    /* violet-blue reflection band, low, like light caught on a bevel */
+    linear-gradient(168deg,
+      transparent 32%,
+      color-mix(in srgb, var(--mq-platinum-refl) 32%, transparent) 46%,
+      color-mix(in srgb, var(--mq-platinum-violet) 18%, transparent) 54%,
+      transparent 70%),
+    /* cold white specular falling from the top edge — the platinum signature */
+    radial-gradient(130% 90% at 30% -14%,
+      color-mix(in srgb, var(--mq-platinum-hi) 38%, transparent) 0%,
+      color-mix(in srgb, var(--mq-platinum-hi) 10%, transparent) 42%,
+      transparent 62%),
+    /* dark silver body with a lit shoulder → deep base */
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--mq-platinum-hi) 20%, var(--mq-platinum-lift)) 0%,
+      var(--mq-platinum-lift) 24%,
+      var(--mq-platinum-base) 60%,
+      color-mix(in srgb, var(--mq-platinum-base) 68%, #04050a) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.30),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 6px 18px rgba(0, 0, 0, 0.38),
+    0 1px 4px rgba(0, 0, 0, 0.3);
+  transition:
+    transform var(--mq-mo-micro) var(--mq-ease-press),
+    box-shadow var(--mq-mo-micro) var(--mq-ease-out),
+    filter var(--mq-mo-micro) var(--mq-ease-out);
+}
+
+.mq-platinum-btn:hover {
+  filter: brightness(1.07);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 8px 24px rgba(0, 0, 0, 0.44),
+    0 2px 6px rgba(0, 0, 0, 0.32);
+}
+
+.mq-platinum-btn:active {
+  transform: scale(0.96);
+  filter: brightness(0.94);
+}
+
+.mq-platinum-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 0 0 2px var(--mq-bg),
+    0 0 0 4px color-mix(in srgb, var(--mq-platinum-hi) 70%, transparent),
+    0 6px 18px rgba(0, 0, 0, 0.38);
+}
+
+/* Specular sweep — a thin cold light bar glides across on hover
+   (SIGNATURE-family, transform-only, compositor friendly). */
+.mq-platinum-btn::after {
+  content: "";
+  position: absolute;
+  top: -22%;
+  bottom: -22%;
+  left: -34%;
+  width: 26%;
+  border-radius: 999px;
+  background: linear-gradient(100deg,
+    transparent,
+    color-mix(in srgb, var(--mq-platinum-hi) 34%, transparent) 48%,
+    color-mix(in srgb, var(--mq-platinum-refl) 20%, transparent) 62%,
+    transparent);
+  transform: translateX(-160%) skewX(-14deg);
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.mq-platinum-btn:hover::after {
+  opacity: 1;
+  transition: opacity 120ms ease-out;
+  animation: mq-platinum-sweep 900ms var(--mq-ease-out) forwards;
+}
+
+@keyframes mq-platinum-sweep {
+  from { transform: translateX(-160%) skewX(-14deg); }
+  to   { transform: translateX(520%) skewX(-14deg); }
+}
+
+/* Platinum identity line — selected state / Wave identity mark.
+   A 1px cold light line with a blue breath. Rare, quiet, precise. */
+.mq-platinum-line {
+  background: linear-gradient(90deg,
+    transparent,
+    color-mix(in srgb, var(--mq-platinum-hi) 55%, transparent) 22%,
+    color-mix(in srgb, var(--mq-platinum-refl) 40%, transparent) 55%,
+    transparent);
+}
+
+/* Platinum text — the WAVE wordmark. Cold silver, never glowing. */
+.mq-platinum-text {
+  background: linear-gradient(180deg,
+    #f2f5fb 0%,
+    #cfd6e4 48%,
+    #aab4c8 62%,
+    #e6ebf4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   TYPOGRAPHY V2.5 additions
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* Reason — "why this track". A quiet secondary element, never a pill,
+   never a badge. Reads as editorial context, not status. */
+.mq-t-reason {
+  font-family: var(--mq-font-primary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: 0.005em;
+  color: var(--mq-text-muted);
+}
+
+/* Editorial display — huge background moments (the WAVE wordmark).
+   Size is set inline (vw-based); the class owns weight/tracking. */
+.mq-t-display-xl {
+  font-family: var(--mq-font-primary);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 0.86;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   WAVE AMBIENT — liquid scene layers (canvas + CSS).
+   The canvas paints the fluid color field; CSS adds depth, grain and the
+   fade used by the ON/OFF mode transition.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Wave palette — JS-written by WaveAmbientBackground (deep, cold, dark) */
+  --mq-wave-color-1: #0a1020;
+  --mq-wave-color-2: #070b14;
+  --mq-wave-color-3: #0b0d18;
+  --mq-wave-highlight: #cfe0ff;
+}
+
+.mq-wave-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 900ms var(--mq-ease-in-out);
+}
+
+.mq-wave-bg[data-on="true"] { opacity: 1; }
+
+.mq-wave-bg canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Depth — soft dark falloff keeps text/artwork contrast high. */
+.mq-wave-depth {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(125% 105% at 50% 40%, transparent 52%, rgba(0, 0, 2, 0.42) 100%);
+}
+
+/* Grain — the same fractal noise family as the editorial bg, finer. */
+.mq-wave-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  background-size: 140px 140px;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   REDUCED MOTION — freeze ambient motion, keep composition.
+   The canvas loop is stopped from JS (matchMedia listener); CSS layers
+   simply stop animating. Nothing disappears — the scene stays, at rest.
+   ═════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  .mq-platinum-btn,
+  .mq-platinum-btn::after {
+    transition: none;
+    animation: none;
+  }
+  .mq-platinum-btn:active { transform: none; filter: brightness(0.9); }
+  .mq-mat-3 { transition: none; }
+  .mq-mat-3:active { transform: none; }
+}

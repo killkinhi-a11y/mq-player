@@ -270,19 +270,15 @@ export default function PlayerBar() {
           paddingRight: "max(16px, var(--mq-shell-gap))",
         }}
       >
-        {/* Floating glass capsule — a physical object hovering over the
-            interface (v72 desktop redesign): detached from the viewport
-            edge, 24px radius, frosted surface, one soft shadow. The wrapper
+        {/* Floating Liquid Glass capsule (V2.5 rebuild) — a physical object
+            hovering over the interface: detached from the viewport edge,
+            frosted surface with backdrop-adaptive tint + dark veil, the
+            edge-lit hairline from .mq-glass2, one soft shadow. The wrapper
             stays pointer-transparent; only the capsule is interactive. */}
         <div
-          className="mq-player-capsule pointer-events-auto"
+          className="mq-player-capsule mq-glass2 pointer-events-auto"
           style={{
             width: "min(920px, 100%)",
-            backgroundColor: "var(--mq-glass-strong)",
-            backdropFilter: "var(--mq-blur-md)",
-            WebkitBackdropFilter: "var(--mq-blur-md)",
-            border: "1px solid var(--mq-glass-border)",
-            boxShadow: "var(--mq-shadow-glass), inset 0 1px 0 rgba(255,255,255,0.07)",
           }}
         >
           <div className="relative flex items-center gap-4 px-5 py-2.5">
@@ -324,24 +320,10 @@ export default function PlayerBar() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  {/* UX Core #5 (Эффект контекста): показываем индикатор
-                      "Волна" когда radio mode активен — единый контекст
-                      "откуда играет трек". Статичный бейдж, без анимации. */}
-                  {radioMode && (
-                    <span
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded mq-t-meta-2 font-bold uppercase tracking-wider flex-shrink-0"
-                      style={{
-                        color: "var(--mq-accent)",
-                        backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, transparent)",
-                      }}
-                    >
-                      <span
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{ backgroundColor: "var(--mq-accent)" }}
-                      />
-                      Волна
-                    </span>
-                  )}
+                  {/* V2.5: status badges near the track title are GONE —
+                      the wave toggle on the right already shows the source,
+                      and WAVE mode takes over Home entirely. The title now
+                      reads clean: Track / Artist. */}
                   <TextSwap
                     text={currentTrack.title}
                     swapKey={currentTrack.id}
@@ -378,14 +360,13 @@ export default function PlayerBar() {
                 <motion.button
 
                   onClick={() => { togglePlay(); hapticPlay(); }}
-                  className="w-10 h-10 rounded-full flex items-center justify-center transition-[filter] duration-100 hover:brightness-110"
-                  style={{ backgroundColor: "var(--mq-accent)" }}
+                  className="mq-platinum-btn w-10 h-10 rounded-full flex items-center justify-center"
                   title={isPlaying ? "Пауза" : "Воспроизвести"}
                   aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
                 >
-                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
-                    : isPlaying ? <Pause className="w-4 h-4" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
-                    : <Play className="w-4 h-4 ml-0.5" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />}
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#f4f6fa" }} />
+                    : isPlaying ? <Pause className="w-4 h-4" fill="#f4f6fa" style={{ color: "#f4f6fa" }} />
+                    : <Play className="w-4 h-4 ml-0.5" fill="#f4f6fa" style={{ color: "#f4f6fa" }} />}
                 </motion.button>
 
                 {/* SkipForward with hover-triggered Up Next preview.
@@ -520,8 +501,8 @@ export default function PlayerBar() {
                 className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative mq-icon-btn"
                 data-active={radioMode}
                 style={{ ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-accent) 14%, transparent)" }}
-                title={radioMode ? "Выключить волну" : "Радио от этого трека"}
-                aria-label={radioMode ? "Выключить волну" : "Радио от этого трека"}
+                title={radioMode ? "Выключить WAVE" : "Радио от этого трека"}
+                aria-label={radioMode ? "Выключить WAVE" : "Радио от этого трека"}
                 aria-pressed={radioMode}
               >
                 {wave.waveLoading ? (

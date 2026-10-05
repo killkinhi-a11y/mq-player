@@ -156,40 +156,46 @@ function MobileDockInner() {
   return (
     <div className="fixed lg:hidden left-0 right-0 z-[60]" style={{ bottom: 0 }}>
       <style>{`
-        .mq-nav { transition: color .2s ease; -webkit-tap-highlight-color: transparent; user-select: none; }
-        .mq-nav-tab { position: relative; transition: color .2s ease; }
+        .mq-nav { transition: color .18s var(--mq-ease-out, ease); -webkit-tap-highlight-color: transparent; user-select: none; }
+        .mq-nav-tab { position: relative; transition: color .18s var(--mq-ease-out, ease); }
+        /* Active tab — a 1px LIQUID PLATINUM light line instead of a flat
+           accent bar: selected state as a rare material, quiet and precise. */
         .mq-nav-tab::before {
           content: "";
           position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-          width: 22px; height: 2.5px; border-radius: 0 0 3px 3px;
-          background: var(--mq-accent);
-          opacity: 0; transition: opacity .18s ease;
+          width: 18px; height: 2px; border-radius: 0 0 3px 3px;
+          background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 80%, var(--mq-platinum-refl, #8fa3c8)) 45%, transparent);
+          opacity: 0; transition: opacity .16s ease;
         }
         .mq-nav-tab[data-active="true"]::before { opacity: 1; }
         .mq-mini { transition: none; -webkit-tap-highlight-color: transparent; user-select: none; }
         .mq-dock-progress-track {
           position: relative;
-          height: 3px;
-          background: var(--mq-glass-bg);
+          height: 2.5px;
+          background: color-mix(in srgb, var(--mq-text) 7%, transparent);
           cursor: default;
         }
         .mq-dock-progress-fill {
           position: absolute;
           top: 0; left: 0; bottom: 0;
           width: 100%;
-          background: var(--mq-accent);
+          background: linear-gradient(90deg, color-mix(in srgb, var(--mq-platinum-lift, #343947) 85%, transparent), #cfd6e4);
           transform: scaleX(0);
           transform-origin: left center;
           will-change: transform;
         }
       `}</style>
-      <div style={{
-        background: "color-mix(in srgb, var(--mq-bg) 92%, transparent)",
-        backdropFilter: "blur(14px)",
-        WebkitBackdropFilter: "blur(14px)",
-        borderTop: "1px solid var(--mq-border-hairline)",
-        paddingBottom: "env(safe-area-inset-bottom, 0px)",
-      }}>
+      {/* V2.5: the dock is one LIQUID GLASS sheet (mq-glass2) with rounded
+          top corners — a physical pane the content scrolls beneath. The
+          old opaque 92% bg + hard top border is gone. */}
+      <div
+        className="mq-glass2"
+        style={{
+          borderRadius: "18px 18px 0 0",
+          overflow: "hidden",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        }}
+      >
         {/* Mini player — smooth collapse (max-height) when the Home hero
             owns the now-playing surface, so the nav row slides, not jumps */}
         <div
@@ -207,10 +213,10 @@ function MobileDockInner() {
           </div>
         )}
         {currentTrack && (
-        <div className="flex items-center gap-2 px-3" style={{ height: "60px", touchAction: "none" }}
+        <div className="flex items-center gap-2 px-3.5" style={{ height: "58px", touchAction: "none" }}
           onTouchStart={onMiniTouchStart} onTouchMove={onMiniTouchMove} onTouchEnd={onMiniTouchEnd}>
             <button onClick={() => { if (!gestureConsumed.current) openFull(); }} className="mq-mini flex items-center gap-2.5 flex-1 min-w-0" style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
-              <div className="rounded-md overflow-hidden flex-shrink-0" style={{ width: "38px", height: "38px" }}>
+              <div className="rounded-[10px] overflow-hidden flex-shrink-0" style={{ width: "36px", height: "36px" }}>
                 {currentTrack!.cover ? <img src={currentTrack!.cover} alt="" className="w-full h-full object-cover" />
                   : <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}><Music className="w-4 h-4" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} /></div>}
               </div>
@@ -234,19 +240,20 @@ function MobileDockInner() {
             <button onClick={onLike} aria-label={isLiked ? "Убрать из любимых" : "Добавить в любимые"} className="mq-mini w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: isLiked ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)" : "transparent", border: "none", cursor: "pointer", padding: 0 }}>
               <Heart className="w-[18px] h-[18px]" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
             </button>
-            <button onClick={onPlay} aria-label={isPlaying ? "Пауза" : "Воспроизвести"} className="mq-mini w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-[filter] duration-100 hover:brightness-110"
-              style={{ background: "var(--mq-accent)", border: "none", cursor: "pointer", padding: 0 }}>
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
-                : isPlaying ? <Pause className="w-4 h-4" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
-                : <Play className="w-4 h-4 ml-0.5" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />}
+            <button onClick={onPlay} aria-label={isPlaying ? "Пауза" : "Воспроизвести"} className="mq-mini mq-platinum-btn w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ padding: 0 }}>
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#f4f6fa" }} />
+                : isPlaying ? <Pause className="w-4 h-4" fill="#f4f6fa" style={{ color: "#f4f6fa" }} />
+                : <Play className="w-4 h-4 ml-0.5" fill="#f4f6fa" style={{ color: "#f4f6fa" }} />}
             </button>
           </div>
         )}
         </div>
 
-        {/* Navigation — 56px row (icon 22 + label 10 + gaps): every tab is a
-            full-height 44px+ touch target with an active accent hairline. */}
-        <div className="flex items-stretch justify-around" style={{ height: "var(--mq-nav-height-mobile, 56px)" }}>
+        {/* Navigation — compact premium row. Every tab keeps its full-height
+            44px+ INVISIBLE touch halo (flex-1 + min-height), while the visual
+            footprint stays small: 20px icons, 9.5px labels, tight rhythm. */}
+        <div className="flex items-stretch justify-around" style={{ height: 54 }}>
           {NAV.map((item) => {
             const Icon = item.icon;
             const active = currentView === item.id;
@@ -258,14 +265,14 @@ function MobileDockInner() {
                 aria-current={active ? "page" : undefined}
                 aria-label={item.label}
                 data-active={active}
-                className="mq-nav mq-nav-tab flex flex-col items-center justify-center gap-1 flex-1"
-                style={{ background: "transparent", border: "none", cursor: "pointer", padding: "4px 0", minHeight: 44, color: active ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text-muted) 72%, transparent)" }}>
+                className="mq-nav mq-nav-tab flex flex-col items-center justify-center gap-[3px] flex-1"
+                style={{ background: "transparent", border: "none", cursor: "pointer", padding: "3px 0", minHeight: 44, color: active ? "var(--mq-text)" : "color-mix(in srgb, var(--mq-text-muted) 68%, transparent)" }}>
                 <div className="relative">
-                  <Icon className="w-[22px] h-[22px]" strokeWidth={active ? 2.2 : 1.8} />
+                  <Icon className="w-5 h-5" strokeWidth={active ? 2.1 : 1.7} />
                   {badge > 0 && <span className="absolute -top-1 -right-2 min-w-[14px] h-[14px] rounded-full flex items-center justify-center mq-t-badge font-bold px-1"
                     style={{ background: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}>{badge > 99 ? "99" : badge}</span>}
                 </div>
-                <span className="mq-t-nav leading-none" style={{ opacity: active ? 1 : 0.85, fontSize: "10px" }}>{item.label}</span>
+                <span className="mq-t-nav leading-none" style={{ opacity: active ? 1 : 0.8, fontSize: "9.5px", letterSpacing: "0.01em" }}>{item.label}</span>
               </button>
             );
           })}

@@ -345,7 +345,8 @@ function MainView() {
 
   const featuredReason = useMemo(() => {
     if (!featuredTrack) return "";
-    if (currentTrack?.id === featuredTrack.id) return "Сейчас играет";
+    // V2.5 §3: no "Сейчас играет" status label — the eyebrow carries the
+    // real category reason (or nothing).
     const cat = recCategories.find((c) => c.tracks.some((t) => t.id === featuredTrack.id));
     return cat ? reasonForRec(cat.id) : "Подобрано для тебя";
   }, [featuredTrack, currentTrack, recCategories]);
@@ -467,7 +468,7 @@ function MainView() {
                 ? `${listeningFriends.length} ${pluralRu(listeningFriends.length, "друг слушает", "друга слушают", "друзей слушают")} музыку сейчас`
                 : personalCategories.length > 0
                   ? "Новое собрали для тебя ниже"
-                  : "Начни с Волны — она подберёт музыку под вкус"}
+                  : "Начни с WAVE — она подберёт музыку под вкус"}
             </p>
           </div>
           {/* Compact wave pill — real radio state. On phones it yields to the
@@ -482,7 +483,7 @@ function MainView() {
                 : "var(--mq-card)",
               border: `1px solid ${wave.radioMode ? "color-mix(in srgb, var(--mq-accent) 40%, transparent)" : "var(--mq-border-thin)"}`,
             }}
-            aria-label={wave.radioMode ? "Пауза Волны" : "Запустить Волну"}
+            aria-label={wave.radioMode ? "Пауза WAVE" : "Запустить WAVE"}
           >
             {wave.waveLoading ? (
               <div className="mq-spin w-4 h-4 border-2 rounded-full" style={{ borderColor: "var(--mq-accent)", borderTopColor: "transparent" }} />
@@ -490,7 +491,7 @@ function MainView() {
               <Waves className="w-4 h-4" style={{ color: wave.radioMode ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
             )}
             <span className="mq-t-label text-xs" style={{ color: wave.radioMode ? "var(--mq-accent)" : "var(--mq-text)" }}>
-              {wave.waveLoading ? "Подбираем…" : wave.radioMode ? "Волна · играет" : "Волна"}
+              {wave.waveLoading ? "Подбираем…" : wave.radioMode ? "WAVE · играет" : "WAVE"}
             </span>
           </button>
         </header>
@@ -747,10 +748,10 @@ function MainView() {
             {listeningFriends.map((f) => (
               <div
                 key={f.userId}
-                className="flex-shrink-0 w-[200px] rounded-2xl p-3 cursor-pointer hover:scale-[1.02] transition-transform"
+                className="flex-shrink-0 w-[200px] rounded-[var(--mq-mat-radius,14px)] p-3 cursor-pointer hover:scale-[1.02] transition-transform"
                 style={{
-                  backgroundColor: "var(--mq-card)",
-                  border: "1px solid var(--mq-border-hairline)",
+                  backgroundColor: "var(--mq-mat-2-bg)",
+                  border: "1px solid var(--mq-mat-2-edge)",
                 }}
                 onClick={() => {
                   if (f.scTrackId) {
@@ -986,18 +987,12 @@ function Section({
   return (
     <ScrollReveal direction="up" delay={0.05}>
       <section className="mb-7 sm:mb-8">
+        {/* V2.5: bare section header — no icon chip-box (kills the
+            "card-in-header" pattern); the icon carries the accent alone. */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <div
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center"
-              style={{
-                backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
-                boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--mq-accent) 18%, transparent)",
-              }}
-            >
-              <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" style={{ color: "var(--mq-accent)" }} />
-            </div>
-            <h2 className="mq-text-headline text-base sm:text-lg lg:text-xl" style={{ color: "var(--mq-text)" }}>
+            <Icon className="w-[17px] h-[17px]" style={{ color: "var(--mq-accent)" }} />
+            <h2 className="mq-t-section text-[15px] sm:text-base lg:text-lg" style={{ color: "var(--mq-text)", fontWeight: 700 }}>
               {title}
             </h2>
           </div>
@@ -1043,15 +1038,25 @@ function FeaturedCard({
 }) {
   return (
     <article
-      className="relative rounded-2xl overflow-hidden mb-6"
+      className="relative overflow-hidden mb-6"
       style={{
-        backgroundColor: "var(--mq-card)",
-        border: "1px solid var(--mq-border-hairline)",
-        // Hard accent edge on the left — structure, not glow.
-        borderLeft: "3px solid var(--mq-accent)",
+        /* V2.5 LEVEL 3 interactive surface: quiet fill + hairline edge.
+           The old 3px solid accent bar is replaced by a 2px LIQUID
+           PLATINUM light edge (hero action = rare material). */
+        backgroundColor: "var(--mq-mat-3-bg)",
+        border: "1px solid var(--mq-mat-3-edge)",
+        borderRadius: "var(--mq-mat-radius-float, 18px)",
       }}
       aria-label={`Рекомендованный трек: ${track.title}`}
     >
+      {/* Platinum left light edge */}
+      <span
+        aria-hidden="true"
+        className="absolute left-0 top-0 bottom-0 w-[2px]"
+        style={{
+          background: "linear-gradient(180deg, color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 60%, transparent), color-mix(in srgb, var(--mq-platinum-refl, #8fa3c8) 32%, transparent))",
+        }}
+      />
       <div className="flex flex-col sm:flex-row">
         {/* Artwork — 40% on desktop, full-width 16:9 crop on mobile */}
         <button
@@ -1104,7 +1109,7 @@ function FeaturedCard({
               </span>
             )}
             {track.genre && (
-              <span className="mq-t-meta px-2 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}>
+              <span className="mq-t-meta" style={{ color: "var(--mq-text-muted)" }}>
                 {displayGenre(track.genre)}
               </span>
             )}
@@ -1184,8 +1189,8 @@ function ContinueListeningCard({
 
   return (
     <div
-      className="rounded-2xl p-4 sm:p-5 flex items-center gap-4 min-w-0"
-      style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
+      className="rounded-[var(--mq-mat-radius,14px)] p-4 sm:p-5 flex items-center gap-4 min-w-0"
+      style={{ backgroundColor: "var(--mq-mat-2-bg)", border: "1px solid var(--mq-mat-2-edge)" }}
     >
       <button
         onClick={onToggle}
@@ -1200,14 +1205,7 @@ function ContinueListeningCard({
         )}
       </button>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5">
-          <p className="mq-t-label">Продолжить</p>
-          {radioMode && (
-            <span className="mq-t-badge px-1.5 py-0.5 rounded" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, transparent)", color: "var(--mq-accent)", letterSpacing: "0.04em" }}>
-              Волна
-            </span>
-          )}
-        </div>
+        <p className="mq-t-label">Продолжить</p>
         <p className="mq-t-track truncate" style={{ color: "var(--mq-text)" }}>
           {track.title}
         </p>
@@ -1269,7 +1267,7 @@ export function waveReasonText(track: Track): string {
       return track._seedArtist ? `Новое рядом с ${track._seedArtist}` : "Новое для тебя";
     // ── Legacy radio/recommendations reasons (fallback path) ──
     case "related_current":
-      return track._seedArtist ? `Похоже на ${track._seedArtist}` : "Волна · похожее";
+      return track._seedArtist ? `Похоже на ${track._seedArtist}` : "Похожий трек";
     case "related_history":
       return "Из твоей истории";
     case "related_to_liked":
@@ -1330,7 +1328,7 @@ function MobileNowHero({
         data-mq-hero
         className="mb-4 rounded-2xl overflow-hidden"
         style={{ background: getWaveGradient(), border: "1px solid var(--mq-border-hairline)" }}
-        aria-label="Волна"
+        aria-label="WAVE"
       >
         <HeroWaveCTA compact />
       </div>
@@ -1344,10 +1342,10 @@ function MobileNowHero({
   // thumb-side play/next, progress as a 2.5px edge strip. The immersive
   // experience lives in the full player; Home is a dashboard again.
   return (
-    <section data-mq-hero className="mb-4" aria-label={isNow ? "Сейчас играет" : "Рекомендация"}>
+    <section data-mq-hero className="mb-4" aria-label={isNow ? "Текущий трек" : "Рекомендация"}>
       <div
-        className="relative rounded-2xl flex items-center gap-3 pl-2.5 pr-2 py-2.5 overflow-hidden"
-        style={{ backgroundColor: "var(--mq-surface-1, var(--mq-card))", border: "1px solid var(--mq-border-hairline)" }}
+        className="relative rounded-[var(--mq-mat-radius,14px)] flex items-center gap-3 pl-2.5 pr-2 py-2.5 overflow-hidden"
+        style={{ backgroundColor: "var(--mq-mat-2-bg)", border: "1px solid var(--mq-mat-2-edge)" }}
       >
         {/* Artwork — tap opens the full player (immersive layer lives there) */}
         <button
@@ -1385,7 +1383,7 @@ function MobileNowHero({
             style={{ color: isNow ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
           >
             {isNow
-              ? waveReasonText(hero) || (radioMode ? "Волна · играет" : "Сейчас играет")
+              ? waveReasonText(hero)
               : fallbackReason || "Подобрано для тебя"}
           </p>
           <p className="mq-t-track truncate" style={{ color: "var(--mq-text)" }}>
@@ -1457,7 +1455,7 @@ function HeroWaveCTA({ compact = false }: { compact?: boolean }) {
         onClick={() => (wave.radioMode ? wave.pauseWave() : wave.startWave())}
         disabled={wave.waveLoading}
         className="w-full flex items-center gap-3 px-3 py-3.5 transition-transform disabled:opacity-60 text-left"
-        aria-label={wave.radioMode ? "Пауза Волны" : "Запустить Волну"}
+        aria-label={wave.radioMode ? "Пауза WAVE" : "Запустить WAVE"}
       >
         <div
           className="w-[52px] h-[52px] rounded-[14px] flex items-center justify-center flex-shrink-0"
@@ -1474,7 +1472,7 @@ function HeroWaveCTA({ compact = false }: { compact?: boolean }) {
             Персональное радио
           </p>
           <p className="mq-t-title mq-t-section font-semibold leading-tight" style={{ color: "var(--mq-text)" }}>
-            {wave.waveLoading ? "Подбираем музыку…" : "Запустить Волну"}
+            {wave.waveLoading ? "Подбираем музыку…" : "Запустить WAVE"}
           </p>
           <p className="mq-t-body text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
             по истории, лайкам и любимым артистам
@@ -1496,7 +1494,7 @@ function HeroWaveCTA({ compact = false }: { compact?: boolean }) {
       disabled={wave.waveLoading}
       className="w-full h-12 rounded-2xl flex items-center justify-center gap-2.5 transition-transform disabled:opacity-60"
       style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
-      aria-label="Запустить Волну"
+      aria-label="Запустить WAVE"
     >
       {wave.waveLoading ? (
         <div className="mq-spin w-5 h-5 border-2 rounded-full" style={{ borderColor: "var(--mq-text-on-accent, #fff)", borderTopColor: "transparent" }} />
@@ -1504,7 +1502,7 @@ function HeroWaveCTA({ compact = false }: { compact?: boolean }) {
         <Waves className="w-5 h-5" />
       )}
       <span className="mq-t-label text-sm font-semibold">
-        {wave.waveLoading ? "Подбираем музыку…" : wave.radioMode ? "Пауза Волны" : "Запустить Волну"}
+        {wave.waveLoading ? "Подбираем музыку…" : wave.radioMode ? "Пауза WAVE" : "Запустить WAVE"}
       </span>
     </button>
   );
@@ -1586,8 +1584,8 @@ function QuickActionGrid({
   ];
   return (
     <div
-      className="grid grid-cols-4 lg:grid-cols-2 gap-2 rounded-2xl p-2"
-      style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
+      className="grid grid-cols-4 lg:grid-cols-2 gap-1.5 rounded-[var(--mq-mat-radius,14px)] p-1.5"
+      style={{ backgroundColor: "var(--mq-mat-1-bg)" }}
       role="group"
       aria-label="Быстрые переходы"
     >
@@ -1626,7 +1624,7 @@ function HorizontalTrackRow({
   return (
     <div
       className="group flex items-center gap-3 rounded-xl p-2 pr-3 transition-colors hover:bg-[var(--mq-overlay-hover)] cursor-pointer"
-      style={{ backgroundColor: isCurrent ? "color-mix(in srgb, var(--mq-accent) 7%, transparent)" : "var(--mq-card)" }}
+      style={{ backgroundColor: isCurrent ? "color-mix(in srgb, var(--mq-accent) 7%, transparent)" : "transparent" }}
       onClick={onPlay}
       role="button"
       tabIndex={0}
@@ -1690,10 +1688,11 @@ function CompactTrackCard({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPlay(); } }}
-      className="group flex-shrink-0 w-[124px] sm:w-[136px] text-left rounded-xl overflow-hidden transition-[border-color] duration-150 cursor-pointer"
+      className="group flex-shrink-0 w-[124px] sm:w-[136px] text-left rounded-[var(--mq-mat-radius,14px)] overflow-hidden transition-[border-color] duration-150 cursor-pointer"
       style={{
-        backgroundColor: "var(--mq-card)",
-        border: `1px solid ${isCurrent ? "color-mix(in srgb, var(--mq-accent) 35%, transparent)" : "var(--mq-border-hairline)"}`,
+        /* V2.5: L2 content surface — hairline edge instead of full card chrome */
+        backgroundColor: "var(--mq-mat-2-bg)",
+        border: `1px solid ${isCurrent ? "color-mix(in srgb, var(--mq-accent) 35%, transparent)" : "var(--mq-mat-2-edge)"}`,
       }}
       onClick={onPlay}
       aria-label={`Играть ${track.title}`}
@@ -2386,7 +2385,7 @@ function RecsEmptyState({ onRetry, errorType }: { onRetry: () => void; errorType
       // UX Core #1 (Эвристика доступности): без императива "послушайте и
       // поставьте лайки" (долг). Позитивная формулировка снижает барьер.
       title: "Пока пусто",
-      desc: "Запустите волну или лайкните трек — и здесь появятся похожие",
+      desc: "Запустите WAVE или лайкните трек — и здесь появятся похожие",
     },
   };
   const msg = messages[errorType || "empty"] || messages.empty;

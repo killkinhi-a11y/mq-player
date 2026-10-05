@@ -1227,16 +1227,15 @@ export default function FullTrackView() {
           onClick={togglePlay}
 
           aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
-          className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center relative mq-press"
-          style={{ backgroundColor: "var(--mq-accent)" }}
+          className="mq-platinum-btn w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center relative"
           title="Play/Pause (Space)"
         >
-          {isLoading ? <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+          {isLoading ? <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" style={{ color: "#f4f6fa" }} />
             : (
               <span key={isPlaying ? "pause" : "play"} className="mq-icon-swap flex items-center justify-center">
                 {isPlaying
-                  ? <Pause className="w-7 h-7 sm:w-8 sm:h-8" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
-                  : <Play className="w-7 h-7 sm:w-8 sm:h-8" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)", transform: "translateX(1px)" }} />}
+                  ? <Pause className="w-7 h-7 sm:w-8 sm:h-8" fill="#f4f6fa" style={{ color: "#f4f6fa" }} />
+                  : <Play className="w-7 h-7 sm:w-8 sm:h-8" fill="#f4f6fa" style={{ color: "#f4f6fa", transform: "translateX(1px)" }} />}
               </span>
             )}
         </motion.button>
@@ -1318,10 +1317,13 @@ export default function FullTrackView() {
             className="absolute inset-0 pointer-events-none"
             aria-hidden="true"
             style={{
+              /* V2.5: the old artwork-var wash (published by AmbientBackground)
+                 is gone with the editorial rework — album color now comes
+                 solely from the blurred cover itself, plus a fixed cold
+                 graphite/navy light wash (editorial ambient family). */
               background:
-                "radial-gradient(75% 55% at 18% 8%, color-mix(in srgb, var(--mq-ambient-1) 30%, transparent) 0%, transparent 62%)," +
-                "radial-gradient(65% 55% at 88% 92%, color-mix(in srgb, var(--mq-ambient-2) 24%, transparent) 0%, transparent 66%)",
-              transition: "background 2.6s ease",
+                "radial-gradient(75% 55% at 18% 8%, color-mix(in srgb, #9aa3b2 6%, transparent) 0%, transparent 62%)," +
+                "radial-gradient(65% 55% at 88% 92%, color-mix(in srgb, #3d4f78 7%, transparent) 0%, transparent 66%)",
             }}
           />
           {currentTrack.cover && (
@@ -1351,7 +1353,7 @@ export default function FullTrackView() {
                 <ChevronDown className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
               </button>
               <div className="text-center">
-                <p className="mq-text-eyebrow mq-t-meta-2 uppercase tracking-widest">{radioMode ? "Волна" : isPlaying ? "Играет" : "Пауза"}</p>
+                <p className="mq-text-eyebrow mq-t-meta-2 uppercase tracking-widest">{radioMode ? "WAVE" : isPlaying ? "Играет" : "Пауза"}</p>
                 <p className="text-xs font-medium truncate max-w-[200px] sm:max-w-xs" style={{ color: "var(--mq-text-muted)" }}>
                   {currentTrack.album || currentTrack.artist}
                 </p>
@@ -1559,7 +1561,7 @@ export default function FullTrackView() {
                             {/* Now playing */}
                             {currentTrack && (
                               <div className="px-3 pb-2">
-                                <p className="mq-text-eyebrow mq-t-meta-2 uppercase tracking-widest px-1 pb-2" style={{ color: "var(--mq-text-muted)" }}>Сейчас играет</p>
+                                <p className="mq-text-eyebrow mq-t-meta-2 uppercase tracking-widest px-1 pb-2" style={{ color: "var(--mq-text-muted)" }}>Текущий трек</p>
                                 <div className="flex items-center gap-3 px-2.5 py-2 rounded-xl" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 8%, transparent)" }}>
                                   <div className="w-10 h-10 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art">
                                     {currentTrack.cover ? (
@@ -1585,13 +1587,13 @@ export default function FullTrackView() {
 
                             {/* Upcoming */}
                             <div className="px-4 flex items-center justify-between pb-1">
-                              <p className="mq-text-eyebrow mq-t-meta-2 uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>{radioMode ? "Волна · далее" : "Далее"}</p>
+                              <p className="mq-text-eyebrow mq-t-meta-2 uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>{radioMode ? "WAVE · далее" : "Далее"}</p>
                             </div>
                             {upcomingAll.length === 0 ? (
                               <div className="px-4 py-8 text-center">
                                 <ListMusic className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }} />
                                 <p className="text-xs leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
-                                  {radioMode ? "Волна подберёт следующий трек автоматически" : "Очередь пуста — добавь треки из поиска или плейлистов"}
+                                  {radioMode ? "WAVE подберёт следующий трек автоматически" : "Очередь пуста — добавь треки из поиска или плейлистов"}
                                 </p>
                               </div>
                             ) : (

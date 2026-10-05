@@ -270,7 +270,7 @@ export default function OnboardingView() {
                   Какую музыку слушаете?
                 </h1>
                 <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-                  Выберите жанры — Волна и рекомендации сразу подстроятся под них
+                  Выберите жанры — WAVE и рекомендации сразу подстроятся под них
                 </p>
               </div>
 
@@ -372,7 +372,7 @@ export default function OnboardingView() {
                   style={{ backgroundColor: "var(--mq-card)", border: "1px dashed var(--mq-border-thin)" }}>
                   <Waves className="w-8 h-8 mx-auto mb-3" style={{ color: "var(--mq-accent)" }} />
                   <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-                    Не нашли артистов по выбранным жанрам — Волна всё равно учтёт жанры.
+                    Не нашли артистов по выбранным жанрам — WAVE всё равно учтёт жанры.
                   </p>
                 </div>
               ) : (

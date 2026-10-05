@@ -805,7 +805,7 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
           </button>
           <div className="text-center min-w-0 px-2">
             <p className="mq-text-eyebrow mq-t-meta-2 uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>
-              {radioMode ? "Волна" : isLoading ? "Загрузка" : isPlaying ? "Играет" : "Пауза"}
+              {radioMode ? "WAVE" : isLoading ? "Загрузка" : isPlaying ? "Играет" : "Пауза"}
             </p>
             <p className="text-xs font-medium truncate max-w-[180px] sm:max-w-xs" style={{ color: "color-mix(in srgb, var(--mq-text-muted) 72%, transparent)" }}>
               {currentTrack.album || currentTrack.artist}
@@ -1088,25 +1088,21 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
               <button
                 onClick={() => togglePlay()}
                 aria-label={isPlaying ? "Пауза" : "Играть"}
-                className="mq-icon-btn mq-press flex items-center justify-center"
+                className="mq-platinum-btn flex items-center justify-center"
                 style={{
                   width: isMobile ? 50 : 54,
                   height: isMobile ? 50 : 54,
                   borderRadius: "9999px",
-                  backgroundColor: "var(--mq-accent)",
-                  border: "none",
-                  cursor: "pointer",
                   padding: 0,
-                  boxShadow: "0 10px 26px color-mix(in srgb, var(--mq-accent) 30%, transparent)",
                 }}
               >
                 {isLoading
-                  ? <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+                  ? <Loader2 className="w-6 h-6 animate-spin" style={{ color: "#f4f6fa" }} />
                   : (
                     <span key={isPlaying ? "pause" : "play"} className="mq-icon-swap flex items-center justify-center">
                       {isPlaying
-                        ? <Pause className="w-6 h-6" style={{ color: "var(--mq-text-on-accent, #fff)" }} fill="currentColor" />
-                        : <Play className="w-6 h-6 translate-x-[1px]" style={{ color: "var(--mq-text-on-accent, #fff)" }} fill="currentColor" />}
+                        ? <Pause className="w-6 h-6" style={{ color: "#f4f6fa" }} fill="currentColor" />
+                        : <Play className="w-6 h-6 translate-x-[1px]" style={{ color: "#f4f6fa" }} fill="currentColor" />}
                     </span>
                   )}
               </button>

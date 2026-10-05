@@ -25,6 +25,9 @@ import "@/styles/minimal.css";
 import "@/styles/pixel-flower.css";
 import "@/styles/streaming.css";
 import "@/styles/design-tokens.css";
+// V2.5 material system — Liquid Glass v2, Liquid Platinum, surface levels,
+// motion scale, WAVE ambient layers.
+import "@/styles/materials-v25.css";
 
 // ── Eager imports for critical first-paint views only ──
 // AuthView is the entry point for unauthenticated users — must be eager.
@@ -783,9 +786,11 @@ export default function AppShell() {
       >
         Перейти к содержимому
       </a>
-      {/* WEB/DESKTOP SPLIT: the living ambient backdrop is desktop-only —
-          the web app keeps its classic flat --mq-bg background. */}
-      {desktopShell && <AmbientBackground />}
+      {/* V2.5: the EDITORIAL ambient now lives on ALL shells — the calm
+          identity of normal MQ (deep black, graphite/navy whisper, grain,
+          very slow light drift). The WAVE liquid scene below is its
+          kinetic counterpart; the two crossfade, never mix. */}
+      <AmbientBackground />
       {/* WAVE LIQUID AMBIENT — fullscreen living liquid backdrop behind all
           UI while the Wave is on (both shells). Mounted at the app level so
           route navigation inside the app never tears it down. Fades in/out

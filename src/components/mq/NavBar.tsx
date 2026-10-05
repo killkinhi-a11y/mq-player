@@ -110,7 +110,7 @@ const NavBar = React.memo(function NavBar() {
 
   return (
     <header
-      className="hidden lg:flex fixed top-0 left-0 right-0 z-50 items-center justify-between"
+      className="mq-glass2 hidden lg:flex fixed top-0 left-0 right-0 z-50 items-center justify-between"
       role="banner"
       data-scrolled={scrolled || undefined}
       style={{
@@ -118,11 +118,12 @@ const NavBar = React.memo(function NavBar() {
         right: "auto",
         width: "calc(100% - 32px)",
         borderRadius: "var(--mq-r-card-lg)",
-        background: "var(--mq-surface-1)",
-        border: "1px solid var(--mq-edge)",
+        /* V2.5: Liquid Glass v2 material (mq-glass2 class) — backdrop-aware
+           tint, edge-lit hairline. Inline shadow extends the material's
+           inner light (inline wins over the class). */
         boxShadow: scrolled
-          ? "0 4px 18px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25)"
-          : "0 1px 2px rgba(0,0,0,0.25)",
+          ? "inset 0 1px 0 color-mix(in srgb, var(--mq-text) 8%, transparent), 0 4px 18px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25)"
+          : "inset 0 1px 0 color-mix(in srgb, var(--mq-text) 8%, transparent), 0 1px 2px rgba(0,0,0,0.25)",
         padding: compactMode
           ? "4px 8px"
           : scrolled
