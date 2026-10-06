@@ -8711,3 +8711,103 @@ Stage Summary:
 - Artifacts: src/components/mq/WaveAmbientBackground.tsx,
   wave-ambient-palette.ts, scripts/wave-ambient/* (QA),
   download/qa-wave-liquid/* (evidence).
+
+---
+Task ID: v2.5-overhaul
+Agent: main (Super Z)
+Task: MQ WAVE — V2.5 VISUAL OVERHAUL (Liquid Glass rebuild + Wave background evolution + global material system + mobile UX), layered on the V2 wave stack (origin/main 9fa5f409)
+
+Work Log:
+- Discovered local checkout was stale (v10.2/565 tests) vs remote main
+  (9fa5f409 = Wave V2 + WebGL liquid ambient + yandex v11.1, 1040 tests):
+  rebased the work onto the REAL stack via worktree port; the WebGL liquid
+  scene, WaveHome V2 station and the wave engine were kept intact and
+  evolved, not replaced.
+- NEW src/styles/materials-v25.css — the V2.5 material system: surface
+  levels L0-L4 (mq-mat-1/2/3), LIQUID GLASS v2 (.mq-glass2 + tokens:
+  sheen/veil/tint/edge-hi/mid/lo/inner/shadow/blur), LIQUID PLATINUM
+  (.mq-platinum-btn with specular sweep, -line, -text), motion scale
+  (MICRO 130ms / STANDARD 220ms / SIGNATURE 700ms + 3 easings),
+  .mq-t-reason and .mq-t-display-xl typography levels.
+- Pipeline hardening (found live): Lightning CSS drops @supports blocks it
+  resolves false, strips stylesheet backdrop-filter, mangles color-mix
+  inside var() fallbacks into opaque base colors, and drops calc() inside
+  color-mix percentages. Materials rewritten pipeline-proof: plain
+  declarations, static color-mix tokens, bare var() refs; backdrop-filter
+  INLINE on capsule/dock/navbar/sidebar/wave-art (MenuCore pattern, with
+  blur() wrapper — first attempt missed it and computed to none).
+- CONTENT-AWARE GLASS: WaveAmbientBackground (WebGL scene) now measures the
+  live palette luminance and publishes --mq-backdrop-lum + adapted
+  --mq-g2-tint/--mq-g2-veil rgba literals; lighter scene -> darker veil,
+  darker scene -> lighter tint. Verified live on production: lum 0.103,
+  tint rgba(226,232,240,0.091).
+- NORMAL MQ IDENTITY: AmbientBackground rebuilt as calm EDITORIAL backdrop
+  (fixed graphite/navy light pools, 150s drift, grain 3.5%) and mounted on
+  ALL shells; no longer track-colored and no longer desktop-only. WAVE
+  keeps personal color; the two identities crossfade, never mix.
+- WaveHome V2.5 restyle: card chrome DISSOLVED (mode = the scene, no
+  "one huge card"); header de-boxed to bare Radio icon + LIQUID PLATINUM
+  WAVE wordmark; artwork reframed in LIQUID GLASS with a 7px bezel
+  (9px mobile) so the glass is visible around the cover; huge editorial
+  WAVE wordmark behind the artwork (mq-t-display-xl, opacity 0.04);
+  platinum play + platinum progress fill; «Сейчас играет» eyebrow removed;
+  data-mq-hero marker so MobileDock hides its mini player during WAVE
+  (verified: wrapper maxHeight 0 / aria-hidden).
+- TERMINOLOGY: ВОЛНА -> WAVE across MainView, PlayerBar, FullTrackView,
+  FullTrackViewMobile, SpatialFullPlayer, OnboardingView, ContextMenu
+  (seed actions), WaveHome (labels/aria/title/stop/manage). SettingsView
+  «Волна в плеере» EXEMPT (audio-waveform feature, different meaning).
+- STATUS LABELS PURGED: PlayerBar «Волна» badge before the title,
+  ContinueListeningCard badge, hero «Сейчас играет»/«Волна · играет»
+  fallbacks (eyebrows now show the real reason only), featured-card
+  «Сейчас играет» reason, full player queue «Сейчас играет» -> «Текущий
+  трек», mobile contextLabel СЕЙЧАС ИГРАЕТ -> ИГРАЕТ.
+- CARD SYSTEM: FeaturedCard -> L3 + 2px platinum light edge (3px accent
+  bar gone) + genre pill de-pilled; Section headers de-boxed (bare icon);
+  ContinueListening/MobileNowHero/CompactTrackCard/FriendsStrip -> L2
+  hairline surfaces; QuickActionGrid de-nested (L1 ambient + L3 buttons);
+  HorizontalTrackRow borderless at rest.
+- LIQUID GLASS THEME rebuilt from scratch: static deep navy composition,
+  animated 8-stop linear-gradient + background-position drift DELETED,
+  blanket blur(40px) on .fixed/nav/.rounded-2xl DELETED, .liquid-glass-nav
+  DELETED. Glass only where components opt in.
+- FLOATING SURFACES -> glass v2: PlayerBar capsule, NavBar, MobileDock
+  (54px compact nav, 44px invisible halos, platinum active line, rounded
+  top corners), Sidebar (edge-lit right hairline), context menu surface.
+- PLATINUM PLAY CONTROLS: PlayerBar, WaveHome (72px), FullTrackView,
+  FullTrackViewMobile (76px, data-mq-playbtn kept), SpatialFullPlayer,
+  MobileDock mini.
+- WaveHome wash + artwork shadow retargeted from dead --mq-ambient-* to
+  the scene's own --wave-color-* (hero wash + WebGL backdrop = ONE scene).
+- FullTrackView ambient wash -> fixed cold graphite/navy (old vars dead).
+- TESTS: wave-v25-overhaul.test.ts (18 contract tests: terminology scan,
+  status-label purge, material presence, dual-ambient contracts,
+  cheap-pattern purge, card system). All existing suites untouched and
+  green: 1058/1058 (1040 remote + 18 new). tsc 0 src errors. eslint 57
+  errors = baseline (0 new). Build green.
+- QA (local dev + production): screenshot matrix in download/qa-v25/
+  (A home / B wave / C dark artwork / D colorful artwork (red cover ->
+  #3e1119 dark burgundy scene verified) / E transition / F playerbar /
+  G library / H search / I settings / J glass context menu; 1440x900 +
+  1920x1080 + 390x844 + 375x812 + 430x932; REAL-* and PROD-* sets).
+  Geometry probes: artwork glass blur(18px) live, capsule/dock blur live,
+  nav row 54px, zero horizontal overflow at all 5 resolutions, wave
+  palette CSS vars published, content-aware glass tokens live in prod.
+  VLM audits: platinum PASS + glass bezel PASS at zoom level (full-page
+  small-scale VLM reads were disproven by computed styles + zoom crops).
+- DEPLOY: pushed 9fa5f409..366a6aca -> Vercel auto-deploy
+  mq-build-366a6aca live on mq1.vercel.app. Production E2E desktop
+  1440x900 (home editorial ambient PASS, WAVE liquid active + glass +
+  platinum + wordmark verified, skip + palette transition, Library/Search/
+  Settings navigation, capsule glass) + mobile 390x844 (home, wave,
+  bezel blur, mini-player hidden under wave hero, no overflow, platinum).
+  Console: 0 page errors on production.
+
+Stage Summary:
+- V2.5 complete on production (mq-build-366a6aca): dual-ambient identity
+  system (editorial normal MQ vs liquid WAVE), Liquid Glass v2 content-aware
+  material, Liquid Platinum rare signature material, WAVE terminology,
+  status labels purged, card surface hierarchy, compact premium mobile.
+- 1058/1058 tests, tsc clean, eslint baseline parity, build + deploy + E2E
+  green. No regressions to audio/playback/queue/lyrics/SoundCloud/yandex/
+  downloads/auth/settings/full player/wave engine (untouched logic).
