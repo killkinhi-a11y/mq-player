@@ -527,7 +527,9 @@ function FullTrackViewMobileInner() {
   // stay unconditional.
   const iconBtn: React.CSSProperties = { width: 44, height: 44, borderRadius: "9999px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "transparent", border: "none", cursor: "pointer", padding: 0 };
 
-  const contextLabel = isLoading ? "ЗАГРУЗКА" : isPlaying ? "ИГРАЕТ" : "ПАУЗА";
+  // FINAL CORRECTION §13: the ИГРАЕТ/ПАУЗА status word is gone — the
+  // transport owns the play state. The header center keeps the queue
+  // context (WAVE / Очередь) only when it exists, plus the live dot.
   const queueName = radioMode ? "WAVE" : queue.length > 1 ? "Очередь" : "";
 
   return (
@@ -674,10 +676,11 @@ function FullTrackViewMobileInner() {
           <button onClick={requestClose} aria-label="Закрыть" className="mq-ft-btn mq-press" style={iconBtn}><ChevronDown className="w-6 h-6" style={{ color: "var(--mq-text)" }} /></button>
           <div className="flex-1 min-w-0 flex items-center justify-center gap-1.5">
             {isPlaying && <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)" }} aria-hidden="true" />}
-            <p className="mq-t-meta mq-t-meta-2 font-semibold uppercase tracking-[0.18em] truncate" style={{ color: "var(--mq-text-muted)" }}>
-              {contextLabel}{queueName ? ` · ${queueName}` : ""}
-            </p>
-            <span className="flex-1 h-px max-w-14" style={{ backgroundColor: "var(--mq-border-thin)" }} aria-hidden="true" />
+            {queueName && (
+              <p className="mq-t-meta mq-t-meta-2 font-semibold uppercase tracking-[0.18em] truncate" style={{ color: "var(--mq-text-muted)" }}>
+                {queueName}
+              </p>
+            )}
           </div>
           <button
             onClick={(e) => {

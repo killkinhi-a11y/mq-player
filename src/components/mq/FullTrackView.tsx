@@ -1352,8 +1352,10 @@ export default function FullTrackView() {
               >
                 <ChevronDown className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
               </button>
-              <div className="text-center">
-                <p className="mq-text-eyebrow mq-t-meta-2 uppercase tracking-widest">{radioMode ? "WAVE" : isPlaying ? "Играет" : "Пауза"}</p>
+              <div className="text-center min-w-0 px-2">
+                {/* FINAL CORRECTION §13: no status eyebrow (Играет/Пауза/WAVE)
+                    — the transport shows the state; the header center carries
+                    the album/artist context only. */}
                 <p className="text-xs font-medium truncate max-w-[200px] sm:max-w-xs" style={{ color: "var(--mq-text-muted)" }}>
                   {currentTrack.album || currentTrack.artist}
                 </p>
@@ -1587,7 +1589,10 @@ export default function FullTrackView() {
                               </div>
                             )}
 
-                            {/* Upcoming */}
+                            {/* Upcoming — hairline divider anchors the section
+                                boundary after the now-playing block (quiet
+                                structure, no extra chrome). */}
+                            <div className="mx-4 mt-1 mb-2 h-px" style={{ backgroundColor: "var(--mq-mat-2-edge)" }} aria-hidden="true" />
                             <div className="px-4 flex items-center justify-between pb-1">
                               <p className="mq-text-eyebrow mq-t-meta-2 uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>{radioMode ? "WAVE · далее" : "Далее"}</p>
                             </div>

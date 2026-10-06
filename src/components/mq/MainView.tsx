@@ -494,7 +494,9 @@ function MainView() {
               <Waves className="w-4 h-4" style={{ color: wave.radioMode ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
             )}
             <span className="mq-t-label text-xs" style={{ color: wave.radioMode ? "var(--mq-accent)" : "var(--mq-text)" }}>
-              {wave.waveLoading ? "Подбираем…" : wave.radioMode ? "WAVE · играет" : "WAVE"}
+              {/* FINAL CORRECTION §13: no status suffix — the chip says the
+                  mode name only; play state lives on the transport. */}
+              {wave.waveLoading ? "Подбираем…" : "WAVE"}
             </span>
           </button>
         </header>
@@ -1136,8 +1138,10 @@ function FeaturedCard({
             <motion.button
 
               onClick={onPlay}
-              className="h-11 px-6 rounded-xl flex items-center gap-2 mq-t-btn transition-colors"
-              style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
+              className="mq-platinum-btn h-11 px-6 rounded-xl flex items-center gap-2 mq-t-btn transition-colors"
+              /* FINAL CORRECTION §7: the hero's primary play CTA belongs to
+                  LIQUID PLATINUM (the signature accent), not the red utility
+                  accent — primary play is platinum app-wide. Flat by design. */
               aria-label={isPlaying ? "Пауза" : "Слушать"}
             >
               {isPlaying ? <Pause className="w-4 h-4" fill="currentColor" /> : <Play className="w-4 h-4" fill="currentColor" />}
@@ -1207,14 +1211,15 @@ function ContinueListeningCard({
     >
       <button
         onClick={onToggle}
-        className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform"
-        style={{ backgroundColor: "var(--mq-accent)" }}
+        className="mq-platinum-btn w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform"
+        /* FINAL CORRECTION §7: flat platinum play — the red disc is gone;
+          primary playback is the platinum material everywhere. */
         aria-label={isPlaying ? "Пауза" : "Продолжить"}
       >
         {isPlaying ? (
-          <Pause className="w-5 h-5" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+          <Pause className="w-5 h-5" fill="currentColor" />
         ) : (
-          <Play className="w-5 h-5" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+          <Play className="w-5 h-5 translate-x-[1px]" fill="currentColor" />
         )}
       </button>
       <div className="flex-1 min-w-0">
@@ -1228,7 +1233,7 @@ function ContinueListeningCard({
         {/* Real progress bar */}
         <div className="mt-2 flex items-center gap-2">
           <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--mq-border-thin)" }} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
-            <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: "var(--mq-accent)" }} />
+            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "var(--mq-platinum-progress)" }} />
           </div>
           <span className="mq-t-num shrink-0" style={{ color: "var(--mq-text-muted)" }}>
             {formatDuration(progress)} / {formatDuration(duration)}
@@ -1241,7 +1246,7 @@ function ContinueListeningCard({
           onClick={onSkip}
           className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors hover:bg-[var(--mq-overlay-hover)]"
           style={{ border: "1px solid var(--mq-border-thin)" }}
-          aria-label="Следующий в Волне"
+          aria-label="Следующий в WAVE"
         >
           <SkipForward className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
         </button>
@@ -1495,8 +1500,8 @@ function HeroWaveCTA({ compact = false }: { compact?: boolean }) {
           </p>
         </div>
         <span
-          className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
+          className="mq-platinum-btn w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+          /* FINAL CORRECTION §7: flat platinum play disc. */
           aria-hidden="true"
         >
           <Play className="w-[18px] h-[18px] translate-x-[1px]" fill="currentColor" />
@@ -1508,12 +1513,11 @@ function HeroWaveCTA({ compact = false }: { compact?: boolean }) {
     <button
       onClick={() => (wave.radioMode ? wave.pauseWave() : wave.startWave())}
       disabled={wave.waveLoading}
-      className="w-full h-12 rounded-2xl flex items-center justify-center gap-2.5 transition-transform disabled:opacity-60"
-      style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
+      className="mq-platinum-btn w-full h-12 rounded-2xl flex items-center justify-center gap-2.5 transition-transform disabled:opacity-60"
       aria-label="Запустить WAVE"
     >
       {wave.waveLoading ? (
-        <div className="mq-spin w-5 h-5 border-2 rounded-full" style={{ borderColor: "var(--mq-text-on-accent, #fff)", borderTopColor: "transparent" }} />
+        <div className="mq-spin w-5 h-5 border-2 rounded-full" style={{ borderColor: "currentColor", borderTopColor: "transparent" }} />
       ) : (
         <Waves className="w-5 h-5" />
       )}
@@ -1558,7 +1562,9 @@ function MobileQuickRow({
             {count > 0 && (
               <span
                 className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center mq-t-num mq-t-meta-2 font-bold"
-                style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
+                /* FINAL CORRECTION §7: count badges are tonal utility marks,
+                    not alarms — red stays rare. */
+                style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 16%, var(--mq-bg))", color: "var(--mq-text)" }}
               >
                 {count > 99 ? "99+" : count}
               </span>
@@ -2431,10 +2437,12 @@ function RecsEmptyState({ onRetry, errorType }: { onRetry: () => void; errorType
       <button
         onClick={onRetry}
         className="px-4 py-2 rounded-full text-xs font-semibold transition-colors"
+        /* FINAL CORRECTION §7: retry is a utility action — quiet tonal
+            treatment, not a red alarm button. */
         style={{
-          backgroundColor: "var(--mq-accent)",
-          color: "#fff",
-          boxShadow: "var(--mq-shadow-accent)",
+          backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, var(--mq-bg))",
+          color: "var(--mq-text)",
+          border: "1px solid var(--mq-mat-2-edge)",
         }}
       >
         Повторить
@@ -2480,8 +2488,8 @@ function ArtistCircleCard({
         {artist.avatar ? (
           <img src={artist.avatar} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
-            <User className="w-8 h-8" style={{ color: "#fff" }} />
+          <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, color-mix(in srgb, var(--mq-text) 10%, var(--mq-bg)), var(--mq-mat-2-bg))" }}>
+            <User className="w-8 h-8" style={{ color: "var(--mq-text-muted)" }} />
           </div>
         )}
         {/* More — overlay bottom-right of the circle, dark pill for contrast */}

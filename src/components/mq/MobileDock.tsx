@@ -222,7 +222,7 @@ function MobileDockInner() {
             <button onClick={() => { if (!gestureConsumed.current) openFull(); }} className="mq-mini flex items-center gap-2.5 flex-1 min-w-0" style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
               <div className="rounded-[10px] overflow-hidden flex-shrink-0" style={{ width: "36px", height: "36px" }}>
                 {currentTrack!.cover ? <img src={currentTrack!.cover} alt="" className="w-full h-full object-cover" />
-                  : <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}><Music className="w-4 h-4" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} /></div>}
+                  : <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, color-mix(in srgb, var(--mq-text) 10%, var(--mq-bg)), var(--mq-mat-2-bg))" }}><Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} /></div>}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="mq-t-body font-semibold truncate" style={{ color: "var(--mq-text)", lineHeight: "1.2" }}>{currentTrack!.title}</p>

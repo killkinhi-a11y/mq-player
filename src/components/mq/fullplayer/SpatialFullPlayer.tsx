@@ -804,9 +804,8 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
             <ChevronDown className="w-6 h-6" style={{ color: "var(--mq-text)" }} />
           </button>
           <div className="text-center min-w-0 px-2">
-            <p className="mq-text-eyebrow mq-t-meta-2 uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>
-              {radioMode ? "WAVE" : isLoading ? "Загрузка" : isPlaying ? "Играет" : "Пауза"}
-            </p>
+            {/* FINAL CORRECTION §13: no status eyebrow (Играет/Пауза/WAVE) —
+                the transport owns the state; context line only. */}
             <p className="text-xs font-medium truncate max-w-[180px] sm:max-w-xs" style={{ color: "color-mix(in srgb, var(--mq-text-muted) 72%, transparent)" }}>
               {currentTrack.album || currentTrack.artist}
             </p>

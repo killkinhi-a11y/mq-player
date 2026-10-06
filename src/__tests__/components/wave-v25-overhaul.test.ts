@@ -42,6 +42,11 @@ describe("V2.5 §4 — user-facing terminology: WAVE, never «Волна»", () 
     "src/components/mq/OnboardingView.tsx",
     "src/components/mq/ContextMenu.tsx",
     "src/components/mq/WaveHome.tsx",
+    // FINAL CORRECTION §14: user-facing copy ALSO leaves these two — the
+    // seed chip under the WAVE header reads waveSeedLabel() output, and
+    // the API's label fallback surfaces in the same chip.
+    "src/lib/wave/reasons.ts",
+    "src/app/api/wave/route.ts",
   ];
 
   it("no «Волна» string literals remain in the renamed surfaces", () => {
@@ -140,11 +145,37 @@ describe("V2.5 §2 — dual ambient: calm editorial vs liquid WAVE", () => {
     expect(css).not.toContain("var(--mq-ambient-1, #e03131)");
   });
 
-  it("the Wave container is NOT a card — content floats on the scene", () => {
+  it("the Wave main surface is a refined SOLID surface — visible moderate radius, hairline edge, no glass", () => {
+    /* FINAL CORRECTION §1+§12 supersede the V2.5 "no card" decision: the
+       hero content sits on ONE solid, opaque, cold-tinted surface with a
+       VISIBLE 14–18px radius (float radius), clean clipping, hairline edge
+       and quiet shadow — never glass, never transparent, never 3D. */
     const css = readSrc("src/app/globals.css");
     const waveBlock = css.match(/\.mq-wave \{[^}]*\}/)?.[0] ?? "";
-    expect(waveBlock).not.toContain("border:");
-    expect(waveBlock).not.toContain("linear-gradient(180deg");
+    expect(waveBlock).toContain("border-radius: var(--mq-mat-radius-float");
+    expect(waveBlock).toContain("color-mix(in srgb, var(--mq-text) 13%, transparent)");
+    expect(waveBlock).toMatch(/0 28px 64px -24px rgba\(0, 0, 0, 0\.72\)/);
+    // solid background — an opaque color-mix over the mat surface, never a
+    // glass token, never backdrop-filter
+    expect(waveBlock).toMatch(/background: color-mix\(in srgb,\s*\n?\s*var\(--mq-mat-3-bg\) \d+%,\s*\n?\s*var\(--wave-color-2/);
+    expect(waveBlock).not.toContain("mq-g2-");
+    expect(waveBlock).not.toContain("backdrop");
+    // flat — no lit shoulder, no specular
+    expect(waveBlock).not.toContain("radial-gradient");
+    expect(waveBlock).not.toContain("inset 0 1px");
+  });
+  it("the normal MQ ambient is actually visible — the app root never paints over it", () => {
+    /* FINAL CORRECTION §6–7: an opaque .mq-app-root background covered the
+       z:-1 editorial ambient on EVERY tab (flat-black screens). The root
+       must stay transparent; the ambient base carries the opaque floor. */
+    const css = readSrc("src/app/globals.css");
+    const rootBlock = css.match(/\.mq-app-root \{[^}]*\}/)?.[0] ?? "";
+    expect(rootBlock).toContain("background-color: transparent");
+    expect(rootBlock).not.toContain("var(--mq-bg)");
+    expect(css).not.toContain('.mq-app-root[data-wave="on"]');
+    // the ambient base keeps the opaque floor + top light
+    const baseBlock = css.match(/\.mq-ambient-base \{[^}]*\}/)?.[0] ?? "";
+    expect(baseBlock).toContain("var(--mq-bg)");
   });
 });
 

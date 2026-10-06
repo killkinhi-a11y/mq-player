@@ -2475,8 +2475,12 @@ input.mq-vslider-input {
 input.mq-vslider-input::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 3px;
+  /* FINAL CORRECTION §19: volume is a utility control — neutral value
+     fill everywhere (same contract as the horizontal hslider), never
+     another red streak. */
   background: linear-gradient(to right,
-    var(--mq-accent) 0%, var(--mq-accent) var(--mq-vol, 0%),
+    color-mix(in srgb, var(--mq-text) 34%, transparent) 0%,
+    color-mix(in srgb, var(--mq-text) 34%, transparent) var(--mq-vol, 0%),
     var(--mq-glass-bg) var(--mq-vol, 0%), var(--mq-glass-bg) 100%);
   box-shadow: var(--mq-shadow-inner-glow);
 }
@@ -2489,7 +2493,7 @@ input.mq-vslider-input::-moz-range-track {
 input.mq-vslider-input::-moz-range-progress {
   height: 6px;
   border-radius: 3px;
-  background: var(--mq-accent);
+  background: color-mix(in srgb, var(--mq-text) 34%, transparent);
 }
 input.mq-vslider-input::-moz-range-thumb {
   width: 16px;
@@ -4726,13 +4730,17 @@ html[data-mq-desktop] .mq-card-track {
   display: block;
 }
 
-/* App root background handoff: opaque --mq-bg ⇄ transparent. Runs in
-   lockstep with the ambient wrapper's opacity — neither state ever pops. */
+/* App root NEVER paints — the editorial ambient layer (mq-ambient-bg,
+   z -1, INSIDE this root) owns the normal-mode base wash, and the WAVE
+   liquid scene (also z -1, later in DOM = paints above the ambient)
+   takes over in radio mode. FINAL CORRECTION §6–7: an opaque root
+   background covered the z:-1 ambient entirely — the "normal MQ
+   atmospheric background" was invisible on every tab. The ambient
+   base (.mq-ambient-base) carries the opaque --mq-bg floor, so nothing
+   is ever see-through to the body: the root simply stopped painting. */
 .mq-app-root {
-  background-color: var(--mq-bg);
-  transition: background-color 950ms cubic-bezier(0.4, 0, 0.2, 1);
+  background-color: transparent;
 }
-.mq-app-root[data-wave="on"] { background-color: transparent; }
 
 /* Readability scrims — darken ONLY where UI bars sit (top nav / bottom
    player). Everything between keeps full scene intensity. */
@@ -5337,10 +5345,22 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  /* V2.5 §9: NO card chrome — the old "one huge rounded card" is gone.
-     The wave content floats DIRECTLY on the living liquid scene; the only
-     local treatment left is the palette wash below (clipped to the
-     section) and the glass artwork frame. The mode IS the scene. */
+  /* FINAL CORRECTION §1+§12: the WAVE hero is ONE refined SOLID surface on
+     the living liquid scene — a VISIBLE moderate radius, clean clipping,
+     crisp hairline edge, real (quiet) depth. NOT glass, NOT transparent:
+     a self-sufficient dark plane cold-dyed by the track palette (opaque).
+     The scene stays visible AROUND the surface. Edge contrast is tuned so
+     the rounded geometry reads UNAMBIGUOUSLY against the dark liquid
+     scene: 13% light hairline + two-layer soft drop shadow. Radius 18px =
+     the float radius, inside the 14–18px band for the main WAVE surface. */
+  border-radius: var(--mq-mat-radius-float, 18px);
+  background: color-mix(in srgb,
+    var(--mq-mat-3-bg) 76%,
+    var(--wave-color-2, #122448));
+  border: 1px solid color-mix(in srgb, var(--mq-text) 13%, transparent);
+  box-shadow:
+    0 28px 64px -24px rgba(0, 0, 0, 0.72),
+    0 10px 28px -12px rgba(0, 0, 0, 0.5);
 }
 
 /* Local ambient wash — stronger than the app-wide backdrop, derived from
@@ -5363,10 +5383,10 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
     radial-gradient(44% 56% at 62% 96%,
       color-mix(in srgb, var(--wave-color-3, #261e54) 26%, transparent) 0%,
       transparent 72%);
-  opacity: 0.85;
+  opacity: 0.6;
 }
 @media (max-width: 767px) {
-  .mq-wave-ambient { opacity: 0.6; }
+  .mq-wave-ambient { opacity: 0.45; }
   /* V2.5: a touch more bezel on phones — the glass frame must stay
      visible at small scale. */
   .mq-wave-art-layer { inset: 9px; border-radius: 13px; }

@@ -794,8 +794,8 @@ export default function AppShell() {
       {/* WAVE LIQUID AMBIENT — fullscreen living liquid backdrop behind all
           UI while the Wave is on (both shells). Mounted at the app level so
           route navigation inside the app never tears it down. Fades in/out
-          with radioMode; the app root's opaque background cross-fades to
-          transparent in sync (see .mq-app-root in globals.css). */}
+          with radioMode; the opaque scene covers the editorial ambient on
+          its own (the app root never paints — see .mq-app-root). */}
       <Suspense fallback={null}>
         <WaveAmbientBackground active={radioMode} currentTrack={currentTrack} />
       </Suspense>

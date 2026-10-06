@@ -53,7 +53,7 @@ async function getHandler(request: NextRequest) {
         scTrackId,
         artist: p.get("artist") || undefined,
         genre: p.get("genre") || undefined,
-        label: p.get("label") || "Волна",
+        label: p.get("label") || "WAVE",
       },
       likedArtists: (p.get("likedArtists") || "").split(",").filter(Boolean).slice(0, 10),
       historyScIds: (p.get("historyScIds") || "").split(",").map(Number).filter((n) => n > 0).slice(0, 10),

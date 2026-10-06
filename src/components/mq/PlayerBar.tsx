@@ -571,7 +571,10 @@ export default function PlayerBar() {
                       width: "100%",
                       transform: `scaleX(${volume / 100})`,
                       transformOrigin: "left center",
-                      backgroundColor: "var(--mq-accent)",
+                      /* FINAL CORRECTION §19: volume is a utility control —
+                         neutral value fill (same contract as every other
+                         volume slider), not a red streak. */
+                      backgroundColor: "color-mix(in srgb, var(--mq-text) 34%, transparent)",
                     }}
                   />
                   {/* MQ fader cap (v71) — same DNA as EQ/settings sliders.

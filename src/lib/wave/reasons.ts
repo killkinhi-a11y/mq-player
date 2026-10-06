@@ -27,24 +27,27 @@ export function waveReasonText(reason: WaveReason, seedRef?: string): string {
     case "exploration":
       return seedRef ? `Новое рядом с ${seedRef}` : "Новое для тебя";
     default:
-      return "Волна";
+      /* FINAL CORRECTION §14: user-facing copy says WAVE, never «Волна» —
+         the radio mode's brand name is WAVE in every surface. */
+      return "WAVE";
   }
 }
 
-/** Short label for the seed chip in the Wave UI. */
+/** Short label for the seed chip in the Wave UI.
+ *  FINAL CORRECTION §14: the mode name is WAVE everywhere user-facing. */
 export function waveSeedLabel(kind: string, label: string): string {
   switch (kind) {
     case "track":
-      return `Волна от «${label}»`;
+      return `WAVE от «${label}»`;
     case "artist":
-      return `Волна по артисту ${label}`;
+      return `WAVE по артисту ${label}`;
     case "album":
-      return `Волна по альбому «${label}»`;
+      return `WAVE по альбому «${label}»`;
     case "playlist":
-      return `Волна по плейлисту «${label}»`;
+      return `WAVE по плейлисту «${label}»`;
     case "genre":
-      return `Волна по жанру ${label}`;
+      return `WAVE по жанру ${label}`;
     default:
-      return "Волна по твоему вкусу";
+      return "WAVE по твоему вкусу";
   }
 }
