@@ -1,0 +1,75 @@
+{
+  "base": "http://localhost:3210",
+  "probes": [
+    {
+      "label": "search-click",
+      "outlineColor": "color(srgb 0.960784 0.960784 0.960784 / 0.55)",
+      "outlineStyle": "solid",
+      "outlineWidth": "2px",
+      "boxShadow": "color(srgb 0.960784 0.960784 0.960784 / 0.08) 0px 1px 8px 0px"
+    },
+    {
+      "label": "search-tab",
+      "selector": "[data-search-input]",
+      "outlineColor": "color(srgb 0.960784 0.960784 0.960784 / 0.55)",
+      "outlineStyle": "solid",
+      "outlineWidth": "2px",
+      "boxShadow": "color(srgb 0.960784 0.960784 0.960784 / 0.08) 0px 1px 8px 0px",
+      "borderColor": "color(srgb 0.960784 0.960784 0.960784 / 0.3)"
+    },
+    {
+      "label": "settings-range",
+      "outlineColor": "lab(2.75381 0 0)",
+      "outlineStyle": "none",
+      "outlineWidth": "3px"
+    },
+    {
+      "label": "nav-button",
+      "selector": "button[aria-label=\"Настройки\"]",
+      "outlineColor": "rgb(245, 245, 245)",
+      "outlineStyle": "none",
+      "outlineWidth": "3px",
+      "boxShadow": "none",
+      "borderColor": "color(srgb 0.960784 0.960784 0.960784 / 0.18)"
+    },
+    {
+      "label": "menu-item",
+      "outlineColor": "rgb(245, 245, 245)",
+      "outlineStyle": "none",
+      "outlineWidth": "3px",
+      "bg": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "label": "skip-link",
+      "bg": "rgb(37, 37, 37)",
+      "color": "rgb(245, 245, 245)",
+      "left": "-9999px"
+    },
+    {
+      "label": "mobile-search",
+      "outlineColor": "color(srgb 0.960784 0.960784 0.960784 / 0.55)",
+      "outlineStyle": "solid",
+      "outlineWidth": "2px"
+    }
+  ],
+  "shots": [
+    "d1440-01-search-click-focus",
+    "d1440-02-search-tab-focus",
+    "d1440-03-settings",
+    "d1440-04-settings-slider-focus",
+    "d1440-05-button-focus",
+    "d1440-06-menu-item-focus",
+    "d1440-07-skip-link",
+    "m390-01-search-focus"
+  ],
+  "pass": [
+    "search-click: color(srgb 0.960784 0.960784 0.960784 / 0.55) 2px",
+    "search-tab: ring=color(srgb 0.960784 0.960784 0.960784 / 0.55) 2px",
+    "settings-range: lab(2.75381 0 0) 3px",
+    "nav-button: ring=rgb(245, 245, 245) 3px (box-shadow only)",
+    "menu-item: rgb(245, 245, 245) 3px",
+    "skip-link: bg=rgb(37, 37, 37)",
+    "mobile-search: color(srgb 0.960784 0.960784 0.960784 / 0.55) 2px"
+  ],
+  "fail": []
+}

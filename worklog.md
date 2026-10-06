@@ -8985,3 +8985,84 @@ Stage Summary:
   discipline and neutral volume fills all hold live. Production runs
   mq-build-bc4f826a. No functional surface touched (playback/queue/lyrics/
   sources/auth/wave engine intact — 1093/1093 incl. all seek contracts).
+
+---
+Task ID: red-focus-final
+Agent: main (Super Z)
+Task: Kill the production RED FOCUS RING blocker (mq-build-cda67082 baseline) + full red-accent completion + production visual re-audit (user spec §1-§14)
+
+Work Log:
+- Synced stale local main → origin/main cda67082 (upload/ mount worked around:
+  backup → clear → ff-merge → restore extras).
+- ROOT CAUSE found: cda67082 fixed globals.css *:focus-visible but NOT the
+  inline <style> in layout.tsx <head> — it kept BOTH *:focus-visible AND
+  input:focus-visible with var(--mq-accent,#e03131) !important. The
+  input-specific rule (0,1,1) outspecifies the globals rule (0,1,0), so
+  every search/settings/login input painted a RED outline in production
+  while the css-only contract test stayed green. THIS was the CDP-detected
+  "input:focus-visible accent/red" rule.
+- FOCUS SYSTEM rebuilt on ONE neutral token --mq-focus-ring-color
+  (55% text tone, ~10:1, theme-inverting; defined globals.css :root):
+  * layout.tsx both pre-paint rules -> neutral token (THE blocker fix)
+  * globals.css: global ring, --mq-focus-ring token, deprecated
+    .mq-focus-ring/.mq-focus-premium, .mq-input:focus-within (red border +
+    150% red glow -> neutral border lift + 10% halo)
+  * sliders: hslider/vslider/range-slider thumb+track split — hover/grab =
+    platinum cold edge, :focus-visible = neutral; active halo -> platinum
+  * liquid-lyrics .ll-line ring, WaveformView canvas ring,
+    SpatialFullPlayer button/input ring, badge/toggle admin focus classes,
+    skip-link (solid red block -> surface+text) — all neutral
+- RED ACCENT COMPLETION (playing/wave/selected identities were still red):
+  * playing: mq-card-track active tint/border/left-bar + active title
+    (TrackCard/HistoryView) + fallback artwork icon + NowPlayingEqualizer
+    inline bars -> platinum family / text+weight; mq-play-overlay (solid
+    red circle) -> flat platinum
+  * WAVE identity: WaveHome Radio header icon, reason Sparkles, fallback
+    wave avatar red -> platinum (matches the platinum wordmark)
+  * spatial: seek fill webkit+moz red -> platinum gradient; queue current
+    row/bars/title red -> platinum tint + weight; lyrics/queue open icons;
+    fallback artworks red gradient -> graphite
+  * NavBar bell/settings/profile ACTIVE red -> tonal (badges stay red)
+  * SettingsView: speed chip solid red -> platinum pill; player previews
+  * MessageBubble incoming voice play red -> platinum; bars/borders/label
+  * AuthView: OTP digit borders+caret, loader, 2 red CTAs -> neutral/platinum
+  * liquid-lyrics water fill red gradient -> platinum-refl cold liquid
+  * FullscreenLyrics focus-mode chip, ProfileView (12+ reds: activity
+    bars/heatmap/genre bars/icons/chips), CommandPalette selected,
+    AISmartRecs preset, NotificationPanel, ShareSheet, UpdateBanner,
+    SleepTimerView -> neutral/platinum
+- SEMANTIC RED kept: hearts, live-dot, destructive (Выйти/Очистить/trash),
+  error borders, brand logo tile, theme swatches.
+- Tests: +2 regression contracts (layout.tsx focus rules neutral — guards
+  the exact blocker; slider focus/grab never accent). 1120/1120 PASS,
+  tsc 0 src errors (18 pre-existing desktop/skills), eslint 560=baseline,
+  build green ×2.
+- Deploys: mq-build-2495a501 (focus system) → mq-build-138fab12 (red
+  completion). PRODUCTION VERIFIED on both:
+  * Focus 7/7 PASS d1440+m390 (search click/tab, settings slider, nav
+    button, menu item, mobile search): ring = color(srgb .96/.96/.96 /.55)
+    2px — NEUTRAL; VLM: PREMIUM-NEUTRAL ×6, zero red
+  * Full audit 13-prod-audit.mjs: ambient alive on home/search/library/
+    settings/chats/queue (4+ layers, root transparent); WAVE surface d+m
+    radius 18px solid + hairline + shadow + scene around; PlayerBar glass
+    blur(11px) + context menu glass blur(16px)/r16; fullplayer progress =
+    platinum gradient; playing bar now #e9edf5; labels ВОЛНА/Играет/Пауза
+    = ZERO; console page errors 0; FAIL items []
+  * Red DOM scan: only semantic reds remain (hearts, log-out/trash
+    destructive, Очистить, demo-mode badge); WAVE reds 0; artist/playlist
+    reds 0
+  * Mobile 375/390/430: no sub-44px buttons, no overflowX, WAVE solid 18px
+  * VLM verdicts: home/search/library/settings/chats PREMIUM (living
+    atmosphere, solid cards); wave d+m radius clearly visible solid;
+    playerbar/menu/fullplayer premium glass + flat matte controls; mobile
+    home 375/390/430 + fullplayer COMPACT+PREMIUM
+- Evidence: download/qa-red-focus/{local,prod,prod-audit} (46 shots +
+  report.json ×2 + mobile-extra.json + tabs-extra.json); scripts/final-pass/
+  11-17.
+
+Stage Summary:
+- Production = mq-build-138fab12. Red focus ring ELIMINATED (verified live,
+  computed + VLM). Red accent now semantic-only everywhere; playing/wave/
+  selected identities speak platinum; all 14 tabs share one material
+  language (verified by DOM probes + VLM on production screenshots).
+  No functional regressions (1120/1120 incl. seek contracts).

@@ -1,0 +1,691 @@
+{
+  "base": "https://mq1.vercel.app",
+  "buildId": "mq-build-138fab12",
+  "tabs": {
+    "home": {
+      "redElements": [
+        {
+          "tag": "svg",
+          "cls": "[object SVGAnimatedString]",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": ""
+        },
+        {
+          "tag": "path",
+          "cls": "[object SVGAnimatedString]",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": ""
+        }
+      ],
+      "volnaLabels": [],
+      "ambientLuma": null,
+      "cards": [],
+      "glassSurfaces": [
+        {
+          "cls": "mq-glass2 mq-glass2-nav hidden lg:flex f",
+          "blur": "blur(11px) saturate(1.42)"
+        },
+        {
+          "cls": "flex items-center gap-0.5 p-1 rounded-fu",
+          "blur": "none"
+        },
+        {
+          "cls": "mq-player-capsule mq-glass2 mq-glass2-pl",
+          "blur": "blur(11px) saturate(1.42)"
+        }
+      ],
+      "ambient": {
+        "display": "block",
+        "opacity": "1",
+        "children": 6
+      },
+      "rootBg": "rgba(0, 0, 0, 0)"
+    },
+    "search": {
+      "redElements": [],
+      "volnaLabels": [],
+      "ambientLuma": null,
+      "cards": [],
+      "glassSurfaces": [
+        {
+          "cls": "mq-glass2 mq-glass2-nav hidden lg:flex f",
+          "blur": "blur(11px) saturate(1.42)"
+        },
+        {
+          "cls": "flex items-center gap-0.5 p-1 rounded-fu",
+          "blur": "none"
+        },
+        {
+          "cls": "mq-player-capsule mq-glass2 mq-glass2-pl",
+          "blur": "blur(11px) saturate(1.42)"
+        }
+      ],
+      "ambient": {
+        "display": "block",
+        "opacity": "1",
+        "children": 6
+      },
+      "rootBg": "rgba(0, 0, 0, 0)"
+    },
+    "library": {
+      "redElements": [],
+      "volnaLabels": [],
+      "ambientLuma": null,
+      "cards": [],
+      "glassSurfaces": [
+        {
+          "cls": "mq-glass2 mq-glass2-nav hidden lg:flex f",
+          "blur": "blur(11px) saturate(1.42)"
+        },
+        {
+          "cls": "flex items-center gap-0.5 p-1 rounded-fu",
+          "blur": "none"
+        },
+        {
+          "cls": "mq-player-capsule mq-glass2 mq-glass2-pl",
+          "blur": "blur(11px) saturate(1.42)"
+        }
+      ],
+      "ambient": {
+        "display": "block",
+        "opacity": "1",
+        "children": 6
+      },
+      "rootBg": "rgba(0, 0, 0, 0)"
+    },
+    "settings": {
+      "redElements": [
+        {
+          "tag": "DIV",
+          "cls": "w-8 h-8 sm:w-9 sm:h-9 rounded-[var(--mq-r-card)] f",
+          "prop": "backgroundColor",
+          "val": "rgba(239, 68, 68, 0.08)",
+          "text": ""
+        },
+        {
+          "tag": "svg",
+          "cls": "[object SVGAnimatedString]",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": ""
+        },
+        {
+          "tag": "path",
+          "cls": "[object SVGAnimatedString]",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": ""
+        },
+        {
+          "tag": "path",
+          "cls": "[object SVGAnimatedString]",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": ""
+        },
+        {
+          "tag": "P",
+          "cls": "text-sm font-medium",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": "Выйти"
+        },
+        {
+          "tag": "DIV",
+          "cls": "w-8 h-8 sm:w-9 sm:h-9 rounded-[var(--mq-r-card)] f",
+          "prop": "backgroundColor",
+          "val": "rgba(239, 68, 68, 0.08)",
+          "text": ""
+        },
+        {
+          "tag": "svg",
+          "cls": "[object SVGAnimatedString]",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": ""
+        },
+        {
+          "tag": "path",
+          "cls": "[object SVGAnimatedString]",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": ""
+        },
+        {
+          "tag": "path",
+          "cls": "[object SVGAnimatedString]",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": ""
+        },
+        {
+          "tag": "P",
+          "cls": "text-sm font-medium",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": "Удалить аккаунт"
+        }
+      ],
+      "volnaLabels": [],
+      "ambientLuma": null,
+      "cards": [],
+      "glassSurfaces": [
+        {
+          "cls": "mq-glass2 mq-glass2-nav hidden lg:flex f",
+          "blur": "blur(11px) saturate(1.42)"
+        },
+        {
+          "cls": "flex items-center gap-0.5 p-1 rounded-fu",
+          "blur": "none"
+        },
+        {
+          "cls": "mq-player-capsule mq-glass2 mq-glass2-pl",
+          "blur": "blur(11px) saturate(1.42)"
+        }
+      ],
+      "ambient": {
+        "display": "block",
+        "opacity": "1",
+        "children": 6
+      },
+      "rootBg": "rgba(0, 0, 0, 0)"
+    },
+    "chats": {
+      "redElements": [],
+      "volnaLabels": [],
+      "ambientLuma": null,
+      "cards": [],
+      "glassSurfaces": [
+        {
+          "cls": "mq-glass2 mq-glass2-nav hidden lg:flex f",
+          "blur": "blur(11px) saturate(1.42)"
+        },
+        {
+          "cls": "flex items-center gap-0.5 p-1 rounded-fu",
+          "blur": "none"
+        },
+        {
+          "cls": "mq-player-capsule mq-glass2 mq-glass2-pl",
+          "blur": "blur(11px) saturate(1.42)"
+        }
+      ],
+      "ambient": {
+        "display": "block",
+        "opacity": "1",
+        "children": 6
+      },
+      "rootBg": "rgba(0, 0, 0, 0)"
+    },
+    "queue": {
+      "redElements": [
+        {
+          "tag": "svg",
+          "cls": "[object SVGAnimatedString]",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": ""
+        },
+        {
+          "tag": "path",
+          "cls": "[object SVGAnimatedString]",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": "Очистить"
+        },
+        {
+          "tag": "svg",
+          "cls": "[object SVGAnimatedString]",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": ""
+        },
+        {
+          "tag": "path",
+          "cls": "[object SVGAnimatedString]",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": ""
+        },
+        {
+          "tag": "path",
+          "cls": "[object SVGAnimatedString]",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": ""
+        }
+      ],
+      "volnaLabels": [],
+      "ambientLuma": null,
+      "cards": [
+        {
+          "cls": "mq-card-track",
+          "bg": "color(srgb 0.913725 0.929412 0.960784 / ",
+          "blur": false,
+          "radius": "0px"
+        }
+      ],
+      "glassSurfaces": [
+        {
+          "cls": "mq-glass2 mq-glass2-nav hidden lg:flex f",
+          "blur": "blur(11px) saturate(1.42)"
+        },
+        {
+          "cls": "flex items-center gap-0.5 p-1 rounded-fu",
+          "blur": "none"
+        },
+        {
+          "cls": "mq-player-capsule mq-glass2 mq-glass2-pl",
+          "blur": "blur(11px) saturate(1.42)"
+        }
+      ],
+      "ambient": {
+        "display": "block",
+        "opacity": "1",
+        "children": 6
+      },
+      "rootBg": "rgba(0, 0, 0, 0)"
+    },
+    "fullplayer": {
+      "redElements": [
+        {
+          "tag": "svg",
+          "cls": "[object SVGAnimatedString]",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": ""
+        },
+        {
+          "tag": "path",
+          "cls": "[object SVGAnimatedString]",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "cls": "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": "Очистить"
+        },
+        {
+          "tag": "svg",
+          "cls": "[object SVGAnimatedString]",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": ""
+        },
+        {
+          "tag": "path",
+          "cls": "[object SVGAnimatedString]",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": ""
+        },
+        {
+          "tag": "path",
+          "cls": "[object SVGAnimatedString]",
+          "prop": "color",
+          "val": "rgb(239, 68, 68)",
+          "text": ""
+        }
+      ],
+      "volnaLabels": [],
+      "ambientLuma": null,
+      "cards": [
+        {
+          "cls": "mq-card-track",
+          "bg": "color(srgb 0.913725 0.929412 0.960784 / ",
+          "blur": false,
+          "radius": "0px"
+        }
+      ],
+      "glassSurfaces": [
+        {
+          "cls": "mq-glass2 mq-glass2-nav hidden lg:flex f",
+          "blur": "blur(11px) saturate(1.42)"
+        },
+        {
+          "cls": "flex items-center gap-0.5 p-1 rounded-fu",
+          "blur": "none"
+        },
+        {
+          "cls": "mq-player-capsule mq-glass2 mq-glass2-pl",
+          "blur": "blur(11px) saturate(1.42)"
+        }
+      ],
+      "ambient": {
+        "display": "block",
+        "opacity": "1",
+        "children": 6
+      },
+      "rootBg": "rgba(0, 0, 0, 0)"
+    },
+    "wave": {
+      "redElements": [],
+      "volnaLabels": [],
+      "ambientLuma": null,
+      "cards": [],
+      "glassSurfaces": [
+        {
+          "cls": "mq-glass2 mq-glass2-nav hidden lg:flex f",
+          "blur": "blur(11px) saturate(1.42)"
+        },
+        {
+          "cls": "flex items-center gap-0.5 p-1 rounded-fu",
+          "blur": "none"
+        },
+        {
+          "cls": "mq-player-capsule mq-glass2 mq-glass2-pl",
+          "blur": "blur(11px) saturate(1.42)"
+        }
+      ],
+      "ambient": {
+        "display": "block",
+        "opacity": "1",
+        "children": 6
+      },
+      "rootBg": "rgba(0, 0, 0, 0)"
+    }
+  },
+  "wave": {
+    "desktop": {
+      "found": true,
+      "radius": "18px",
+      "bg": "color(srgb 0.156445 0.127269 0.102798)",
+      "border": "color(srgb 0.960784 0.960784 0.960784 / 0.13) 1px",
+      "shadow": "rgba(0, 0, 0, 0.72) 0px 28px 64px -24px, rgba(0, 0, 0, 0.5) 0px 10px 2",
+      "rect": {
+        "w": 1152,
+        "h": 814
+      },
+      "artRadius": "20px",
+      "overflow": "hidden"
+    },
+    "mobile": {
+      "found": true,
+      "radius": "18px",
+      "bg": "color(srgb 0.149857 0.11221 0.141387)",
+      "rect": {
+        "w": 362,
+        "h": 1142
+      },
+      "screen": {
+        "w": 390,
+        "h": 844
+      }
+    }
+  },
+  "mobile": {
+    "home": {
+      "bigText": [
+        {
+          "t": "Добрый вечер",
+          "fs": 24,
+          "weight": "600"
+        },
+        {
+          "t": "Для вас",
+          "fs": 15,
+          "weight": "700"
+        },
+        {
+          "t": "Новое и в тренде",
+          "fs": 15,
+          "weight": "700"
+        },
+        {
+          "t": "Рекомендованные плейлист",
+          "fs": 22,
+          "weight": "700"
+        }
+      ],
+      "tinyButtons": []
+    },
+    "fullplayer": {
+      "tinyButtons": []
+    }
+  },
+  "materials": {
+    "fullplayer_progress": [
+      "none",
+      "linear-gradient(90deg, color(srgb 0.203922 0.223529 0.278431 / 0.85), rgb(207, 214, 228))"
+    ],
+    "playerbar": {
+      "cls": "mq-player-capsule mq-glass2 mq-glass2-player point",
+      "blur": "blur(11px) saturate(1.42)",
+      "bg": "rgba(0, 0, 0, 0)"
+    },
+    "context_menu": {
+      "blur": "blur(16px) saturate(1.4)",
+      "bg": "rgba(0, 0, 0, 0)",
+      "radius": "16px",
+      "shadow": "color(srgb 0.960784 0.960784 0.960784 / 0.065) 0px 1px 0px 0"
+    },
+    "normal_bg_luma": {
+      "ambient": true,
+      "kids": [
+        {
+          "cls": "mq-ambient-base",
+          "op": "1",
+          "bg": "radial-gradient(120% 78% at 50% -8%, rgba(174, 187, 214, 0.0"
+        },
+        {
+          "cls": "mq-ambient-pools",
+          "op": "1",
+          "bg": "radial-gradient(42% 50% at 24% 14%, rgba(154, 163, 178, 0.16"
+        },
+        {
+          "cls": "mq-ambient-indigo",
+          "op": "1",
+          "bg": "radial-gradient(52% 60% at 68% 72%, rgba(44, 58, 103, 0.12) "
+        },
+        {
+          "cls": "mq-ambient-haze",
+          "op": "1",
+          "bg": "radial-gradient(60% 44% at 50% 34%, rgba(185, 196, 221, 0.06"
+        },
+        {
+          "cls": "mq-ambient-grain",
+          "op": "0.035",
+          "bg": "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000"
+        },
+        {
+          "cls": "mq-ambient-vignette",
+          "op": "1",
+          "bg": "radial-gradient(125% 105% at 50% 42%, rgba(0, 0, 0, 0) 55%, "
+        }
+      ]
+    }
+  },
+  "reds": {
+    "home": [
+      {
+        "tag": "svg",
+        "cls": "[object SVGAnimatedString]",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": ""
+      },
+      {
+        "tag": "path",
+        "cls": "[object SVGAnimatedString]",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": ""
+      }
+    ],
+    "settings": [
+      {
+        "tag": "DIV",
+        "cls": "w-8 h-8 sm:w-9 sm:h-9 rounded-[var(--mq-r-card)] f",
+        "prop": "backgroundColor",
+        "val": "rgba(239, 68, 68, 0.08)",
+        "text": ""
+      },
+      {
+        "tag": "svg",
+        "cls": "[object SVGAnimatedString]",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": ""
+      },
+      {
+        "tag": "path",
+        "cls": "[object SVGAnimatedString]",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": ""
+      },
+      {
+        "tag": "path",
+        "cls": "[object SVGAnimatedString]",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": ""
+      },
+      {
+        "tag": "P",
+        "cls": "text-sm font-medium",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": "Выйти"
+      },
+      {
+        "tag": "DIV",
+        "cls": "w-8 h-8 sm:w-9 sm:h-9 rounded-[var(--mq-r-card)] f",
+        "prop": "backgroundColor",
+        "val": "rgba(239, 68, 68, 0.08)",
+        "text": ""
+      },
+      {
+        "tag": "svg",
+        "cls": "[object SVGAnimatedString]",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": ""
+      },
+      {
+        "tag": "path",
+        "cls": "[object SVGAnimatedString]",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": ""
+      },
+      {
+        "tag": "path",
+        "cls": "[object SVGAnimatedString]",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": ""
+      },
+      {
+        "tag": "P",
+        "cls": "text-sm font-medium",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": "Удалить аккаунт"
+      }
+    ],
+    "queue": [
+      {
+        "tag": "svg",
+        "cls": "[object SVGAnimatedString]",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": ""
+      },
+      {
+        "tag": "path",
+        "cls": "[object SVGAnimatedString]",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": ""
+      },
+      {
+        "tag": "BUTTON",
+        "cls": "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": "Очистить"
+      },
+      {
+        "tag": "svg",
+        "cls": "[object SVGAnimatedString]",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": ""
+      },
+      {
+        "tag": "path",
+        "cls": "[object SVGAnimatedString]",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": ""
+      },
+      {
+        "tag": "path",
+        "cls": "[object SVGAnimatedString]",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": ""
+      }
+    ],
+    "fullplayer": [
+      {
+        "tag": "svg",
+        "cls": "[object SVGAnimatedString]",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": ""
+      },
+      {
+        "tag": "path",
+        "cls": "[object SVGAnimatedString]",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": ""
+      },
+      {
+        "tag": "BUTTON",
+        "cls": "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": "Очистить"
+      },
+      {
+        "tag": "svg",
+        "cls": "[object SVGAnimatedString]",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": ""
+      },
+      {
+        "tag": "path",
+        "cls": "[object SVGAnimatedString]",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": ""
+      },
+      {
+        "tag": "path",
+        "cls": "[object SVGAnimatedString]",
+        "prop": "color",
+        "val": "rgb(239, 68, 68)",
+        "text": ""
+      }
+    ]
+  },
+  "labels": {},
+  "fail": [],
+  "consoleErrors": []
+}

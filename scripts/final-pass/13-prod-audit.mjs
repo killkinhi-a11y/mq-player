@@ -270,10 +270,10 @@ const browser = await chromium.launch({ headless: true });
   await page.waitForTimeout(1800);
   await shot(page, "m390-04-settings");
 
-  // WAVE mobile
-  await page.locator('button[aria-label="Главная"], button', { hasText: "Главная" }).first().click({ timeout: 8000 }).catch(() => {});
+  // WAVE mobile (visible=true — hidden desktop nav also matches)
+  await page.locator('button', { hasText: "Главная" }).locator("visible=true").first().click({ timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(1500);
-  const waveBtn = page.locator('button[aria-label*="WAVE" i]').first();
+  const waveBtn = page.locator('button[aria-label*="WAVE" i]').locator("visible=true").first();
   if (await waveBtn.count()) {
     await waveBtn.click({ timeout: 6000 }).catch(() => {});
     await page.waitForTimeout(5000);

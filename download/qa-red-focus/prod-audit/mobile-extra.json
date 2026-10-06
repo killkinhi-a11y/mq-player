@@ -1,0 +1,20 @@
+{
+  "m375": {
+    "tinyButtons": [],
+    "overflowX": false,
+    "wave": {
+      "radius": "18px",
+      "solid": true,
+      "w": 347
+    }
+  },
+  "m430": {
+    "tinyButtons": [],
+    "overflowX": false,
+    "wave": {
+      "radius": "18px",
+      "solid": true,
+      "w": 402
+    }
+  }
+}
