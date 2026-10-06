@@ -2385,8 +2385,11 @@ input.mq-hslider-input {
 input.mq-hslider-input::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 3px;
+  /* FINAL §19: volume is a utility control — neutral value fill (Apple-
+     Music-style), not another red streak next to the platinum progress. */
   background: linear-gradient(to right,
-    var(--mq-accent) 0%, var(--mq-accent) var(--mq-vol, 0%),
+    color-mix(in srgb, var(--mq-text) 34%, transparent) 0%,
+    color-mix(in srgb, var(--mq-text) 34%, transparent) var(--mq-vol, 0%),
     var(--mq-glass-bg) var(--mq-vol, 0%), var(--mq-glass-bg) 100%);
   box-shadow: var(--mq-shadow-inner-glow);
 }
@@ -2404,7 +2407,7 @@ input.mq-hslider-input::-moz-range-track {
 input.mq-hslider-input::-moz-range-progress {
   height: 6px;
   border-radius: 3px;
-  background: var(--mq-accent);
+  background: color-mix(in srgb, var(--mq-text) 34%, transparent);
 }
 input.mq-hslider-input::-moz-range-thumb {
   width: 16px;

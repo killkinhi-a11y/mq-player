@@ -630,7 +630,7 @@ export default function WaveHome() {
                   className="mq-wave-progress-fill h-full"
                   style={{
                     width: `${pct}%`,
-                    background: "linear-gradient(90deg, color-mix(in srgb, var(--mq-platinum-lift, #343947) 85%, transparent), #cfd6e4)",
+                    background: "var(--mq-platinum-progress)",
                   }}
                 />
               </div>

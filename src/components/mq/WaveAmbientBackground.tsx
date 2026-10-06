@@ -145,7 +145,11 @@ void main() {
   float tB = t * 0.0125;  // depth clock
   float tC = t * 0.031;   // platinum clock
 
-  /* ── domain warp — the liquid deformation of the material ── */
+  /* ── domain warp — the liquid deformation of the material.
+     FINAL PASS: cross-couple the second warp with the first (f feeds back
+     a whisper of q) — the deformation gets more organic (kelp, not coils),
+     and a 5th layer adds a huge, very slow "depth tide" underneath so the
+     scene reads DEEPER, never brighter. ── */
   vec2 q = vec2(
     fbm(p * 1.15 + vec2(tA * 0.8, -tA * 0.5)),
     fbm(p * 1.15 + vec2(4.7 - tA * 0.6, 2.3 + tA * 0.7))
@@ -154,13 +158,19 @@ void main() {
     fbm(p * 1.6 + q * 2.4 + vec2(1.7 - tB * 0.5, 9.2 + tB * 0.4)),
     fbm(p * 1.6 + q * 2.4 + vec2(8.3 + tB * 0.4, 2.8 - tB * 0.6))
   );
-  float f = fbm(p * 1.25 + r * 2.2 + tA * 0.35);
+  float f = fbm(p * 1.25 + r * 2.2 + q * 0.55 + tA * 0.35);
 
   /* ── layer 2: darker depth field — big slow shapes, own phase ── */
   float depth = fbm(p * 0.72 + vec2(-tB * 0.55, tB * 0.35) + r * 0.8);
 
-  /* ── layer 1: the liquid light body ── */
-  float lightBody = smoothstep(0.38, 0.92, f);
+  /* ── layer 0 (FINAL): the depth tide — an enormous, near-frozen fbm that
+        slowly breathes darkness into the floor. Spatial depth for free:
+        the eye reads far layers behind the liquid, no added brightness. */
+  float tide = fbm(p * 0.34 + vec2(t * 0.004, -t * 0.003));
+
+  /* ── layer 1: the liquid light body (FINAL: wider smoothsteps — softer
+        gradients, smoother arrivals on slow clocks) ── */
+  float lightBody = smoothstep(0.34, 0.96, f);
   float ridge     = smoothstep(0.60, 1.05, f);
 
   /* ── layer 3: narrow platinum streaks — soft bands, noise-gated so they
@@ -174,8 +184,10 @@ void main() {
   float gate2 = smoothstep(0.50, 0.78, fbm(vec2(7.3, tC * 0.42)));
   float streak = band1 * gate1 * 0.46 + band2 * gate2 * 0.26;
 
-  /* ── compose: everything sits on a near-black floor ── */
-  vec3 col = u_c1 * (0.85 + depth * 0.9);
+  /* ── compose: everything sits on a near-black floor. FINAL: the depth
+        tide modulates the floor's darkness (0.82..1.0) — deep space behind
+        the liquid, zero added brightness. ── */
+  vec3 col = u_c1 * (0.85 + depth * 0.9) * mix(0.82, 1.0, tide);
   col += u_c2 * lightBody * 1.15;
   col += u_c3 * ridge * 0.75;
   col = min(col, vec3(0.30));            // hard darkness cap for the body

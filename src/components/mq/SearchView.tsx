@@ -1365,9 +1365,10 @@ function SearchSuggestions({
           onClick={() => onSelect({ kind: "search", label: query, icon: "search" })}
           className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
         >
-          <Search className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
+          <Search className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
           <span className="text-sm" style={{ color: "var(--mq-text)" }}>
-            Искать <span className="font-semibold" style={{ color: "var(--mq-accent)" }}>«{query}»</span>
+            {/* FINAL §19: the query is emphasis — weight, not red */}
+            Искать <span className="font-semibold">«{query}»</span>
           </span>
           <kbd className="ml-auto mq-t-meta-2 px-1.5 py-0.5 rounded border" style={{ borderColor: "var(--mq-border-thin)", color: "var(--mq-text-muted)" }}>Enter</kbd>
         </button>

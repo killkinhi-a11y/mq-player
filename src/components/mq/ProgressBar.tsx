@@ -259,13 +259,15 @@ function ProgressBarBase({
           )}
         </AnimatePresence>
 
-        {/* Progress fill — solid accent capsule */}
+        {/* Progress fill — LIQUID PLATINUM active progress (FINAL §7:
+            active progress is a platinum usage; kills the red-everywhere
+            fatigue). A flat color gradient — never a bevel. */}
         <div
           className="absolute left-0 rounded-full pointer-events-none"
           style={{
             height: isHot ? hotTrackHeight : trackHeight,
             width: `${progressPct}%`,
-            backgroundColor: "var(--mq-accent)",
+            background: "var(--mq-platinum-progress)",
             transition: isDragging ? "none" : "width 0.1s linear, height 0.15s ease",
           }}
         />
@@ -292,11 +294,11 @@ function ProgressBarBase({
             backgroundRepeat: "no-repeat",
             border: `2px solid ${
               isHot
-                ? "var(--mq-accent)"
+                ? "color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 85%, transparent)"
                 : "color-mix(in srgb, var(--mq-text-muted) 55%, var(--mq-card))"
             }`,
             boxShadow: isDragging
-              ? "var(--mq-shadow-accent-hover), 0 0 0 5px color-mix(in srgb, var(--mq-accent) 16%, transparent)"
+              ? "0 0 0 5px color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 16%, transparent)"
               : "var(--mq-shadow-sm)",
             opacity: isHot || alwaysShowThumb ? 1 : 0,
             transition:

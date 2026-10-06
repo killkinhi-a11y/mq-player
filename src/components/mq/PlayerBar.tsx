@@ -424,7 +424,9 @@ export default function PlayerBar() {
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="mq-t-meta-2 font-semibold uppercase tracking-wider" style={{ color: "var(--mq-accent)" }}>
+                          {/* FINAL §19: quiet label — "Далее" is context,
+                              not an alarm; accent red stays rare. */}
+                          <p className="mq-t-meta-2 font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                             Далее
                           </p>
                           <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>

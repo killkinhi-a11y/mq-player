@@ -1067,7 +1067,7 @@ export default function TasteProfileView() {
                   </div>
                   <p className="text-xs leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
                     Настройки настроений влияют на порядок треков в очереди и
-                    рекомендации в режиме "Моя волна". Энергичная музыка будет
+                    рекомендации в режиме WAVE. Энергичная музыка будет
                     чаще предлагаться в начале, уютная -- в конце дня.
                   </p>
                 </div>

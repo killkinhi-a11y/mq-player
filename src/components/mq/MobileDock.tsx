@@ -179,7 +179,7 @@ function MobileDockInner() {
           position: absolute;
           top: 0; left: 0; bottom: 0;
           width: 100%;
-          background: linear-gradient(90deg, color-mix(in srgb, var(--mq-platinum-lift, #343947) 85%, transparent), #cfd6e4);
+          background: var(--mq-platinum-progress);
           transform: scaleX(0);
           transform-origin: left center;
           will-change: transform;

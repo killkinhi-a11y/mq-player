@@ -1,26 +1,26 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   MQ V2.5 MATERIAL SYSTEM — Liquid Glass rebuild + Liquid Platinum
-   + surface hierarchy (L0–L4) + motion scale.
+   MQ MATERIAL SYSTEM — V2.5 base + FINAL VISUAL REFINEMENT.
+
+   FINAL REFINEMENT PRINCIPLES (hard rules):
+   - BUTTONS ARE FLAT. No 3D chrome, no bevels, no specular sweeps, no
+     pillowed neumorphism. A control reads as INTERFACE, not as a physical
+     object: tonal contrast + hairline edge + very subtle top light only.
+   - CARDS ARE SOLID. Opaque dark surfaces with a whisper of tonal
+     variation, hairline edge, quiet shadow. Never glass, never blurred.
+   - GLASS IS FOR FLOATING UI ONLY (nav, PlayerBar, mini player, dock,
+     menus, overlays). It is the material of the interactive layer.
+   - PLATINUM IS A COLOR, NOT A VOLUME: cold dark silver used sparingly
+     (primary play, active progress, WAVE identity, selected state).
 
    ⚠ PIPELINE CONTRACT (learned the hard way): the Lightning CSS pipeline
-   REMOVES @supports blocks it resolves as false, strips backdrop-filter
-   from stylesheets, and drops var() fallbacks containing color-mix().
-   Therefore this file uses ONLY: plain declarations, static color-mix in
-   var DEFINITIONS (values, not fallbacks), bare var() references.
-   backdrop-filter is set INLINE by the components that need it
-   (the established MenuCore pattern).
+     REMOVES @supports blocks it resolves as false, strips backdrop-filter
+     from stylesheets, and drops var() fallbacks containing color-mix().
+     Therefore this file uses ONLY: plain declarations, static color-mix in
+     var DEFINITIONS (values, not fallbacks), bare var() references.
+     backdrop-filter is set INLINE by the components that need it
+     (the established MenuCore pattern).
 
-   Principles (V2.5 spec):
-   - CONTENT > MATERIAL. Glass never competes with content.
-   - Glass is TRANSLUCENT / TINTED / DEPTH-AWARE / EDGE-LIT / CONTENT-AWARE:
-     lighter backdrop → darker veil; darker backdrop → lighter tint.
-     The adaptation is numeric and published by JS (WaveAmbientBackground
-     derives it from the live scene palette); the :root defaults below are
-     the correct values for the dark editorial backdrop.
-   - Liquid Platinum is RARE: primary playback controls, selected state,
-     hero action, Wave identity. Dark silver + cold white + blue/violet
-     reflection + soft specular highlight. No chrome-effect.
-   - Motion: MICRO 80–160ms / STANDARD 180–300ms / SIGNATURE 500–1000ms.
+   Motion: MICRO 80–160ms / STANDARD 180–300ms / SIGNATURE 500–1000ms.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
@@ -29,24 +29,26 @@
      Default = the dark editorial backdrop. */
   --mq-backdrop-lum: 0.09;
 
-  /* ── Liquid Glass v2 — content-aware tokens ───────────────────────────
+  /* ── Liquid Glass v2 — content-aware tokens (REFINED: quieter, denser) ──
      Static dark-backdrop defaults; WaveAmbientBackground overrides the
      tint/veil pair with JS-computed literals while the liquid scene is
      up. NO calc(), NO color-mix inside var() fallbacks (pipeline drops
-     those). Plain color-mix in the VALUE is fine and theme-aware. */
-  --mq-g2-tint: color-mix(in srgb, var(--mq-text) 7.5%, transparent);
+     those). Plain color-mix in the VALUE is fine and theme-aware.
+     FINAL PASS: sheen/edge highlights stepped down, blur 18→14 — glass
+     must read as a quiet material, not as a white plastic panel. */
+  --mq-g2-tint: color-mix(in srgb, var(--mq-text) 6.5%, transparent);
   --mq-g2-veil: rgba(3, 5, 10, 0.013);
-  --mq-g2-sheen: color-mix(in srgb, var(--mq-text) 5.5%, transparent);
-  --mq-g2-edge-hi: color-mix(in srgb, var(--mq-text) 17%, transparent);
-  --mq-g2-edge-mid: color-mix(in srgb, var(--mq-text) 7%, transparent);
-  --mq-g2-edge-lo: color-mix(in srgb, var(--mq-text) 3%, transparent);
+  --mq-g2-sheen: color-mix(in srgb, var(--mq-text) 4%, transparent);
+  --mq-g2-edge-hi: color-mix(in srgb, var(--mq-text) 13%, transparent);
+  --mq-g2-edge-mid: color-mix(in srgb, var(--mq-text) 6%, transparent);
+  --mq-g2-edge-lo: color-mix(in srgb, var(--mq-text) 2.5%, transparent);
   --mq-g2-inner:
-    inset 0 1px 0 color-mix(in srgb, var(--mq-text) 8%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--mq-text) 6%, transparent),
     inset 0 -1px 0 rgba(0, 0, 0, 0.16);
   --mq-g2-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.42),
-    0 2px 10px rgba(0, 0, 0, 0.24);
-  --mq-g2-blur: 18px;
+    0 10px 34px rgba(0, 0, 0, 0.38),
+    0 2px 8px rgba(0, 0, 0, 0.22);
+  --mq-g2-blur: 14px;
 
   /* ── Liquid Platinum palette (fixed, cold, premium) ─────────────────── */
   --mq-platinum-base: #22252d;      /* dark silver */
@@ -54,8 +56,14 @@
   --mq-platinum-hi: #e9edf5;        /* cold white specular */
   --mq-platinum-refl: #8fa3c8;      /* blue reflection */
   --mq-platinum-violet: #a48fc4;    /* violet reflection (secondary) */
+  /* Active progress — the one-look platinum gradient (fill for seek bars
+     and progress strips; a COLOR, never a bevel). */
+  --mq-platinum-progress:
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--mq-platinum-lift) 85%, transparent),
+      #cfd6e4);
 
-  /* ── Motion scale (V2.5) ────────────────────────────────────────────────
+  /* ── Motion scale ────────────────────────────────────────────────────────
      MICRO 80–160ms: hovers, presses, focus rings, small reveals.
      STANDARD 180–300ms: menu open, surface state change, tab switch.
      SIGNATURE 500–1000ms: mode transitions, artwork crossfade, wave scenes.
@@ -67,63 +75,84 @@
   --mq-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);   /* symmetric moves */
   --mq-ease-press: cubic-bezier(0.4, 0, 0.2, 1);      /* tactile press */
 
-  /* ── Surface hierarchy tokens (V2.5) ───────────────────────────────────
+  /* ── Surface hierarchy tokens (FINAL: SOLID cards) ──────────────────────
      L0 page canvas — nothing (theme bg + ambient).
-     L1 ambient surface — barely-there grouping, no border, no shadow.
-     L2 content surface — hairline edge, quiet fill.
-     L3 interactive surface — hover lift, edge brightens.
-     L4 floating control — Liquid Glass v2, real elevation. */
-  --mq-mat-1-bg: color-mix(in srgb, var(--mq-text) 2.5%, transparent);
-  --mq-mat-2-bg: color-mix(in srgb, var(--mq-text) 4%, transparent);
+     L1 ambient surface — barely-there OPAQUE grouping, no border/shadow.
+     L2 content surface — solid card: opaque fill, hairline edge, quiet
+       shadow. A card must be a SELF-SUFFICIENT surface (ПЛОТНАЯ), never
+       a transparent tint over the ambient and never glass.
+     L3 interactive surface — solid card + hover tonal lift (no 3D).
+     L4 floating control — Liquid Glass v2, real elevation.
+     Mixed with var(--mq-bg) → OPAQUE in every theme. */
+  --mq-mat-1-bg: color-mix(in srgb, var(--mq-text) 3%, var(--mq-bg));
+  --mq-mat-2-bg: color-mix(in srgb, var(--mq-text) 4.5%, var(--mq-bg));
   --mq-mat-2-edge: color-mix(in srgb, var(--mq-text) 6%, transparent);
-  --mq-mat-3-bg: color-mix(in srgb, var(--mq-text) 5.5%, transparent);
-  --mq-mat-3-bg-hover: color-mix(in srgb, var(--mq-text) 8%, transparent);
-  --mq-mat-3-edge: color-mix(in srgb, var(--mq-text) 9%, transparent);
-  --mq-mat-3-edge-hover: color-mix(in srgb, var(--mq-text) 14%, transparent);
+  --mq-mat-2-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.18),
+    0 6px 20px rgba(0, 0, 0, 0.14);
+  --mq-mat-3-bg: color-mix(in srgb, var(--mq-text) 6%, var(--mq-bg));
+  --mq-mat-3-bg-hover: color-mix(in srgb, var(--mq-text) 8.5%, var(--mq-bg));
+  --mq-mat-3-edge: color-mix(in srgb, var(--mq-text) 8%, transparent);
+  --mq-mat-3-edge-hover: color-mix(in srgb, var(--mq-text) 13%, transparent);
+  --mq-mat-3-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    0 8px 26px rgba(0, 0, 0, 0.18);
+
+  /* ── Radius scale (FINAL: quiet modern corners, no pill-everything) ────
+     small rows/covers 10–14 · cards 14–18 · large surfaces 18–22 ·
+     pill ONLY for genuinely pill-shaped controls. */
+  --mq-mat-radius-sm: 12px;
   --mq-mat-radius: 14px;
+  --mq-mat-radius-lg: 20px;
   --mq-mat-radius-float: 18px;
 }
 
 /* ── Surface level classes ──────────────────────────────────────────────── */
 
-/* L1 — ambient grouping: no border, no shadow, melts into the page.
-   Use instead of a bordered card when you only need visual grouping. */
+/* L1 — ambient grouping: opaque, borderless, shadowless; melts into the
+   page while still being a real surface (no transparent tint flicker
+   over the ambient, no see-through text collision). */
 .mq-mat-1 {
   background: var(--mq-mat-1-bg);
   border-radius: var(--mq-mat-radius);
 }
 
-/* L2 — content surface: hairline edge, quiet fill, no elevation. */
+/* L2 — CONTENT CARD: solid surface, hairline edge, quiet shadow. */
 .mq-mat-2 {
   background: var(--mq-mat-2-bg);
   border: 1px solid var(--mq-mat-2-edge);
   border-radius: var(--mq-mat-radius);
+  box-shadow: var(--mq-mat-2-shadow);
 }
 
-/* L3 — interactive surface: hover lifts the fill and the edge (MICRO). */
+/* L3 — INTERACTIVE CARD: hover lifts the TONE (fill + edge), never 3D. */
 .mq-mat-3 {
   background: var(--mq-mat-3-bg);
   border: 1px solid var(--mq-mat-3-edge);
   border-radius: var(--mq-mat-radius);
+  box-shadow: var(--mq-mat-3-shadow);
   transition:
     background-color var(--mq-mo-micro) var(--mq-ease-out),
     border-color var(--mq-mo-micro) var(--mq-ease-out),
-    transform var(--mq-mo-micro) var(--mq-ease-out),
-    box-shadow var(--mq-mo-micro) var(--mq-ease-out);
+    transform var(--mq-mo-micro) var(--mq-ease-press),
+    filter var(--mq-mo-micro) var(--mq-ease-out);
 }
 .mq-mat-3:hover {
   background: var(--mq-mat-3-bg-hover);
   border-color: var(--mq-mat-3-edge-hover);
 }
-.mq-mat-3:active { transform: scale(0.985); }
+/* Press = tactile feedback (allowed), never a 3D lift. */
+.mq-mat-3:active { transform: scale(0.99); filter: brightness(0.97); }
 
-/* ═════════════════════════════════════════════════════════════════════════
-   LIQUID GLASS v2 — content-aware, edge-lit, restrained.
-   The layered background (specular sheen → dark veil → tint) + the
-   edge-lit hairline + inner light + floating shadow. The BLUR itself is
-   NOT here — the pipeline strips stylesheet backdrop-filter, so each
-   glass surface sets it INLINE (MenuCore pattern).
-   ═════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════
+   LIQUID GLASS v2 — refined: the material of the FLOATING layer only
+   (top nav, PlayerBar capsule, mini player, mobile dock, menus,
+   overlays, transient panels). The layered background (specular sheen →
+   dark veil → tint) + the edge-lit hairline + inner light + floating
+   shadow. The BLUR itself is NOT here — the pipeline strips stylesheet
+   backdrop-filter, so each glass surface sets it INLINE (MenuCore
+   pattern).
+   ═══════════════════════════════════════════════════════════════════════ */
 
 .mq-glass2 {
   position: relative;
@@ -163,58 +192,39 @@
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--mq-text) 6%, transparent);
 }
 
-/* ═════════════════════════════════════════════════════════════════════════
-   LIQUID PLATINUM — rare signature material.
-   Dark silver body, cold white specular top edge, blue/violet reflection
-   band, soft inner light. Use ONLY: primary playback control, selected
-   state, hero action, Wave identity, active seek fill.
-   ═════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════
+   LIQUID PLATINUM — the signature ACCENT, flat and cold.
+   FINAL REFINEMENT: platinum is a COLOR LANGUAGE (dark cold silver +
+   one hairline of light), NOT a physical chrome object. No radial
+   specular, no reflection band, no bevel shadows, no hover sweep.
+   Use ONLY: primary playback control, active progress, WAVE identity,
+   selected state, key navigation accent.
+   ═══════════════════════════════════════════════════════════════════════ */
 
 .mq-platinum-btn {
   position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  border: none;
+  border: 1px solid color-mix(in srgb, var(--mq-platinum-hi) 22%, transparent);
   cursor: pointer;
   color: #f4f6fa;
-  background:
-    /* violet-blue reflection band, low, like light caught on a bevel */
-    linear-gradient(168deg,
-      transparent 32%,
-      color-mix(in srgb, var(--mq-platinum-refl) 32%, transparent) 46%,
-      color-mix(in srgb, var(--mq-platinum-violet) 18%, transparent) 54%,
-      transparent 70%),
-    /* cold white specular falling from the top edge — the platinum signature */
-    radial-gradient(130% 90% at 30% -14%,
-      color-mix(in srgb, var(--mq-platinum-hi) 38%, transparent) 0%,
-      color-mix(in srgb, var(--mq-platinum-hi) 10%, transparent) 42%,
-      transparent 62%),
-    /* dark silver body with a lit shoulder → deep base */
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--mq-platinum-hi) 20%, var(--mq-platinum-lift)) 0%,
-      var(--mq-platinum-lift) 24%,
-      var(--mq-platinum-base) 60%,
-      color-mix(in srgb, var(--mq-platinum-base) 68%, #04050a) 100%);
+  /* Flat cold metal: a quiet vertical tonal shift — read as material
+     temperature, not as volume. Two flat stops, no lit shoulder. */
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--mq-platinum-hi) 11%, var(--mq-platinum-lift)) 0%,
+    var(--mq-platinum-base) 100%);
+  /* ONE very subtle top light (allowed) + a soft drop shadow to seat the
+     control on the surface. No inner bevel, no bottom rim. */
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.30),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
-    0 6px 18px rgba(0, 0, 0, 0.38),
-    0 1px 4px rgba(0, 0, 0, 0.3);
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 10px rgba(0, 0, 0, 0.32);
   transition:
     transform var(--mq-mo-micro) var(--mq-ease-press),
-    box-shadow var(--mq-mo-micro) var(--mq-ease-out),
+    border-color var(--mq-mo-micro) var(--mq-ease-out),
     filter var(--mq-mo-micro) var(--mq-ease-out);
 }
 
 .mq-platinum-btn:hover {
-  filter: brightness(1.07);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
-    0 8px 24px rgba(0, 0, 0, 0.44),
-    0 2px 6px rgba(0, 0, 0, 0.32);
+  border-color: color-mix(in srgb, var(--mq-platinum-hi) 30%, transparent);
+  filter: brightness(1.05);
 }
 
 .mq-platinum-btn:active {
@@ -225,42 +235,14 @@
 .mq-platinum-btn:focus-visible {
   outline: none;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
     0 0 0 2px var(--mq-bg),
     0 0 0 4px color-mix(in srgb, var(--mq-platinum-hi) 70%, transparent),
-    0 6px 18px rgba(0, 0, 0, 0.38);
+    0 2px 10px rgba(0, 0, 0, 0.32);
 }
 
-/* Specular sweep — a thin cold light bar glides across on hover
-   (SIGNATURE-family, transform-only, compositor friendly). */
-.mq-platinum-btn::after {
-  content: "";
-  position: absolute;
-  top: -22%;
-  bottom: -22%;
-  left: -34%;
-  width: 26%;
-  border-radius: 999px;
-  background: linear-gradient(100deg,
-    transparent,
-    color-mix(in srgb, var(--mq-platinum-hi) 34%, transparent) 48%,
-    color-mix(in srgb, var(--mq-platinum-refl) 20%, transparent) 62%,
-    transparent);
-  transform: translateX(-160%) skewX(-14deg);
-  opacity: 0;
-  pointer-events: none;
-  z-index: -1;
-}
-
-.mq-platinum-btn:hover::after {
-  opacity: 1;
-  transition: opacity 120ms ease-out;
-  animation: mq-platinum-sweep 900ms var(--mq-ease-out) forwards;
-}
-
-@keyframes mq-platinum-sweep {
-  from { transform: translateX(-160%) skewX(-14deg); }
-  to   { transform: translateX(520%) skewX(-14deg); }
+/* Disabled — flat and honest, no dim-glow theatrics. */
+.mq-platinum-btn:disabled {
+  filter: saturate(0.6) brightness(0.8);
 }
 
 /* Platinum identity line — selected state / Wave identity mark.
@@ -285,12 +267,12 @@
   color: transparent;
 }
 
-/* ═════════════════════════════════════════════════════════════════════════
-   TYPOGRAPHY V2.5 additions
-   ═════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════
+   TYPOGRAPHY
+   ═══════════════════════════════════════════════════════════════════════ */
 
 /* Reason — "why this track". A quiet secondary element, never a pill,
-   never a badge. Reads as editorial context, not status. */
+   never a badge, never in the accent color. Editorial context. */
 .mq-t-reason {
   font-family: var(--mq-font-primary);
   font-size: 12px;
@@ -311,16 +293,14 @@
   user-select: none;
 }
 
-/* ═════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    REDUCED MOTION — freeze material motion, keep the materials.
-   ═════════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 @media (prefers-reduced-motion: reduce) {
-  .mq-platinum-btn,
-  .mq-platinum-btn::after {
+  .mq-platinum-btn {
     transition: none;
-    animation: none;
   }
   .mq-platinum-btn:active { transform: none; filter: brightness(0.9); }
   .mq-mat-3 { transition: none; }
-  .mq-mat-3:active { transform: none; }
+  .mq-mat-3:active { transform: none; filter: none; }
 }

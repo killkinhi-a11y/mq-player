@@ -472,16 +472,19 @@ function MainView() {
             </p>
           </div>
           {/* Compact wave pill — real radio state. On phones it yields to the
-              hero's own wave CTA when nothing is playing (one primary action). */}
+              hero's own wave CTA when nothing is playing (one primary action).
+              FINAL §17: quiet control — no border at rest, tonal fill only
+              (small visual footprint; the 44px invisible halo stays). */}
           <button
             onClick={() => (wave.radioMode ? wave.pauseWave() : wave.startWave())}
             disabled={wave.waveLoading}
-            className={`shrink-0 ${currentTrack ? "flex" : "hidden lg:flex"} items-center gap-2 rounded-full pl-3 pr-4 h-11 transition-all`}
+            className={`shrink-0 ${currentTrack ? "flex" : "hidden lg:flex"} items-center gap-2 rounded-full pl-3 pr-4 h-11 transition-all mq-icon-btn`}
+            data-active={wave.radioMode}
             style={{
+              ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-accent) 14%, transparent)",
               backgroundColor: wave.radioMode
-                ? "color-mix(in srgb, var(--mq-accent) 16%, transparent)"
-                : "var(--mq-card)",
-              border: `1px solid ${wave.radioMode ? "color-mix(in srgb, var(--mq-accent) 40%, transparent)" : "var(--mq-border-thin)"}`,
+                ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)"
+                : "color-mix(in srgb, var(--mq-text) 5%, transparent)",
             }}
             aria-label={wave.radioMode ? "Пауза WAVE" : "Запустить WAVE"}
           >
@@ -752,6 +755,7 @@ function MainView() {
                 style={{
                   backgroundColor: "var(--mq-mat-2-bg)",
                   border: "1px solid var(--mq-mat-2-edge)",
+                  boxShadow: "var(--mq-mat-2-shadow)",
                 }}
                 onClick={() => {
                   if (f.scTrackId) {
@@ -1042,10 +1046,12 @@ function FeaturedCard({
       style={{
         /* V2.5 LEVEL 3 interactive surface: quiet fill + hairline edge.
            The old 3px solid accent bar is replaced by a 2px LIQUID
-           PLATINUM light edge (hero action = rare material). */
+           PLATINUM light edge (hero action = rare material).
+           FINAL: solid fill + the quiet interactive-card shadow. */
         backgroundColor: "var(--mq-mat-3-bg)",
         border: "1px solid var(--mq-mat-3-edge)",
         borderRadius: "var(--mq-mat-radius-float, 18px)",
+        boxShadow: "var(--mq-mat-3-shadow)",
       }}
       aria-label={`Рекомендованный трек: ${track.title}`}
     >
@@ -1077,9 +1083,14 @@ function FeaturedCard({
             </div>
           )}
           {isPlaying && (
-            <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ backgroundColor: "rgba(0,0,0,0.55)" }}>
+            /* FINAL §12: the equalizer alone carries now-playing — no text
+               badge on top of the artwork. */
+            <div
+              className="absolute bottom-2 left-2 flex items-center justify-center w-7 h-7 rounded-full"
+              style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+              aria-hidden="true"
+            >
               <NowPlayingEqualizer />
-              <span className="mq-t-meta-2" style={{ color: "#fff" }}>играет</span>
             </div>
           )}
         </button>
@@ -1087,7 +1098,9 @@ function FeaturedCard({
         {/* Info + actions */}
         <div className="flex-1 min-w-0 p-4 sm:p-5 lg:p-6 flex flex-col justify-center gap-3">
           <div>
-            <p className="mq-t-label mb-1.5" style={{ color: "var(--mq-accent)" }}>
+            {/* FINAL: reason reads as quiet editorial context (§19 — accent
+                stays rare; the red eyebrow was shouting over the title). */}
+            <p className="mq-t-label mb-1.5" style={{ color: "var(--mq-text-muted)" }}>
               {reason}
             </p>
             <h2 className="mq-t-display text-xl sm:text-2xl lg:text-[1.75rem] line-clamp-2" style={{ color: "var(--mq-text)" }}>
@@ -1190,7 +1203,7 @@ function ContinueListeningCard({
   return (
     <div
       className="rounded-[var(--mq-mat-radius,14px)] p-4 sm:p-5 flex items-center gap-4 min-w-0"
-      style={{ backgroundColor: "var(--mq-mat-2-bg)", border: "1px solid var(--mq-mat-2-edge)" }}
+      style={{ backgroundColor: "var(--mq-mat-2-bg)", border: "1px solid var(--mq-mat-2-edge)", boxShadow: "var(--mq-mat-2-shadow)" }}
     >
       <button
         onClick={onToggle}
@@ -1345,7 +1358,7 @@ function MobileNowHero({
     <section data-mq-hero className="mb-4" aria-label={isNow ? "Текущий трек" : "Рекомендация"}>
       <div
         className="relative rounded-[var(--mq-mat-radius,14px)] flex items-center gap-3 pl-2.5 pr-2 py-2.5 overflow-hidden"
-        style={{ backgroundColor: "var(--mq-mat-2-bg)", border: "1px solid var(--mq-mat-2-edge)" }}
+        style={{ backgroundColor: "var(--mq-mat-2-bg)", border: "1px solid var(--mq-mat-2-edge)", boxShadow: "var(--mq-mat-2-shadow)" }}
       >
         {/* Artwork — tap opens the full player (immersive layer lives there) */}
         <button
@@ -1380,7 +1393,9 @@ function MobileNowHero({
         >
           <p
             className="mq-t-label truncate mb-0.5"
-            style={{ color: isNow ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
+            /* FINAL §19: reason is secondary context — muted, never accent.
+               The equalizer on the artwork already says now-playing. */
+            style={{ color: "var(--mq-text-muted)" }}
           >
             {isNow
               ? waveReasonText(hero)
@@ -1402,8 +1417,9 @@ function MobileNowHero({
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
             onClick={isNow ? onToggle : onPlayFallback}
-            className="w-11 h-11 rounded-full flex items-center justify-center transition-transform"
-            style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
+            /* FINAL §1+§7: primary play = FLAT Liquid Platinum (interface,
+               not a physical object). The old red disc read loud + generic. */
+            className="mq-platinum-btn w-11 h-11 rounded-full flex items-center justify-center"
             aria-label={isNow ? (isPlaying ? "Пауза" : "Продолжить") : "Слушать"}
           >
             {isNow && isPlaying ? (
@@ -1436,7 +1452,7 @@ function MobileNowHero({
             aria-valuemax={100}
             aria-label="Прогресс трека"
           >
-            <div className="h-full" style={{ width: `${pct}%`, backgroundColor: "var(--mq-accent)" }} />
+            <div className="h-full" style={{ width: `${pct}%`, background: "var(--mq-platinum-progress)" }} />
           </div>
         )}
       </div>
@@ -1690,9 +1706,11 @@ function CompactTrackCard({
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPlay(); } }}
       className="group flex-shrink-0 w-[124px] sm:w-[136px] text-left rounded-[var(--mq-mat-radius,14px)] overflow-hidden transition-[border-color] duration-150 cursor-pointer"
       style={{
-        /* V2.5: L2 content surface — hairline edge instead of full card chrome */
+        /* V2.5: L2 content surface — hairline edge instead of full card chrome.
+           FINAL: + the quiet card shadow (solid surfaces sit on the page). */
         backgroundColor: "var(--mq-mat-2-bg)",
         border: `1px solid ${isCurrent ? "color-mix(in srgb, var(--mq-accent) 35%, transparent)" : "var(--mq-mat-2-edge)"}`,
+        boxShadow: "var(--mq-mat-2-shadow)",
       }}
       onClick={onPlay}
       aria-label={`Играть ${track.title}`}

@@ -153,10 +153,13 @@
   --mq-border-subtle: rgba(255,255,255,0.06);  /* hairline borders */
   --mq-border-default: rgba(255,255,255,0.1);   /* standard borders */
 
-  /* P2.4: Container widths — consistent max-width across views */
-  --mq-container-narrow: 640px;   /* Settings, Profile */
-  --mq-container-base: 768px;     /* Library, Favorites, Search */
-  --mq-container-wide: 1024px;    /* Main, Messenger */
+  /* P2.4: Container widths — consistent max-width across views.
+     FINAL REFINEMENT: wide 1024→1200 (Home/Messenger filled only ~2/3 of
+     ≥1440 viewports — a dead right-side void); narrow 640→760 (Library/
+     Favorites/History lists get breathing room without going dashboard-wide). */
+  --mq-container-narrow: 760px;   /* Settings, Profile, Library lists */
+  --mq-container-base: 880px;     /* Favorites, Search */
+  --mq-container-wide: 1200px;    /* Main, Messenger */
 
   /* Dynamic Color System — album art reactive */
   --mq-accent-rgb: 224,49,49;

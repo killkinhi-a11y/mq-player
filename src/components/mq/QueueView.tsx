@@ -307,11 +307,13 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
               {/* Current track / Now playing — enhanced */}
               {currentTrack && (
                 <div className="px-4 pt-3 pb-2">
+                  {/* FINAL §12: no now-playing status eyebrow — the card
+                      itself + equalizer say it; quiet label only. */}
                   <p
                     className="mq-text-eyebrow mb-2"
-                    style={{ color: "var(--mq-accent)" }}
+                    style={{ color: "var(--mq-text-muted)" }}
                   >
-                    Сейчас играет
+                    Текущий трек
                   </p>
                   <NowPlayingCard
                     track={currentTrack}
@@ -558,9 +560,11 @@ function NowPlayingCard({
 
       {/* Info */}
       <div className="flex-1 min-w-0">
+        {/* FINAL §19: a track title is PRIMARY content — normal text color,
+            never the accent. */}
         <p
           className="text-sm font-semibold truncate"
-          style={{ color: "var(--mq-accent)" }}
+          style={{ color: "var(--mq-text)" }}
         >
           {track.title}
         </p>

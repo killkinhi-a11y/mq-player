@@ -117,7 +117,7 @@ const NavBar = React.memo(function NavBar() {
         margin: scrolled ? "8px 16px 0" : "10px 16px 0",
         right: "auto",
         width: "calc(100% - 32px)",
-        borderRadius: "var(--mq-r-card-lg)",
+        borderRadius: "var(--mq-mat-radius-float, 18px)",
         /* V2.5: Liquid Glass v2 material (mq-glass2 class) — backdrop-aware
            tint, edge-lit hairline. INLINE blur + shadow (pipeline strips
            stylesheet backdrop-filter; inline wins over the class). */
@@ -157,12 +157,14 @@ const NavBar = React.memo(function NavBar() {
         </span>
       </button>
 
-      {/* ── Nav (center) — segmented tabs ── */}
+      {/* ── Nav (center) — segmented tabs. FINAL: de-boxed — no inner
+          container border (box-in-box inside the glass navbar); a whisper
+          tonal seat, and the active tab reads through fill + weight. ── */}
       <nav
         className="flex items-center gap-0.5 p-1 rounded-full"
         role="navigation"
         aria-label="Основная навигация"
-        style={{ background: "var(--mq-surface-2)", border: "1px solid var(--mq-edge)" }}
+        style={{ background: "color-mix(in srgb, var(--mq-text) 3.5%, transparent)" }}
       >
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -186,12 +188,11 @@ const NavBar = React.memo(function NavBar() {
               data-active={isActive}
               style={{
                 color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)",
-                ["--mq-active-bg" as string]: "var(--mq-bg)",
-                transition: "color 0.15s ease, border-color 0.15s ease",
+                ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-text) 8%, transparent)",
+                transition: "color 0.15s ease, background-color 0.15s ease",
                 fontSize: 13,
                 fontWeight: isActive ? 600 : 500,
                 minHeight: 34,
-                border: "1px solid " + (isActive ? "var(--mq-edge-strong)" : "transparent"),
               }}
             >
               <Icon className="w-4 h-4" strokeWidth={isActive ? 2.2 : 1.8} />

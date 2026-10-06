@@ -562,7 +562,7 @@ export default function FullTrackView() {
       {/* Phase 4B: artwork depth = grounded shadow + inner hairline.
           No premium shadow stack. */}
       <div
-        className="w-full h-full rounded-3xl overflow-hidden relative"
+        className="w-full h-full rounded-[20px] overflow-hidden relative"
         style={{
           boxShadow: "var(--mq-art-shadow), var(--mq-art-edge)",
         }}
@@ -576,14 +576,14 @@ export default function FullTrackView() {
           )}
           {/* Audio Visualizer overlay — WebGL-style particle sphere */}
           {showVisualizer && (
-            <div className="absolute inset-0 rounded-3xl overflow-hidden" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+            <div className="absolute inset-0 rounded-[20px] overflow-hidden" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
               <AudioVisualizer isPlaying={isPlaying} />
             </div>
           )}
           {/* Subtle playing indicator — static accent ring (CSS) */}
           {isPlaying && (
             <div
-              className="absolute inset-0 rounded-3xl pointer-events-none"
+              className="absolute inset-0 rounded-[20px] pointer-events-none"
               style={{ boxShadow: "inset 0 0 0 2px color-mix(in srgb, var(--mq-accent) 30%, transparent)" }}
             />
           )}
@@ -1503,7 +1503,8 @@ export default function FullTrackView() {
                         >
                           Очередь
                           {upcomingAll.length > 0 && (
-                            <span className="mq-t-meta-2 font-semibold px-1.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)", color: "var(--mq-accent)" }}>
+                            /* FINAL §12: plain muted count — no red status pill on a tab */
+                            <span className="mq-t-meta-2 font-semibold" style={{ color: "var(--mq-text-muted)" }}>
                               {upcomingAll.length}
                             </span>
                           )}
@@ -1528,7 +1529,8 @@ export default function FullTrackView() {
                         >
                           История
                           {recentAll.length > 0 && (
-                            <span className="mq-t-meta-2 font-semibold px-1.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)", color: "var(--mq-accent)" }}>
+                            /* FINAL §12: plain muted count — no red status pill on a tab */
+                            <span className="mq-t-meta-2 font-semibold" style={{ color: "var(--mq-text-muted)" }}>
                               {recentAll.length}
                             </span>
                           )}
@@ -1616,7 +1618,8 @@ export default function FullTrackView() {
                                       <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
                                       <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
                                       {radioMode && track._reason && (
-                                        <p className="mq-t-meta-2 truncate" style={{ color: "var(--mq-accent)", opacity: 0.75 }}>{waveReasonText(track) || track._reason}</p>
+                                        /* FINAL §19: reason = quiet context, never red */
+                                        <p className="mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}>{waveReasonText(track) || track._reason}</p>
                                       )}
                                     </div>
                                     <span className="mq-t-num shrink-0 whitespace-nowrap" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>

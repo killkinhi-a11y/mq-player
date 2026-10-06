@@ -642,10 +642,13 @@ export default function SettingsView() {
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-left transition-colors duration-150 hover:bg-[var(--mq-overlay-hover)]"
                   style={{
-                    backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "transparent",
-                    color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                    /* FINAL §19: selected state = quiet tonal fill + the
+                        LIQUID PLATINUM line (selected state = platinum
+                        usage); red text on the active tab read as an error. */
+                    backgroundColor: isActive ? "color-mix(in srgb, var(--mq-text) 7%, transparent)" : "transparent",
+                    color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)",
                     borderTop: i > 0 ? "1px solid var(--mq-border-hairline)" : undefined,
-                    borderLeft: isActive ? "2px solid var(--mq-accent)" : "2px solid transparent",
+                    borderLeft: `2px solid ${isActive ? "color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 75%, var(--mq-platinum-refl, #8fa3c8))" : "transparent"}`,
                   }}
                   aria-current={isActive ? "true" : undefined}>
                   <Icon className="w-4 h-4" />
@@ -666,7 +669,7 @@ export default function SettingsView() {
               return (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                   className="flex items-center gap-1.5 px-2.5 sm:px-4 min-h-[44px] py-1.5 rounded-full mq-t-meta-2 sm:text-sm font-semibold whitespace-nowrap transition-colors duration-150 flex-shrink-0"
-                  style={{ background: isActive ? "var(--mq-accent)" : "transparent", color: isActive ? "#fff" : "var(--mq-text-muted)" }}>
+                  style={{ background: isActive ? "color-mix(in srgb, var(--mq-text) 12%, transparent)" : "transparent", color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)" }}>
                   <Icon className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">{tab.label}</span>
                   <span className="sm:hidden">{tab.labelShort}</span>

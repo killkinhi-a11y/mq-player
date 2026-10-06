@@ -156,10 +156,13 @@ describe("V2.5 §16 — cheap visual patterns purged", () => {
     expect(css).not.toContain(".liquid-glass-nav {");
   });
 
-  it("prefers-reduced-motion keeps materials usable (no sweep/press motion)", () => {
+  it("prefers-reduced-motion keeps materials usable (no press motion)", () => {
     const css = readSrc("src/styles/materials-v25.css");
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)/);
-    expect(css).toContain(".mq-platinum-btn::after");
+    // FINAL REFINEMENT: the specular sweep (::after + keyframes) was
+    // removed — buttons are flat; reduced-motion only freezes press/hover.
+    expect(css).not.toContain("mq-platinum-sweep");
+    expect(css).toMatch(/\.mq-platinum-btn:active \{ transform: none; filter: brightness\(0\.9\); \}/);
   });
 });
 
