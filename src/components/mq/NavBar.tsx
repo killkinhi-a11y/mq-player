@@ -110,7 +110,7 @@ const NavBar = React.memo(function NavBar() {
 
   return (
     <header
-      className="mq-glass2 hidden lg:flex fixed top-0 left-0 right-0 z-50 items-center justify-between"
+      className="mq-glass2 mq-glass2-nav hidden lg:flex fixed top-0 left-0 right-0 z-50 items-center justify-between"
       role="banner"
       data-scrolled={scrolled || undefined}
       style={{
@@ -140,7 +140,7 @@ const NavBar = React.memo(function NavBar() {
       {/* ── Brand (left) ── */}
       <button
         onClick={() => setView("main")}
-        className="flex items-center gap-2.5 cursor-pointer shrink-0 px-2 py-1 rounded-lg focus-visible:outline-2 focus-visible:outline-[var(--mq-accent)]"
+        className="flex items-center gap-2.5 cursor-pointer shrink-0 px-2 py-1 rounded-lg focus-visible:outline-2 focus-visible:outline-[color-mix(in_srgb,var(--mq-text)_55%,transparent)]"
         aria-label="MQ — на главную"
       >
         <div className="w-7 h-7 rounded-lg overflow-hidden flex items-center justify-center" style={{ background: "var(--mq-surface-2)" }}>
@@ -184,7 +184,7 @@ const NavBar = React.memo(function NavBar() {
               }}
               aria-label={item.label}
               aria-current={isActive ? "page" : undefined}
-              className="group relative flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-[var(--mq-accent)] mq-icon-btn"
+              className="group relative flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-[color-mix(in_srgb,var(--mq-text)_55%,transparent)] mq-icon-btn"
               data-active={isActive}
               style={{
                 color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)",
@@ -222,7 +222,7 @@ const NavBar = React.memo(function NavBar() {
           onClick={() => setNotifPanelOpen(!notifPanelOpen)}
           aria-label="Уведомления"
           aria-expanded={notifPanelOpen}
-          className={iconButtonBase + " focus-visible:outline-2 focus-visible:outline-[var(--mq-accent)]"}
+          className={iconButtonBase + " focus-visible:outline-2 focus-visible:outline-[color-mix(in_srgb,var(--mq-text)_55%,transparent)]"}
           style={{
             background: notifPanelOpen ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)" : "transparent",
             border: "1px solid " + (notifPanelOpen ? "color-mix(in srgb, var(--mq-accent) 25%, transparent)" : "transparent"),
@@ -246,7 +246,7 @@ const NavBar = React.memo(function NavBar() {
             onClick={() => window.open("/admin", "_self")}
             aria-label="Админ-панель"
             title="Админ-панель"
-            className={iconButtonBase + " focus-visible:outline-2 focus-visible:outline-[var(--mq-accent)]"}
+            className={iconButtonBase + " focus-visible:outline-2 focus-visible:outline-[color-mix(in_srgb,var(--mq-text)_55%,transparent)]"}
             style={{ color: "var(--mq-text-muted)" }}
           >
             <Shield className="w-[17px] h-[17px]" strokeWidth={1.8} />
@@ -257,7 +257,7 @@ const NavBar = React.memo(function NavBar() {
         <button
           onClick={() => setView("settings")}
           aria-label="Настройки"
-          className={iconButtonBase + " focus-visible:outline-2 focus-visible:outline-[var(--mq-accent)]"}
+          className={iconButtonBase + " focus-visible:outline-2 focus-visible:outline-[color-mix(in_srgb,var(--mq-text)_55%,transparent)]"}
           style={{
             background: isSettingsActive
               ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)"
@@ -283,7 +283,7 @@ const NavBar = React.memo(function NavBar() {
         <button
           onClick={() => setView("profile")}
           aria-label="Профиль"
-          className="relative flex items-center gap-2 pl-1 pr-3 py-1 rounded-full cursor-pointer transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-[var(--mq-accent)]"
+          className="relative flex items-center gap-2 pl-1 pr-3 py-1 rounded-full cursor-pointer transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-[color-mix(in_srgb,var(--mq-text)_55%,transparent)]"
           style={{
             background: isProfileActive
               ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)"

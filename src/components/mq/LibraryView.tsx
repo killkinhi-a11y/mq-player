@@ -135,7 +135,7 @@ const LibraryView = React.memo(function LibraryView() {
                 onClick={() => setActiveTab(tab.id)}
                 className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors relative cursor-pointer"
                 style={{
-                  color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                  color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)",
                   minHeight: 48,
                 }}
                 aria-current={isActive ? "page" : undefined}
@@ -148,9 +148,9 @@ const LibraryView = React.memo(function LibraryView() {
                     className="mq-t-meta-2 font-semibold px-1.5 py-0.5 rounded-full"
                     style={{
                       backgroundColor: isActive
-                        ? "color-mix(in srgb, var(--mq-accent) 18%, transparent)"
+                        ? "color-mix(in srgb, var(--mq-text) 10%, transparent)"
                         : "color-mix(in srgb, var(--mq-text-muted) 12%, transparent)",
-                      color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                      color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)",
                     }}
                   >
                     {tab.count}
@@ -162,7 +162,7 @@ const LibraryView = React.memo(function LibraryView() {
                     layoutId="libraryTabIndicator"
                     className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full"
                     style={{
-                      backgroundColor: "var(--mq-accent)",
+                      backgroundColor: "var(--mq-platinum-lift)",
                     }}
                     transition={{ type: "spring", stiffness: 350, damping: 30 }}
                   />

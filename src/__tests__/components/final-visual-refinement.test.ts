@@ -89,7 +89,7 @@ describe("FINAL §2+3 — cards are SOLID; glass stays on the floating layer", (
     const css = readSrc("src/styles/materials-v25.css");
     const blur = css.match(/--mq-g2-blur: (\d+)px/);
     expect(Number(blur![1])).toBeLessThanOrEqual(16);
-    expect(css).toContain("var(--mq-text) 4%, transparent)"); // sheen
+    expect(css).toContain("var(--mq-text) 4.5%, transparent)"); // sheen (DC value)
   });
 });
 

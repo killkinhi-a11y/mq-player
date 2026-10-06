@@ -135,8 +135,11 @@ describe("V2.5 §2 — dual ambient: calm editorial vs liquid WAVE", () => {
 
   it("globals define the editorial graphite/navy light pools", () => {
     const css = readSrc("src/app/globals.css");
-    expect(css).toContain("#9aa3b2 5%"); // graphite pool
-    expect(css).toContain("#3d4f78 6%"); // navy whisper
+    // DESIGN COMPLETION: the living editorial atmosphere — strengthened
+    // until VISIBLE on screenshots between dense cards (VLM-verified).
+    expect(css).toContain("#9aa3b2 16%"); // graphite pool
+    expect(css).toContain("#44598a 14%"); // cold navy whisper
+    expect(css).toContain("#2c3a67 12%"); // indigo breath
   });
 
   it("WaveHome's local wash reads the WAVE scene palette (--wave-color-*)", () => {

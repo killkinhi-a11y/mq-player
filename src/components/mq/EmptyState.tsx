@@ -89,8 +89,7 @@ export function EmptyState({ type, title, description, action }: EmptyStateProps
       </p>
       {action && (
         <button
-          className="mt-2 px-4 py-2 rounded-full text-sm font-semibold"
-          style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
+          className="mq-btn-neutral mt-2 px-4 py-2 rounded-full text-sm font-semibold"
           onClick={action.onClick}
         >
           {action.label}

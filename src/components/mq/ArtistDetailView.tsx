@@ -258,8 +258,8 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
             onClick={heroPlay}
             disabled={popular.length === 0}
             aria-label="Слушать"
-            className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-opacity"
-            style={{ background: "var(--mq-accent)", color: "#fff", opacity: popular.length ? 1 : 0.4 }}
+            className="mq-platinum-btn w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-opacity"
+            style={{ opacity: popular.length ? 1 : 0.4 }}
           >
             <Play className="w-4 h-4" fill="currentColor" />
           </button>
@@ -272,7 +272,7 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
         initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className={`relative overflow-hidden mb-6 lg:mb-8 ${compactMode ? "-mx-3" : "-mx-4"} lg:mx-0 lg:rounded-3xl`}
+        className={`relative overflow-hidden mb-6 lg:mb-8 ${compactMode ? "-mx-3" : "-mx-4"} lg:mx-0 lg:rounded-[var(--mq-mat-radius-lg)]`}
         style={{ background: heroGradient }}
       >
         {/* depth layer: blurred artwork under the gradient (real image) */}
@@ -306,8 +306,8 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
             <ArtistStats info={info} tracks={tracks.length} compact />
             <div className="flex items-center gap-2 mt-3.5">
               <button onClick={heroPlay} disabled={popular.length === 0}
-                className="flex-1 flex items-center justify-center gap-2 h-12 rounded-full mq-t-section font-bold transition-all"
-                style={{ background: "var(--mq-accent)", color: "#fff", opacity: popular.length ? 1 : 0.4, boxShadow: "0 6px 22px color-mix(in srgb, var(--mq-accent) 32%, transparent)" }}>
+                className="mq-platinum-btn flex-1 flex items-center justify-center gap-2 h-12 rounded-full mq-t-section font-bold transition-all"
+                style={{ opacity: popular.length ? 1 : 0.4 }}>
                 <Play className="w-5 h-5" fill="currentColor" /> Слушать
               </button>
               <button onClick={heroShuffle} disabled={popular.length === 0} aria-label="Перемешать"
@@ -345,14 +345,14 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
           <div className="flex-1 min-w-0 pb-1">
             <div className="flex items-center gap-2 mb-2">
               <span className="mq-t-meta-2 uppercase tracking-[0.16em] font-bold" style={{ color: "var(--mq-text-muted)" }}>Артист</span>
-              {info.verified && <BadgeCheck className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />}
+              {info.verified && <BadgeCheck className="w-4 h-4" style={{ color: "var(--mq-platinum-hi)" }} />}
             </div>
             <h1 className="mq-t-title text-white break-words" style={{ fontSize: "clamp(2.6rem, 5vw, 4.2rem)", fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1.02, textShadow: "0 4px 30px rgba(0,0,0,0.4)" }}>{artist.name}</h1>
             <ArtistStats info={info} tracks={tracks.length} />
             <div className="flex items-center gap-2.5 mt-6">
               <button onClick={heroPlay} disabled={popular.length === 0}
-                className="flex items-center gap-2 h-12 px-7 rounded-full mq-t-section font-bold transition-all hover:scale-[1.02]"
-                style={{ background: "var(--mq-accent)", color: "#fff", opacity: popular.length ? 1 : 0.4, boxShadow: "0 8px 28px color-mix(in srgb, var(--mq-accent) 34%, transparent)" }}>
+                className="mq-platinum-btn flex items-center gap-2 h-12 px-7 rounded-full mq-t-section font-bold transition-all hover:scale-[1.02]"
+                style={{ opacity: popular.length ? 1 : 0.4 }}>
                 <Play className="w-5 h-5" fill="currentColor" /> Слушать
               </button>
               <button onClick={heroShuffle} disabled={popular.length === 0} aria-label="Перемешать"
@@ -379,11 +379,11 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
       {loading ? (
         <ArtistSkeleton />
       ) : tracks.length === 0 ? (
-        <div className="text-center py-12 rounded-2xl mq-surface">
+        <div className="text-center py-12 rounded-[var(--mq-card-r-md)] mq-surface">
           <Music className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
           <p className="mq-t-title mq-t-section mb-1" style={{ color: "var(--mq-text)" }}>Треки не найдены</p>
           <p className="mq-t-meta mq-t-body mb-4">Попробуйте поискать вручную</p>
-          <button onClick={() => setView("search")} className="px-5 h-10 rounded-full mq-t-body font-bold" style={{ background: "var(--mq-accent)", color: "#fff" }}>Поиск</button>
+          <button onClick={() => setView("search")} className="mq-btn-neutral px-5 h-10 rounded-full mq-t-body font-bold">Поиск</button>
         </div>
       ) : (
         <>
@@ -424,7 +424,7 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="mq-t-title text-sm truncate" style={{ color: isCur ? "var(--mq-accent)" : "var(--mq-text)" }}>{track.title}</p>
+                      <p className="mq-t-title text-sm truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
                       <p className="mq-t-meta mq-t-meta truncate">
                         {plays ? <>{fmtPlays(plays)} прослушиваний</> : (track.album || track.artist)}
                       </p>
@@ -478,7 +478,7 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
                           <TrackMoreButton onOpen={(e) => openTrackMenu(track, e)} size="sm" label={`Действия: ${track.title}`} className="!text-white" />
                         </div>
                       </div>
-                      <p className="mq-t-title mq-t-body leading-snug line-clamp-2 mb-0.5" style={{ color: isCur ? "var(--mq-accent)" : "var(--mq-text)" }}>{track.title}</p>
+                      <p className="mq-t-title mq-t-body leading-snug line-clamp-2 mb-0.5" style={{ color: "var(--mq-text)" }}>{track.title}</p>
                       <p className="mq-t-meta mq-t-meta">{year ? `Сингл · ${year}` : "Сингл"}</p>
                     </div>
                   );
@@ -498,7 +498,7 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
                 style={{ scrollbarWidth: "none", scrollSnapType: "x mandatory" }}>
                 {similar.map(a => (
                   <div key={"sim_" + a.username} onClick={() => openSimilar(a)}
-                    className="group shrink-0 lg:shrink w-[104px] lg:w-auto flex flex-col items-center text-center gap-2.5 py-2 rounded-2xl hover:bg-[var(--mq-surface-1)] transition-colors px-1 cursor-pointer"
+                    className="group shrink-0 lg:shrink w-[104px] lg:w-auto flex flex-col items-center text-center gap-2.5 py-2 rounded-[var(--mq-card-r-md)] hover:bg-[var(--mq-surface-1)] transition-colors px-1 cursor-pointer"
                     style={{ scrollSnapAlign: "start" }}
                     role="button" tabIndex={0}
                     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSimilar(a); } }}

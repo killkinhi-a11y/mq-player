@@ -395,7 +395,7 @@ export default function FriendsView() {
 
           onClick={() => { setShowAddDialog(true); setSearchQuery(""); setFriendRequestStatus({}); }}
           className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-medium cursor-pointer"
-          style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
+          style={{ backgroundColor: "var(--mq-platinum-lift)", color: "#fff" }}
         >
           <UserPlus className="w-4 h-4" />
           Добавить
@@ -663,7 +663,7 @@ export default function FriendsView() {
 
             onClick={() => { setShowAddDialog(true); setSearchQuery(""); }}
             className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-medium cursor-pointer"
-            style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
+            style={{ backgroundColor: "var(--mq-platinum-lift)", color: "#fff" }}
           >
             <UserPlus className="w-4 h-4" />
             Добавить друга
@@ -774,7 +774,7 @@ export default function FriendsView() {
                             onClick={() => sendFriendRequest(user.id)}
                             disabled={actionLoading === user.id}
                             className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer min-h-[44px]"
-                            style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
+                            style={{ backgroundColor: "var(--mq-platinum-lift)", color: "#fff" }}
                           >
                             {actionLoading === user.id ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -908,7 +908,7 @@ function FriendCard({
 
           onClick={onMessage}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer min-h-[40px] transition-colors"
-          style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
+          style={{ backgroundColor: "var(--mq-platinum-lift)", color: "#fff" }}
         >
           <MessageCircle className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Написать</span>

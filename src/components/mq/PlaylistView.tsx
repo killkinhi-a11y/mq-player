@@ -523,7 +523,7 @@ export default function PlaylistView() {
           <div
             aria-hidden
             className="absolute inset-x-0 top-0 h-48 sm:h-56"
-            style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 8%, transparent)" }}
+            style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 5%, transparent)" }}
           />
 
           <div className="relative p-4 sm:p-6 lg:p-8 flex flex-col sm:flex-row gap-5 sm:gap-7">
@@ -584,13 +584,13 @@ export default function PlaylistView() {
             <div className="flex-1 min-w-0 flex flex-col sm:justify-end">
               {/* Eyebrow */}
               <div className="flex items-center gap-2 mb-2">
-                <span className="mq-t-meta-2 uppercase tracking-[0.14em] font-bold" style={{ color: "var(--mq-accent)" }}>
+                <span className="mq-t-meta-2 uppercase tracking-[0.14em] font-bold" style={{ color: "var(--mq-text-muted)" }}>
                   Плейлист
                 </span>
                 {isPinned && (
                   <span
                     className="inline-flex items-center gap-1 mq-t-meta-2 font-semibold px-2 py-0.5 rounded-full"
-                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}
+                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)", color: "var(--mq-text)" }}
                   >
                     <Pin className="w-3 h-3" />
                     Закреплён
@@ -605,7 +605,7 @@ export default function PlaylistView() {
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                     className="flex-1 min-w-0 text-2xl sm:text-4xl font-extrabold tracking-tight rounded-xl px-3 py-2 outline-none"
-                    style={{ backgroundColor: "var(--mq-surface-2)", border: "1px solid var(--mq-accent)", color: "var(--mq-text)" }}
+                    style={{ backgroundColor: "var(--mq-surface-2)", border: "1px solid color-mix(in srgb, var(--mq-platinum-hi) 45%, transparent)", color: "var(--mq-text)" }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleConfirmRename();
                       if (e.key === "Escape") setEditingId(null);
@@ -614,7 +614,7 @@ export default function PlaylistView() {
                     maxLength={300}
                     aria-label="Новое название плейлиста"
                   />
-                  <button onClick={handleConfirmRename} className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }} aria-label="Сохранить название">
+                  <button onClick={handleConfirmRename} className="mq-platinum-btn w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center" aria-label="Сохранить название">
                     <Check className="w-4 h-4 text-white" />
                   </button>
                   <button onClick={() => setEditingId(null)} className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: "var(--mq-surface-2)", border: "1px solid var(--mq-edge)" }} aria-label="Отменить переименование">
@@ -672,10 +672,8 @@ export default function PlaylistView() {
                   whileHover={hoverProps({ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } })}
                   onClick={() => isPlPlaying ? togglePlay() : handlePlayAll(pl)}
                   disabled={pl.tracks.length === 0}
-                  className="flex items-center justify-center gap-2 flex-1 sm:flex-none sm:min-w-[150px] px-5 sm:px-6 py-3 rounded-full font-bold text-sm"
+                  className="mq-platinum-btn flex items-center justify-center gap-2 flex-1 sm:flex-none sm:min-w-[150px] px-5 sm:px-6 py-3 rounded-full font-bold text-sm"
                   style={{
-                    backgroundColor: "var(--mq-accent)",
-                    color: "var(--mq-text-on-accent, #fff)",
                     opacity: pl.tracks.length === 0 ? 0.45 : 1,
                     cursor: pl.tracks.length === 0 ? "default" : "pointer",
                   }}
@@ -707,7 +705,7 @@ export default function PlaylistView() {
                     onClick={() => handleTogglePin(pl.id)}
                     className="w-11 h-11 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]"
                     style={{
-                      color: isPinned ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                      color: isPinned ? "var(--mq-text)" : "var(--mq-text-muted)",
                       border: "1px solid var(--mq-edge)",
                       backgroundColor: "var(--mq-surface-1)",
                     }}
@@ -850,7 +848,7 @@ export default function PlaylistView() {
             whileHover={hoverProps({ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" } })}
             onClick={() => setShowCreate(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm"
-            style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
+            style={{ backgroundColor: "var(--mq-platinum-lift)", color: "#fff" }}
           >
             <Plus className="w-3.5 h-3.5" />
             Создать
@@ -921,7 +919,7 @@ export default function PlaylistView() {
                   disabled={!newName.trim()}
                   className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
                   style={{
-                    backgroundColor: newName.trim() ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
+                    backgroundColor: newName.trim() ? "var(--mq-platinum-lift)" : "rgba(255,255,255,0.06)",
                     color: newName.trim() ? "#fff" : "var(--mq-text-muted)",
                   }}
                 >
@@ -964,7 +962,7 @@ export default function PlaylistView() {
                   onClick={() => { setImportMode("url"); setImportError(""); setImportHint(""); }}
                   className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
                   style={{
-                    backgroundColor: importMode === "url" ? "var(--mq-accent)" : "transparent",
+                    backgroundColor: importMode === "url" ? "color-mix(in srgb, var(--mq-text) 10%, transparent)" : "transparent",
                     color: importMode === "url" ? "#fff" : "var(--mq-text-muted)",
                   }}
                 >
@@ -974,7 +972,7 @@ export default function PlaylistView() {
                   onClick={() => { setImportMode("text"); setImportError(""); setImportHint(""); setPublicImportUrl(""); }}
                   className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
                   style={{
-                    backgroundColor: importMode === "text" ? "var(--mq-accent)" : "transparent",
+                    backgroundColor: importMode === "text" ? "color-mix(in srgb, var(--mq-text) 10%, transparent)" : "transparent",
                     color: importMode === "text" ? "#fff" : "var(--mq-text-muted)",
                   }}
                 >
@@ -1015,7 +1013,7 @@ export default function PlaylistView() {
                           disabled={importing || !importUrl.trim()}
                           className="px-4 py-2.5 rounded-xl text-sm font-medium"
                           style={{
-                            backgroundColor: importUrl.trim() && !importing ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
+                            backgroundColor: importUrl.trim() && !importing ? "var(--mq-platinum-lift)" : "rgba(255,255,255,0.06)",
                             color: importUrl.trim() && !importing ? "#fff" : "var(--mq-text-muted)",
                           }}
                         >
@@ -1045,7 +1043,7 @@ export default function PlaylistView() {
                     disabled={importing || !importText.trim()}
                     className="w-full py-2.5 rounded-xl text-sm font-semibold"
                     style={{
-                      backgroundColor: importText.trim() && !importing ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
+                      backgroundColor: importText.trim() && !importing ? "var(--mq-platinum-lift)" : "rgba(255,255,255,0.06)",
                       color: importText.trim() && !importing ? "#fff" : "var(--mq-text-muted)",
                     }}
                   >
@@ -1058,7 +1056,7 @@ export default function PlaylistView() {
 
               {importing && importProgress && importMode === "url" && (
                 <div className="flex items-center gap-2">
-                  <Loader2 className="w-3 h-3 animate-spin" style={{ color: "var(--mq-accent)" }} />
+                  <Loader2 className="w-3 h-3 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
                   <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>{importProgress}</p>
                 </div>
               )}
@@ -1086,7 +1084,7 @@ export default function PlaylistView() {
                     <button
                       onClick={() => { setImportMode("text"); setImportError(""); setImportHint(""); }}
                       className="mt-2 mq-t-meta-2 font-semibold"
-                      style={{ color: "var(--mq-accent)" }}
+                      style={{ color: "var(--mq-text)" }}
                     >
                       Перейти к «Импорт текстом» →
                     </button>
@@ -1260,7 +1258,7 @@ function TrackRow({ track, index, isCurrent, isPlaying, isLiked, playlistId, onP
         <div className="flex-1 min-w-0">
           <p
             className="text-sm font-semibold truncate"
-            style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)", letterSpacing: "-0.01em" }}
+            style={{ color: "var(--mq-text)", letterSpacing: "-0.01em" }}
             title={`${track.title} — ${track.artist}`}
           >
             {track.title}
@@ -1393,7 +1391,7 @@ function PlaylistTile({
       role="button"
       tabIndex={0}
       aria-label={`Открыть плейлист ${pl.name}, ${pl.tracks.length} треков`}
-      className="group relative rounded-2xl p-3 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2"
+      className="group relative rounded-[var(--mq-mat-radius-float)] p-3 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2"
       style={{
         backgroundColor: "var(--mq-card)",
         border: "1px solid var(--mq-border-hairline)",
@@ -1440,11 +1438,7 @@ function PlaylistTile({
             whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
 
             onClick={onPlay}
-            className="absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity duration-300"
-            style={{
-              backgroundColor: "var(--mq-accent)",
-              boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
-            }}
+            className="mq-platinum-btn absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity duration-300"
           >
             {isCurrentPlaying ? (
               <NowPlayingEqualizer size="sm" variant="overlay" />
@@ -1460,7 +1454,7 @@ function PlaylistTile({
             className="absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center"
             style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)" }}
           >
-            <Pin className="w-3 h-3" style={{ color: "var(--mq-accent)" }} fill="currentColor" />
+            <Pin className="w-3 h-3" style={{ color: "rgba(255,255,255,0.85)" }} fill="currentColor" />
           </div>
         )}
 
@@ -1517,14 +1511,14 @@ function PlaylistTile({
             value={editName}
             onChange={(e) => onRenameChange(e.target.value)}
             className="flex-1 text-sm rounded-lg px-1.5 py-0.5 min-w-0 outline-none"
-            style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-accent)", color: "var(--mq-text)" }}
+            style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid color-mix(in srgb, var(--mq-platinum-hi) 45%, transparent)", color: "var(--mq-text)" }}
             onKeyDown={(e) => {
               if (e.key === "Enter") onRenameConfirm();
               if (e.key === "Escape") onRenameCancel();
             }}
             autoFocus
           />
-          <button onClick={onRenameConfirm} style={{ color: "var(--mq-accent)" }}>
+          <button onClick={onRenameConfirm} style={{ color: "var(--mq-text)" }}>
             <Check className="w-3.5 h-3.5" />
           </button>
         </div>

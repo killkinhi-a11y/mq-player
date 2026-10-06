@@ -349,11 +349,11 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                 <div
                   className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                   style={{
-                    backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)",
-                    border: "1px solid color-mix(in srgb, var(--mq-accent) 25%, transparent)",
+                    backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--mq-platinum-hi) 26%, transparent)",
                   }}
                 >
-                  <AudioWaveform className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+                  <AudioWaveform className="w-4 h-4" style={{ color: "var(--mq-text)" }} />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -369,16 +369,16 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                             ? "color-mix(in srgb, var(--mq-text-muted) 14%, transparent)"
                             : stateChip.tone === "custom"
                               ? "color-mix(in srgb, var(--mq-text) 12%, transparent)"
-                              : "color-mix(in srgb, var(--mq-accent) 16%, transparent)",
+                              : "color-mix(in srgb, var(--mq-text) 9%, transparent)",
                         color:
                           stateChip.tone === "muted"
                             ? "var(--mq-text-muted)"
                             : stateChip.tone === "custom"
                               ? "var(--mq-text)"
-                              : "var(--mq-accent)",
+                              : "var(--mq-text)",
                         border: `1px solid ${
                           stateChip.tone === "preset"
-                            ? "color-mix(in srgb, var(--mq-accent) 40%, transparent)"
+                            ? "color-mix(in srgb, var(--mq-platinum-hi) 30%, transparent)"
                             : "var(--mq-border-thin)"
                         }`,
                       }}
@@ -408,9 +408,9 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                   className="h-9 px-3 rounded-full flex items-center gap-2 text-xs font-semibold mq-icon-btn"
                   style={{
                     ["--mq-rest-bg" as string]: "var(--mq-glass-bg)",
-                    ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-accent) 16%, transparent)",
-                    border: `1px solid ${eqEnabled ? "color-mix(in srgb, var(--mq-accent) 45%, transparent)" : "var(--mq-border-thin)"}`,
-                    color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                    ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-text) 9%, transparent)",
+                    border: `1px solid ${eqEnabled ? "color-mix(in srgb, var(--mq-platinum-hi) 34%, transparent)" : "var(--mq-border-thin)"}`,
+                    color: eqEnabled ? "var(--mq-text)" : "var(--mq-text-muted)",
                   }}
                   role="switch"
                   aria-checked={eqEnabled}
@@ -469,11 +469,11 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                           className="px-3 min-h-[32px] sm:min-h-[30px] rounded-full text-xs font-medium mq-icon-btn"
                           style={{
                             ["--mq-rest-bg" as string]: "var(--mq-glass-bg)",
-                            ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-accent) 18%, transparent)",
+                            ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-text) 9%, transparent)",
                             border: isActive
-                              ? "1px solid color-mix(in srgb, var(--mq-accent) 45%, transparent)"
+                              ? "1px solid color-mix(in srgb, var(--mq-platinum-hi) 34%, transparent)"
                               : "1px solid var(--mq-border-thin)",
-                            color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                            color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)",
                           }}
                           data-active={isActive}
                           aria-pressed={isActive}
@@ -565,9 +565,9 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                         >
                           <defs>
                             <linearGradient id="eq-curve-fill" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="var(--mq-accent)" stopOpacity="0.30" />
-                              <stop offset="50%" stopColor="var(--mq-accent)" stopOpacity="0.10" />
-                              <stop offset="100%" stopColor="var(--mq-accent)" stopOpacity="0.30" />
+                              <stop offset="0%" stopColor="#cfd6e4" stopOpacity="0.30" />
+                              <stop offset="50%" stopColor="#cfd6e4" stopOpacity="0.10" />
+                              <stop offset="100%" stopColor="#cfd6e4" stopOpacity="0.30" />
                             </linearGradient>
                           </defs>
                           {curveZeroY > 0 && (
@@ -576,7 +576,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                           <path
                             d={curvePath}
                             fill="none"
-                            stroke="var(--mq-accent)"
+                            stroke="#cfd6e4"
                             strokeWidth="2"
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -612,7 +612,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                     aria-label="Мастер и выход"
                   >
                     <div className="flex items-center gap-2 mb-3.5" aria-hidden="true">
-                      <Gauge className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
+                      <Gauge className="w-3 h-3" style={{ color: "var(--mq-text)" }} />
                       <span className="mq-t-meta-2 font-bold tracking-[0.14em] uppercase" style={{ color: "var(--mq-text-muted)" }}>
                         Мастер · Выход
                       </span>
@@ -621,8 +621,8 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                       <span
                         className="px-2 py-0.5 rounded-full mq-t-meta-2 font-bold tracking-wide"
                         style={{
-                          backgroundColor: limiterEnabled ? "color-mix(in srgb, var(--mq-accent) 16%, transparent)" : "color-mix(in srgb, var(--mq-text-muted) 12%, transparent)",
-                          color: limiterEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                          backgroundColor: limiterEnabled ? "color-mix(in srgb, var(--mq-text) 9%, transparent)" : "color-mix(in srgb, var(--mq-text-muted) 12%, transparent)",
+                          color: limiterEnabled ? "var(--mq-text)" : "var(--mq-text-muted)",
                         }}
                       >
                         LIMITER {limiterEnabled ? "ON" : "OFF"}
@@ -681,7 +681,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                               className="absolute inset-x-0 top-0 origin-top"
                               style={{
                                 height: "100%",
-                                backgroundColor: "var(--mq-accent)",
+                                background: "var(--mq-platinum-progress)",
                                 opacity: 0.85,
                               }}
                             />
@@ -716,7 +716,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                           <div
                             ref={grBarHRef}
                             className="absolute inset-y-0 left-0 origin-left"
-                            style={{ width: "100%", backgroundColor: "var(--mq-accent)", opacity: 0.85 }}
+                            style={{ width: "100%", background: "var(--mq-platinum-progress)", opacity: 0.85 }}
                           />
                         </div>
                       </div>
@@ -739,10 +739,10 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                         <div
                           className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                           style={{
-                            backgroundColor: limiterEnabled ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)",
+                            backgroundColor: limiterEnabled ? "color-mix(in srgb, var(--mq-text) 8%, transparent)" : "var(--mq-glass-bg)",
                           }}
                         >
-                          <ShieldAlert className="w-3.5 h-3.5" style={{ color: limiterEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                          <ShieldAlert className="w-3.5 h-3.5" style={{ color: limiterEnabled ? "var(--mq-text)" : "var(--mq-text-muted)" }} />
                         </div>
                         <div className="min-w-0">
                           <p className="mq-t-body font-semibold" style={{ color: "var(--mq-text)" }}>Лимитер</p>
@@ -755,7 +755,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                         onClick={() => setLimiterEnabled(!limiterEnabled)}
                         className="relative w-11 h-6 rounded-full shrink-0 transition-colors"
                         style={{
-                          backgroundColor: limiterEnabled ? "var(--mq-accent)" : "var(--mq-border-thin)",
+                          backgroundColor: limiterEnabled ? "var(--mq-platinum-lift)" : "var(--mq-border-thin)",
                         }}
                         role="switch"
                         aria-checked={limiterEnabled}
@@ -798,7 +798,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                         aria-label="Порог лимитера"
                         title="Двойной клик — сброс на −1 дБ"
                         className="w-full h-1.5 rounded-full appearance-none cursor-pointer disabled:cursor-not-allowed"
-                        style={{ backgroundColor: "var(--mq-border-thin)", accentColor: "var(--mq-accent)" }}
+                        style={{ backgroundColor: "var(--mq-border-thin)", accentColor: "var(--mq-platinum-lift)" }}
                       />
                       <div className="flex justify-between mt-1 px-0.5 select-none" aria-hidden="true">
                         {[-12, -9, -6, -3, 0].map((v) => (
@@ -841,7 +841,7 @@ function Readout({ label, value, title, accent, dimmed, ref }: {
       className="rounded-xl px-3 py-2.5 min-w-0"
       style={{
         backgroundColor: "var(--mq-surface-2)",
-        border: `1px solid ${accent ? "color-mix(in srgb, var(--mq-accent) 30%, transparent)" : "var(--mq-edge)"}`,
+        border: `1px solid ${accent ? "color-mix(in srgb, var(--mq-platinum-hi) 30%, transparent)" : "var(--mq-edge)"}`,
         opacity: dimmed ? 0.6 : 1,
         transition: "opacity 200ms",
       }}
@@ -850,7 +850,7 @@ function Readout({ label, value, title, accent, dimmed, ref }: {
       <p className="mq-t-meta-2 font-bold tracking-[0.1em] uppercase leading-none mb-1" style={{ color: "var(--mq-text-muted)" }}>
         {label}
       </p>
-      <span ref={ref} className="mq-t-num font-bold block truncate leading-none" style={{ color: accent ? "var(--mq-accent)" : "var(--mq-text)", fontSize: 15 }}>
+      <span ref={ref} className="mq-t-num font-bold block truncate leading-none" style={{ color: accent ? "var(--mq-text)" : "var(--mq-text)", fontSize: 15 }}>
         {value}
       </span>
     </div>
@@ -953,7 +953,7 @@ function MasterFaderV({ volume, onChange, masterDb }: {
           style={{
             height: (1 - capTop / TRACK_HEIGHT) * TRACK_HEIGHT,
             width: 6,
-            backgroundColor: "var(--mq-accent)",
+            background: "var(--mq-platinum-progress)",
             opacity: isDragging ? 1 : 0.9,
             transition: isDragging ? "none" : "height 120ms cubic-bezier(0.4,0,0.2,1)",
           }}
@@ -966,9 +966,9 @@ function MasterFaderV({ volume, onChange, masterDb }: {
             width: 16,
             height: 16,
             backgroundColor: "var(--mq-card)",
-            border: `2px solid ${isDragging ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text-muted) 60%, var(--mq-card))"}`,
+            border: `2px solid ${isDragging ? "var(--mq-platinum-lift)" : "color-mix(in srgb, var(--mq-text-muted) 60%, var(--mq-card))"}`,
             boxShadow: isDragging
-              ? "var(--mq-shadow-accent-hover), 0 0 0 6px color-mix(in srgb, var(--mq-accent) 18%, transparent)"
+              ? "0 0 0 6px color-mix(in srgb, var(--mq-platinum-hi) 16%, transparent)"
               : "var(--mq-shadow-sm)",
             transition: isDragging ? "none" : "top 120ms cubic-bezier(0.4,0,0.2,1), border-color 150ms, box-shadow 150ms",
           }}
@@ -984,7 +984,7 @@ function MasterFaderV({ volume, onChange, masterDb }: {
           </span>
         ))}
       </div>
-      <span className="mq-t-meta-2 font-bold tracking-wide uppercase" style={{ color: "var(--mq-accent)" }}>OUT</span>
+      <span className="mq-t-meta-2 font-bold tracking-wide uppercase" style={{ color: "var(--mq-text)" }}>OUT</span>
     </div>
   );
 }
@@ -1093,7 +1093,7 @@ function MasterFaderH({ volume, onChange, masterDb }: {
           className="absolute inset-y-1 left-1 rounded-full pointer-events-none"
           style={{
             width: `calc(${valuePct * 100}% - 4px)`,
-            backgroundColor: "var(--mq-accent)",
+            background: "var(--mq-platinum-progress)",
             opacity: 0.9,
             transition: isDragging ? "none" : "width 120ms cubic-bezier(0.4,0,0.2,1)",
           }}
@@ -1106,7 +1106,7 @@ function MasterFaderH({ volume, onChange, masterDb }: {
             width: 18,
             height: 18,
             backgroundColor: "var(--mq-card)",
-            border: `2px solid ${isDragging ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text-muted) 60%, var(--mq-card))"}`,
+            border: `2px solid ${isDragging ? "var(--mq-platinum-lift)" : "color-mix(in srgb, var(--mq-text-muted) 60%, var(--mq-card))"}`,
             boxShadow: isDragging ? "var(--mq-shadow-accent-hover)" : "var(--mq-shadow-sm)",
             transition: isDragging ? "none" : "left 120ms cubic-bezier(0.4,0,0.2,1), border-color 150ms",
           }}
@@ -1232,9 +1232,9 @@ function EqBandSlider({ label, bandInfo, value, disabled, onChange }: EqBandSlid
         className="mq-t-num font-bold leading-none"
         style={{
           color: isPositive
-            ? "var(--mq-accent)"
+            ? "#cfd6e4"
             : isNegative
-              ? "color-mix(in srgb, var(--mq-text-muted) 80%, var(--mq-accent) 20%)"
+              ? "color-mix(in srgb, var(--mq-text-muted) 80%, #cfd6e4 20%)"
               : "var(--mq-text-muted)",
           opacity: isDragging || isHovered ? 1 : 0.85,
           transition: "opacity 150ms",
@@ -1297,7 +1297,7 @@ function EqBandSlider({ label, bandInfo, value, disabled, onChange }: EqBandSlid
               top: isPositive ? thumbTop : zeroLineTop,
               height: fillHeight,
               width: 6,
-              backgroundColor: "var(--mq-accent)",
+              background: "var(--mq-platinum-progress)",
               opacity: isDragging ? 1 : 0.9,
               transition: isDragging ? "none" : "top 120ms cubic-bezier(0.4,0,0.2,1), height 120ms cubic-bezier(0.4,0,0.2,1)",
             }}
@@ -1312,9 +1312,9 @@ function EqBandSlider({ label, bandInfo, value, disabled, onChange }: EqBandSlid
             width: 16,
             height: 16,
             backgroundColor: "var(--mq-card)",
-            border: `2px solid ${isDragging || isHovered ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text-muted) 60%, var(--mq-card))"}`,
+            border: `2px solid ${isDragging || isHovered ? "var(--mq-platinum-lift)" : "color-mix(in srgb, var(--mq-text-muted) 60%, var(--mq-card))"}`,
             boxShadow: isDragging
-              ? "var(--mq-shadow-accent-hover), 0 0 0 6px color-mix(in srgb, var(--mq-accent) 18%, transparent)"
+              ? "0 0 0 6px color-mix(in srgb, var(--mq-platinum-hi) 16%, transparent)"
               : "var(--mq-shadow-sm)",
             opacity: disabled ? 0.5 : 1,
             transition: isDragging

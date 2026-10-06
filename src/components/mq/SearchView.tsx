@@ -48,16 +48,17 @@ const genreIcons: Record<string, React.ReactNode> = {
   "Indie": <Radio className="w-3.5 h-3.5" />,
 };
 
-// ── Genre accent text colors (muted via accent var) ──
+// ── Genre accent text colors (DESIGN COMPLETION: muted neutral — genre
+//    tags are metadata, not alerts; red stays reserved for rare accents) ──
 const genreAccentColors: Record<string, string> = {
-  "Pop": "var(--mq-accent)",
-  "Rock": "var(--mq-accent)",
-  "Electronic": "var(--mq-accent)",
-  "Hip-Hop": "var(--mq-accent)",
-  "Jazz": "var(--mq-accent)",
-  "Classical": "var(--mq-accent)",
-  "R&B": "var(--mq-accent)",
-  "Indie": "var(--mq-accent)",
+  "Pop": "var(--mq-text-muted)",
+  "Rock": "var(--mq-text-muted)",
+  "Electronic": "var(--mq-text-muted)",
+  "Hip-Hop": "var(--mq-text-muted)",
+  "Jazz": "var(--mq-text-muted)",
+  "Classical": "var(--mq-text-muted)",
+  "R&B": "var(--mq-text-muted)",
+  "Indie": "var(--mq-text-muted)",
 };
 
 // ── Global blob URL registry for local tracks ──
@@ -481,7 +482,7 @@ export default function SearchView() {
           className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] w-[90vw] max-w-md">
           <div className="rounded-[var(--mq-r-card)] p-4" style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)", boxShadow: "var(--mq-elev-dialog)", color: "var(--mq-text)" }}>
             <div className="flex items-center gap-3 mb-2">
-              {uploadProgress.status === "uploading" && <Loader2 className="w-5 h-5 flex-shrink-0 animate-spin" style={{ color: "var(--mq-accent)" }} />}
+              {uploadProgress.status === "uploading" && <Loader2 className="w-5 h-5 flex-shrink-0 animate-spin" style={{ color: "var(--mq-text-muted)" }} />}
               {uploadProgress.status === "done" && <CheckCircle2 className="w-5 h-5 flex-shrink-0" style={{ color: "var(--mq-success)" }} />}
               {uploadProgress.status === "error" && uploadProgress.failCount > 0 && <AlertCircle className="w-5 h-5 flex-shrink-0" style={{ color: "var(--mq-warning)" }} />}
               <div className="flex-1 min-w-0">
@@ -491,7 +492,7 @@ export default function SearchView() {
             </div>
             {uploadProgress.status === "uploading" && (
               <div className="w-full rounded-full h-1.5 overflow-hidden" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)" }}>
-                <div className="h-full rounded-full transition-all" style={{ width: "100%", transform: `scaleX(${(uploadProgress.fileProgress || 0) / 100})`, transformOrigin: "left", willChange: "transform", backgroundColor: "var(--mq-accent)" }} />
+                <div className="h-full rounded-full transition-all" style={{ width: "100%", transform: `scaleX(${(uploadProgress.fileProgress || 0) / 100})`, transformOrigin: "left", willChange: "transform", background: "var(--mq-platinum-progress)" }} />
               </div>
             )}
           </div>
@@ -570,7 +571,7 @@ export default function SearchView() {
         style={{ backgroundColor: "var(--mq-bg)" }}>
         <div className="flex gap-2">
         <div className="flex-1 relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px]" style={{ color: isFocused ? "var(--mq-accent)" : "var(--mq-text-muted)", transition: "color 0.25s ease" }} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px]" style={{ color: isFocused ? "var(--mq-text)" : "var(--mq-text-muted)", transition: "color 0.25s ease" }} />
           <Input
             ref={searchInputRef}
             data-search-input
@@ -627,7 +628,7 @@ export default function SearchView() {
                 animate={{ scale: [1, 1.3, 1], opacity: [0.6, 1, 0.6] }}
                 transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut" }}
                 className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: "var(--mq-accent)" }}
+                style={{ backgroundColor: "var(--mq-platinum-hi)" }}
               />
             </motion.div>
           )}
@@ -651,9 +652,9 @@ export default function SearchView() {
           onClick={() => setShowFilters(!showFilters)}
           className="hidden lg:flex w-11 h-11 rounded-[var(--mq-r-card-lg)] items-center justify-center transition-colors duration-150 mt-[1px]"
           style={{
-            backgroundColor: showFilters || selectedGenre ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "var(--mq-surface-1)",
-            color: showFilters || selectedGenre ? "var(--mq-accent)" : "var(--mq-text-muted)",
-            border: "1px solid " + (showFilters || selectedGenre ? "color-mix(in srgb, var(--mq-accent) 30%, transparent)" : "var(--mq-edge)"),
+            backgroundColor: showFilters || selectedGenre ? "color-mix(in srgb, var(--mq-text) 9%, transparent)" : "var(--mq-surface-1)",
+            color: showFilters || selectedGenre ? "var(--mq-text)" : "var(--mq-text-muted)",
+            border: "1px solid " + (showFilters || selectedGenre ? "color-mix(in srgb, var(--mq-platinum-hi) 26%, transparent)" : "var(--mq-edge)"),
           }}
           aria-label="Фильтры"
           aria-expanded={showFilters}
@@ -667,7 +668,7 @@ export default function SearchView() {
           className="hidden lg:flex w-11 h-11 rounded-[var(--mq-r-card-lg)] items-center justify-center transition-colors duration-150 mt-[1px]"
           style={{
             backgroundColor: "var(--mq-surface-1)",
-            color: isUploading ? "var(--mq-accent)" : "var(--mq-text-muted)",
+            color: isUploading ? "var(--mq-text)" : "var(--mq-text-muted)",
             border: "1px solid var(--mq-edge)",
           }}
           aria-label="Загрузить файлы"
@@ -684,9 +685,9 @@ export default function SearchView() {
             onClick={() => setShowFilters(!showFilters)}
             className="h-11 px-4 rounded-[var(--mq-r-card)] flex items-center gap-1.5 transition-colors duration-150"
             style={{
-              backgroundColor: showFilters || selectedGenre ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "var(--mq-surface-1)",
-              color: showFilters || selectedGenre ? "var(--mq-accent)" : "var(--mq-text-muted)",
-              border: "1px solid " + (showFilters || selectedGenre ? "color-mix(in srgb, var(--mq-accent) 30%, transparent)" : "var(--mq-edge)"),
+              backgroundColor: showFilters || selectedGenre ? "color-mix(in srgb, var(--mq-text) 9%, transparent)" : "var(--mq-surface-1)",
+              color: showFilters || selectedGenre ? "var(--mq-text)" : "var(--mq-text-muted)",
+              border: "1px solid " + (showFilters || selectedGenre ? "color-mix(in srgb, var(--mq-platinum-hi) 26%, transparent)" : "var(--mq-edge)"),
             }}
             aria-label="Фильтры"
             aria-expanded={showFilters}
@@ -699,7 +700,7 @@ export default function SearchView() {
             className="h-11 px-4 rounded-[var(--mq-r-card)] flex items-center gap-1.5 transition-colors duration-150"
             style={{
               backgroundColor: "var(--mq-surface-1)",
-              color: isUploading ? "var(--mq-accent)" : "var(--mq-text-muted)",
+              color: isUploading ? "var(--mq-text)" : "var(--mq-text-muted)",
               border: "1px solid var(--mq-edge)",
             }}
             aria-label="Загрузить файлы"
@@ -770,9 +771,9 @@ export default function SearchView() {
                   onClick={() => setSelectedGenre("")}
                   className="px-4 py-2.5 rounded-full text-xs font-semibold transition-colors duration-150 flex-shrink-0 flex items-center gap-2"
                   style={{
-                    backgroundColor: !selectedGenre ? "var(--mq-accent)" : "var(--mq-surface-1)",
-                    color: !selectedGenre ? "#fff" : "var(--mq-text-muted)",
-                    border: "1px solid " + (!selectedGenre ? "var(--mq-accent)" : "var(--mq-edge)"),
+                    backgroundColor: !selectedGenre ? "color-mix(in srgb, var(--mq-text) 11%, var(--mq-bg))" : "var(--mq-surface-1)",
+                    color: !selectedGenre ? "var(--mq-text)" : "var(--mq-text-muted)",
+                    border: "1px solid " + (!selectedGenre ? "color-mix(in srgb, var(--mq-platinum-hi) 30%, transparent)" : "var(--mq-edge)"),
                   }}
                 >
                   <ListMusic className="w-3.5 h-3.5" />
@@ -786,12 +787,12 @@ export default function SearchView() {
                       onClick={() => setSelectedGenre(isSelected ? "" : g)}
                       className="px-4 py-2.5 rounded-full text-xs font-semibold transition-colors duration-150 flex-shrink-0 flex items-center gap-2"
                       style={{
-                        backgroundColor: isSelected ? "var(--mq-accent)" : "var(--mq-surface-1)",
-                        color: isSelected ? "#fff" : "var(--mq-text-muted)",
-                        border: "1px solid " + (isSelected ? "var(--mq-accent)" : "var(--mq-edge)"),
+                        backgroundColor: isSelected ? "color-mix(in srgb, var(--mq-text) 11%, var(--mq-bg))" : "var(--mq-surface-1)",
+                        color: isSelected ? "var(--mq-text)" : "var(--mq-text-muted)",
+                        border: "1px solid " + (isSelected ? "color-mix(in srgb, var(--mq-platinum-hi) 30%, transparent)" : "var(--mq-edge)"),
                       }}
                     >
-                      <span style={{ color: isSelected ? "#fff" : "var(--mq-accent)", opacity: isSelected ? 1 : 0.75 }}>
+                      <span style={{ color: isSelected ? "var(--mq-text)" : "var(--mq-text-muted)", opacity: isSelected ? 1 : 0.75 }}>
                         {genreIcons[g] || <Music className="w-3.5 h-3.5" />}
                       </span>
                       {genreLabels[g] || g}
@@ -896,8 +897,7 @@ export default function SearchView() {
             </div>
             <button
               onClick={handlePlayAll}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors duration-150"
-              style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
+              className="mq-platinum-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors duration-150"
             >
               <Play className="w-3 h-3" fill="currentColor" />
               Играть все
@@ -959,7 +959,7 @@ export default function SearchView() {
         <div>
           {/* Section header with filter + sort controls */}
           <div className="flex items-center justify-between mb-3 px-1 flex-wrap gap-2">
-            <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+            <h3 className="mq-t-shelf">
               Треки · {processedTracks.length}
             </h3>
             <div className="flex items-center gap-1.5">
@@ -1036,11 +1036,10 @@ export default function SearchView() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              background: "linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 15%, transparent), color-mix(in srgb, var(--mq-accent) 6%, transparent))",
-              border: "1px solid color-mix(in srgb, var(--mq-accent) 10%, transparent)",
-              boxShadow: "var(--mq-shadow-accent)",
+              background: "linear-gradient(135deg, color-mix(in srgb, var(--mq-text) 8%, transparent), color-mix(in srgb, var(--mq-text) 4%, transparent))",
+              border: "1px solid var(--mq-edge)",
             }}>
-              <Headphones className="w-9 h-9" style={{ color: "var(--mq-accent)", opacity: 0.6 }} />
+              <Headphones className="w-9 h-9" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }} />
             </div>
           </motion.div>
 
@@ -1063,7 +1062,7 @@ export default function SearchView() {
             className="w-full max-w-md"
           >
             <div className="flex items-center gap-2 mb-3">
-              <TrendingUp className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)", opacity: 0.7 }} />
+              <TrendingUp className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }} />
               <h4 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                 Популярные запросы
               </h4>
@@ -1101,7 +1100,7 @@ export default function SearchView() {
           className="mt-2"
         >
           <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)", opacity: 0.7 }} />
+            <TrendingUp className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }} />
             <h4 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
               Популярные запросы
             </h4>
@@ -1238,7 +1237,7 @@ const SearchTrackRow = memo(function SearchTrackRow({
                 paused={!isPlaying}
               />
             )}
-            <p className="text-sm font-semibold truncate" style={{ color: isActive ? "var(--mq-accent)" : "var(--mq-text)" }}>
+            <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>
               {track.title}
             </p>
           </div>

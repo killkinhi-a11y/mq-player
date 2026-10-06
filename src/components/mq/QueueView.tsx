@@ -551,10 +551,12 @@ function NowPlayingCard({
           <img
             src={track.cover}
             alt=""
+            loading="lazy"
+            onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
             className="w-full h-full object-cover"
           />
         ) : (
-          <Music className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+          <Music className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
         )}
       </div>
 
@@ -590,7 +592,7 @@ function NowPlayingCard({
                 key={i}
                 className="mq-cover-eq w-[3px] rounded-full"
                 style={{
-                  backgroundColor: "var(--mq-accent)",
+                  backgroundColor: "var(--mq-platinum-lift)",
                   height: "100%",
                   animationName: `coverEq${i}`,
                   animationDuration: "0.8s",
@@ -600,7 +602,7 @@ function NowPlayingCard({
             ))}
           </>
         ) : (
-          <Pause className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+          <Pause className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
         )}
       </div>
     </div>
@@ -669,6 +671,8 @@ function HistoryTrackItem({
           <img
             src={track.cover}
             alt=""
+            loading="lazy"
+            onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
             className="w-full h-full object-cover"
           />
         ) : (
@@ -766,9 +770,9 @@ function SortableUpNextTrackItem({
     transition,
     opacity: isDragging ? 0.4 : 1,
     zIndex: isDragging ? 50 : "auto",
-    border: isDragging ? "1.5px solid var(--mq-accent)" : "1px solid transparent",
+    border: isDragging ? "1.5px solid color-mix(in srgb, var(--mq-platinum-hi) 45%, transparent)" : "1px solid transparent",
     backgroundColor: isDragging ? "color-mix(in srgb, var(--mq-text) 6%, transparent)" : "transparent",
-    boxShadow: isDragging ? "0 0 12px color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "none",
+    boxShadow: isDragging ? "0 0 12px rgba(0, 0, 0, 0.3)" : "none",
   };
 
   // Long-press handler for context menu
@@ -834,6 +838,8 @@ function SortableUpNextTrackItem({
           <img
             src={track.cover}
             alt=""
+            loading="lazy"
+            onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
             className="w-full h-full object-cover"
           />
         ) : (
@@ -965,9 +971,9 @@ function SortableQueueTrackItem({
     transition,
     opacity: isDragging ? 0.4 : 1,
     zIndex: isDragging ? 50 : "auto",
-    border: isDragging ? "1.5px solid var(--mq-accent)" : "1px solid transparent",
+    border: isDragging ? "1.5px solid color-mix(in srgb, var(--mq-platinum-hi) 45%, transparent)" : "1px solid transparent",
     backgroundColor: isDragging ? "color-mix(in srgb, var(--mq-text) 6%, transparent)" : "transparent",
-    boxShadow: isDragging ? "0 0 12px color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "none",
+    boxShadow: isDragging ? "0 0 12px rgba(0, 0, 0, 0.3)" : "none",
   };
 
   const handleLongPress = useCallback((e: React.TouchEvent | React.MouseEvent) => {
@@ -1034,6 +1040,8 @@ function SortableQueueTrackItem({
           <img
             src={track.cover}
             alt=""
+            loading="lazy"
+            onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
             className="w-full h-full object-cover"
           />
         ) : (
@@ -1096,7 +1104,7 @@ function SortableQueueTrackItem({
         )}
         <Play
           className="w-4 h-4"
-          style={{ color: "var(--mq-accent)" }}
+          style={{ color: "var(--mq-text-muted)" }}
         />
 
         {/* Context menu — LMB (…) is the PRIMARY trigger (right-click +
@@ -1146,6 +1154,8 @@ function DragOverlayCard({ track }: { track: Track }) {
           <img
             src={track.cover}
             alt=""
+            loading="lazy"
+            onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
             className="w-full h-full object-cover"
           />
         ) : (

@@ -166,7 +166,7 @@ function VoiceMessageBubble({ voiceUrl, duration, isMine }: {
     <div className="flex items-center gap-2 min-w-[180px] py-0.5">
       <motion.button onClick={toggle}
         className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 22%, transparent)" : "var(--mq-accent)", color: "#fff" }}
+        style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 16%, transparent)", color: "#fff" }}
         aria-label={playing ? "Пауза" : "Воспроизвести"}>
         {playing ? <span className="mq-t-meta-2 leading-none">❚❚</span>
           : <span className="text-xs leading-none ml-0.5">▶</span>}
@@ -181,7 +181,7 @@ function VoiceMessageBubble({ voiceUrl, duration, isMine }: {
                   height: `${h * 100}%`,
                   backgroundColor: isMine
                     ? (isActive ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.45)")
-                    : (isActive ? "var(--mq-accent)" : "var(--mq-text-muted)"),
+                    : (isActive ? "var(--mq-platinum-hi)" : "var(--mq-text-muted)"),
                 }} />
             );
           })}
@@ -1200,8 +1200,8 @@ export default function MessengerView() {
     return (
       <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container-wide)] mx-auto`}
         style={{ height: "calc(100dvh - 90px - 56px)" }}>
-        <div className="flex flex-col items-center justify-center h-full rounded-3xl"
-          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-thin)" }}>
+        <div className="flex flex-col items-center justify-center h-full rounded-[var(--mq-mat-radius-lg)]"
+          style={{ backgroundColor: "var(--mq-mat-2-bg)", border: "1px solid var(--mq-mat-2-edge)" }}>
           <MessageCircle className="w-10 h-10 mb-3"
             style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
           <p className="text-sm font-medium mb-2" style={{ color: "var(--mq-text)" }}>
@@ -1212,8 +1212,7 @@ export default function MessengerView() {
           </p>
           <motion.button
             onClick={() => { setLoadError(false); fetchFriends(); fetchGroupChats(); }}
-            className="px-4 py-2 rounded-xl text-xs font-semibold"
-            style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
+            className="mq-btn-neutral px-4 py-2 rounded-xl text-xs font-semibold">
             Повторить
           </motion.button>
         </div>
@@ -1222,9 +1221,9 @@ export default function MessengerView() {
   }
 
   const cardStyle = {
-    backgroundColor: "var(--mq-card)" as const,
-    border: "1px solid var(--mq-border-thin)" as const,
-    boxShadow: "var(--mq-shadow-float)" as const,
+    backgroundColor: "var(--mq-mat-2-bg)" as const,
+    border: "1px solid var(--mq-mat-2-edge)" as const,
+    boxShadow: "var(--mq-mat-3-shadow)" as const,
   };
   const inputStyle = {
     backgroundColor: "var(--mq-input-bg)" as const,
@@ -1236,7 +1235,7 @@ export default function MessengerView() {
   return (
     <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container-wide)] mx-auto`}
       style={{ height: "calc(100dvh - 90px - 56px)" }}>
-      <div className="flex rounded-3xl overflow-hidden h-full" style={cardStyle}>
+      <div className="flex rounded-[var(--mq-mat-radius-lg)] overflow-hidden h-full" style={cardStyle}>
         {/* ── Contacts list ── */}
         {showListPanel && (
           <div className={`${isMobileView && mobileView === "chat" ? "hidden" : "flex"} flex-col w-full lg:w-[380px] flex-shrink-0 border-r`}
@@ -1272,8 +1271,7 @@ export default function MessengerView() {
                 </motion.button>
                 <motion.button whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
                   onClick={() => setShowNewChat(true)}
-                  className="w-11 h-11 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
+                  className="mq-platinum-btn w-11 h-11 rounded-full flex items-center justify-center"
                   aria-label="Новый чат">
                   <Plus className="w-4 h-4" />
                 </motion.button>
@@ -1320,8 +1318,7 @@ export default function MessengerView() {
                   {!searchQuery.trim() && (
                     <motion.button whileHover={hoverProps({ scale: 1.02, transition: { duration: 0.12, ease: "easeOut" } })}
                       onClick={() => setShowNewChat(true)}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold"
-                      style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
+                      className="mq-btn-neutral flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold">
                       <UserPlus className="w-3.5 h-3.5" />
                       Найти друзей
                     </motion.button>
@@ -1368,8 +1365,8 @@ export default function MessengerView() {
                       className="w-full flex items-center gap-3 p-3 text-left transition-colors"
                       style={{
                         backgroundColor: isActive
-                          ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)" : "transparent",
-                        borderLeft: isActive ? "3px solid var(--mq-accent)" : "3px solid transparent",
+                          ? "color-mix(in srgb, var(--mq-text) 6%, transparent)" : "transparent",
+                        borderLeft: isActive ? "3px solid var(--mq-platinum-lift)" : "3px solid transparent",
                       }}>
                       <div className="relative flex-shrink-0">
                         <Avatar src={item.avatar} name={item.name} id={item.id} size={44}
@@ -1391,7 +1388,7 @@ export default function MessengerView() {
                           </p>
                           {last && (
                             <span className="mq-t-meta-2 flex-shrink-0"
-                              style={{ color: isPinned ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+                              style={{ color: isPinned ? "var(--mq-text)" : "var(--mq-text-muted)" }}>
                               {formatTime(last.createdAt)}
                             </span>
                           )}
@@ -1402,7 +1399,7 @@ export default function MessengerView() {
                           </p>
                           {unread > 0 && (
                             <span className="min-w-[18px] h-[18px] rounded-full flex items-center justify-center mq-t-meta-2 font-bold px-1 flex-shrink-0"
-                              style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
+                              style={{ backgroundColor: "var(--mq-platinum-lift)", color: "#fff" }}>
                               {unread > 99 ? "99+" : unread}
                             </span>
                           )}
@@ -1452,7 +1449,7 @@ export default function MessengerView() {
                 </p>
                 <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
                   {showTyping && !isGroupChat ? (
-                    <span style={{ color: "var(--mq-accent)" }}>печатает…</span>
+                    <span style={{ color: "var(--mq-text-muted)" }}>печатает…</span>
                   ) : isGroupChat ? (
                     (selectedGroup && Array.isArray(selectedGroup.members)
                       ? selectedGroup.members.filter((m) => m.id !== userId).length : 0) > 0
@@ -1485,8 +1482,8 @@ export default function MessengerView() {
                 }}
                 className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
                 style={{
-                  backgroundColor: showInChatSearch ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent",
-                  color: showInChatSearch ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                  backgroundColor: showInChatSearch ? "color-mix(in srgb, var(--mq-text) 8%, transparent)" : "transparent",
+                  color: showInChatSearch ? "var(--mq-text)" : "var(--mq-text-muted)",
                 }}
                 title="Поиск по сообщениям"
               >
@@ -1547,10 +1544,10 @@ export default function MessengerView() {
                   className="px-4 py-2 border-b flex items-center gap-2 overflow-hidden"
                   style={{
                     borderColor: "var(--mq-border-hairline)",
-                    backgroundColor: "color-mix(in srgb, var(--mq-accent) 6%, transparent)",
+                    backgroundColor: "color-mix(in srgb, var(--mq-text) 5%, transparent)",
                   }}>
                   <Pin className="w-3.5 h-3.5 flex-shrink-0"
-                    style={{ color: "var(--mq-accent)" }} fill="currentColor" />
+                    style={{ color: "var(--mq-text-muted)" }} fill="currentColor" />
                   <p className="text-xs truncate flex-1" style={{ color: "var(--mq-text-muted)" }}>
                     {pinnedMessage.messageType === "voice"
                       ? "🎤 Голосовое сообщение"
@@ -1581,9 +1578,9 @@ export default function MessengerView() {
                         onClick={() => { setShowAddMembers(true); setNewChatSearch(""); }}
                         className="px-4 py-2 rounded-xl text-xs font-semibold transition-colors"
                         style={{
-                          backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)",
-                          color: "var(--mq-accent)",
-                          border: "1px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)",
+                          backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)",
+                          color: "var(--mq-text)",
+                          border: "1px solid color-mix(in srgb, var(--mq-text) 16%, transparent)",
                         }}>
                         Добавить участников
                       </button>
@@ -1645,7 +1642,8 @@ export default function MessengerView() {
                             }}
                             className={`px-3.5 py-2 cursor-pointer ${isMine ? "rounded-2xl rounded-br-md" : "rounded-2xl rounded-bl-md"}`}
                             style={{
-                              backgroundColor: isMine ? "var(--mq-accent)"
+                              backgroundColor: isMine
+                                ? "color-mix(in srgb, var(--mq-text) 20%, var(--mq-card))"
                                 : "color-mix(in srgb, var(--mq-text) 8%, var(--mq-card))",
                               color: isMine ? "#fff" : "var(--mq-text)",
                             }}>
@@ -1704,8 +1702,7 @@ export default function MessengerView() {
                     </span>
                   </div>
                   <motion.button onClick={stopRecording}
-                    className="w-11 h-11 rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
+                    className="mq-platinum-btn w-11 h-11 rounded-full flex items-center justify-center"
                     aria-label="Отправить голосовое">
                     <Send className="w-4 h-4" />
                   </motion.button>
@@ -1741,9 +1738,9 @@ export default function MessengerView() {
                       className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
                       style={{
                         backgroundColor: showQuickEmojis
-                          ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)"
+                          ? "color-mix(in srgb, var(--mq-text) 9%, transparent)"
                           : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
-                        color: showQuickEmojis ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                        color: showQuickEmojis ? "var(--mq-text)" : "var(--mq-text-muted)",
                       }} aria-label="Эмодзи">
                       <Smile className="w-4 h-4" />
                     </motion.button>
@@ -1770,7 +1767,7 @@ export default function MessengerView() {
                       className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
                       style={{
                         backgroundColor: inputText.trim() && !isSending
-                          ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
+                          ? "var(--mq-platinum-lift)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
                         color: inputText.trim() && !isSending ? "#fff" : "var(--mq-text-muted)",
                       }} aria-label="Отправить">
                       {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
@@ -1827,7 +1824,7 @@ export default function MessengerView() {
               className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm hover:bg-[var(--mq-overlay-hover)]"
               style={{ color: "var(--mq-text)" }}>
               <Pin className="w-3.5 h-3.5"
-                style={{ color: pinnedMsgId === contextMenu.id ? "var(--mq-accent)" : "currentColor" }}
+                style={{ color: pinnedMsgId === contextMenu.id ? "var(--mq-text)" : "currentColor" }}
                 fill={pinnedMsgId === contextMenu.id ? "currentColor" : "none"} />
               {pinnedMsgId === contextMenu.id ? "Открепить" : "Закрепить"}
             </button>
@@ -1947,8 +1944,8 @@ export default function MessengerView() {
                       return (
                         <span key={id} className="flex items-center gap-1 px-2 py-1 rounded-full text-xs"
                           style={{
-                            backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)",
-                            color: "var(--mq-accent)",
+                            backgroundColor: "color-mix(in srgb, var(--mq-text) 9%, transparent)",
+                            color: "var(--mq-text)",
                           }}>
                           {u.username}
                           <button onClick={() => setSelectedMembers((p) => p.filter((x) => x !== id))}
@@ -1978,7 +1975,7 @@ export default function MessengerView() {
                         </p>
                         {selected && (
                           <div className="w-5 h-5 rounded-full flex items-center justify-center"
-                            style={{ backgroundColor: "var(--mq-accent)" }}>
+                            style={{ backgroundColor: "var(--mq-platinum-lift)" }}>
                             <span className="mq-t-meta-2" style={{ color: "#fff" }}>✓</span>
                           </div>
                         )}
@@ -1991,7 +1988,7 @@ export default function MessengerView() {
                   className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors"
                   style={{
                     backgroundColor: groupName.trim()
-                      ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
+                      ? "var(--mq-platinum-lift)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
                     color: groupName.trim()
                       ? "#fff" : "var(--mq-text-muted)",
                   }}>
@@ -2042,8 +2039,8 @@ export default function MessengerView() {
                       return (
                         <span key={id} className="flex items-center gap-1 px-2 py-1 rounded-full text-xs"
                           style={{
-                            backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)",
-                            color: "var(--mq-accent)",
+                            backgroundColor: "color-mix(in srgb, var(--mq-text) 9%, transparent)",
+                            color: "var(--mq-text)",
                           }}>
                           {u.username}
                           <button onClick={() => setAddMembersTarget((p) => p.filter((x) => x !== id))}
@@ -2082,7 +2079,7 @@ export default function MessengerView() {
                           <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>уже в группе</span>
                         ) : selected && (
                           <div className="w-5 h-5 rounded-full flex items-center justify-center"
-                            style={{ backgroundColor: "var(--mq-accent)" }}>
+                            style={{ backgroundColor: "var(--mq-platinum-lift)" }}>
                             <span className="mq-t-meta-2" style={{ color: "#fff" }}>✓</span>
                           </div>
                         )}
@@ -2095,7 +2092,7 @@ export default function MessengerView() {
                   className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors"
                   style={{
                     backgroundColor: addMembersTarget.length > 0
-                      ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
+                      ? "var(--mq-platinum-lift)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
                     color: addMembersTarget.length > 0
                       ? "#fff" : "var(--mq-text-muted)",
                   }}>
@@ -2142,7 +2139,7 @@ export default function MessengerView() {
                 <div
                   className="h-24 relative"
                   style={{
-                    background: "linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 30%, var(--mq-bg)), color-mix(in srgb, var(--mq-accent) 10%, var(--mq-bg)))",
+                    background: "linear-gradient(135deg, color-mix(in srgb, #2c3a67 60%, var(--mq-bg)), color-mix(in srgb, #10141f 40%, var(--mq-bg)))",
                   }}
                 >
                   <button
@@ -2186,11 +2183,7 @@ export default function MessengerView() {
                       onClick={() => {
                         setShowProfile(null);
                       }}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold"
-                      style={{
-                        backgroundColor: "var(--mq-accent)",
-                        color: "#fff",
-                      }}
+                      className="mq-platinum-btn flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold"
                     >
                       <MessageCircle className="w-4 h-4" />
                       Написать

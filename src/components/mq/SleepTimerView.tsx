@@ -142,7 +142,7 @@ function ScrollPicker({
     <div className="relative h-[192px] overflow-hidden rounded-2xl lg:hidden" style={{ backgroundColor: "var(--mq-card)" }}>
       <div className="absolute top-0 left-0 right-0 h-16 z-10 pointer-events-none rounded-t-2xl" style={{ background: "linear-gradient(var(--mq-card), transparent)" }} />
       <div className="absolute bottom-0 left-0 right-0 h-16 z-10 pointer-events-none rounded-b-2xl" style={{ background: "linear-gradient(transparent, var(--mq-card))" }} />
-      <div className="absolute left-3 right-3 h-12 pointer-events-none z-[5] rounded-xl" style={{ backgroundColor: "var(--mq-accent)", opacity: 0.12, border: "1px solid var(--mq-accent)", top: "calc(50% - 24px)" }} />
+      <div className="absolute left-3 right-3 h-12 pointer-events-none z-[5] rounded-xl" style={{ backgroundColor: "var(--mq-text)", opacity: 0.08, border: "1px solid color-mix(in srgb, var(--mq-text) 14%, transparent)", top: "calc(50% - 24px)" }} />
       <div ref={scrollRef} onScroll={handleScroll} onTouchEnd={handleScrollEnd} onMouseUp={handleScrollEnd} className="h-full overflow-y-auto px-4" style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}>
         <div style={{ height: 72 }} />
         {options.map((val, idx) => (
@@ -294,7 +294,7 @@ export default function SleepTimerView() {
       {/* Stars background */}
       <div className="absolute inset-0 pointer-events-none">
         {stars.map((star) => (
-          <motion.div key={star.id} className="absolute rounded-full" style={{ left: `${star.x}%`, top: `${star.y}%`, width: star.size, height: star.size, backgroundColor: "var(--mq-accent)", opacity: 0.2 }} animate={animationsEnabled ? { opacity: [0.1, 0.4, 0.1], scale: [1, 1.3, 1] } : undefined} transition={{ duration: 3 + star.delay, repeat: Infinity, delay: star.delay, ease: "easeInOut" }} />
+          <motion.div key={star.id} className="absolute rounded-full" style={{ left: `${star.x}%`, top: `${star.y}%`, width: star.size, height: star.size, backgroundColor: "#cfd6e4", opacity: 0.14 }} animate={animationsEnabled ? { opacity: [0.1, 0.4, 0.1], scale: [1, 1.3, 1] } : undefined} transition={{ duration: 3 + star.delay, repeat: Infinity, delay: star.delay, ease: "easeInOut" }} />
         ))}
       </div>
 
@@ -335,7 +335,7 @@ export default function SleepTimerView() {
             </div>
 
             {/* Start button */}
-            <motion.button whileHover={hoverProps({ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } })} onClick={() => handleStart(selectedMinutes)} className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl text-base font-semibold shadow-lg w-full max-w-sm" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-bg)" }}>
+            <motion.button whileHover={hoverProps({ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } })} onClick={() => handleStart(selectedMinutes)} className="mq-platinum-btn flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl text-base font-semibold shadow-lg w-full max-w-sm">
               <Play className="w-5 h-5" />
               Начать {formatOption(selectedMinutes)}
             </motion.button>
@@ -425,7 +425,7 @@ export default function SleepTimerView() {
               <span className="text-sm mt-2" style={{ color: "var(--mq-text-muted)" }}>осталось</span>
               {/* Progress bar */}
               <div className="w-full h-2 rounded-full overflow-hidden mt-4 mb-2" style={{ backgroundColor: "var(--mq-border)", opacity: 0.4 }}>
-                <motion.div className="h-full rounded-full" style={{ width: "100%", transformOrigin: "left", willChange: "transform", backgroundColor: "var(--mq-accent)", boxShadow: "0 0 12px var(--mq-glow)" }} initial={{ scaleX: 0 }} animate={{ scaleX: progress }} transition={{ duration: 0.5, ease: "linear" }} />
+                <motion.div className="h-full rounded-full" style={{ width: "100%", transformOrigin: "left", willChange: "transform", background: "var(--mq-platinum-progress)", boxShadow: "0 0 12px color-mix(in srgb, #cfd6e4 20%, transparent)" }} initial={{ scaleX: 0 }} animate={{ scaleX: progress }} transition={{ duration: 0.5, ease: "linear" }} />
               </div>
               <div className="flex justify-between w-full">
                 <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Пробуждение: {wakeTimeStr}</span>

@@ -29,26 +29,35 @@
      Default = the dark editorial backdrop. */
   --mq-backdrop-lum: 0.09;
 
-  /* ── Liquid Glass v2 — content-aware tokens (REFINED: quieter, denser) ──
+  /* ── Liquid Glass v3 — ONE material system, tonal-first ──────────────
+     DESIGN COMPLETION rebuild. The material must hold WITHOUT blur:
+     tonal separation (veil) + edge + specular sheen carry it; blur is a
+     finishing touch, never the effect. Roles share every token; only the
+     veil/edge mix shifts per role (BASE/FLOATING/NAV/PLAYER/DOCK/MENU).
      Static dark-backdrop defaults; WaveAmbientBackground overrides the
      tint/veil pair with JS-computed literals while the liquid scene is
      up. NO calc(), NO color-mix inside var() fallbacks (pipeline drops
-     those). Plain color-mix in the VALUE is fine and theme-aware.
-     FINAL PASS: sheen/edge highlights stepped down, blur 18→14 — glass
-     must read as a quiet material, not as a white plastic panel. */
-  --mq-g2-tint: color-mix(in srgb, var(--mq-text) 6.5%, transparent);
-  --mq-g2-veil: rgba(3, 5, 10, 0.013);
-  --mq-g2-sheen: color-mix(in srgb, var(--mq-text) 4%, transparent);
-  --mq-g2-edge-hi: color-mix(in srgb, var(--mq-text) 13%, transparent);
-  --mq-g2-edge-mid: color-mix(in srgb, var(--mq-text) 6%, transparent);
-  --mq-g2-edge-lo: color-mix(in srgb, var(--mq-text) 2.5%, transparent);
+     those). Plain color-mix in the VALUE is fine and theme-aware. */
+  --mq-g2-tint: color-mix(in srgb, var(--mq-text) 8%, transparent);
+  /* deeper veil = real tonal separation from the content behind */
+  --mq-g2-veil: rgba(4, 7, 14, 0.30);
+  --mq-g2-sheen: color-mix(in srgb, var(--mq-text) 4.5%, transparent);
+  --mq-g2-edge-hi: color-mix(in srgb, var(--mq-text) 14%, transparent);
+  --mq-g2-edge-mid: color-mix(in srgb, var(--mq-text) 6.5%, transparent);
+  --mq-g2-edge-lo: color-mix(in srgb, var(--mq-text) 3%, transparent);
   --mq-g2-inner:
     inset 0 1px 0 color-mix(in srgb, var(--mq-text) 6%, transparent),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.16);
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
   --mq-g2-shadow:
-    0 10px 34px rgba(0, 0, 0, 0.38),
-    0 2px 8px rgba(0, 0, 0, 0.22);
-  --mq-g2-blur: 14px;
+    0 12px 40px rgba(0, 0, 0, 0.42),
+    0 2px 8px rgba(0, 0, 0, 0.24);
+  /* blur is SECONDARY (11px) — the tonal stack above is the material */
+  --mq-g2-blur: 11px;
+  /* Role veils — denser where text sits (menus), lighter where motion
+     passes under (nav). Composited OVER --mq-g2-veil by the role classes. */
+  --mq-glass-veil-menu: rgba(6, 9, 16, 0.42);
+  --mq-glass-veil-player: rgba(4, 7, 14, 0.24);
+  --mq-glass-veil-dock: rgba(4, 7, 14, 0.2);
 
   /* ── Liquid Platinum palette (fixed, cold, premium) ─────────────────── */
   --mq-platinum-base: #22252d;      /* dark silver */
@@ -98,13 +107,23 @@
     0 1px 2px rgba(0, 0, 0, 0.2),
     0 8px 26px rgba(0, 0, 0, 0.18);
 
-  /* ── Radius scale (FINAL: quiet modern corners, no pill-everything) ────
-     small rows/covers 10–14 · cards 14–18 · large surfaces 18–22 ·
-     pill ONLY for genuinely pill-shaped controls. */
+  /* ── Radius scale (DESIGN COMPLETION: a real card hierarchy) ─────────
+     small rows/covers 10–14 · content cards 16 · featured 18 · large
+     surfaces 18–22 · pill ONLY for genuinely pill-shaped controls.
+     ONE scale, FOUR roles — variety without noise. */
   --mq-mat-radius-sm: 12px;
-  --mq-mat-radius: 14px;
-  --mq-mat-radius-lg: 20px;
-  --mq-mat-radius-float: 18px;
+  --mq-mat-radius: 14px;          /* legacy default (rows, small tiles) */
+  --mq-card-r-md: 16px;           /* content cards */
+  --mq-mat-radius-float: 18px;    /* featured cards + floating surfaces */
+  --mq-mat-radius-lg: 20px;       /* hero / large shells */
+
+  /* ── Card role surfaces (the hierarchy: sm quiet → feature present) ── */
+  --mq-card-sm-edge: color-mix(in srgb, var(--mq-text) 5%, transparent);
+  --mq-card-feature-bg: color-mix(in srgb, var(--mq-text) 5.5%, var(--mq-bg));
+  --mq-card-feature-edge: color-mix(in srgb, var(--mq-text) 11%, transparent);
+  --mq-card-feature-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.22),
+    0 14px 40px rgba(0, 0, 0, 0.24);
 }
 
 /* ── Surface level classes ──────────────────────────────────────────────── */
@@ -129,7 +148,7 @@
 .mq-mat-3 {
   background: var(--mq-mat-3-bg);
   border: 1px solid var(--mq-mat-3-edge);
-  border-radius: var(--mq-mat-radius);
+  border-radius: var(--mq-card-r-md);
   box-shadow: var(--mq-mat-3-shadow);
   transition:
     background-color var(--mq-mo-micro) var(--mq-ease-out),
@@ -143,6 +162,45 @@
 }
 /* Press = tactile feedback (allowed), never a 3D lift. */
 .mq-mat-3:active { transform: scale(0.99); filter: brightness(0.97); }
+
+/* ═════════════════════════════════════════════════════════════════════
+   CARD SYSTEM v3 — DESIGN COMPLETION.
+   Four roles, ONE language. A surface declares its ROLE, not its paint:
+     .mq-card-sm       small quiet tile (rows, tiles, chips): mat-1 tone,
+                       hairline edge, no shadow, radius 12.
+     .mq-card-md       content card: mat-2 fill + edge + quiet shadow, r16.
+     .mq-card-feature  featured card: lifted tone + light edge + deep
+                       quiet shadow, r18 — the hero of a section.
+     .mq-card-hero     large shell surface (chats, wave, editorials), r20.
+   Solid. Opaque. Never glass. Hover lifts tone only.
+   ═════════════════════════════════════════════════════════════════════ */
+
+.mq-card-sm {
+  background: var(--mq-mat-1-bg);
+  border: 1px solid var(--mq-card-sm-edge);
+  border-radius: var(--mq-mat-radius-sm);
+}
+
+.mq-card-md {
+  background: var(--mq-mat-2-bg);
+  border: 1px solid var(--mq-mat-2-edge);
+  border-radius: var(--mq-card-r-md);
+  box-shadow: var(--mq-mat-2-shadow);
+}
+
+.mq-card-feature {
+  background: var(--mq-card-feature-bg);
+  border: 1px solid var(--mq-card-feature-edge);
+  border-radius: var(--mq-mat-radius-float);
+  box-shadow: var(--mq-card-feature-shadow);
+}
+
+.mq-card-hero {
+  background: var(--mq-mat-2-bg);
+  border: 1px solid var(--mq-mat-2-edge);
+  border-radius: var(--mq-mat-radius-lg);
+  box-shadow: var(--mq-mat-3-shadow);
+}
 
 /* ═══════════════════════════════════════════════════════════════════════
    LIQUID GLASS v2 — refined: the material of the FLOATING layer only
@@ -161,6 +219,70 @@
     var(--mq-g2-veil),
     var(--mq-g2-tint);
   box-shadow: var(--mq-g2-inner), var(--mq-g2-shadow);
+}
+
+/* ── GLASS ROLE VARIANTS (DESIGN COMPLETION) — one material, six roles.
+   The BASE above stays; each role tunes the veil/seat for its job.
+   Tonal-first: every role holds WITHOUT blur. ── */
+
+/* NAV — the long top strip: veil tuned so labels stay readable while
+   content scrolls underneath. */
+.mq-glass2-nav {
+  background:
+    linear-gradient(180deg, var(--mq-g2-sheen), transparent 40%),
+    var(--mq-glass-veil-dock),
+    var(--mq-g2-tint);
+}
+
+/* PLAYER — the floating capsule: THE signature floater; a notch more
+   edge light and seat so it reads on any backdrop, blur or no blur. */
+.mq-glass2-player {
+  background:
+    linear-gradient(168deg, var(--mq-g2-sheen), transparent 46%),
+    var(--mq-glass-veil-player),
+    var(--mq-g2-tint);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--mq-text) 7%, transparent),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 14px 44px rgba(0, 0, 0, 0.46),
+    0 2px 8px rgba(0, 0, 0, 0.26);
+}
+
+/* DOCK — mobile bottom sheet: quiet, device-bezel feel from the single
+   top hairline; no colored rails. */
+.mq-glass2-dock {
+  background:
+    linear-gradient(180deg, transparent 0%, var(--mq-g2-sheen) 140%),
+    var(--mq-glass-veil-dock),
+    var(--mq-g2-tint);
+  box-shadow:
+    inset 0 1px 0 var(--mq-g2-edge-mid),
+    0 -8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* MENU — text-dense floaters: the densest veil, readability first. */
+.mq-glass2-menu {
+  background:
+    linear-gradient(168deg, var(--mq-g2-sheen), transparent 40%),
+    var(--mq-glass-veil-menu),
+    var(--mq-g2-tint);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--mq-text) 7%, transparent),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.24),
+    0 16px 48px rgba(0, 0, 0, 0.5),
+    0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* ACTIVE — a control's active/pressed moment ON a glass surface:
+   tonal fill + platinum edge, never a colored bulb. */
+.mq-glass2-active {
+  background:
+    linear-gradient(165deg, var(--mq-g2-sheen), transparent 44%),
+    color-mix(in srgb, var(--mq-text) 10%, transparent),
+    var(--mq-g2-veil);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--mq-platinum-hi) 26%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--mq-text) 6%, transparent);
 }
 
 /* Edge-lit hairline — the signature of real glass: light pools on the
@@ -192,6 +314,37 @@
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--mq-text) 6%, transparent);
 }
 
+/* ── NEUTRAL ACTION (DESIGN COMPLETION) — the product's DEFAULT button.
+   Red is RARE: everyday actions (search CTAs, find friends, confirms,
+   tool buttons) speak NEUTRAL graphite — solid tonal fill, hairline
+   edge, flat. Primary playback stays platinum; destructive stays red. ── */
+
+.mq-btn-neutral {
+  border: 1px solid color-mix(in srgb, var(--mq-text) 13%, transparent);
+  cursor: pointer;
+  color: var(--mq-text);
+  background: color-mix(in srgb, var(--mq-text) 8%, var(--mq-bg));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
+  transition:
+    transform var(--mq-mo-micro) var(--mq-ease-press),
+    border-color var(--mq-mo-micro) var(--mq-ease-out),
+    background-color var(--mq-mo-micro) var(--mq-ease-out),
+    filter var(--mq-mo-micro) var(--mq-ease-out);
+}
+.mq-btn-neutral:hover {
+  border-color: color-mix(in srgb, var(--mq-text) 22%, transparent);
+  background: color-mix(in srgb, var(--mq-text) 11%, var(--mq-bg));
+}
+.mq-btn-neutral:active { transform: scale(0.97); filter: brightness(0.96); }
+.mq-btn-neutral:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--mq-bg),
+    0 0 0 4px color-mix(in srgb, var(--mq-text) 45%, transparent),
+    0 1px 2px rgba(0, 0, 0, 0.16);
+}
+.mq-btn-neutral:disabled { opacity: 0.45; cursor: default; }
+
 /* ═══════════════════════════════════════════════════════════════════════
    LIQUID PLATINUM — the signature ACCENT, flat and cold.
    FINAL REFINEMENT: platinum is a COLOR LANGUAGE (dark cold silver +
@@ -206,15 +359,13 @@
   border: 1px solid color-mix(in srgb, var(--mq-platinum-hi) 22%, transparent);
   cursor: pointer;
   color: #f4f6fa;
-  /* Flat cold metal: a quiet vertical tonal shift — read as material
-     temperature, not as volume. Two flat stops, no lit shoulder. */
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--mq-platinum-hi) 11%, var(--mq-platinum-lift)) 0%,
-    var(--mq-platinum-base) 100%);
-  /* ONE very subtle top light (allowed) + a soft drop shadow to seat the
-     control on the surface. No inner bevel, no bottom rim. */
+  /* DESIGN COMPLETION: FLAT matte metal. The old 11% vertical gradient
+     read as gloss in screenshots — kill the tonal shift; the material
+     IS the color + hairline edge + one top light. */
+  background: var(--mq-platinum-lift);
+  /* ONE subtle top light + soft seat shadow. No bevel, no rim, no gloss. */
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
     0 2px 10px rgba(0, 0, 0, 0.32);
   transition:
     transform var(--mq-mo-micro) var(--mq-ease-press),
@@ -280,6 +431,21 @@
   line-height: 1.45;
   letter-spacing: 0.005em;
   color: var(--mq-text-muted);
+}
+
+/* Shelf masthead (DESIGN COMPLETION) — the editorial header of a content
+   shelf (ТРЕКИ · АРТИСТЫ · ДЛЯ ВАС · ДАЛЬШЕ В WAVE).
+   Previously too light/small and drowned; now: quiet confident caps,
+   more weight, wider tracking, muted-but-present color. Not a box.
+   (Named .mq-t-shelf to avoid the pre-existing .mq-t-section title
+   utility in globals.css.) */
+.mq-t-shelf {
+  font-family: var(--mq-font-primary);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--mq-text) 72%, transparent);
 }
 
 /* Editorial display — huge background moments (the WAVE wordmark).

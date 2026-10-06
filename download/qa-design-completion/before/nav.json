@@ -1,0 +1,24 @@
+{
+  "consoleErrors": [],
+  "shots": [
+    "d1440-01-home",
+    "d1440-02-wave",
+    "d1440-03-search",
+    "d1440-12-artist",
+    "d1440-04-library",
+    "d1440-10-playlists",
+    "d1440-05-chats",
+    "d1440-06-settings",
+    "d1440-07-fullplayer",
+    "d1440-08-queue",
+    "m390-01-home",
+    "m390-01b-home-full",
+    "m390-02-wave",
+    "m390-search",
+    "m390-artist",
+    "m390-library",
+    "m390-chats",
+    "m390-profile"
+  ],
+  "nav": []
+}

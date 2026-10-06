@@ -276,7 +276,7 @@ export default function PlayerBar() {
             edge-lit hairline from .mq-glass2, one soft shadow. The wrapper
             stays pointer-transparent; only the capsule is interactive. */}
         <div
-          className="mq-player-capsule mq-glass2 pointer-events-auto"
+          className="mq-player-capsule mq-glass2 mq-glass2-player pointer-events-auto"
           style={{
             width: "min(920px, 100%)",
             /* INLINE blur — the Lightning pipeline strips backdrop-filter
@@ -354,7 +354,7 @@ export default function PlayerBar() {
                   shuffle/repeat quiet (32px), prev/next (36px), play (44px accent) */}
               <div className="flex items-center gap-2 relative">
                 <button onClick={toggleShuffle} className="w-8 h-8 rounded-full flex items-center justify-center mq-icon-btn" data-active={shuffle} title="Перемешать" aria-label="Перемешать" aria-pressed={shuffle}>
-                  <Shuffle className="w-3.5 h-3.5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                  <Shuffle className="w-3.5 h-3.5" style={{ color: shuffle ? "var(--mq-platinum-hi)" : "var(--mq-text-muted)" }} />
                 </button>
 
                 <button onClick={() => { prevTrack(); hapticSkip(); }} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Предыдущий" aria-label="Предыдущий трек">
@@ -454,8 +454,8 @@ export default function PlayerBar() {
                 </div>
 
                 <button onClick={toggleRepeat} className="w-8 h-8 rounded-full flex items-center justify-center mq-icon-btn" data-active={repeat !== "off"} title="Повтор" aria-label="Повтор" aria-pressed={repeat !== "off"}>
-                  {repeat === "one" ? <Repeat1 className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
-                    : <Repeat className="w-3.5 h-3.5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
+                  {repeat === "one" ? <Repeat1 className="w-3.5 h-3.5" style={{ color: "var(--mq-platinum-hi)" }} />
+                    : <Repeat className="w-3.5 h-3.5" style={{ color: repeat === "all" ? "var(--mq-platinum-hi)" : "var(--mq-text-muted)" }} />}
                 </button>
               </div>
 
@@ -506,18 +506,18 @@ export default function PlayerBar() {
                 disabled={wave.waveLoading}
                 className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative mq-icon-btn"
                 data-active={radioMode}
-                style={{ ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-accent) 14%, transparent)" }}
+                style={{ ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-platinum-lift) 26%, transparent)" }}
                 title={radioMode ? "Выключить WAVE" : "Радио от этого трека"}
                 aria-label={radioMode ? "Выключить WAVE" : "Радио от этого трека"}
                 aria-pressed={radioMode}
               >
                 {wave.waveLoading ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--mq-accent)" }} />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
                 ) : (
                   <Waves
                     className="w-4 h-4"
                     style={{
-                      color: radioMode ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                      color: radioMode ? "var(--mq-platinum-hi)" : "var(--mq-text-muted)",
                       transition: "color 0.15s",
                     }}
                   />
@@ -556,7 +556,7 @@ export default function PlayerBar() {
                     else if (e.key === "End") { e.preventDefault(); e.stopPropagation(); setVolume(100); }
                     else if (e.key === " " || e.key === "Enter") { e.preventDefault(); e.stopPropagation(); setVolume(volume > 0 ? 0 : getLastVolume()); }
                   }}
-                  className="mq-pb-vol relative cursor-pointer rounded-full group/vol focus-visible:outline-2 focus-visible:outline-[var(--mq-accent)]"
+                  className="mq-pb-vol relative cursor-pointer rounded-full group/vol focus-visible:outline-2 focus-visible:outline-[color-mix(in_srgb,var(--mq-text)_55%,transparent)]"
                   style={{
                     width: 88,
                     height: 6,

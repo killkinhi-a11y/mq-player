@@ -429,7 +429,7 @@ export default function OnboardingView() {
                         </p>
                         {isSelected && (
                           <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
-                            style={{ backgroundColor: "var(--mq-accent)" }}>
+                            style={{ backgroundColor: "var(--mq-platinum-lift)" }}>
                             <Check className="w-3 h-3" style={{ color: "#fff" }} />
                           </div>
                         )}
@@ -488,9 +488,8 @@ export default function OnboardingView() {
               disabled={finishing}
               className="flex items-center gap-2 px-6 min-h-[48px] rounded-xl text-sm font-semibold"
               style={{
-                backgroundColor: "var(--mq-accent)",
-                color: "var(--mq-text-on-accent, #fff)",
-                boxShadow: "var(--mq-shadow-accent)",
+                backgroundColor: "var(--mq-platinum-lift)",
+                color: "#fff",
                 opacity: finishing ? 0.7 : 1,
               }}>
               {finishing ? (

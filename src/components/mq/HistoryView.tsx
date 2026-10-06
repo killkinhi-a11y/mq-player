@@ -275,7 +275,7 @@ export default function HistoryView() {
 
                   onClick={handlePlayAll}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold"
-                  style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
+                  style={{ backgroundColor: "var(--mq-platinum-lift)", color: "#fff" }}
                 >
                   <Play className="w-3.5 h-3.5" fill="currentColor" />
                   Слушать всё
@@ -599,7 +599,7 @@ export default function HistoryView() {
                             {isActive && (
                               <motion.div
                                 className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full"
-                                style={{ backgroundColor: "var(--mq-accent)" }}
+                                style={{ backgroundColor: "var(--mq-mat-2-bg)" }}
                               />
                             )}
 
@@ -777,7 +777,7 @@ export default function HistoryView() {
                 animate={{ scale: [1, 1.15, 1], opacity: [0.06, 0.12, 0.06] }}
                 transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
                 className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full"
-                style={{ backgroundColor: "var(--mq-accent)" }}
+                style={{ backgroundColor: "var(--mq-mat-2-bg)" }}
               />
             </div>
           </motion.div>
@@ -792,7 +792,7 @@ export default function HistoryView() {
 
               onClick={() => useAppStore.getState().setView("main")}
               className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-semibold"
-              style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
+              style={{ backgroundColor: "var(--mq-platinum-lift)", color: "#fff" }}
             >
               <Music className="w-3.5 h-3.5" />
               Начать слушать

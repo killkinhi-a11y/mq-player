@@ -285,7 +285,7 @@ export default function FavoritesView() {
   };
 
   const tabs: { id: TabType; label: string; icon: typeof Heart; count: number; color: string }[] = [
-    { id: "liked", label: "Понравившиеся", icon: Heart, count: likedTracksData.length, color: "#ef4444" },
+    { id: "liked", label: "Понравившиеся", icon: Heart, count: likedTracksData.length, color: "#cfd6e4" },
     { id: "disliked", label: "Не понравившиеся", icon: ThumbsDown, count: dislikedTracksData.length, color: "#f97316" },
     { id: "subscriptions", label: "Подписки", icon: Users, count: favoriteArtists.length, color: "#8b5cf6" },
   ];
@@ -321,7 +321,7 @@ export default function FavoritesView() {
                 ? "rgba(139,92,246,0.1)"
                 : activeTab === "disliked"
                 ? "rgba(249,115,22,0.1)"
-                : "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
+                : "color-mix(in srgb, var(--mq-text) 7%, transparent)",
               border: "1px solid var(--mq-border-thin)",
             }}
           >
@@ -330,7 +330,7 @@ export default function FavoritesView() {
             ) : activeTab === "disliked" ? (
               <ThumbsDown className="w-4.5 h-4.5" style={{ color: "#f97316" }} />
             ) : (
-              <Heart className="w-4.5 h-4.5" style={{ color: "#ef4444" }} />
+              <Heart className="w-4.5 h-4.5" style={{ color: "var(--mq-text)" }} />
             )}
           </motion.div>
           <div className="flex-1 min-w-0">
@@ -353,7 +353,7 @@ export default function FavoritesView() {
               }}
               className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors duration-150"
               style={{
-                backgroundColor: batchMode ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
+                backgroundColor: batchMode ? "color-mix(in srgb, var(--mq-text) 12%, transparent)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
                 color: batchMode ? "var(--mq-text)" : "var(--mq-text-muted)",
               }}
               title={batchMode ? "Отменить выбор" : "Выбрать несколько"}
@@ -375,8 +375,7 @@ export default function FavoritesView() {
           <div
             className="flex gap-1 p-1 rounded-xl"
             style={{
-              backgroundColor: "var(--mq-card)",
-              border: "1px solid var(--mq-border-thin)",
+              backgroundColor: "color-mix(in srgb, var(--mq-text) 3%, transparent)",
             }}
           >
             {tabs.map((tab) => {
@@ -438,9 +437,9 @@ export default function FavoritesView() {
             onClick={() => setActiveFilter(null)}
             className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg mq-t-meta-2 font-medium transition-colors duration-200 cursor-pointer"
             style={{
-              backgroundColor: !activeFilter ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "color-mix(in srgb, var(--mq-text) 4%, transparent)",
-              color: !activeFilter ? "var(--mq-accent)" : "var(--mq-text-muted)",
-              border: !activeFilter ? "1px solid var(--mq-border-accent)" : "1px solid var(--mq-border-thin)",
+              backgroundColor: !activeFilter ? "color-mix(in srgb, var(--mq-text) 9%, transparent)" : "color-mix(in srgb, var(--mq-text) 4%, transparent)",
+              color: !activeFilter ? "var(--mq-text)" : "var(--mq-text-muted)",
+              border: !activeFilter ? "1px solid color-mix(in srgb, var(--mq-platinum-hi) 26%, transparent)" : "1px solid var(--mq-border-thin)",
             }}
           >
             <Filter className="w-3 h-3" />
@@ -456,9 +455,9 @@ export default function FavoritesView() {
                 onClick={() => setActiveFilter(isActive ? null : tagKey)}
                 className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg mq-t-meta-2 font-medium transition-colors duration-200 cursor-pointer"
                 style={{
-                  backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "color-mix(in srgb, var(--mq-text) 4%, transparent)",
-                  color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
-                  border: isActive ? "1px solid var(--mq-border-accent)" : "1px solid var(--mq-border-thin)",
+                  backgroundColor: isActive ? "color-mix(in srgb, var(--mq-text) 9%, transparent)" : "color-mix(in srgb, var(--mq-text) 4%, transparent)",
+                  color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)",
+                  border: isActive ? "1px solid color-mix(in srgb, var(--mq-platinum-hi) 26%, transparent)" : "1px solid var(--mq-border-thin)",
                 }}
               >
                 {tag.type === "genre" ? <Tag className="w-3 h-3" /> : <Disc3 className="w-3 h-3" />}
@@ -481,11 +480,11 @@ export default function FavoritesView() {
           className="flex-1 flex items-center gap-2.5 px-4 py-2.5 rounded-2xl transition-colors duration-150"
           style={{
             backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)",
-            border: searchQuery ? "1.5px solid var(--mq-accent)" : "1px solid var(--mq-border-thin)",
-            boxShadow: searchQuery ? "0 0 0 3px color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "none",
+            border: searchQuery ? "1.5px solid color-mix(in srgb, var(--mq-text) 30%, transparent)" : "1px solid var(--mq-border-thin)",
+            boxShadow: searchQuery ? "0 0 0 3px color-mix(in srgb, var(--mq-text) 7%, transparent)" : "none",
           }}
         >
-          <Search className="w-3.5 h-3.5 flex-shrink-0" style={{ color: searchQuery ? "var(--mq-accent)" : "var(--mq-text-muted)", transition: "color 0.2s ease" }} />
+          <Search className="w-3.5 h-3.5 flex-shrink-0" style={{ color: searchQuery ? "var(--mq-text)" : "var(--mq-text-muted)", transition: "color 0.2s ease" }} />
           <input
             type="text"
             value={searchQuery}
@@ -516,7 +515,7 @@ export default function FavoritesView() {
               onClick={(e) => { e.stopPropagation(); setShowSortMenu(!showSortMenu); }}
               className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors duration-200"
               style={{
-                backgroundColor: sortBy !== "default" ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
+                backgroundColor: sortBy !== "default" ? "color-mix(in srgb, var(--mq-text) 12%, transparent)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
                 color: sortBy !== "default" ? "var(--mq-text)" : "var(--mq-text-muted)",
                 boxShadow: sortBy !== "default" ? "0 2px 8px rgba(0,0,0,0.15)" : "none",
               }}
@@ -551,14 +550,14 @@ export default function FavoritesView() {
                         onClick={(e) => { e.stopPropagation(); setSortBy(opt.id); setShowSortMenu(false); }}
                         className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs cursor-pointer transition-colors"
                         style={{
-                          color: sortBy === opt.id ? "var(--mq-accent)" : "var(--mq-text)",
+                          color: sortBy === opt.id ? "var(--mq-text)" : "var(--mq-text-muted)",
                           backgroundColor: sortBy === opt.id ? "color-mix(in srgb, var(--mq-text) 4%, transparent)" : "transparent",
                         }}
                       >
                         <Icon className="w-3.5 h-3.5" />
                         {opt.label}
                         {sortBy === opt.id && (
-                          <CheckCircle2 className="w-3 h-3 ml-auto" style={{ color: "var(--mq-accent)" }} />
+                          <CheckCircle2 className="w-3 h-3 ml-auto" style={{ color: "var(--mq-text)" }} />
                         )}
                       </motion.button>
                     );
@@ -614,7 +613,7 @@ export default function FavoritesView() {
 
                 onClick={() => setShowPlaylistMenu(!showPlaylistMenu)}
                 className="mq-t-meta-2 font-medium px-3 py-1.5 rounded-lg cursor-pointer flex items-center gap-1"
-                style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}
+                style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)", color: "var(--mq-text)" }}
               >
                 <ListPlus className="w-3 h-3" />
                 В плейлист
@@ -675,9 +674,8 @@ export default function FavoritesView() {
             whileHover={hoverProps({ scale: 1.02, transition: { duration: 0.15, ease: "easeOut" } })}
 
             onClick={handlePlayAll}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold cursor-pointer transition-[background-color,color,box-shadow] duration-150 hover:shadow-[var(--mq-shadow-card-hover)]"
+            className="mq-platinum-btn flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold cursor-pointer transition-[background-color,color,box-shadow] duration-150 hover:shadow-[var(--mq-shadow-card-hover)]"
             style={{
-              backgroundColor: "var(--mq-accent)",
               color: "var(--mq-text)",
               boxShadow: "var(--mq-shadow-card)",
             }}
@@ -829,7 +827,7 @@ export default function FavoritesView() {
 
                       onClick={(e) => { e.stopPropagation(); handleArtistClick(artist); }}
                       className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer sm:opacity-0 sm:group-hover:opacity-70 transition-opacity"
-                      style={{ color: "var(--mq-accent)" }}
+                      style={{ color: "var(--mq-text-muted)" }}
                       title="Открыть артиста"
                     >
                       <Disc3 className="w-3.5 h-3.5" />
@@ -899,16 +897,10 @@ export default function FavoritesView() {
                 }}
               >
                 {activeTab === "liked" ? (
-                  <Heart className="w-8 h-8" style={{ color: "#ef4444", opacity: 0.35 }} />
+                  <Heart className="w-8 h-8" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }} />
                 ) : (
-                  <ThumbsDown className="w-8 h-8" style={{ color: "#f97316", opacity: 0.35 }} />
+                  <ThumbsDown className="w-8 h-8" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }} />
                 )}
-                <motion.div
-                  animate={{ y: [0, -3, 0], opacity: [0.08, 0.2, 0.08] }}
-                  transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
-                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full"
-                  style={{ backgroundColor: activeTab === "liked" ? "#ef4444" : "#f97316" }}
-                />
               </motion.div>
               <p className="text-sm font-semibold mb-1" style={{ color: "var(--mq-text)" }}>
                 {activeTab === "liked" ? "Пока пусто" : "Пока пусто"}
@@ -922,8 +914,7 @@ export default function FavoritesView() {
                 <motion.button
 
                   onClick={() => useAppStore.getState().setView("main")}
-                  className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold"
-                  style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
+                  className="mq-btn-neutral mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold"
                 >
                   <Music className="w-3.5 h-3.5" />
                   Искать музыку
@@ -990,7 +981,7 @@ export default function FavoritesView() {
                         <motion.div
                           layoutId="activeTrackAccent"
                           className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full"
-                          style={{ backgroundColor: "var(--mq-accent)" }}
+                          style={{ backgroundColor: "var(--mq-platinum-lift)" }}
                           transition={{ type: "spring", stiffness: 400, damping: 30 }}
                         />
                       )}
@@ -1001,7 +992,7 @@ export default function FavoritesView() {
 
                           className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors"
                           style={{
-                            backgroundColor: isSelected ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
+                            backgroundColor: isSelected ? "var(--mq-platinum-lift)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
                             border: isSelected ? "none" : "1.5px solid var(--mq-border-medium)",
                             color: isSelected ? "var(--mq-text)" : "transparent",
                           }}
@@ -1013,7 +1004,7 @@ export default function FavoritesView() {
                         <div className="w-6 text-center flex-shrink-0">
                           <span
                             className="mq-t-meta-2 tabular-nums group-hover:hidden"
-                            style={{ color: isCurrentTrack ? "var(--mq-accent)" : "var(--mq-text-muted)", opacity: isCurrentTrack ? 1 : 0.4 }}
+                            style={{ color: isCurrentTrack ? "var(--mq-text)" : "var(--mq-text-muted)", opacity: isCurrentTrack ? 1 : 0.4 }}
                           >
                             {index + 1}
                           </span>
@@ -1036,7 +1027,7 @@ export default function FavoritesView() {
                       <motion.div
                         whileHover={!batchMode ? { scale: 1.06 } : undefined}
                         className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0"
-                        style={{ boxShadow: isCurrentTrack ? "0 2px 8px color-mix(in srgb, var(--mq-accent) 20%, transparent)" : "0 1px 4px rgba(0,0,0,0.2)" }}
+                        style={{ boxShadow: isCurrentTrack ? "0 2px 8px rgba(0,0,0,0.28)" : "0 1px 4px rgba(0,0,0,0.2)" }}
                       >
                         {track.cover ? (
                           <img
@@ -1060,7 +1051,7 @@ export default function FavoritesView() {
                         <p
                           className="text-sm font-medium truncate"
                           style={{
-                            color: isCurrentTrack ? "var(--mq-accent)" : "var(--mq-text)",
+                            color: "var(--mq-text)",
                           }}
                         >
                           {track.title}

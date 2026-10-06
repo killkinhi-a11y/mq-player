@@ -134,22 +134,15 @@ function CrossfadeArtwork({
         }
       }}
       className="mq-wave-art block w-full aspect-square"
-      style={{
-        /* INLINE blur — the Lightning pipeline strips backdrop-filter
-           from stylesheets; this blurs the liquid scene behind the
-           artwork's rounded edges (real refraction feel). */
-        backdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
-        WebkitBackdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
-      }}
       aria-label={track ? `Открыть плеер: ${track.title}` : "Открыть плеер"}
     >
       {state.layers.length === 0 ? (
         <span
           className="absolute inset-0 flex items-center justify-center"
-          style={{ background: "color-mix(in srgb, var(--mq-accent) 16%, var(--mq-bg))" }}
+          style={{ background: "var(--mq-mat-2-bg)" }}
           aria-hidden="true"
         >
-          <Waves className="w-12 h-12" style={{ color: "var(--mq-accent)" }} />
+          <Waves className="w-12 h-12" style={{ color: "var(--mq-text-muted)" }} />
         </span>
       ) : (
         state.layers.map((l) => (
@@ -165,9 +158,9 @@ function CrossfadeArtwork({
             ) : (
               <span
                 className="w-full h-full flex items-center justify-center"
-                style={{ background: "color-mix(in srgb, var(--mq-accent) 14%, var(--mq-bg))" }}
+                style={{ background: "var(--mq-mat-2-bg)" }}
               >
-                <Waves className="w-10 h-10" style={{ color: "var(--mq-accent)" }} />
+                <Waves className="w-10 h-10" style={{ color: "var(--mq-text-muted)" }} />
               </span>
             )}
           </span>

@@ -1257,8 +1257,8 @@ export default function AuthView() {
 
                 <Button onClick={handleEmailLogin}
                   disabled={loginLoading || !loginEmail || !loginPassword}
-                  className="w-full min-h-[44px]"
-                  style={{ backgroundColor: "var(--mq-accent, #e03131)", color: "#ffffff" }}>
+                  className="mq-platinum-btn w-full min-h-[44px]"
+                  style={{ color: "#ffffff" }}>
                   {loginLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Войти"}
                 </Button>
               </div>
@@ -1389,8 +1389,8 @@ export default function AuthView() {
 
                 <Button onClick={handleRegister}
                   disabled={regLoading || !regUsername || !regEmail || !regPassword}
-                  className="w-full min-h-[44px]"
-                  style={{ backgroundColor: "var(--mq-accent, #e03131)", color: "#ffffff" }}>
+                  className="mq-platinum-btn w-full min-h-[44px]"
+                  style={{ color: "#ffffff" }}>
                   {regLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Зарегистрироваться"}
                 </Button>
               </div>
@@ -1476,8 +1476,8 @@ export default function AuthView() {
               <div className="mt-6 space-y-3">
                 <Button onClick={() => handleConfirmVerify()}
                   disabled={confirmLoading || confirmCode.some(d => !d)}
-                  className="w-full min-h-[44px]"
-                  style={{ backgroundColor: "var(--mq-accent, #e03131)", color: "#ffffff" }}>
+                  className="mq-platinum-btn w-full min-h-[44px]"
+                  style={{ color: "#ffffff" }}>
                   {confirmLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Подтвердить"}
                 </Button>
                 <Button variant="ghost" onClick={handleResendCode} disabled={confirmLoading}

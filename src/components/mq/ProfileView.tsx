@@ -679,7 +679,7 @@ const ProfileView = React.memo(function ProfileView() {
               <span
                 className="flex-shrink-0 min-w-[20px] h-5 rounded-full flex items-center justify-center mq-t-meta-2 font-bold px-1.5"
                 style={{
-                  backgroundColor: "var(--mq-accent)",
+                  backgroundColor: "var(--mq-platinum-lift)",
                   color: "#fff",
                 }}
               >

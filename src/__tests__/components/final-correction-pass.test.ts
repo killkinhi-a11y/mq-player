@@ -44,12 +44,18 @@ describe("FCP §1 — WAVE main surface: solid, visibly rounded, clean clipping"
     const art = css.match(/\.mq-wave-art \{[^}]*\}/)?.[0] ?? "";
     expect(art).toContain("border-radius: 20px");
     expect(art).toContain("overflow: hidden");
-    // the BASE bezel layer (inset 7px / radius 14px) — the mobile override
-    // (9px / 13px) is a separate later-in-file rule, matched separately.
-    const baseLayer = css.match(/\.mq-wave-art-layer \{[^}]*inset: 7px[^}]*\}/)?.[0] ?? "";
-    expect(baseLayer).toContain("border-radius: 14px");
-    const mobileLayer = css.match(/\.mq-wave-art-layer \{ inset: 9px; border-radius: 13px; \}/)?.[0] ?? "";
-    expect(mobileLayer).toBeTruthy();
+    // DESIGN COMPLETION: the V2.5 glass bezel (7px inset / inner radius)
+    // read as box-in-box in visual audits — the artwork now clips
+    // edge-to-edge: layers fill the frame (inset 0) and INHERIT the
+    // frame radius. No inner frame, no second radius, no blur.
+    const layer = css.match(/\.mq-wave-art-layer \{[^}]*\}/)?.[0] ?? "";
+    expect(layer).toContain("inset: 0");
+    expect(layer).toContain("border-radius: inherit");
+    expect(layer).not.toContain("inset: 7px");
+    expect(layer).not.toContain("inset: 9px");
+    // and the mobile override no longer re-introduces a bezel
+    const mobileOverride = css.match(/@media \(max-width: 767px\) \{\s*\.mq-wave-ambient[^}]*\}[^}]*\}/)?.[0] ?? "";
+    expect(mobileOverride).not.toContain("mq-wave-art-layer { inset");
   });
 });
 

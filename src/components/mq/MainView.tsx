@@ -48,8 +48,8 @@ function getWaveGradient(): string {
   // 3. deep vignette toward bottom-right so content stays high-contrast.
   // (VLM audit: the previous single linear gradient looked "flat/cheap".)
   return [
-    `radial-gradient(120% 150% at 16% 6%, color-mix(in srgb, var(--mq-accent) 36%, var(--mq-bg)) 0%, color-mix(in srgb, var(--mq-accent) 22%, var(--mq-bg)) 36%, transparent 64%)`,
-    `linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 20%, var(--mq-bg)) 0%, color-mix(in srgb, var(--mq-accent) 10%, var(--mq-bg)) 52%, var(--mq-bg) 100%)`,
+    `radial-gradient(120% 150% at 16% 6%, color-mix(in srgb, #3a4258 30%, var(--mq-bg)) 0%, color-mix(in srgb, #2c3346 16%, var(--mq-bg)) 36%, transparent 64%)`,
+    `linear-gradient(135deg, color-mix(in srgb, #232a3c 26%, var(--mq-bg)) 0%, color-mix(in srgb, #1a1f2c 12%, var(--mq-bg)) 52%, var(--mq-bg) 100%)`,
   ].join(", ");
 }
 
@@ -438,12 +438,12 @@ function MainView() {
             className="w-7 h-7 rounded-full border-2 flex items-center justify-center"
             style={{
               borderColor: "var(--mq-border-thin)",
-              borderTopColor: "var(--mq-accent)",
+              borderTopColor: "var(--mq-text-muted)",
               transform: `rotate(${pullDistance * 3}deg)`,
             }}
           >
             {pullDistance >= PULL_THRESHOLD ? (
-              <RotateCcw className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+              <RotateCcw className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
             ) : null}
           </div>
         </div>
@@ -481,19 +481,19 @@ function MainView() {
             className={`shrink-0 ${currentTrack ? "flex" : "hidden lg:flex"} items-center gap-2 rounded-full pl-3 pr-4 h-11 transition-all mq-icon-btn`}
             data-active={wave.radioMode}
             style={{
-              ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-accent) 14%, transparent)",
+              ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-platinum-lift) 26%, transparent)",
               backgroundColor: wave.radioMode
-                ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)"
+                ? "color-mix(in srgb, var(--mq-platinum-lift) 26%, transparent)"
                 : "color-mix(in srgb, var(--mq-text) 5%, transparent)",
             }}
             aria-label={wave.radioMode ? "Пауза WAVE" : "Запустить WAVE"}
           >
             {wave.waveLoading ? (
-              <div className="mq-spin w-4 h-4 border-2 rounded-full" style={{ borderColor: "var(--mq-accent)", borderTopColor: "transparent" }} />
+              <div className="mq-spin w-4 h-4 border-2 rounded-full" style={{ borderColor: "var(--mq-text-muted)", borderTopColor: "transparent" }} />
             ) : (
-              <Waves className="w-4 h-4" style={{ color: wave.radioMode ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+              <Waves className="w-4 h-4" style={{ color: wave.radioMode ? "var(--mq-platinum-hi)" : "var(--mq-text-muted)" }} />
             )}
-            <span className="mq-t-label text-xs" style={{ color: wave.radioMode ? "var(--mq-accent)" : "var(--mq-text)" }}>
+            <span className="mq-t-label text-xs" style={{ color: wave.radioMode ? "var(--mq-platinum-hi)" : "var(--mq-text)" }}>
               {/* FINAL CORRECTION §13: no status suffix — the chip says the
                   mode name only; play state lives on the transport. */}
               {wave.waveLoading ? "Подбираем…" : "WAVE"}
@@ -639,7 +639,7 @@ function MainView() {
               <div className="flex items-center gap-2 mb-2.5">
                 {(() => {
                   const CatIcon = iconForRec(cat.id);
-                  return <CatIcon className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />;
+                  return <CatIcon className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />;
                 })()}
                 <h3 className="mq-t-label mq-t-body" style={{ color: "var(--mq-text)" }}>
                   {cat.title}
@@ -689,7 +689,7 @@ function MainView() {
           title="Недавно"
           icon={Clock}
           action={
-            <button onClick={() => setView("history")} className="mq-t-label text-xs" style={{ color: "var(--mq-accent)" }}>
+            <button onClick={() => setView("history")} className="mq-t-label text-xs" style={{ color: "var(--mq-text-muted)" }}>
               Все
             </button>
           }
@@ -997,7 +997,7 @@ function Section({
             "card-in-header" pattern); the icon carries the accent alone. */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <Icon className="w-[17px] h-[17px]" style={{ color: "var(--mq-accent)" }} />
+            <Icon className="w-[17px] h-[17px]" style={{ color: "color-mix(in srgb, var(--mq-text) 72%, transparent)" }} />
             <h2 className="mq-t-section text-[15px] sm:text-base lg:text-lg" style={{ color: "var(--mq-text)", fontWeight: 700 }}>
               {title}
             </h2>
@@ -1080,7 +1080,7 @@ function FeaturedCard({
               loading="eager"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, var(--mq-bg))" }}>
+            <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-mat-2-bg)" }}>
               <Music className="w-10 h-10" style={{ color: "var(--mq-text-muted)" }} />
             </div>
           )}
@@ -1191,8 +1191,8 @@ function ContinueListeningCard({
         className="rounded-2xl p-4 sm:p-5 flex items-center gap-4 min-w-0"
         style={{ backgroundColor: "var(--mq-card)", border: "1px dashed var(--mq-border-thin)" }}
       >
-        <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}>
-          <Play className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 7%, transparent)" }}>
+          <Play className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
         </div>
         <div className="min-w-0">
           <p className="mq-t-label text-sm" style={{ color: "var(--mq-text)" }}>Продолжить прослушивание</p>
@@ -1369,7 +1369,6 @@ function MobileNowHero({
         <button
           onClick={onOpenFull}
           className="relative w-[68px] h-[68px] rounded-[14px] overflow-hidden flex-shrink-0"
-          style={{ boxShadow: "var(--mq-art-edge, 0 0 0 1px rgba(255,255,255,0.06))" }}
           aria-label={isNow ? "Открыть плеер" : "Открыть трек"}
         >
           {hero.cover ? (
@@ -1480,12 +1479,12 @@ function HeroWaveCTA({ compact = false }: { compact?: boolean }) {
       >
         <div
           className="w-[52px] h-[52px] rounded-[14px] flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 22%, transparent)" }}
+          style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)" }}
         >
           {wave.waveLoading ? (
-            <div className="mq-spin w-5 h-5 border-2 rounded-full" style={{ borderColor: "var(--mq-accent)", borderTopColor: "transparent" }} />
+            <div className="mq-spin w-5 h-5 border-2 rounded-full" style={{ borderColor: "var(--mq-text-muted)", borderTopColor: "transparent" }} />
           ) : (
-            <Waves className="w-6 h-6" style={{ color: "var(--mq-accent)" }} />
+            <Waves className="w-6 h-6" style={{ color: "var(--mq-text-muted)" }} />
           )}
         </div>
         <div className="flex-1 min-w-0">
@@ -1600,7 +1599,7 @@ function QuickActionGrid({
 }) {
   const items = [
     { icon: Heart, label: "Избранное", count: likedCount, onClick: onFavorites, accent: "#ef4444" },
-    { icon: Clock, label: "История", count: historyCount, onClick: onHistory, accent: "var(--mq-accent)" },
+    { icon: Clock, label: "История", count: historyCount, onClick: onHistory, accent: "color-mix(in srgb, var(--mq-text) 60%, transparent)" },
     { icon: ListMusic, label: "Плейлисты", count: playlistCount, onClick: onPlaylists, accent: "#8b5cf6" },
     { icon: MessageCircle, label: "Чаты", count: chatCount, onClick: onMessenger, accent: "#06b6d4" },
   ];
@@ -1646,7 +1645,7 @@ function HorizontalTrackRow({
   return (
     <div
       className="group flex items-center gap-3 rounded-xl p-2 pr-3 transition-colors hover:bg-[var(--mq-overlay-hover)] cursor-pointer"
-      style={{ backgroundColor: isCurrent ? "color-mix(in srgb, var(--mq-accent) 7%, transparent)" : "transparent" }}
+      style={{ backgroundColor: isCurrent ? "color-mix(in srgb, var(--mq-text) 6%, transparent)" : "transparent" }}
       onClick={onPlay}
       role="button"
       tabIndex={0}
@@ -1669,7 +1668,7 @@ function HorizontalTrackRow({
         </div>
       </div>
       <div className="flex-1 min-w-0">
-        <p className="mq-t-track-sm line-clamp-2 leading-snug" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
+        <p className="mq-t-track-sm line-clamp-2 leading-snug" style={{ color: "var(--mq-text)" }}>
           {track.title}
         </p>
         <button
@@ -1715,7 +1714,7 @@ function CompactTrackCard({
         /* V2.5: L2 content surface — hairline edge instead of full card chrome.
            FINAL: + the quiet card shadow (solid surfaces sit on the page). */
         backgroundColor: "var(--mq-mat-2-bg)",
-        border: `1px solid ${isCurrent ? "color-mix(in srgb, var(--mq-accent) 35%, transparent)" : "var(--mq-mat-2-edge)"}`,
+        border: `1px solid ${isCurrent ? "color-mix(in srgb, var(--mq-platinum-hi) 30%, transparent)" : "var(--mq-mat-2-edge)"}`,
         boxShadow: "var(--mq-mat-2-shadow)",
       }}
       onClick={onPlay}
@@ -1750,7 +1749,7 @@ function CompactTrackCard({
         </div>
       </div>
       <div className="p-2">
-        <p className="mq-t-track-sm line-clamp-2 leading-snug" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
+        <p className="mq-t-track-sm line-clamp-2 leading-snug" style={{ color: "var(--mq-text)" }}>
           {track.title}
         </p>
         <span
@@ -1793,7 +1792,7 @@ function ChartRow({
     >
       <span
         className="mq-t-num text-lg w-8 text-center shrink-0 select-none"
-        style={{ color: isTop ? "var(--mq-accent)" : "var(--mq-text-muted)", fontWeight: isTop ? 700 : 500 }}
+        style={{ color: isTop ? "var(--mq-text)" : "var(--mq-text-muted)", fontWeight: isTop ? 700 : 500 }}
       >
         {rank}
       </span>
@@ -1807,7 +1806,7 @@ function ChartRow({
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="mq-t-track-sm line-clamp-2 leading-snug" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
+        <p className="mq-t-track-sm line-clamp-2 leading-snug" style={{ color: "var(--mq-text)" }}>
           {track.title}
         </p>
         <button
@@ -2116,10 +2115,10 @@ function RecommendedCard({
       whileTap={{ scale: 0.99 }}
       transition={{ layout: animationsEnabled ? { duration: 0.5, ease: [0.25, 1, 0.3, 1] } : { duration: 0 } }}
       aria-label={`Рекомендованный плейлист: ${item.name}, ${meta}`}
-      className={`group relative overflow-hidden text-left cursor-pointer outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)] transition-[border-radius] duration-500 ${className}`}
+      className={`group relative overflow-hidden text-left cursor-pointer outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_srgb,var(--mq-text)_55%,transparent)] transition-[border-radius] duration-500 ${className}`}
       style={{
         borderRadius: active ? 14 : 8,
-        border: `1px solid ${isPlayingThis ? "color-mix(in srgb, var(--mq-accent) 45%, transparent)" : "var(--mq-border-hairline)"}`,
+        border: `1px solid ${isPlayingThis ? "color-mix(in srgb, var(--mq-platinum-hi) 35%, transparent)" : "var(--mq-border-hairline)"}`,
         backgroundColor: "color-mix(in srgb, var(--mq-card) 85%, transparent)",
         containerType: "inline-size",
         ...style,
@@ -2185,7 +2184,7 @@ function RecommendedCard({
             onClick={(e) => { e.stopPropagation(); onPlay(); }}
             aria-label={`Играть — ${item.name}`}
             className="md:hidden absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-transform z-10"
-            style={{ top: "74%", backgroundColor: "var(--mq-accent)", boxShadow: "0 4px 14px rgba(0,0,0,0.4)" }}
+            style={{ top: "74%", backgroundColor: "var(--mq-platinum-lift)", boxShadow: "0 4px 14px rgba(0,0,0,0.4)" }}
           >
             {isPlayingThis
               ? <Pause className="w-4 h-4 text-white" fill="currentColor" />
@@ -2233,7 +2232,7 @@ function RecommendedCard({
               tabIndex={active ? 0 : -1}
               onClick={(e) => { e.stopPropagation(); onPlay(); }}
               aria-label={isPlayingThis ? `Пауза — ${item.name}` : `Слушать — ${item.name}`}
-              className="mt-4 inline-flex items-center gap-2 text-[11px] font-semibold transition-transform active:scale-95 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mq-accent)]"
+              className="mt-4 inline-flex items-center gap-2 text-[11px] font-semibold transition-transform active:scale-95 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_srgb,var(--mq-text)_55%,transparent)]"
               style={{ color: "var(--mq-text)" }}
             >
               <span

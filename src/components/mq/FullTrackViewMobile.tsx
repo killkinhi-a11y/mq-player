@@ -558,7 +558,11 @@ function FullTrackViewMobileInner() {
         }
       }}
       style={{
-      background: "var(--mq-bg)",
+      /* DESIGN COMPLETION: translucent scrim — the living ambient breathes
+         through the fullscreen player (was an opaque dead black). */
+      background: "color-mix(in srgb, var(--mq-bg) 88%, transparent)",
+      backdropFilter: "blur(24px)",
+      WebkitBackdropFilter: "blur(24px)",
       // Open: translateY only (GPU-composited, no layout). Close: slide
       // back down 200ms — short, never blocks the next interaction.
       animation: closing
@@ -620,7 +624,7 @@ function FullTrackViewMobileInner() {
           height: 6px;
           border-radius: 3px;
           background: linear-gradient(to right,
-            var(--mq-accent) 0%, var(--mq-accent) var(--mq-seek-pct, 0%),
+            #cfd6e4 0%, #cfd6e4 var(--mq-seek-pct, 0%),
             var(--mq-glass-bg) var(--mq-seek-pct, 0%), var(--mq-glass-bg) 100%);
           box-shadow: var(--mq-shadow-inner-glow);
         }
@@ -635,7 +639,7 @@ function FullTrackViewMobileInner() {
           border: 2px solid color-mix(in srgb, var(--mq-text-muted) 55%, var(--mq-card));
           margin-top: -5px;
           cursor: pointer;
-          box-shadow: 0 1px 6px rgba(0,0,0,0.35), 0 0 0 4px color-mix(in srgb, var(--mq-accent) 20%, transparent);
+          box-shadow: 0 1px 6px rgba(0,0,0,0.35), 0 0 0 4px color-mix(in srgb, #cfd6e4 18%, transparent);
         }
         input.mq-ft-seek-input::-moz-range-track {
           height: 5px;
@@ -645,16 +649,16 @@ function FullTrackViewMobileInner() {
         input.mq-ft-seek-input::-moz-range-progress {
           height: 5px;
           border-radius: 3px;
-          background: var(--mq-accent);
+          background: #d7deea;
         }
         input.mq-ft-seek-input::-moz-range-thumb {
           width: 14px;
           height: 14px;
           border-radius: 4px;
           background: var(--mq-card);
-          border: 2px solid var(--mq-accent);
+          border: 2px solid #d7deea;
           cursor: pointer;
-          box-shadow: 0 0 0 4px color-mix(in srgb, var(--mq-accent) 22%, transparent);
+          box-shadow: 0 0 0 4px color-mix(in srgb, #cfd6e4 20%, transparent);
         }
       `}</style>
 
@@ -665,7 +669,7 @@ function FullTrackViewMobileInner() {
         className="absolute inset-x-0 top-[8%] bottom-[30%] pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse 70% 55% at 50% 42%, color-mix(in srgb, var(--mq-accent) 16%, transparent) 0%, transparent 72%)",
+            "radial-gradient(ellipse 70% 55% at 50% 42%, color-mix(in srgb, #2c3a67 46%, transparent) 0%, transparent 72%)",
         }}
       />
 
@@ -720,12 +724,12 @@ function FullTrackViewMobileInner() {
             {currentTrack.cover ? (
               <ArtworkImage key={currentTrack.id} src={currentTrack.cover} />
             ) : (
-              <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
+              <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, #2c3350, #14161f)" }}>
                 <Music className="w-16 h-16" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} />
               </div>
             )}
             {isPlaying && (
-              <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: "inset 0 0 0 1.5px color-mix(in srgb, var(--mq-accent) 32%, transparent)" }} />
+              <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: "inset 0 0 0 1.5px color-mix(in srgb, var(--mq-platinum-hi) 24%, transparent)" }} />
             )}
           </div>
         </div>
@@ -1059,7 +1063,7 @@ function FullTrackViewMobileInner() {
               )}
               {panel === "queue" && (upcoming.length ? upcoming.map((t, i) => (
                 <div key={t.id + i} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playTrack?.(t, queue); closePanel(); } }} onClick={() => { playTrack?.(t, queue); closePanel(); }} className="mq-ft-btn w-full flex items-center gap-3 p-2 rounded-xl text-left" style={{ border: "none", cursor: "pointer", background: "transparent" }}>
-                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">{t.cover ? <img src={t.cover} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: "var(--mq-accent)" }} />}</div>
+                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">{t.cover ? <img src={t.cover} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: "var(--mq-mat-2-bg)" }} />}</div>
                   <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{t.title}</p><p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{t.artist}</p></div>
                   {/* v69 duration contract: queue rows keep duration (shrink-0) */}
                   {t.duration > 0 && (
@@ -1069,7 +1073,7 @@ function FullTrackViewMobileInner() {
                 </div>)) : <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>Очередь пуста</p>)}
               {panel === "history" && (recent.length ? recent.map((t, i) => (
                 <div key={t.id + i} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playTrack?.(t, [t]); closePanel(); } }} onClick={() => { playTrack?.(t, [t]); closePanel(); }} className="mq-ft-btn w-full flex items-center gap-3 p-2 rounded-xl text-left" style={{ border: "none", cursor: "pointer", background: "transparent" }}>
-                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">{t.cover ? <img src={t.cover} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: "var(--mq-accent)" }} />}</div>
+                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">{t.cover ? <img src={t.cover} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: "var(--mq-mat-2-bg)" }} />}</div>
                   <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{t.title}</p><p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{t.artist}</p></div>
                   {/* v69 duration contract: history rows keep duration (shrink-0) */}
                   {t.duration > 0 && (

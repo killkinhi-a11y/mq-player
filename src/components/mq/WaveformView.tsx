@@ -65,11 +65,14 @@ interface ThemeColors {
 }
 
 function readThemeColors(): ThemeColors {
-  const c = { accent: "#e03131", playedDim: "rgba(255,255,255,0.30)", quiet: "rgba(255,255,255,0.14)", placeholder: "rgba(255,255,255,0.07)" };
+  // DESIGN COMPLETION §20: the played portion is PROGRESS — it speaks the
+  // signature platinum material, not the theme accent (red progress bars
+  // read as a default player template; red stays rare/semantic).
+  const c = { accent: "#d7deea", playedDim: "rgba(255,255,255,0.30)", quiet: "rgba(255,255,255,0.14)", placeholder: "rgba(255,255,255,0.07)" };
   if (typeof window === "undefined") return c;
   try {
     const cs = getComputedStyle(document.documentElement);
-    const accent = cs.getPropertyValue("--mq-accent").trim();
+    const accent = cs.getPropertyValue("--mq-platinum-hi").trim();
     if (accent) c.accent = accent;
     const text = cs.getPropertyValue("--mq-text").trim() || "#f0f0f0";
     c.quiet = `color-mix(in srgb, ${text} 16%, transparent)`;

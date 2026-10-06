@@ -570,7 +570,7 @@ export default function FullTrackView() {
           {currentTrack.cover ? (
             <ArtworkImage key={currentTrack.id} src={currentTrack.cover} />
           ) : (
-            <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
+            <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, #2c3350, #14161f)" }}>
               <Music className="w-16 h-16" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} />
             </div>
           )}
@@ -584,7 +584,7 @@ export default function FullTrackView() {
           {isPlaying && (
             <div
               className="absolute inset-0 rounded-[20px] pointer-events-none"
-              style={{ boxShadow: "inset 0 0 0 2px color-mix(in srgb, var(--mq-accent) 30%, transparent)" }}
+              style={{ boxShadow: "inset 0 0 0 2px color-mix(in srgb, var(--mq-platinum-hi) 26%, transparent)" }}
             />
           )}
         </div>
@@ -680,7 +680,7 @@ export default function FullTrackView() {
           {playbackRate !== 1 && <span className="flex items-center gap-1 shrink-0"><Gauge className="w-3 h-3" />{playbackRate}x</span>}
           {sleepTimerActive && <span className="shrink-0">·</span>}
           {sleepTimerActive && (
-            <span className="flex items-center gap-1 shrink-0" style={{ color: "var(--mq-accent)" }}><Timer className="w-3 h-3" />{sleepRemainingMin}м</span>
+            <span className="flex items-center gap-1 shrink-0" style={{ color: "var(--mq-text-muted)" }}><Timer className="w-3 h-3" />{sleepRemainingMin}м</span>
           )}
         </div>
       </div>
@@ -711,10 +711,10 @@ export default function FullTrackView() {
           data-active={showPlaylistPicker}
           aria-label="Добавить в плейлист"
           aria-pressed={showPlaylistPicker}
-          style={{ ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}
+          style={{ ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-text) 9%, transparent)" }}
           title="Добавить в плейлист"
         >
-          <ListPlus className="w-4 h-4" style={{ color: showPlaylistPicker ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+          <ListPlus className="w-4 h-4" style={{ color: showPlaylistPicker ? "var(--mq-text)" : "var(--mq-text-muted)" }} />
         </button>
         <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
         <button
@@ -725,7 +725,7 @@ export default function FullTrackView() {
           aria-pressed={panelTab === "queue"}
           title="Очередь (Q)"
         >
-          <ListMusic className="w-4 h-4" style={{ color: panelTab === "queue" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+          <ListMusic className="w-4 h-4" style={{ color: panelTab === "queue" ? "var(--mq-text)" : "var(--mq-text-muted)" }} />
         </button>
         <button
           onClick={() => setActivePanel(p => p === "lyrics" ? null : "lyrics")}
@@ -735,7 +735,7 @@ export default function FullTrackView() {
           aria-pressed={panelTab === "lyrics"}
           title="Текст песни (F)"
         >
-          <Mic2 className="w-4 h-4" style={{ color: panelTab === "lyrics" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+          <Mic2 className="w-4 h-4" style={{ color: panelTab === "lyrics" ? "var(--mq-text)" : "var(--mq-text-muted)" }} />
         </button>
         <button
           onClick={() => setActivePanel(p => p === "history" ? null : "history")}
@@ -745,7 +745,7 @@ export default function FullTrackView() {
           aria-pressed={panelTab === "history"}
           title="История (H)"
         >
-          <History className="w-4 h-4" style={{ color: panelTab === "history" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+          <History className="w-4 h-4" style={{ color: panelTab === "history" ? "var(--mq-text)" : "var(--mq-text-muted)" }} />
         </button>
         {/* ── More button (v68) — unified MenuCore context menu ─────────────
             One premium menu with two sections: track actions (share / copy /
@@ -771,9 +771,9 @@ export default function FullTrackView() {
             data-active={eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer || !!moreMenu}
             title="Дополнительно"
           >
-            <MoreHorizontal className="w-4 h-4" style={{ color: (eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer) ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+            <MoreHorizontal className="w-4 h-4" style={{ color: (eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer) ? "var(--mq-text)" : "var(--mq-text-muted)" }} />
             {(eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer) && (
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full" style={{ backgroundColor: "var(--mq-platinum-lift)" }} />
             )}
           </button>
         </div>
@@ -926,7 +926,7 @@ export default function FullTrackView() {
                   setShowPlaylistPicker(false);
                 }}
                 className="flex items-center gap-1 text-xs font-semibold"
-                style={{ color: "var(--mq-accent)" }}
+                style={{ color: "var(--mq-text)" }}
               >
                 <Plus className="w-3.5 h-3.5" />
                 Новый
@@ -981,7 +981,7 @@ export default function FullTrackView() {
             <div className="flex items-center gap-2 flex-wrap">
               <span className="mq-t-meta-2 uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Скорость:</span>
               {speedOptions.map(speed => (
-                <button key={speed} onClick={() => handleSpeedChange(speed)} className="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors" style={{ backgroundColor: playbackRate === speed ? "var(--mq-accent)" : "var(--mq-card)", color: playbackRate === speed ? "#fff" : "var(--mq-text-muted)" }}>
+                <button key={speed} onClick={() => handleSpeedChange(speed)} className="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors" style={{ backgroundColor: playbackRate === speed ? "color-mix(in srgb, var(--mq-text) 12%, var(--mq-bg))" : "var(--mq-card)", color: playbackRate === speed ? "var(--mq-text)" : "var(--mq-text-muted)" }}>
                   {speed}x
                 </button>
               ))}
@@ -1174,13 +1174,13 @@ export default function FullTrackView() {
             {hoveredPct > progressPct && (
               <div className="absolute inset-y-0 left-0 rounded-full opacity-0 group-hover:opacity-100" style={{ transform: `scaleX(${hoveredPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-glass-bg-active)" }} />
             )}
-            <div className="absolute inset-y-0 left-0 rounded-full" style={{ transform: `scaleX(${progressPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-accent)", transition: isDragging ? "none" : "transform 0.1s linear" }} />
+            <div className="absolute inset-y-0 left-0 rounded-full" style={{ transform: `scaleX(${progressPct / 100})`, transformOrigin: "left", width: "100%", background: "var(--mq-platinum-progress)", transition: isDragging ? "none" : "transform 0.1s linear" }} />
             {/* Drag handle — visible on mobile (touch devices don't have hover) */}
             <div
               className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full pointer-events-none transition-opacity"
               style={{
                 left: `${isDragging ? progressPct : (hoveredPct || progressPct)}%`,
-                backgroundColor: "var(--mq-accent)",
+                backgroundColor: "#d7deea",
                                             opacity: isDragging ? 1 : (isMobile ? 0.7 : 0),
               }}
             />
@@ -1188,7 +1188,7 @@ export default function FullTrackView() {
             {!isMobile && (
               <div
                 className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
-                style={{ left: `${hoveredPct}%`, backgroundColor: "var(--mq-accent)" }}
+                style={{ left: `${hoveredPct}%`, backgroundColor: "#d7deea" }}
               />
             )}
           </div>
@@ -1218,7 +1218,7 @@ export default function FullTrackView() {
       {/* ═══ MAIN CONTROLS ═══ */}
       <div className={`flex items-center gap-3 sm:gap-5 mb-4 ${isMobile ? "justify-center" : "justify-start"}`}>
         <button onClick={toggleShuffle} aria-label="Перемешать" className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press" data-active={shuffle} title="Перемешать (S)">
-          <Shuffle className="w-5 h-5 mq-color-fade" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+          <Shuffle className="w-5 h-5 mq-color-fade" style={{ color: shuffle ? "var(--mq-platinum-hi)" : "var(--mq-text-muted)" }} />
         </button>
         <button onClick={prevTrack} aria-label="Предыдущий трек" className="w-12 h-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)] mq-press" title="Предыдущий (P)">
           <SkipBack className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
@@ -1243,8 +1243,8 @@ export default function FullTrackView() {
           <SkipForward className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
         </button>
         <button onClick={toggleRepeat} aria-label="Повтор" className="w-11 h-11 rounded-full flex items-center justify-center mq-icon-btn mq-press" data-active={repeat !== "off"} title="Повтор (R)">
-          {repeat === "one" ? <Repeat1 className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-            : <Repeat className="w-5 h-5 mq-color-fade" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
+          {repeat === "one" ? <Repeat1 className="w-5 h-5" style={{ color: "var(--mq-platinum-hi)" }} />
+            : <Repeat className="w-5 h-5 mq-color-fade" style={{ color: repeat === "all" ? "var(--mq-platinum-hi)" : "var(--mq-text-muted)" }} />}
         </button>
       </div>
 
@@ -1265,17 +1265,17 @@ export default function FullTrackView() {
     <>
       {/* ═══ Keyboard shortcuts hint (desktop, top 3 only) ═══ */}
       {!isMobile && (
-        <div className="mt-4 flex items-center gap-3 flex-wrap mq-t-meta-2 opacity-70" style={{ color: "var(--mq-text-muted)" }}>
+        <div className="mt-4 flex items-center gap-3 flex-wrap mq-t-meta-2 opacity-45" style={{ color: "var(--mq-text-muted)" }}>
           <span className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded font-mono mq-t-meta-2" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)" }}>Space</kbd>
+            <kbd className="px-1.5 py-0.5 rounded font-mono mq-t-meta-2" style={{ backgroundColor: "transparent", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border-hairline)" }}>Space</kbd>
             play/pause
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded font-mono mq-t-meta-2" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)" }}>←/→</kbd>
+            <kbd className="px-1.5 py-0.5 rounded font-mono mq-t-meta-2" style={{ backgroundColor: "transparent", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border-hairline)" }}>←/→</kbd>
             seek
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded font-mono mq-t-meta-2" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)" }}>Esc</kbd>
+            <kbd className="px-1.5 py-0.5 rounded font-mono mq-t-meta-2" style={{ backgroundColor: "transparent", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border-hairline)" }}>Esc</kbd>
             close
           </span>
         </div>
@@ -1303,9 +1303,12 @@ export default function FullTrackView() {
           aria-modal="true"
           aria-label={`Полноэкранный плеер: ${currentTrack.title} - ${currentTrack.artist}`}
           style={{
-            background: currentTrack.cover
-              ? "var(--mq-bg)"
-              : "var(--mq-bg)",
+            /* DESIGN COMPLETION: a translucent scrim (86% bg) — the living
+               ambient pools breathe through the modal instead of a dead
+               opaque black; content behind reads as dimmed depth. */
+            background: "color-mix(in srgb, var(--mq-bg) 86%, transparent)",
+            backdropFilter: "blur(28px)",
+            WebkitBackdropFilter: "blur(28px)",
           }}
         >
           {/* Blurred cover background — the single ambient layer that makes
@@ -1322,8 +1325,8 @@ export default function FullTrackView() {
                  solely from the blurred cover itself, plus a fixed cold
                  graphite/navy light wash (editorial ambient family). */
               background:
-                "radial-gradient(75% 55% at 18% 8%, color-mix(in srgb, #9aa3b2 6%, transparent) 0%, transparent 62%)," +
-                "radial-gradient(65% 55% at 88% 92%, color-mix(in srgb, #3d4f78 7%, transparent) 0%, transparent 66%)",
+                "radial-gradient(75% 55% at 18% 8%, color-mix(in srgb, #9aa3b2 13%, transparent) 0%, transparent 62%)," +
+                "radial-gradient(65% 55% at 88% 92%, color-mix(in srgb, #44598a 12%, transparent) 0%, transparent 66%)",
             }}
           />
           {currentTrack.cover && (
@@ -1551,7 +1554,7 @@ export default function FullTrackView() {
                       {/* Wave context — why this track is playing */}
                       {radioMode && currentTrack?._reason && (
                         <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: "1px solid var(--mq-edge)" }}>
-                          <Sparkles className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
+                          <Sparkles className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
                           <span className="mq-t-meta-2 leading-snug truncate" style={{ color: "var(--mq-text-muted)" }}>
                             {waveReasonText(currentTrack) || currentTrack._reason}
                           </span>
@@ -1566,7 +1569,7 @@ export default function FullTrackView() {
                             {currentTrack && (
                               <div className="px-3 pb-2">
                                 <p className="mq-text-eyebrow mq-t-meta-2 uppercase tracking-widest px-1 pb-2" style={{ color: "var(--mq-text-muted)" }}>Текущий трек</p>
-                                <div className="flex items-center gap-3 px-2.5 py-2 rounded-xl" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 8%, transparent)" }}>
+                                <div className="flex items-center gap-3 px-2.5 py-2 rounded-xl" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)" }}>
                                   <div className="w-10 h-10 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art">
                                     {currentTrack.cover ? (
                                       <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
@@ -1580,9 +1583,9 @@ export default function FullTrackView() {
                                   </div>
                                   {isPlaying && (
                                     <div className="flex items-end gap-[3px] h-4 flex-shrink-0" aria-hidden="true">
-                                      <span className="w-[3px] h-full rounded-sm" style={{ transformOrigin: "bottom", backgroundColor: "var(--mq-accent)", animation: "playerEq0 0.9s ease-in-out infinite alternate" }} />
-                                      <span className="w-[3px] h-full rounded-sm" style={{ transformOrigin: "bottom", backgroundColor: "var(--mq-accent)", animation: "playerEq1 0.8s ease-in-out infinite alternate" }} />
-                                      <span className="w-[3px] h-full rounded-sm" style={{ transformOrigin: "bottom", backgroundColor: "var(--mq-accent)", animation: "playerEq2 1s ease-in-out infinite alternate" }} />
+                                      <span className="w-[3px] h-full rounded-sm" style={{ transformOrigin: "bottom", backgroundColor: "var(--mq-platinum-lift)", animation: "playerEq0 0.9s ease-in-out infinite alternate" }} />
+                                      <span className="w-[3px] h-full rounded-sm" style={{ transformOrigin: "bottom", backgroundColor: "var(--mq-platinum-lift)", animation: "playerEq1 0.8s ease-in-out infinite alternate" }} />
+                                      <span className="w-[3px] h-full rounded-sm" style={{ transformOrigin: "bottom", backgroundColor: "var(--mq-platinum-lift)", animation: "playerEq2 1s ease-in-out infinite alternate" }} />
                                     </div>
                                   )}
                                 </div>

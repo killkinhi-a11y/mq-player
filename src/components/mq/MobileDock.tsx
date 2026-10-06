@@ -189,7 +189,7 @@ function MobileDockInner() {
           top corners — a physical pane the content scrolls beneath. The
           old opaque 92% bg + hard top border is gone. */}
       <div
-        className="mq-glass2"
+        className="mq-glass2 mq-glass2-dock"
         style={{
           borderRadius: "18px 18px 0 0",
           overflow: "hidden",

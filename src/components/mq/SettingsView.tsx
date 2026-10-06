@@ -100,7 +100,7 @@ function AndroidUpdateCard() {
       {/* ── Version row (wraps on mobile: title left, button below/right) ── */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-3">
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
-          <Smartphone className="w-5 h-5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} aria-hidden />
+          <Smartphone className="w-5 h-5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} aria-hidden />
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="mq-t-section font-semibold" style={{ color: "var(--mq-text)" }}>
@@ -109,8 +109,8 @@ function AndroidUpdateCard() {
               <span
                 className="mq-t-num rounded-md px-1.5 py-0.5 mq-t-meta-2 font-semibold whitespace-nowrap"
                 style={{
-                  color: "var(--mq-accent)",
-                  backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
+                  color: "var(--mq-platinum-hi)",
+                  backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)",
                 }}
               >
                 новая версия
@@ -129,8 +129,8 @@ function AndroidUpdateCard() {
           className="mq-update-apk-btn flex h-11 items-center justify-center gap-2 rounded-lg px-5 mq-t-btn font-semibold
                      transition-colors duration-150 flex-shrink-0"
           style={{
-            backgroundColor: "var(--mq-accent)",
-            color: "var(--mq-text-on-accent, #fff)",
+            backgroundColor: "var(--mq-platinum-lift)",
+            color: "#fff",
           }}
           aria-label={`Скачать приложение MQ Player ${ANDROID_STABLE_VERSION} для Android`}
         >
@@ -181,7 +181,7 @@ function AndroidUpdateCard() {
                   <li key={i} className="flex items-start gap-2.5">
                     <span
                       className="mt-[6px] h-1.5 w-1.5 flex-shrink-0 rounded-full"
-                      style={{ backgroundColor: "var(--mq-accent)" }}
+                      style={{ backgroundColor: "var(--mq-text-muted)" }}
                       aria-hidden
                     />
                     <span className="mq-t-body leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
@@ -358,9 +358,9 @@ function SettingToggle({
     >
       <div
         className="w-8 h-8 sm:w-9 sm:h-9 rounded-[var(--mq-r-card)] flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: value ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)" : "var(--mq-surface-2)", border: "1px solid " + (value ? "color-mix(in srgb, var(--mq-accent) 22%, transparent)" : "var(--mq-edge)") }}
+        style={{ backgroundColor: value ? "color-mix(in srgb, var(--mq-text) 8%, transparent)" : "var(--mq-surface-2)", border: "1px solid " + (value ? "color-mix(in srgb, var(--mq-platinum-hi) 26%, transparent)" : "var(--mq-edge)") }}
       >
-        <Icon className="w-4 h-4" style={{ color: value ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+        <Icon className="w-4 h-4" style={{ color: value ? "var(--mq-text)" : "var(--mq-text-muted)" }} />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>{label}</p>
@@ -690,7 +690,7 @@ export default function SettingsView() {
                   {avatar ? (
                     <img src={avatar} alt="" className="w-14 h-14 rounded-full object-cover relative z-10" style={{ border: "1px solid var(--mq-edge-strong)" }} />
                   ) : (
-                    <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold relative z-10" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}>
+                    <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold relative z-10" style={{ backgroundColor: "var(--mq-platinum-lift)", color: "#fff" }}>
                       {(username || "U").charAt(0).toUpperCase()}
                     </div>
                   )}
@@ -700,7 +700,7 @@ export default function SettingsView() {
                   <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{email || "нет"}</p>
                 </div>
                 <button onClick={() => setView("profile")}
-                  className="px-3 py-2 rounded-[var(--mq-r-card)] text-xs font-semibold whitespace-nowrap flex-shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}>
+                  className="px-3 py-2 rounded-[var(--mq-r-card)] text-xs font-semibold whitespace-nowrap flex-shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 9%, transparent)", color: "var(--mq-text)" }}>
                   Открыть
                 </button>
               </div>
@@ -713,7 +713,7 @@ export default function SettingsView() {
             <Card>
               <CardTitle icon={Cloud} title="Приватность и данные" />
               <SettingRow icon={RefreshCw} label="Синхронизация" subtitle={lastSyncAt ? `Последняя: ${new Date(lastSyncAt).toLocaleString("ru-RU")}` : "Не синхронизировано"}
-                onClick={handleSync} rightElement={isSyncing ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} /> : undefined} />
+                onClick={handleSync} rightElement={isSyncing ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-text-muted)" }} /> : undefined} />
               <SettingRow icon={Download} label="Экспорт данных" subtitle="Сохранить избранное и плейлисты в JSON" onClick={handleExportData} />
               <SettingRow icon={Upload} label="Импорт данных" subtitle="Восстановить из JSON-файла" onClick={handleImportData} />
               <SettingRow icon={LogOut} label="Выйти" subtitle="До встречи" onClick={handleLogout} danger />
@@ -849,7 +849,7 @@ export default function SettingsView() {
                           />
                         </div>
                         <span className="mq-t-meta-2 font-medium truncate w-full text-center" style={{ color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)" }}>{theme.name || key}</span>
-                        {isActive && <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}><Check className="w-2.5 h-2.5" style={{ color: "var(--mq-text-on-accent, #fff)" }} /></div>}
+                        {isActive && <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-platinum-lift)" }}><Check className="w-2.5 h-2.5" style={{ color: "#fff" }} /></div>}
                       </button>
                     );
                   })}

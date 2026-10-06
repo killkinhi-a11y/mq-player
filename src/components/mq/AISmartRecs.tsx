@@ -260,8 +260,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
             <motion.button
 
               onClick={handlePlayAll}
-              className="text-xs px-3 py-1.5 rounded-full font-medium cursor-pointer flex items-center gap-1"
-              style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
+              className="mq-platinum-btn text-xs px-3 py-1.5 rounded-full font-medium cursor-pointer flex items-center gap-1"
             >
               <Play className="w-3 h-3" fill="currentColor" />
               Все
@@ -326,7 +325,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
               <motion.div
                 key={i}
                 className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: "var(--mq-accent)" }}
+                style={{ backgroundColor: "var(--mq-text-muted)" }}
                 animate={{ y: [0, -8, 0], opacity: [0.4, 1, 0.4] }}
                 transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.2, ease: "easeInOut" }}
               />
@@ -364,7 +363,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
                       {track.cover ? (
                         <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)", opacity: 0.4 }}>
+                        <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-mat-2-bg)", opacity: 0.4 }}>
                           <Music className="w-4 h-4" style={{ color: "var(--mq-text)" }} />
                         </div>
                       )}
@@ -403,7 +402,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
 
                       onClick={(e) => { e.stopPropagation(); addToUpNext(track); }}
                       className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                      style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
+                      style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 12%, transparent)", color: "var(--mq-text)" }}
                     >
                       <Plus className="w-3 h-3" />
                     </motion.button>

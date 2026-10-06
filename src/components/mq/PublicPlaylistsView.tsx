@@ -126,7 +126,7 @@ export default function PublicPlaylistsView() {
   // Detail view for a single playlist
   if (selectedPlaylist) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: "var(--mq-bg)", paddingBottom: 140 }}>
+      <div className="min-h-screen" style={{ paddingBottom: 140 }}>
         <div className="max-w-[var(--mq-container-narrow)] mx-auto px-4 py-4">
           <button onClick={() => setSelectedPlaylist(null)} className="flex items-center gap-2 mb-4 cursor-pointer"
             style={{ color: "var(--mq-text-muted)" }}>
@@ -192,7 +192,7 @@ export default function PublicPlaylistsView() {
                 }
               }}
               className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium cursor-pointer"
-              style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
+              style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 9%, transparent)", color: "var(--mq-text)" }}>
               <Play className="w-4 h-4" /> Play all
             </motion.button>
             {!selectedPlaylist.editorial && (
@@ -228,7 +228,7 @@ export default function PublicPlaylistsView() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "var(--mq-bg)", paddingBottom: 140 }}>
+    <div className="min-h-screen" style={{ paddingBottom: 140 }}>
       <div className="max-w-[var(--mq-container-narrow)] mx-auto px-4 py-4">
         {/* Header */}
         <ScrollReveal direction="up" delay={0.05}>
@@ -240,7 +240,7 @@ export default function PublicPlaylistsView() {
           <div className="flex items-center gap-2">
             <motion.button onClick={() => setPublishDialogOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer"
-              style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
+              style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 9%, transparent)", color: "var(--mq-text)" }}>
               <Send className="w-3.5 h-3.5" /> Опубликовать
             </motion.button>
             <motion.button onClick={handleRefresh}
@@ -391,7 +391,7 @@ export default function PublicPlaylistsView() {
                   <motion.button
                     onClick={handlePublish} disabled={publishing || !publishPlaylistId}
                     className="w-full mt-4 py-3 rounded-xl text-sm font-medium cursor-pointer disabled:opacity-40"
-                    style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
+                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 9%, transparent)", color: "var(--mq-text)" }}>
                     {publishing ? <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> : <Send className="w-4 h-4 inline mr-2" />}
                     Опубликовать
                   </motion.button>
