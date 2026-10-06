@@ -8811,3 +8811,81 @@ Stage Summary:
 - 1058/1058 tests, tsc clean, eslint baseline parity, build + deploy + E2E
   green. No regressions to audio/playback/queue/lyrics/SoundCloud/yandex/
   downloads/auth/settings/full player/wave engine (untouched logic).
+
+---
+Task ID: final-visual-refinement
+Agent: main (Super Z)
+Task: MQ FINAL VISUAL REFINEMENT — restraint pass on top of V2.5 (flat buttons, solid cards, quiet glass, platinum discipline, accent rarity, dead-zone fixes, deeper WAVE)
+
+Work Log:
+- BEFORE evidence: rebuilt standalone QA server pipeline (kill-by-port via
+  ss — pkill misses the renamed "next-server (v16)" process and fuser is
+  absent; OOM-kills during chromium runs required per-group server
+  restarts). 39-shot BEFORE matrix (d1440/d1920 + m390/m375/m430 ×
+  home/wave/library/search/chats/settings/fullplayer/queue/contextmenu/
+  playerbar) + VLM audits → hit list: 3D chrome play buttons, flat grey
+  slab cards, red label noise, uniform 16-24px radii, box-in-box nav,
+  right-side dead zones (container-wide 1024 on 1440+).
+- MATERIALS (materials-v25.css rewritten): .mq-platinum-btn FLATTENED —
+  radial specular + reflection band + bevel shadows + hover sweep all
+  deleted; now a cold two-stop tonal gradient + 22% hairline light edge +
+  ONE subtle top light + soft drop shadow. Surface tokens SOLIDIFIED:
+  mat-1/2/3 = opaque color-mix over --mq-bg (were transparent tints) +
+  --mq-mat-2/3-shadow quiet 2-layer shadows. Glass quieter: blur 18→14px,
+  sheen 5.5→4%, edge-hi 17→13%, softer float shadow. Radius scale
+  12/14/20 (sm/md/lg). New --mq-platinum-progress token.
+- COMPONENTS: ProgressBar/WaveHome/MobileDock/MainView hero strip →
+  platinum progress fill; volume slider → neutral 34% fill (globals).
+  MainView: FeaturedCard reason muted (was red), "играет" chip →
+  equalizer-only, MobileNowHero reason muted + play button red disc →
+  FLAT platinum, inline surfaces wired to shadow tokens, header WAVE
+  pill → borderless tonal. NavBar: inner segmented nav de-boxed (no
+  border, active = 8% tonal fill). PlayerBar "Далее" muted. FullTrackView:
+  artwork 24→20px radius, queue/history count pills → plain muted, wave
+  reasons in queue muted. QueueView: "Сейчас играет"→"Текущий трек"
+  (muted), red now-playing title → normal. SearchView query emphasis via
+  weight. SettingsView tabs: red active label → tonal fill + platinum
+  line (desktop + mobile pills). TasteProfileView "Моя волна"→WAVE.
+- DEAD ZONES: container-wide 1024→1200, narrow 640→760, base 768→880
+  (design-tokens.css). Featured fill 71%→80% at 1440.
+- WAVE SHADER (deeper, not brighter): 5th layer "depth tide" (huge slow
+  fbm, modulates floor darkness 0.82..1.0), organic warp cross-coupling
+  (f = fbm(p*1.25 + r*2.2 + q*0.55 + ...)), lightBody smoothsteps widened
+  (0.34..0.96). Dark cap 0.30 untouched; palette lerp 950ms untouched.
+- TESTS: +19 contract tests (final-visual-refinement.test.ts): flat
+  button (no radial/1-inset/no sweep), opaque mat tokens, glass ONLY on
+  floaters (content views scanned for backdropFilter/mq-glass2), blur ≤16,
+  radius scale, platinum progress everywhere, accent rarity (muted
+  reasons/counts, no "играет" badge, neutral volume), container widths,
+  wave depth layers, de-boxed nav. Updated wave-v25 sweep expectation.
+  1077/1077 green · tsc 0 src errors · eslint 55 (baseline parity) ·
+  build green.
+- QA: AFTER matrix (39 shots, 5 resolutions, content-wait guarded) +
+  compare/ composites (8 before/after pairs) + deterministic styles probe
+  (qa-styles-probe.mjs): featured shadow live, reason rgb(184,184,184),
+  play 1-inset everywhere, nav 0px border, glass 14px, dock 54px,
+  overflowX 0 on all. VLM: home AFTER "A- masterclass in restraint",
+  WAVE "flat matte refined + volumetric depth, not brighter", mobile
+  "quieter pill, solid hero, deliberate rhythm". Library/Search/Settings
+  audited clean (settings red active tab → fixed + verified).
+- DEPLOY: commit 202c9726 → Vercel mq-build-202c9726 live on mq1.vercel.app
+  (version 86). PRODUCTION E2E (qa-prod-e2e.mjs): desktop 1440 + mobile
+  390 walkthrough home→wave→search→library→chats→settings→fullplayer→
+  queue→contextmenu — all material contracts verified live on prod
+  (muted reason, flat play, opaque mat3, 14px glass, liquid active,
+  platinum mobile hero, overflowX 0 d+m); 15 prod shots; console clean
+  (only pre-existing demo-mode 401/400 resource noise). VLM prod WAVE:
+  flat ✓ quiet ✓ deep ✓ 9/10.
+
+Stage Summary:
+- FINAL REFINEMENT shipped to production (mq-build-202c9726): buttons are
+  FLAT tactile controls (platinum = color, not volume), cards are SOLID
+  opaque surfaces with hairline edge + quiet shadow, glass is quieter and
+  confined to the floating layer, platinum owns play/progress/selected,
+  red accent rare, radii 12/14/20, nav de-boxed, containers widened,
+  WAVE scene deeper (5-layer depth tide) without added brightness.
+  Nothing functional touched (playback/queue/lyrics/sources/auth/wave
+  engine untouched; ProgressBar seek logic unchanged — waveform-view
+  suite green). Artifacts: scripts/final-refine/* (qa-capture, styles
+  probe, prod E2E, compare composito), download/qa-final-refine/*
+  (before/after/compare/prod).
