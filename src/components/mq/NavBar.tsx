@@ -119,8 +119,10 @@ const NavBar = React.memo(function NavBar() {
         width: "calc(100% - 32px)",
         borderRadius: "var(--mq-r-card-lg)",
         /* V2.5: Liquid Glass v2 material (mq-glass2 class) — backdrop-aware
-           tint, edge-lit hairline. Inline shadow extends the material's
-           inner light (inline wins over the class). */
+           tint, edge-lit hairline. INLINE blur + shadow (pipeline strips
+           stylesheet backdrop-filter; inline wins over the class). */
+        backdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
+        WebkitBackdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
         boxShadow: scrolled
           ? "inset 0 1px 0 color-mix(in srgb, var(--mq-text) 8%, transparent), 0 4px 18px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25)"
           : "inset 0 1px 0 color-mix(in srgb, var(--mq-text) 8%, transparent), 0 1px 2px rgba(0,0,0,0.25)",

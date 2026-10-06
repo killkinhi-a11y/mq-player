@@ -76,6 +76,7 @@ import type { Track } from "@/lib/musicApi";
 import {
   DEFAULT_WAVE_PALETTE,
   deriveWavePalette,
+  hexToRgb,
   lerpPalette,
   paletteToCss,
   type WavePalette,
@@ -607,6 +608,26 @@ export const WaveAmbientBackground = memo(function WaveAmbientBackground({
     root.style.setProperty("--wave-color-2", css.c2);
     root.style.setProperty("--wave-color-3", css.c3);
     root.style.setProperty("--wave-highlight", css.hl);
+
+    /* V2.5 CONTENT-AWARE GLASS: measure the live scene luminance and
+       publish the adapted Liquid Glass tokens as literal rgba values.
+       Lighter scene → darker veil (glass darkens over light); darker
+       scene → lighter tint. Static calc()/color-mix-in-fallback forms
+       are impossible in CSS here — the Lightning pipeline strips them —
+       so the adaptation is computed in JS, exactly like the palette. */
+    const lumOf = (hex: string): number => {
+      const [r, g, b] = hexToRgb(hex);
+      return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    };
+    const lum = Math.min(
+      1,
+      Math.max(0, lumOf(css.c1) * 0.45 + lumOf(css.c2) * 0.25 + lumOf(css.c3) * 0.3),
+    );
+    const tintA = 0.055 + (1 - lum) * 0.04;   // 5.5%–9.5% white-ish
+    const veilA = Math.min(0.14, lum * 0.14);  // 0–14% dark veil
+    root.style.setProperty("--mq-backdrop-lum", lum.toFixed(3));
+    root.style.setProperty("--mq-g2-tint", `rgba(226, 232, 240, ${tintA.toFixed(3)})`);
+    root.style.setProperty("--mq-g2-veil", `rgba(3, 5, 10, ${veilA.toFixed(3)})`);
   }, [palette]);
 
   /* ── engine lifecycle ──

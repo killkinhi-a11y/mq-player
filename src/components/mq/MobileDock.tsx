@@ -194,6 +194,10 @@ function MobileDockInner() {
           borderRadius: "18px 18px 0 0",
           overflow: "hidden",
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          /* INLINE blur — the Lightning pipeline strips backdrop-filter
+             from stylesheets (MenuCore pattern). */
+          backdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
+          WebkitBackdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
         }}
       >
         {/* Mini player — smooth collapse (max-height) when the Home hero

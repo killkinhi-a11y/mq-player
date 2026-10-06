@@ -134,6 +134,13 @@ function CrossfadeArtwork({
         }
       }}
       className="mq-wave-art block w-full aspect-square"
+      style={{
+        /* INLINE blur — the Lightning pipeline strips backdrop-filter
+           from stylesheets; this blurs the liquid scene behind the
+           artwork's rounded edges (real refraction feel). */
+        backdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
+        WebkitBackdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
+      }}
       aria-label={track ? `Открыть плеер: ${track.title}` : "Открыть плеер"}
     >
       {state.layers.length === 0 ? (
@@ -406,6 +413,10 @@ export default function WaveHome() {
       className="mq-wave"
       aria-label="WAVE — персональное радио"
       data-testid="wave-home"
+      /* V2.5: mark as the mobile hero owner — MobileDock's hero detection
+         ([data-mq-hero]) hides its mini player while the wave hero is in
+         view, so the now-playing surface never duplicates on phones. */
+      data-mq-hero=""
     >
       {/* Ambient wash — derived from the current track's cover palette */}
       <div className="mq-wave-ambient" aria-hidden="true" />

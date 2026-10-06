@@ -279,6 +279,10 @@ export default function PlayerBar() {
           className="mq-player-capsule mq-glass2 pointer-events-auto"
           style={{
             width: "min(920px, 100%)",
+            /* INLINE blur — the Lightning pipeline strips backdrop-filter
+               from stylesheets (MenuCore pattern). */
+            backdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
+            WebkitBackdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
           }}
         >
           <div className="relative flex items-center gap-4 px-5 py-2.5">

@@ -88,6 +88,12 @@ const Sidebar = React.memo(function Sidebar() {
   return (
     <aside
       className="mq-sidebar"
+      style={{
+        /* INLINE blur — the Lightning pipeline strips backdrop-filter
+           from stylesheets (MenuCore pattern). */
+        backdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
+        WebkitBackdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
+      }}
       data-compact={compactMode || undefined}
       role="navigation"
       aria-label="Основная навигация"

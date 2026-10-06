@@ -3869,13 +3869,12 @@ a:focus-visible {
   /* V2.5: Liquid Glass v2 — backdrop-adaptive tint + veil + specular sheen;
      flat border replaced by the edge-lit hairline (inset ring). */
   background:
-    linear-gradient(165deg, var(--mq-g2-sheen, rgba(255,255,255,0.05)), transparent 44%),
-    var(--mq-g2-veil, rgba(0,0,0,0)),
-    color-mix(in srgb, var(--mq-surface-1) 78%, transparent);
-  border: 1px solid var(--mq-g2-edge-mid, var(--mq-edge-strong));
+    linear-gradient(165deg, var(--mq-g2-sheen), transparent 44%),
+    var(--mq-g2-veil),
+    var(--mq-g2-tint);
+  border: 1px solid var(--mq-g2-edge-mid);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--mq-text) 9%, transparent),
-    inset 0 0 0 1px var(--mq-g2-edge-lo, transparent),
+    inset 0 1px 0 var(--mq-g2-edge-mid),
     var(--mq-elev-dialog);
   z-index: 10001;
   -webkit-overflow-scrolling: touch;
@@ -4867,15 +4866,14 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
   /* V2.5: backdrop-adaptive glass tint + veil (content-aware), edge-lit
      right hairline replaces the flat border-right. */
   background:
-    linear-gradient(165deg, var(--mq-g2-sheen, rgba(255,255,255,0.05)), transparent 44%),
-    var(--mq-g2-veil, rgba(0,0,0,0)),
-    var(--mq-g2-tint, color-mix(in srgb, var(--mq-text) 6%, transparent));
-  backdrop-filter: blur(var(--mq-g2-blur, 18px)) saturate(142%);
-  -webkit-backdrop-filter: blur(var(--mq-g2-blur, 18px)) saturate(142%);
-  /* Inner top light + right edge-lit hairline (replaces flat border) */
+    linear-gradient(165deg, var(--mq-g2-sheen), transparent 44%),
+    var(--mq-g2-veil),
+    var(--mq-g2-tint);
+  /* BLUR is set INLINE in Sidebar.tsx (pipeline strips stylesheet
+     backdrop-filter). Inner top light + right edge-lit hairline: */
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--mq-text) 8%, transparent),
-    inset -1px 0 0 color-mix(in srgb, var(--mq-text) 7%, transparent);
+    inset 0 1px 0 var(--mq-g2-edge-mid),
+    inset -1px 0 0 var(--mq-g2-edge-lo);
 }
 .mq-sidebar[data-compact] { width: var(--mq-sidebar-w-compact); }
 
@@ -5366,6 +5364,9 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
 }
 @media (max-width: 767px) {
   .mq-wave-ambient { opacity: 0.6; }
+  /* V2.5: a touch more bezel on phones — the glass frame must stay
+     visible at small scale. */
+  .mq-wave-art-layer { inset: 9px; border-radius: 13px; }
 }
 
 /* ── Artwork — dominant object ── */
@@ -5378,13 +5379,13 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
      rounded edges = real refraction feel), edge-lit hairline, inner top
      light, one deep shadow dyed by the scene palette. */
   background:
-    linear-gradient(165deg, var(--mq-g2-sheen, rgba(255,255,255,0.05)), transparent 44%),
-    var(--mq-g2-tint, color-mix(in srgb, var(--mq-text) 7%, transparent));
-  backdrop-filter: blur(var(--mq-g2-blur, 18px)) saturate(142%);
-  -webkit-backdrop-filter: blur(var(--mq-g2-blur, 18px)) saturate(142%);
+    linear-gradient(165deg, var(--mq-g2-sheen), transparent 44%),
+    var(--mq-g2-tint);
+  /* BLUR is set INLINE on the artwork button (pipeline strips stylesheet
+     backdrop-filter) — see WaveHome CrossfadeArtwork. */
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--mq-text) 10%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--mq-text) 7%, transparent),
+    inset 0 1px 0 var(--mq-g2-edge-mid),
+    inset 0 0 0 1px var(--mq-g2-edge-lo),
     0 30px 60px -18px rgba(0, 0, 0, 0.65),
     0 12px 24px -12px color-mix(in srgb, var(--wave-color-2, #122448) 42%, transparent);
   transform: translateZ(0); /* own compositing layer for cheap crossfades */
@@ -5393,7 +5394,11 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
    and is removed after the transition. Slight scale = "musical" feel. */
 .mq-wave-art-layer {
   position: absolute;
-  inset: 0;
+  /* V2.5 bezel: the cover sits INSIDE the glass frame — a 7px inset on
+     every side makes the glass (blur + tint + edge light) visible as a
+     real physical frame around the artwork. */
+  inset: 7px;
+  border-radius: 14px;
   opacity: 0;
   transform: scale(1.035);
   transition: opacity 420ms ease, transform 520ms cubic-bezier(0.22, 1, 0.36, 1);

@@ -1,27 +1,52 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    MQ V2.5 MATERIAL SYSTEM — Liquid Glass rebuild + Liquid Platinum
-   + surface hierarchy (L0–L4) + motion scale + Wave ambient layers.
+   + surface hierarchy (L0–L4) + motion scale.
+
+   ⚠ PIPELINE CONTRACT (learned the hard way): the Lightning CSS pipeline
+   REMOVES @supports blocks it resolves as false, strips backdrop-filter
+   from stylesheets, and drops var() fallbacks containing color-mix().
+   Therefore this file uses ONLY: plain declarations, static color-mix in
+   var DEFINITIONS (values, not fallbacks), bare var() references.
+   backdrop-filter is set INLINE by the components that need it
+   (the established MenuCore pattern).
 
    Principles (V2.5 spec):
    - CONTENT > MATERIAL. Glass never competes with content.
-   - Glass is TRANSLUCENT / TINTED / DEPTH-AWARE / EDGE-LIT / CONTENT-AWARE.
-     It reacts to the backdrop: lighter backdrop → darker glass veil,
-     darker backdrop → slightly lighter tint. NOT "rgba(255,255,255,.1)+blur".
+   - Glass is TRANSLUCENT / TINTED / DEPTH-AWARE / EDGE-LIT / CONTENT-AWARE:
+     lighter backdrop → darker veil; darker backdrop → lighter tint.
+     The adaptation is numeric and published by JS (WaveAmbientBackground
+     derives it from the live scene palette); the :root defaults below are
+     the correct values for the dark editorial backdrop.
    - Liquid Platinum is RARE: primary playback controls, selected state,
      hero action, Wave identity. Dark silver + cold white + blue/violet
      reflection + soft specular highlight. No chrome-effect.
-   - Motion: MICRO 80–160ms / STANDARD 180–300ms / SIGNATURE 500–1000ms,
-     one easing family.
-   - No cheap patterns: no blanket blur on every rounded box, no
-     background-position gradient drift, no neon glows.
+   - Motion: MICRO 80–160ms / STANDARD 180–300ms / SIGNATURE 500–1000ms.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
   /* ── Runtime input: measured backdrop luminance 0..1 ──────────────────
-     Written by WaveAmbientBackground (Wave palette luminance) and reset to
-     the dark editorial default otherwise. Glass reads this to adapt its
-     tint polarity. Default = deep dark editorial backdrop. */
+     JS-written by WaveAmbientBackground (live scene palette luminance).
+     Default = the dark editorial backdrop. */
   --mq-backdrop-lum: 0.09;
+
+  /* ── Liquid Glass v2 — content-aware tokens ───────────────────────────
+     Static dark-backdrop defaults; WaveAmbientBackground overrides the
+     tint/veil pair with JS-computed literals while the liquid scene is
+     up. NO calc(), NO color-mix inside var() fallbacks (pipeline drops
+     those). Plain color-mix in the VALUE is fine and theme-aware. */
+  --mq-g2-tint: color-mix(in srgb, var(--mq-text) 7.5%, transparent);
+  --mq-g2-veil: rgba(3, 5, 10, 0.013);
+  --mq-g2-sheen: color-mix(in srgb, var(--mq-text) 5.5%, transparent);
+  --mq-g2-edge-hi: color-mix(in srgb, var(--mq-text) 17%, transparent);
+  --mq-g2-edge-mid: color-mix(in srgb, var(--mq-text) 7%, transparent);
+  --mq-g2-edge-lo: color-mix(in srgb, var(--mq-text) 3%, transparent);
+  --mq-g2-inner:
+    inset 0 1px 0 color-mix(in srgb, var(--mq-text) 8%, transparent),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.16);
+  --mq-g2-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.42),
+    0 2px 10px rgba(0, 0, 0, 0.24);
+  --mq-g2-blur: 18px;
 
   /* ── Liquid Platinum palette (fixed, cold, premium) ─────────────────── */
   --mq-platinum-base: #22252d;      /* dark silver */
@@ -34,7 +59,7 @@
      MICRO 80–160ms: hovers, presses, focus rings, small reveals.
      STANDARD 180–300ms: menu open, surface state change, tab switch.
      SIGNATURE 500–1000ms: mode transitions, artwork crossfade, wave scenes.
-     Ambient: minutes-slow (CSS/canvas, never React). */
+     Ambient: minutes-slow (CSS/canvas/WebGL, never React). */
   --mq-mo-micro: 130ms;
   --mq-mo-standard: 220ms;
   --mq-mo-signature: 700ms;
@@ -94,75 +119,46 @@
 
 /* ═════════════════════════════════════════════════════════════════════════
    LIQUID GLASS v2 — content-aware, edge-lit, restrained.
-   Fallback first (ancient engines): a plain quiet tint. The @supports
-   block layers the real material: specular sheen, backdrop-adaptive veil,
-   tint, edge-lit hairline, inner light line, floating shadow.
+   The layered background (specular sheen → dark veil → tint) + the
+   edge-lit hairline + inner light + floating shadow. The BLUR itself is
+   NOT here — the pipeline strips stylesheet backdrop-filter, so each
+   glass surface sets it INLINE (MenuCore pattern).
    ═════════════════════════════════════════════════════════════════════════ */
 
 .mq-glass2 {
-  /* Fallback (no color-mix / no calc-percent): simple translucent tint */
-  background: rgba(255, 255, 255, 0.055);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.42), 0 2px 10px rgba(0, 0, 0, 0.24);
+  position: relative;
+  background:
+    linear-gradient(165deg, var(--mq-g2-sheen), transparent 44%),
+    var(--mq-g2-veil),
+    var(--mq-g2-tint);
+  box-shadow: var(--mq-g2-inner), var(--mq-g2-shadow);
 }
 
-@supports (color: color-mix(in srgb, rgb(255 0 0) calc(1% + 1%), transparent)) {
-  :root {
-    /* Backdrop-adaptive formulas. lum 0 (black) → tint 10.5%, veil 0.
-       lum 1 (bright) → tint 6.5%, veil 14% (glass darkens over light). */
-    --mq-g2-alpha: calc(6.5% + (1 - var(--mq-backdrop-lum)) * 4%);
-    --mq-g2-tint: color-mix(in srgb, var(--mq-text) var(--mq-g2-alpha), transparent);
-    --mq-g2-veil: rgba(3, 5, 10, calc(var(--mq-backdrop-lum) * 0.14));
-    --mq-g2-sheen: color-mix(in srgb, var(--mq-text) 5.5%, transparent);
-    --mq-g2-edge-hi: color-mix(in srgb, var(--mq-text) 17%, transparent);
-    --mq-g2-edge-mid: color-mix(in srgb, var(--mq-text) 7%, transparent);
-    --mq-g2-edge-lo: color-mix(in srgb, var(--mq-text) 3%, transparent);
-    --mq-g2-inner:
-      inset 0 1px 0 color-mix(in srgb, var(--mq-text) 8%, transparent),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.16);
-    --mq-g2-blur: 18px;
-    --mq-g2-shadow:
-      0 12px 40px rgba(0, 0, 0, 0.42),
-      0 2px 10px rgba(0, 0, 0, 0.24);
-  }
-
-  .mq-glass2 {
-    position: relative;
-    background:
-      linear-gradient(165deg, var(--mq-g2-sheen), transparent 44%),
-      var(--mq-g2-veil),
-      var(--mq-g2-tint);
-    backdrop-filter: blur(var(--mq-g2-blur)) saturate(142%);
-    -webkit-backdrop-filter: blur(var(--mq-g2-blur)) saturate(142%);
-    box-shadow: var(--mq-g2-inner), var(--mq-g2-shadow);
-  }
-
-  /* Edge-lit hairline — the signature of real glass: light pools on the
-     top-left edge, dies toward the bottom, faint return on the bottom-right.
-     Gradient border via mask trick (border-image can't follow radius). */
-  .mq-glass2::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: linear-gradient(155deg,
-      var(--mq-g2-edge-hi) 0%,
-      var(--mq-g2-edge-mid) 26%,
-      transparent 55%,
-      var(--mq-g2-edge-lo) 100%);
-    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    mask-composite: exclude;
-    pointer-events: none;
-  }
+/* Edge-lit hairline — the signature of real glass: light pools on the
+   top-left edge, dies toward the bottom, faint return on the bottom-right.
+   Gradient border via the mask trick (border-image can't follow radius). */
+.mq-glass2::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(155deg,
+    var(--mq-g2-edge-hi) 0%,
+    var(--mq-g2-edge-mid) 26%,
+    transparent 55%,
+    var(--mq-g2-edge-lo) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
 /* Quiet variant — for surfaces that float but must whisper
-   (mini controls, chips over glass). Same language, less presence. */
+   (mini controls, chips over glass). Same language, less presence.
+   (No blur by design — quiet glass reads fine without it.) */
 .mq-glass2-quiet {
-  backdrop-filter: blur(12px) saturate(130%);
-  -webkit-backdrop-filter: blur(12px) saturate(130%);
   background: var(--mq-mat-3-bg);
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--mq-text) 6%, transparent);
 }
@@ -316,59 +312,7 @@
 }
 
 /* ═════════════════════════════════════════════════════════════════════════
-   WAVE AMBIENT — liquid scene layers (canvas + CSS).
-   The canvas paints the fluid color field; CSS adds depth, grain and the
-   fade used by the ON/OFF mode transition.
-   ═════════════════════════════════════════════════════════════════════════ */
-
-:root {
-  /* Wave palette — JS-written by WaveAmbientBackground (deep, cold, dark) */
-  --mq-wave-color-1: #0a1020;
-  --mq-wave-color-2: #070b14;
-  --mq-wave-color-3: #0b0d18;
-  --mq-wave-highlight: #cfe0ff;
-}
-
-.mq-wave-bg {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  overflow: hidden;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 900ms var(--mq-ease-in-out);
-}
-
-.mq-wave-bg[data-on="true"] { opacity: 1; }
-
-.mq-wave-bg canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-/* Depth — soft dark falloff keeps text/artwork contrast high. */
-.mq-wave-depth {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(125% 105% at 50% 40%, transparent 52%, rgba(0, 0, 2, 0.42) 100%);
-}
-
-/* Grain — the same fractal noise family as the editorial bg, finer. */
-.mq-wave-grain {
-  position: absolute;
-  inset: 0;
-  opacity: 0.035;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
-  background-size: 140px 140px;
-}
-
-/* ═════════════════════════════════════════════════════════════════════════
-   REDUCED MOTION — freeze ambient motion, keep composition.
-   The canvas loop is stopped from JS (matchMedia listener); CSS layers
-   simply stop animating. Nothing disappears — the scene stays, at rest.
+   REDUCED MOTION — freeze material motion, keep the materials.
    ═════════════════════════════════════════════════════════════════════════ */
 @media (prefers-reduced-motion: reduce) {
   .mq-platinum-btn,
