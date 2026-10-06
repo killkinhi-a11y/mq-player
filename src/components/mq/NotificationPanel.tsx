@@ -167,7 +167,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
                 </h2>
                 {unreadCount > 0 && (
                   <span className="mq-t-num mq-t-meta px-1.5 rounded"
-                    style={{ color: "var(--mq-accent)", background: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}>
+                    style={{ color: "var(--mq-text)", background: "color-mix(in srgb, var(--mq-text) 10%, transparent)" }}>
                     {unreadCount}
                   </span>
                 )}
@@ -175,7 +175,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
               <div className="flex items-center gap-1">
                 {unreadCount > 0 && (
                   <button onClick={markAllRead} className="px-2 py-1.5 rounded-lg cursor-pointer hover:bg-[var(--mq-overlay-hover)] transition-colors"
-                    style={{ color: "var(--mq-accent)" }} title="Прочитать все">
+                    style={{ color: "var(--mq-text)" }} title="Прочитать все">
                     <Check className="w-4 h-4" />
                   </button>
                 )}
@@ -190,7 +190,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
               {isLoading && notifications.length === 0 ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="w-6 h-6 border-2 rounded-full animate-spin"
-                    style={{ borderColor: "var(--mq-accent)", borderTopColor: "transparent" }} />
+                    style={{ borderColor: "color-mix(in srgb, var(--mq-text) 45%, transparent)", borderTopColor: "transparent" }} />
                 </div>
               ) : notifications.length === 0 ? (
                 <div className="mq-empty mq-empty-anim mx-4 my-6">
@@ -227,13 +227,14 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
                         onClose();
                       }}
                     >
-                      {/* Icon — quiet square, accent only when unread */}
+                      {/* Icon — quiet square; unread = soft text-tone lift (was
+                          accent red tint — unread is state, not alarm) */}
                       <div className="w-9 h-9 rounded-[var(--mq-r-art)] flex items-center justify-center flex-shrink-0 mt-0.5"
                         style={{
-                          backgroundColor: notif.read ? "var(--mq-surface-2)" : "color-mix(in srgb, var(--mq-accent) 14%, transparent)",
-                          border: "1px solid " + (notif.read ? "var(--mq-edge)" : "color-mix(in srgb, var(--mq-accent) 30%, transparent)"),
+                          backgroundColor: notif.read ? "var(--mq-surface-2)" : "color-mix(in srgb, var(--mq-text) 8%, transparent)",
+                          border: "1px solid " + (notif.read ? "var(--mq-edge)" : "color-mix(in srgb, var(--mq-text) 22%, transparent)"),
                         }}>
-                        <span style={{ color: notif.read ? "var(--mq-text-muted)" : "var(--mq-accent)" }}>
+                        <span style={{ color: notif.read ? "var(--mq-text-muted)" : "var(--mq-text)" }}>
                           {getNotifIcon(notif.type)}
                         </span>
                       </div>

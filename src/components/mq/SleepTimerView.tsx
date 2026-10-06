@@ -147,7 +147,7 @@ function ScrollPicker({
         <div style={{ height: 72 }} />
         {options.map((val, idx) => (
           <div key={val} className="h-12 flex items-center justify-center cursor-pointer select-none" style={{ opacity: getOpacity(idx), transform: `scale(${getScale(idx)})`, transition: "opacity 0.15s ease, transform 0.15s ease" }} onClick={() => { onSelect(val); if (scrollRef.current) { const t = 72 + idx * itemHeight - (192 / 2 - itemHeight / 2); scrollRef.current.scrollTo({ top: t, behavior: "smooth" }); } }}>
-            <span className="text-lg font-semibold tracking-wide" style={{ color: selected === val ? "var(--mq-accent)" : "var(--mq-text)" }}>{formatOption(val)}</span>
+            <span className="text-lg font-semibold tracking-wide" style={{ color: selected === val ? "var(--mq-platinum-hi, #e9edf5)" : "var(--mq-text)" }}>{formatOption(val)}</span>
           </div>
         ))}
         <div style={{ height: 72 }} />
@@ -194,8 +194,8 @@ function CircularTimer({ size = 280, progress, remainingSeconds, isRunning, isPa
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         {isPaused ? (
           <div className="flex items-center gap-2 mb-1">
-            <Pause className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
-            <span className="text-xs font-medium" style={{ color: "var(--mq-accent)" }}>Пауза</span>
+            <Pause className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+            <span className="text-xs font-medium" style={{ color: "var(--mq-text-muted)" }}>Пауза</span>
           </div>
         ) : null}
         <span className="font-bold tabular-nums tracking-wider" style={{ fontSize: hours > 0 ? "2.5rem" : "3.2rem", color: "var(--mq-text)", lineHeight: 1 }}>
@@ -304,7 +304,7 @@ export default function SleepTimerView() {
           <motion.div key="picker" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }} className="flex flex-col items-center w-full max-w-[var(--mq-container-narrow)] flex-1">
             {/* Header */}
             <motion.div className="flex flex-col items-center mb-6" animate={animationsEnabled ? { y: [0, -4, 0] } : undefined} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>
-              <Moon className="w-10 h-10 mb-3" style={{ color: "var(--mq-accent)", opacity: 0.8 }} />
+              <Moon className="w-10 h-10 mb-3" style={{ color: "var(--mq-platinum-hi, #e9edf5)", opacity: 0.8 }} />
               <h1 className="text-2xl font-bold" style={{ color: "var(--mq-text)" }}>Таймер сна</h1>
               <div className="flex items-center gap-2 mt-1">
                 <CurrentTimeDisplay />

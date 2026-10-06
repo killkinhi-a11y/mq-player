@@ -126,8 +126,10 @@
   --mq-nav-height-mobile: 56px;
   --mq-player-clearance: calc(var(--mq-player-height) + var(--mq-space-4, 16px) + env(safe-area-inset-bottom, 0px));
 
-  /* Focus ring */
-  --mq-focus-ring: 0 0 0 2px var(--mq-bg), 0 0 0 4px var(--mq-accent);
+  /* Focus ring — NEUTRAL (never the red accent). Derives from --mq-text so
+     light themes invert automatically. Mirrors --mq-focus-ring-color in
+     globals.css (kept as a layered box-shadow variant for toggle knobs). */
+  --mq-focus-ring: 0 0 0 2px var(--mq-bg), 0 0 0 4px color-mix(in srgb, var(--mq-text, #f0f0f0) 55%, transparent);
 
   /* Glass/Blur System — premium glassmorphism
      P2.1: Adaptive glass tokens that work on both dark AND light themes.

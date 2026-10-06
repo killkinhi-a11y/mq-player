@@ -224,9 +224,12 @@ const NavBar = React.memo(function NavBar() {
           aria-expanded={notifPanelOpen}
           className={iconButtonBase + " focus-visible:outline-2 focus-visible:outline-[color-mix(in_srgb,var(--mq-text)_55%,transparent)]"}
           style={{
-            background: notifPanelOpen ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)" : "transparent",
-            border: "1px solid " + (notifPanelOpen ? "color-mix(in srgb, var(--mq-accent) 25%, transparent)" : "transparent"),
-            color: notifPanelOpen ? "var(--mq-accent)" : "var(--mq-text-muted)",
+            /* RED ACCENT FIX: open state was accent red tint+border+icon.
+               Selected-state chrome = tonal text tone (same language as the
+               nav pills); red stays ONLY on the unread badge (attention). */
+            background: notifPanelOpen ? "color-mix(in srgb, var(--mq-text) 9%, transparent)" : "transparent",
+            border: "1px solid " + (notifPanelOpen ? "color-mix(in srgb, var(--mq-text) 18%, transparent)" : "transparent"),
+            color: notifPanelOpen ? "var(--mq-text)" : "var(--mq-text-muted)",
           }}
         >
           <Bell className="w-[17px] h-[17px]" strokeWidth={notifPanelOpen ? 2.2 : 1.8} />
@@ -259,13 +262,15 @@ const NavBar = React.memo(function NavBar() {
           aria-label="Настройки"
           className={iconButtonBase + " focus-visible:outline-2 focus-visible:outline-[color-mix(in_srgb,var(--mq-text)_55%,transparent)]"}
           style={{
+            /* RED ACCENT FIX: active state was accent red — tonal text tone
+               (same language as the nav pills / bell). */
             background: isSettingsActive
-              ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)"
+              ? "color-mix(in srgb, var(--mq-text) 9%, transparent)"
               : "transparent",
             border: "1px solid " + (isSettingsActive
-              ? "color-mix(in srgb, var(--mq-accent) 25%, transparent)"
+              ? "color-mix(in srgb, var(--mq-text) 18%, transparent)"
               : "transparent"),
-            color: isSettingsActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
+            color: isSettingsActive ? "var(--mq-text)" : "var(--mq-text-muted)",
           }}
         >
           <Settings className="w-[17px] h-[17px]" strokeWidth={isSettingsActive ? 2.2 : 1.8} />
@@ -285,11 +290,13 @@ const NavBar = React.memo(function NavBar() {
           aria-label="Профиль"
           className="relative flex items-center gap-2 pl-1 pr-3 py-1 rounded-full cursor-pointer transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-[color-mix(in_srgb,var(--mq-text)_55%,transparent)]"
           style={{
+            /* RED ACCENT FIX: active state was accent red — tonal text tone
+               (same language as the nav pills / bell / settings). */
             background: isProfileActive
-              ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)"
+              ? "color-mix(in srgb, var(--mq-text) 9%, transparent)"
               : "transparent",
             border: "1px solid " + (isProfileActive
-              ? "color-mix(in srgb, var(--mq-accent) 25%, transparent)"
+              ? "color-mix(in srgb, var(--mq-text) 18%, transparent)"
               : "transparent"),
           }}
         >
@@ -299,7 +306,7 @@ const NavBar = React.memo(function NavBar() {
               alt=""
               className="w-6 h-6 rounded-full object-cover"
               style={{
-                boxShadow: isProfileActive ? "0 0 0 2px var(--mq-accent)" : "0 0 0 1px var(--mq-edge-strong)",
+                boxShadow: isProfileActive ? "0 0 0 2px color-mix(in srgb, var(--mq-text) 45%, transparent)" : "0 0 0 1px var(--mq-edge-strong)",
               }}
             />
           ) : (

@@ -288,7 +288,7 @@ input, textarea, select {
    audit). Focus is chrome, not alarm: a light neutral ring, 55% of the
    text tone, keeps ~10:1 contrast on every theme. */
 *:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--mq-text, #f0f0f0) 55%, transparent) !important;
+  outline: 2px solid var(--mq-focus-ring-color, color-mix(in srgb, var(--mq-text, #f0f0f0) 55%, transparent)) !important;
   outline-offset: 2px !important;
 }
 
@@ -300,6 +300,11 @@ input, textarea, select {
   --mq-accent: #e03131;
   --mq-text: #f0f0f0;
   --mq-text-muted: #9a9a9a;
+  /* Focus ring color — ONE neutral token for every focus surface in MQ
+     (global ring, layout.tsx pre-paint ring, sliders, lyrics lines, toggles).
+     Derives from --mq-text so it inverts correctly on light themes
+     (daylight) and stays ~10:1 contrast everywhere. NEVER the red accent. */
+  --mq-focus-ring-color: color-mix(in srgb, var(--mq-text, #f0f0f0) 55%, transparent);
   /* Derived borders — Task 7: reference --mq-border (overridden per theme by
      applyThemeToDOM) instead of static white alphas. In Daylight the hairlines
      now resolve to light grey (#dee2e6 mix) instead of invisible white. */
@@ -309,7 +314,7 @@ input, textarea, select {
   --mq-border-medium: color-mix(in srgb, var(--mq-border) 48%, transparent);
   --mq-border-accent: color-mix(in srgb, var(--mq-accent) 25%, transparent);
   --mq-border-accent-strong: color-mix(in srgb, var(--mq-accent) 40%, transparent);
-  --mq-focus-ring: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 40%, transparent);
+  --mq-focus-ring: 0 0 0 2px color-mix(in srgb, var(--mq-text, #f0f0f0) 55%, transparent);
   --mq-input-bg: #1a1a1a;
   --mq-player-bg: #111111;
   --mq-nav-bg: #0e0e0eee;
@@ -561,7 +566,9 @@ input[type="range"]::-webkit-slider-thumb {
 
 input[type="range"]:hover::-webkit-slider-thumb,
 input[type="range"]:active::-webkit-slider-thumb {
-  border-color: var(--mq-accent);
+  /* RED ACCENT FIX: raw-range grab edge was var(--mq-accent) — platinum
+     cold silver, same as every component slider. */
+  border-color: color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 72%, var(--mq-card, #1a1a1a));
 }
 
 input[type="range"]::-moz-range-thumb {
@@ -1011,8 +1018,13 @@ html.blood-theme body::before {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .mq-input:focus-within {
-  border-color: var(--mq-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mq-accent) 150%, transparent);
+  /* RED FOCUS FIX: was var(--mq-accent) border + a 3px accent glow —
+     every click into the search/settings field painted a thick red
+     frame ("CSS error look"). Neutral premium focus: light border lift +
+     one soft neutral halo. Keyboard ring comes from the global
+     *:focus-visible system on top. */
+  border-color: color-mix(in srgb, var(--mq-text, #f0f0f0) 28%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mq-text, #f0f0f0) 10%, transparent);
 }
 
 /* Smooth icon buttons — REMOVED (.mq-icon-btn): zero usages; its
@@ -1060,7 +1072,7 @@ html.blood-theme body::before {
 /* Focus ring — deprecated, use global *:focus-visible above */
 .mq-focus-ring:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 50%, transparent);
+  box-shadow: 0 0 0 2px var(--mq-focus-ring-color, rgba(240, 240, 240, 0.55));
   border-radius: inherit;
 }
 
@@ -1742,7 +1754,7 @@ html.blood-theme body::before {
 /* ── Focus Ring Premium — deprecated, use global *:focus-visible ── */
 .mq-focus-premium:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 50%, transparent);
+  box-shadow: 0 0 0 2px var(--mq-focus-ring-color, rgba(240, 240, 240, 0.55));
   border-radius: inherit;
 }
 
@@ -1803,12 +1815,17 @@ html.blood-theme body::before {
   top: -40px;
   left: 0;
   padding: 8px 16px;
-  background: var(--mq-accent);
-  color: white;
+  /* RED FOCUS FIX: skip-link was a solid RED block (var(--mq-accent)).
+     Keyboard chrome is neutral like every other focus surface: elevated
+     surface + text tone + hairline edge. Still fully visible (WCAG). */
+  background: var(--mq-surface-3, #242424);
+  color: var(--mq-text, #f0f0f0);
   font-size: 14px;
   font-weight: 600;
   z-index: 9999;
   border-radius: 0 0 8px 0;
+  border: 1px solid color-mix(in srgb, var(--mq-text, #f0f0f0) 18%, transparent);
+  border-top: none;
   transition: top 0.2s;
 }
 .mq-skip-link:focus {
@@ -2205,17 +2222,21 @@ html.blood-theme body::before {
 /* ── Skip-to-content link (M4.3 a11y) ──
    Visually hidden until focused via keyboard Tab. Pure CSS — no JS, so
    it works in Server Components (RootLayout is a Server Component and
-   cannot use onFocus/onBlur event handlers). */
+   cannot use onFocus/onBlur event handlers).
+   RED FOCUS FIX: was var(--mq-accent) red block — keyboard chrome is
+   neutral, consistent with the unified focus system. */
 .mq-skip-link {
   position: absolute;
   left: -9999px;
   top: 0;
   z-index: 100000;
   padding: 8px 16px;
-  background: var(--mq-accent, #e03131);
-  color: #fff;
+  background: var(--mq-surface-3, #242424);
+  color: var(--mq-text, #f0f0f0);
   text-decoration: none;
   border-radius: 0 0 8px 0;
+  border: 1px solid color-mix(in srgb, var(--mq-text, #f0f0f0) 18%, transparent);
+  border-top: none;
   font-size: 14px;
   font-weight: 500;
   transition: left 0.15s ease-out;
@@ -2223,7 +2244,7 @@ html.blood-theme body::before {
 .mq-skip-link:focus,
 .mq-skip-link:focus-visible {
   left: 0;
-  outline: 2px solid #fff;
+  outline: 2px solid color-mix(in srgb, var(--mq-text, #f0f0f0) 55%, transparent);
   outline-offset: -2px;
 }
 
@@ -2352,21 +2373,31 @@ input.mq-vslider-input::-webkit-slider-thumb {
     box-shadow 150ms ease;
 }
 
-/* ── reveal: hover / grab / keyboard focus (desktop) ── */
+/* ── reveal: hover / grab / keyboard focus (desktop) ──
+   RED FOCUS FIX: thumb border was var(--mq-accent) (RED) for hover,
+   active AND keyboard focus — a red cap on every volume slider grab.
+   Split: hover/grab = cold PLATINUM edge (the designated active material,
+   same family as the platinum progress), keyboard focus = the neutral
+   --mq-focus-ring-color. No red anywhere in the volume control. */
 input.mq-hslider-input:hover::-webkit-slider-thumb,
 input.mq-hslider-input:active::-webkit-slider-thumb,
-input.mq-hslider-input:focus-visible::-webkit-slider-thumb,
 input.mq-vslider-input:hover::-webkit-slider-thumb,
-input.mq-vslider-input:active::-webkit-slider-thumb,
+input.mq-vslider-input:active::-webkit-slider-thumb {
+  opacity: 1;
+  transform: scale(1);
+  border-color: color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 72%, var(--mq-card, #1a1a1a));
+}
+input.mq-hslider-input:focus-visible::-webkit-slider-thumb,
 input.mq-vslider-input:focus-visible::-webkit-slider-thumb {
   opacity: 1;
   transform: scale(1);
-  border-color: var(--mq-accent);
+  border-color: color-mix(in srgb, var(--mq-text, #f0f0f0) 72%, transparent);
 }
 input.mq-hslider-input:active::-webkit-slider-thumb,
 input.mq-vslider-input:active::-webkit-slider-thumb {
-  box-shadow: var(--mq-shadow-accent-hover),
-    0 0 0 5px color-mix(in srgb, var(--mq-accent) 16%, transparent);
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.32),
+    0 0 0 5px color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 16%, transparent);
 }
 
 /* ── touch: no hover state exists — cap always visible ── */
@@ -2400,7 +2431,7 @@ input.mq-hslider-input::-webkit-slider-runnable-track {
 }
 input.mq-hslider-input:focus-visible::-webkit-slider-runnable-track {
   box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--mq-accent) 30%, transparent),
+    0 0 0 2px color-mix(in srgb, var(--mq-text, #f0f0f0) 30%, transparent),
     var(--mq-shadow-inner-glow);
 }
 input.mq-hslider-input::-moz-range-track {
@@ -2430,10 +2461,13 @@ input.mq-hslider-input::-moz-range-thumb {
   transition: opacity 150ms ease, border-color 150ms ease;
 }
 input.mq-hslider-input:hover::-moz-range-thumb,
-input.mq-hslider-input:active::-moz-range-thumb,
+input.mq-hslider-input:active::-moz-range-thumb {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 72%, var(--mq-card, #1a1a1a));
+}
 input.mq-hslider-input:focus-visible::-moz-range-thumb {
   opacity: 1;
-  border-color: var(--mq-accent);
+  border-color: color-mix(in srgb, var(--mq-text, #f0f0f0) 72%, transparent);
 }
 
 /* v10.2 GAP#2 fix: the volume slider's touch hit box was 24px tall —
@@ -2516,10 +2550,13 @@ input.mq-vslider-input::-moz-range-thumb {
   transition: opacity 150ms ease, border-color 150ms ease;
 }
 input.mq-vslider-input:hover::-moz-range-thumb,
-input.mq-vslider-input:active::-moz-range-thumb,
+input.mq-vslider-input:active::-moz-range-thumb {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 72%, var(--mq-card, #1a1a1a));
+}
 input.mq-vslider-input:focus-visible::-moz-range-thumb {
   opacity: 1;
-  border-color: var(--mq-accent);
+  border-color: color-mix(in srgb, var(--mq-text, #f0f0f0) 72%, transparent);
 }
 @media (hover: none) {
   .mq-hslider-input::-moz-range-thumb,

@@ -83,7 +83,9 @@
 
 .ll-line:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 55%, transparent);
+  /* RED FOCUS FIX: was var(--mq-accent) 55% — the focused lyric line
+     glowed red. Neutral ring, consistent with the global focus system. */
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-text, #f0f0f0) 55%, transparent);
   border-radius: 12px;
 }
 
@@ -143,11 +145,12 @@
   .ll-focus .ll-line:not(.ll-on) { filter: none; }
 }
 
-/* ── v11: static mode (animated lyrics OFF — accessibility, spec §11).
-   No water layer at all: the active line is a solid accent-tinted
-   highlight, everything stays perfectly calm. */
+/* v-static mode (animated lyrics OFF — accessibility, spec §11).
+   No water layer at all: the active line is a solid platinum-lit
+   highlight (RED ACCENT FIX: was var(--mq-accent) — a full red line was
+   a red mass, not a rare accent), everything stays perfectly calm. */
 .ll-static .ll-line.ll-on .ll-w::before { content: none; }
-.ll-static .ll-line.ll-on .ll-w { color: var(--mq-accent); }
+.ll-static .ll-line.ll-on .ll-w { color: var(--mq-platinum-hi, #e9edf5); }
 .ll-static .ll-line[data-after] .ll-w { color: color-mix(in srgb, var(--mq-text) 34%, transparent); }
 
 /* Hover affordance — desktop pointers only, non-active lines only */
@@ -162,7 +165,8 @@
     font-weight: 600;
     letter-spacing: 0.02em;
     vertical-align: 0.12em;
-    color: var(--mq-accent);
+    /* RED ACCENT FIX: hover hint was accent red — platinum cold light. */
+    color: var(--mq-platinum-hi, #e9edf5);
     opacity: 0;
     transition: opacity 0.18s ease;
   }
@@ -194,9 +198,12 @@
   -webkit-text-fill-color: transparent;
 
   /* L1: slow specular sheen sweeping across · L2: the water body —
-     deep at the bottom, accent mid, bright meniscus at the surface.
-     L2's height tracks the waterline (+0.6em overshoot) and is pinned
-     to the bottom, so the glowing surface rides the fill level. */
+     deep at the bottom, platinum-refl mid, cold meniscus at the surface
+     (RED ACCENT FIX: the water was var(--mq-accent) red liquid — the
+     signature accent material is Liquid Platinum, same family as the
+     progress fills and WAVE identity). L2's height tracks the waterline
+     (+0.6em overshoot) and is pinned to the bottom, so the glowing
+     surface rides the fill level. */
   background-image:
     linear-gradient(
       115deg,
@@ -208,11 +215,11 @@
     ),
     linear-gradient(
       to top,
-      color-mix(in srgb, var(--mq-accent) 56%, #050505) 0%,
-      color-mix(in srgb, var(--mq-accent) 82%, #000) 24%,
-      var(--mq-accent) 56%,
-      color-mix(in srgb, var(--mq-accent) 52%, #fff) 87%,
-      color-mix(in srgb, var(--mq-accent) 32%, #fff) 100%
+      color-mix(in srgb, var(--mq-platinum-refl, #8fa3c8) 56%, #050505) 0%,
+      color-mix(in srgb, var(--mq-platinum-refl, #8fa3c8) 82%, #000) 24%,
+      var(--mq-platinum-refl, #8fa3c8) 56%,
+      color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 52%, #fff) 87%,
+      color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 32%, #fff) 100%
     );
   background-size:
     240% 100%,
@@ -257,9 +264,9 @@
   -webkit-text-fill-color: transparent;
   background-image: linear-gradient(
     to top,
-    color-mix(in srgb, var(--mq-accent) 56%, #050505) 0%,
-    var(--mq-accent) 60%,
-    color-mix(in srgb, var(--mq-accent) 45%, #fff) 100%
+    color-mix(in srgb, var(--mq-platinum-refl, #8fa3c8) 56%, #050505) 0%,
+    var(--mq-platinum-refl, #8fa3c8) 60%,
+    color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 45%, #fff) 100%
   );
   background-size: 100% calc(var(--wf) + 0.6em);
   background-position: 0 100%;

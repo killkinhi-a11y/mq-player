@@ -56,7 +56,12 @@ function RangeSliderBase({
   }, []);
 
   const pct = ((value - min) / (max - min)) * 100;
-  const accent = "var(--mq-accent)";
+  /* RED FOCUS / RED ACCENT FIX: utility sliders (font size, sleep timer) used
+     the RED accent for track fill, value readout, thumb grab AND keyboard
+     focus. One utility-slider language across the whole app (same as the
+     volume sliders in globals.css): NEUTRAL text-tone fill, platinum grab
+     edge, neutral keyboard focus. No red. */
+  const fill = "color-mix(in srgb, var(--mq-text, #f0f0f0) 34%, transparent)";
   // useId() — SSR-stable unique id (Math.random() during render broke
   // hydration determinism). Colons stripped because they are invalid in
   // the generated CSS class selectors below.
@@ -90,7 +95,7 @@ function RangeSliderBase({
         }}
       />
       {showValue && (
-        <span className="text-xs font-mono w-12 text-right flex-shrink-0" style={{ color: "var(--mq-accent)" }}>
+        <span className="text-xs font-mono w-12 text-right flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>
           {value}{valueSuffix}
         </span>
       )}
@@ -102,17 +107,17 @@ function RangeSliderBase({
           height: 6px;
           border-radius: 3px;
           background: linear-gradient(to right,
-            ${accent} 0%, ${accent} ${pct}%,
+            ${fill} 0%, ${fill} ${pct}%,
             var(--mq-glass-bg) ${pct}%, var(--mq-glass-bg) 100%);
           box-shadow: var(--mq-shadow-inner-glow);
         }
         input.mq-range-${sliderId}:focus-visible::-webkit-slider-runnable-track {
           box-shadow:
-            0 0 0 2px color-mix(in srgb, var(--mq-accent) 30%, transparent),
+            0 0 0 2px color-mix(in srgb, var(--mq-text, #f0f0f0) 30%, transparent),
             var(--mq-shadow-inner-glow);
         }
         /* MQ signature fader cap — same DNA as the EQ bank (v71).
-           No scale-on-press: the accent border + halo is grab state. */
+           No scale-on-press: the platinum border + halo is grab state. */
         input.mq-range-${sliderId}::-webkit-slider-thumb {
           -webkit-appearance: none;
           appearance: none;
@@ -131,13 +136,16 @@ function RangeSliderBase({
           transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
         input.mq-range-${sliderId}:hover::-webkit-slider-thumb,
-        input.mq-range-${sliderId}:active::-webkit-slider-thumb,
+        input.mq-range-${sliderId}:active::-webkit-slider-thumb {
+          border-color: color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 72%, var(--mq-card, #1a1a1a));
+        }
         input.mq-range-${sliderId}:focus-visible::-webkit-slider-thumb {
-          border-color: ${accent};
+          border-color: color-mix(in srgb, var(--mq-text, #f0f0f0) 72%, transparent);
         }
         .mq-range-${sliderId}:active::-webkit-slider-thumb {
-          box-shadow: var(--mq-shadow-accent-hover),
-            0 0 0 5px color-mix(in srgb, var(--mq-accent) 16%, transparent);
+          box-shadow:
+            0 2px 10px rgba(0, 0, 0, 0.32),
+            0 0 0 5px color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 16%, transparent);
         }
         input.mq-range-${sliderId}::-moz-range-track {
           height: 6px;
@@ -148,7 +156,7 @@ function RangeSliderBase({
         input.mq-range-${sliderId}::-moz-range-progress {
           height: 6px;
           border-radius: 3px;
-          background: ${accent};
+          background: ${fill};
         }
         input.mq-range-${sliderId}::-moz-range-thumb {
           width: 16px;
@@ -165,7 +173,10 @@ function RangeSliderBase({
         }
         input.mq-range-${sliderId}:hover::-moz-range-thumb,
         input.mq-range-${sliderId}:active::-moz-range-thumb {
-          border-color: ${accent};
+          border-color: color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 72%, var(--mq-card, #1a1a1a));
+        }
+        input.mq-range-${sliderId}:focus-visible::-moz-range-thumb {
+          border-color: color-mix(in srgb, var(--mq-text, #f0f0f0) 72%, transparent);
         }
         .mq-range-${sliderId}:disabled {
           opacity: 0.45;

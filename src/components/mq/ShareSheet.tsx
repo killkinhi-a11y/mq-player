@@ -148,8 +148,8 @@ export const ShareSheet = memo(function ShareSheet({
             {/* Header — long-title contract: min-w-0 text + shrink-0 close */}
             <div className="flex items-center justify-between gap-3 px-5 py-4" style={{ borderBottom: "1px solid var(--mq-border-hairline)" }}>
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}>
-                  <Share2 className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)" }}>
+                  <Share2 className="w-4 h-4" style={{ color: "var(--mq-text)" }} />
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>Поделиться</h3>
@@ -188,7 +188,7 @@ export const ShareSheet = memo(function ShareSheet({
                     className="rounded-2xl p-[10px]"
                     style={{
                       backgroundColor: "#ffffff",
-                      boxShadow: "0 6px 24px rgba(0,0,0,0.35), 0 0 0 1px color-mix(in srgb, var(--mq-accent) 18%, transparent)",
+                      boxShadow: "0 6px 24px rgba(0,0,0,0.35), 0 0 0 1px color-mix(in srgb, var(--mq-text) 14%, transparent)",
                       width: "min(64vw, 220px)",
                     }}
                   >
@@ -222,7 +222,7 @@ export const ShareSheet = memo(function ShareSheet({
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-xl mq-icon-btn"
                     style={{ ["--mq-rest-bg" as string]: "var(--mq-glass-bg)" }}
                   >
-                    {copied ? <Check className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> : <Copy className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />}
+                    {copied ? <Check className="w-4 h-4" style={{ color: "var(--mq-platinum-hi, #e9edf5)" }} /> : <Copy className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />}
                     <span className="text-sm flex-1 text-left truncate" style={{ color: "var(--mq-text)" }}>
                       {copied ? "Скопировано!" : url.replace(/^https?:\/\//, "")}
                     </span>

@@ -165,8 +165,11 @@ export function FullscreenLyrics({
           title={focusMode ? "Обычный режим" : "Режим фокуса"}
           className="mq-icon-btn w-11 h-11 rounded-xl flex items-center justify-center"
           style={{
-            color: focusMode ? "var(--mq-accent)" : "var(--mq-text-muted)",
-            backgroundColor: focusMode ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)" : "transparent",
+            /* RED ACCENT FIX: active focus-mode was the red accent chip.
+               Selected state = platinum (the designated selected/active
+               material), cold silver tone instead of alarm red. */
+            color: focusMode ? "var(--mq-platinum-hi, #e9edf5)" : "var(--mq-text-muted)",
+            backgroundColor: focusMode ? "color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 14%, transparent)" : "transparent",
           }}
         >
           {focusMode ? <Focus className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}

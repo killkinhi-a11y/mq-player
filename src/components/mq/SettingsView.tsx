@@ -923,23 +923,25 @@ export default function SettingsView() {
                       }}
                       aria-hidden="true"
                     >
-                      {/* mini classic layout: square cover | title lines + transport */}
-                      <div className="absolute left-2 top-2 bottom-2 w-11 rounded-md" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 28%, var(--mq-card))" }} />
+                      {/* mini classic layout: square cover | title lines + transport
+                          (RED ACCENT FIX: illustration now matches the real player
+                          — graphite artwork, platinum progress/play) */}
+                      <div className="absolute left-2 top-2 bottom-2 w-11 rounded-md" style={{ background: "linear-gradient(135deg, var(--mq-surface-3, #2a2a30), var(--mq-surface-1, #17171c))" }} />
                       <div className="absolute left-[60px] top-3 h-[3px] rounded-full" style={{ width: 26, backgroundColor: "color-mix(in srgb, var(--mq-text) 65%, transparent)" }} />
                       <div className="absolute left-[60px] top-[19px] h-[2px] rounded-full" style={{ width: 16, backgroundColor: "color-mix(in srgb, var(--mq-text) 35%, transparent)" }} />
                       {/* progress + controls row */}
                       <div className="absolute left-[60px] right-3 bottom-[22px] h-[3px] rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 18%, transparent)" }} />
-                      <div className="absolute left-[60px] bottom-[7px] h-[3px] rounded-full" style={{ width: 40, backgroundColor: "var(--mq-accent)" }} />
+                      <div className="absolute left-[60px] bottom-[7px] h-[3px] rounded-full" style={{ width: 40, backgroundColor: "#cfd6e4" }} />
                       <div className="absolute right-3 bottom-[5px] flex items-center gap-1.5">
                         <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 45%, transparent)" }} />
-                        <span className="w-[7px] h-[7px] rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
+                        <span className="w-[7px] h-[7px] rounded-full" style={{ backgroundColor: "var(--mq-platinum-hi, #e9edf5)" }} />
                         <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 45%, transparent)" }} />
                       </div>
                     </div>
                     <span className="mq-t-meta-2 font-medium truncate w-full text-center" style={{ color: fullPlayerMode === "classic" ? "var(--mq-text)" : "var(--mq-text-muted)" }}>Классический</span>
                     {fullPlayerMode === "classic" && (
-                      <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}>
-                        <Check className="w-2.5 h-2.5" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+                      <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-platinum-lift, #343947)", border: "1px solid color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 30%, transparent)" }}>
+                        <Check className="w-2.5 h-2.5" style={{ color: "var(--mq-platinum-hi, #e9edf5)" }} />
                       </div>
                     )}
                   </button>
@@ -962,9 +964,11 @@ export default function SettingsView() {
                       }}
                       aria-hidden="true"
                     >
-                      {/* depth stack: back cards peek from behind the center card */}
-                      <div className="absolute w-6 h-8 rounded-[3px]" style={{ left: "16%", top: "28%", backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, var(--mq-card))", transform: "rotate(-10deg)", opacity: 0.55 }} />
-                      <div className="absolute w-6 h-8 rounded-[3px]" style={{ right: "16%", top: "28%", backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, var(--mq-card))", transform: "rotate(10deg)", opacity: 0.55 }} />
+                      {/* depth stack: back cards peek from behind the center card
+                          (RED ACCENT FIX: platinum-refl tint, matches the real
+                          spatial deck) */}
+                      <div className="absolute w-6 h-8 rounded-[3px]" style={{ left: "16%", top: "28%", backgroundColor: "color-mix(in srgb, var(--mq-platinum-refl, #8fa3c8) 18%, var(--mq-card))", transform: "rotate(-10deg)", opacity: 0.55 }} />
+                      <div className="absolute w-6 h-8 rounded-[3px]" style={{ right: "16%", top: "28%", backgroundColor: "color-mix(in srgb, var(--mq-platinum-refl, #8fa3c8) 18%, var(--mq-card))", transform: "rotate(10deg)", opacity: 0.55 }} />
                       {/* v9 — action rail side indicator (three tiny dots on the chosen side) */}
                       <div className="absolute flex flex-col gap-[2px]" style={{ [spatialActionsPosition === "left" ? "left" : "right"]: 3, top: "34%", padding: "2px", borderRadius: 999, backgroundColor: "color-mix(in srgb, var(--mq-card) 80%, transparent)", border: "1px solid var(--mq-border-hairline)" }}>
                         <span className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 55%, transparent)" }} />
@@ -972,20 +976,20 @@ export default function SettingsView() {
                         <span className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 55%, transparent)" }} />
                       </div>
                       {/* center card — foreground, glass foot strip inside */}
-                      <div className="absolute left-1/2 top-[26%] -translate-x-1/2 w-9 rounded-[4px] overflow-hidden" style={{ aspectRatio: "3 / 3.6", backgroundColor: "color-mix(in srgb, var(--mq-accent) 34%, var(--mq-card))", boxShadow: "0 4px 10px rgba(0,0,0,0.4)" }}>
+                      <div className="absolute left-1/2 top-[26%] -translate-x-1/2 w-9 rounded-[4px] overflow-hidden" style={{ aspectRatio: "3 / 3.6", backgroundColor: "color-mix(in srgb, var(--mq-platinum-refl, #8fa3c8) 26%, var(--mq-card))", boxShadow: "0 4px 10px rgba(0,0,0,0.4)" }}>
                         <div className="absolute inset-x-0 bottom-0 h-[7px]" style={{ backgroundColor: "color-mix(in srgb, var(--mq-bg) 55%, transparent)" }} />
                       </div>
                       {/* compact glass control pill */}
                       <div className="absolute left-1/2 -translate-x-1/2 bottom-[6px] h-[10px] rounded-full flex items-center justify-center gap-[5px]" style={{ width: 56, backgroundColor: "color-mix(in srgb, var(--mq-card) 85%, transparent)", border: "1px solid var(--mq-border-hairline)" }}>
                         <span className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 50%, transparent)" }} />
-                        <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
+                        <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: "var(--mq-platinum-hi, #e9edf5)" }} />
                         <span className="w-[3px] h-[3px] rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 50%, transparent)" }} />
                       </div>
                     </div>
                     <span className="mq-t-meta-2 font-medium truncate w-full text-center" style={{ color: fullPlayerMode === "spatial" ? "var(--mq-text)" : "var(--mq-text-muted)" }}>Новый</span>
                     {fullPlayerMode === "spatial" && (
-                      <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}>
-                        <Check className="w-2.5 h-2.5" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+                      <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-platinum-lift, #343947)", border: "1px solid color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 30%, transparent)" }}>
+                        <Check className="w-2.5 h-2.5" style={{ color: "var(--mq-platinum-hi, #e9edf5)" }} />
                       </div>
                     )}
                   </button>
@@ -1102,7 +1106,7 @@ export default function SettingsView() {
               <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <Gauge className="w-4 h-4 shrink-0" style={{ color: "var(--mq-accent)" }} />
+                    <Gauge className="w-4 h-4 shrink-0" style={{ color: "var(--mq-text-muted)" }} />
                     <div className="min-w-0">
                       <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>Скорость воспроизведения</p>
                       <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>Воспроизведение треков (не для WASM-движка)</p>
@@ -1116,7 +1120,10 @@ export default function SettingsView() {
                           key={r}
                           onClick={() => setPlaybackRate(r)}
                           className="min-w-[38px] min-h-[32px] px-1.5 rounded-full text-xs font-semibold transition-colors duration-150"
-                          style={{ backgroundColor: active ? "var(--mq-accent)" : "transparent", color: active ? "var(--mq-text-on-accent, #fff)" : "var(--mq-text-muted)" }}
+                          /* RED ACCENT FIX: active speed chip was a solid accent
+                             red pill — selected state = platinum-lift pill with a
+                             cold hairline (the selected-state material). */
+                          style={{ backgroundColor: active ? "var(--mq-platinum-lift, #343947)" : "transparent", color: active ? "var(--mq-platinum-hi, #e9edf5)" : "var(--mq-text-muted)", border: "1px solid " + (active ? "color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 30%, transparent)" : "transparent") }}
                           aria-pressed={active}
                         >
                           {r}×

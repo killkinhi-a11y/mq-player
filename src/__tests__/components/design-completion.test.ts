@@ -203,6 +203,44 @@ describe("DC §misc — completion details", () => {
     expect(css).not.toMatch(/outline: 2px solid var\(--mq-accent\)/);
   });
 
+  it("layout.tsx pre-paint focus rules are neutral too (the production blocker)", () => {
+    // REGRESSION GUARD for the bug that survived cda67082: globals.css was
+    // fixed but the INLINE <style> in layout.tsx <head> kept BOTH a red
+    // *:focus-visible and an input:focus-visible rule. The input-specific
+    // rule (0,1,1) outspecifies the global *:focus-visible (0,1,0) from
+    // globals.css, so EVERY search/settings input still painted a RED ring
+    // in production while the globals-only test above stayed green.
+    // layout.tsx must never reintroduce accent into a focus declaration.
+    const src = readSrc("src/app/layout.tsx");
+    // strip comments so explanations that mention the OLD red bug don't trip
+    const noComments = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+    // no focus rule block declares the accent
+    expect(noComments).not.toMatch(/:focus[^{}]*\{[^}]*--mq-accent/);
+    // the neutral token is actually referenced
+    expect(noComments).toContain("--mq-focus-ring-color");
+  });
+
+  it("slider thumbs/tracks never focus or grab in accent red", () => {
+    // Volume (hslider/vslider) + settings (range-slider.tsx) sliders: the
+    // reveal/hover/focus rules were var(--mq-accent) — a red cap on grab
+    // and a red track halo on keyboard focus. Contract: NO css rule block
+    // whose selector mentions a slider pseudo-element AND :focus-visible
+    // may declare the accent (grouped selectors included).
+    const css = globals();
+    const chunks = css.split("}").map(c => c + "}");
+    for (const chunk of chunks) {
+      const brace = chunk.indexOf("{");
+      if (brace === -1) continue;
+      const sel = chunk.slice(0, brace);
+      if (/slider/.test(sel) && /:focus-visible/.test(sel)) {
+        expect(chunk, `focus rule must not be red: ${sel.trim()}`).not.toContain("--mq-accent");
+      }
+    }
+    const rs = readSrc("src/components/ui/range-slider.tsx");
+    expect(rs).not.toMatch(/focus-visible[^\n]*\$\{accent\}/);
+    expect(rs).not.toContain('const accent = "var(--mq-accent)"');
+  });
+
   it("broken queue covers hide instead of rendering the browser glyph", () => {
     const src = readSrc("src/components/mq/QueueView.tsx");
     expect(src).toContain('e.currentTarget.style.visibility = "hidden"');

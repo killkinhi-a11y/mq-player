@@ -1,0 +1,13 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+page.on("console", m => { if (m.type() === "error") console.log("CONSOLE ERR:", m.text().slice(0, 150)); });
+page.on("pageerror", e => console.log("PAGE ERR:", e.message.slice(0, 200)));
+await page.goto("http://localhost:3210/play", { waitUntil: "networkidle", timeout: 45000 }).catch(e => console.log("goto:", e.message.slice(0, 100)));
+await page.waitForTimeout(5000);
+const txt = await page.evaluate(() => document.body.innerText.slice(0, 400));
+console.log("BODY TEXT:", JSON.stringify(txt).slice(0, 400));
+await page.screenshot({ path: "/home/z/my-project/download/qa-red-focus/debug-play.png" });
+const btns = await page.evaluate(() => [...document.querySelectorAll("button")].map(b => b.textContent?.trim()).filter(Boolean).slice(0, 12));
+console.log("BUTTONS:", JSON.stringify(btns));
+await browser.close();

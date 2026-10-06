@@ -937,8 +937,8 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
                         draggable={false}
                       />
                     ) : (
-                      <div className="absolute inset-0 flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 55%, #000))" }}>
-                        <Music className="w-16 h-16" style={{ color: "rgba(255,255,255,0.7)" }} />
+                      <div className="absolute inset-0 flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-surface-3, #2a2a30), var(--mq-surface-1, #17171c))" }}>
+                        <Music className="w-16 h-16" style={{ color: "rgba(255,255,255,0.45)" }} />
                       </div>
                     )}
                   </motion.div>
@@ -1116,13 +1116,13 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
                 onClick={() => { setLyricsOpen(true); setQueueOpen(false); }}
                 label="Текст песни"
               >
-                <Mic2 className="w-[19px] h-[19px]" style={{ color: lyricsOpen ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                <Mic2 className="w-[19px] h-[19px]" style={{ color: lyricsOpen ? "var(--mq-text)" : "var(--mq-text-muted)" }} />
               </SpIconButton>
               <SpIconButton
                 onClick={() => { setQueueOpen(true); setLyricsOpen(false); }}
                 label="Очередь"
               >
-                <ListMusic className="w-[19px] h-[19px]" style={{ color: queueOpen ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                <ListMusic className="w-[19px] h-[19px]" style={{ color: queueOpen ? "var(--mq-text)" : "var(--mq-text-muted)" }} />
               </SpIconButton>
               {/* v10.3.1: the volume popup now renders at FOOTER level (see
                   the AnimatePresence right after the panel) — inside this
@@ -1258,7 +1258,10 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
                         onClick={() => { playTrack(t, queue); setQueueOpen(false); }}
                         className="w-full flex items-center gap-3 px-3 py-2 text-left"
                         style={{
-                          background: isCurrent ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)" : "transparent",
+                          /* RED ACCENT FIX: current row was accent-red tint —
+                             now-playing identity = platinum tint (the material
+                             system's playing/active language). */
+                          background: isCurrent ? "color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 10%, transparent)" : "transparent",
                           transition: "background 0.15s ease",
                         }}
                         aria-label={`Играть: ${t.title} — ${t.artist}`}
@@ -1270,14 +1273,16 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
                             : <Music className="absolute inset-0 m-auto w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm truncate" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>{t.title}</p>
+                          <p className="text-sm truncate" style={{ color: isCurrent ? "var(--mq-text)" : "var(--mq-text)", fontWeight: isCurrent ? 600 : 400 }}>{t.title}</p>
                           <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{t.artist}</p>
                         </div>
                         {isCurrent && isPlaying && (
                           <span className="flex items-end gap-[2px] h-4 flex-shrink-0" aria-hidden="true">
-                            <span className="mq-sp-bar w-[3px] rounded-full" style={{ background: "var(--mq-accent)", height: "60%", animation: "mqSpBar 1s ease-in-out infinite" }} />
-                            <span className="mq-sp-bar w-[3px] rounded-full" style={{ background: "var(--mq-accent)", height: "100%", animation: "mqSpBar 1s ease-in-out 0.25s infinite" }} />
-                            <span className="mq-sp-bar w-[3px] rounded-full" style={{ background: "var(--mq-accent)", height: "40%", animation: "mqSpBar 1s ease-in-out 0.5s infinite" }} />
+                            {/* RED ACCENT FIX: playing bars were accent red —
+                               platinum playing identity (same as progress). */}
+                            <span className="mq-sp-bar w-[3px] rounded-full" style={{ background: "var(--mq-platinum-hi, #e9edf5)", height: "60%", animation: "mqSpBar 1s ease-in-out infinite" }} />
+                            <span className="mq-sp-bar w-[3px] rounded-full" style={{ background: "var(--mq-platinum-hi, #e9edf5)", height: "100%", animation: "mqSpBar 1s ease-in-out 0.25s infinite" }} />
+                            <span className="mq-sp-bar w-[3px] rounded-full" style={{ background: "var(--mq-platinum-hi, #e9edf5)", height: "40%", animation: "mqSpBar 1s ease-in-out 0.5s infinite" }} />
                           </span>
                         )}
                       </button>
@@ -1654,8 +1659,8 @@ function SpatialCard({
               draggable={false}
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 55%, #000))" }}>
-              <Music className="w-14 h-14" style={{ color: "rgba(255,255,255,0.7)" }} />
+            <div className="absolute inset-0 flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-surface-3, #2a2a30), var(--mq-surface-1, #17171c))" }}>
+              <Music className="w-14 h-14" style={{ color: "rgba(255,255,255,0.45)" }} />
             </div>
           )}
           {/* v10 — soft glass highlight + barely-there directional glow
@@ -1884,8 +1889,12 @@ function SpatialStyles({ children }: { children?: React.ReactNode }) {
         input.mq-sp-seek::-webkit-slider-runnable-track {
           height: 6px;
           border-radius: 3px;
+          /* RED ACCENT FIX: seek fill was var(--mq-accent) (RED) — every
+             other progress surface uses the platinum gradient token. The
+             fill segment mirrors it: lift→#cfd6e4, then the grey track. */
           background: linear-gradient(to right,
-            var(--mq-accent) 0%, var(--mq-accent) var(--mq-seek-pct, 0%),
+            color-mix(in srgb, var(--mq-platinum-lift, #343947) 85%, transparent) 0%,
+            #cfd6e4 var(--mq-seek-pct, 0%),
             rgba(255,255,255,0.14) var(--mq-seek-pct, 0%), rgba(255,255,255,0.14) 100%);
           box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
         }
@@ -1909,20 +1918,27 @@ function SpatialStyles({ children }: { children?: React.ReactNode }) {
         input.mq-sp-seek::-moz-range-progress {
           height: 6px;
           border-radius: 3px;
-          background: var(--mq-accent);
+          /* RED ACCENT FIX: was var(--mq-accent). Platinum fill (webkit parity). */
+          background: linear-gradient(90deg,
+            color-mix(in srgb, var(--mq-platinum-lift, #343947) 85%, transparent),
+            #cfd6e4);
         }
         input.mq-sp-seek::-moz-range-thumb {
           width: 14px;
           height: 14px;
           border-radius: 4px;
           background: var(--mq-card, #17171c);
-          border: 2px solid var(--mq-accent);
+          /* RED ACCENT FIX: was var(--mq-accent) border — webkit parity
+             (neutral muted edge, platinum shows on hover via global rules). */
+          border: 2px solid color-mix(in srgb, var(--mq-text-muted) 55%, var(--mq-card, #17171c));
           cursor: pointer;
         }
         [data-mq-spatial] button:focus-visible,
         [data-mq-spatial] input:focus-visible {
           outline: none;
-          box-shadow: 0 0 0 2px var(--mq-bg, #0a0a0d), 0 0 0 4px var(--mq-accent);
+          /* RED FOCUS FIX: was var(--mq-accent) ring — neutral, consistent
+             with the global focus system. */
+          box-shadow: 0 0 0 2px var(--mq-bg, #0a0a0d), 0 0 0 4px color-mix(in srgb, var(--mq-text, #f0f0f0) 55%, transparent);
         }
       `}</style>
       {children}

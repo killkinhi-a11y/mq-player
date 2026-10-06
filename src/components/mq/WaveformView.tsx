@@ -418,7 +418,9 @@ export function WaveformView({
         <style>{`
           [data-mq-waveform] canvas:focus-visible {
             border-radius: 10px;
-            box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 55%, transparent);
+            /* RED FOCUS FIX: was var(--mq-accent) 55% — neutral, consistent
+               with the global focus system. */
+            box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-text, #f0f0f0) 55%, transparent);
           }
         `}</style>
         {loading && (

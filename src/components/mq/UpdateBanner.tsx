@@ -95,11 +95,10 @@ function UpdateBannerBase() {
                 <button
                   type="button"
                   onClick={applyUpdate}
-                  className="mq-update-apply h-11 min-w-[128px] rounded-lg px-4 text-sm font-semibold
+                  className="mq-update-apply mq-platinum-btn h-11 min-w-[128px] rounded-lg px-4 text-sm font-semibold
                              transition-colors duration-150 hover:brightness-110 active:brightness-95"
                   style={{
-                    backgroundColor: "var(--mq-accent)",
-                    color: "var(--mq-text-on-accent, #fff)",
+                    color: "#ffffff",
                   }}
                   aria-label="Обновить приложение до новой версии"
                 >
@@ -156,7 +155,7 @@ function UpdateBannerBase() {
                         className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide"
                         style={{ color: "var(--mq-text)" }}
                       >
-                        <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} aria-hidden />
+                        <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--mq-platinum-hi, #e9edf5)" }} aria-hidden />
                         Что нового в MQ Player
                       </p>
                       <ul className="flex flex-col gap-1.5">
@@ -169,8 +168,8 @@ function UpdateBannerBase() {
                             <span
                               className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
                               style={{
-                                backgroundColor: "color-mix(in srgb, var(--mq-accent) 16%, transparent)",
-                                color: "var(--mq-accent)",
+                                backgroundColor: "color-mix(in srgb, var(--mq-text) 10%, transparent)",
+                                color: "var(--mq-text)",
                               }}
                               aria-hidden
                             >

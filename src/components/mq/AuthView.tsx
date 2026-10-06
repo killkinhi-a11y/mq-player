@@ -123,9 +123,11 @@ function CodeBoxes({
           className="w-11 h-14 sm:w-13 sm:h-16 text-center text-xl sm:text-2xl font-bold rounded-xl outline-none transition-all duration-200"
           style={{
             backgroundColor: "var(--mq-input-bg)",
-            border: `2px solid ${error ? '#ef4444' : digit ? 'var(--mq-accent, #e03131)' : 'var(--mq-border)'}`,
+            /* RED ACCENT FIX: filled digit border + caret were accent red —
+               neutral text tone (red only for real errors). */
+            border: `2px solid ${error ? '#ef4444' : digit ? 'color-mix(in srgb, var(--mq-text, #f0f0f0) 45%, transparent)' : 'var(--mq-border)'}`,
             color: "var(--mq-text)",
-            caretColor: "var(--mq-accent, #e03131)",
+            caretColor: "color-mix(in srgb, var(--mq-text, #f0f0f0) 70%, transparent)",
           }}
           autoComplete="one-time-code"
         />
@@ -904,7 +906,7 @@ export default function AuthView() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <Loader2 className="w-10 h-10 animate-spin" style={{ color: "var(--mq-accent, #e03131)" }} />
+            <Loader2 className="w-10 h-10 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
             <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Завершаем вход…</p>
           </motion.div>
         )}
@@ -1205,7 +1207,7 @@ export default function AuthView() {
                   <Button
                     onClick={() => { setConfirmEmail(loginEmail); setConfirmCode(["", "", "", "", "", ""]); setDevCodeHint(null); setAuthStep("confirm"); }}
                     className="w-full min-h-[44px]"
-                    style={{ backgroundColor: "rgba(224,49,49,0.15)", color: "var(--mq-accent, #e03131)", border: "1px solid rgba(224,49,49,0.3)" }}
+                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)", color: "var(--mq-text)", border: "1px solid color-mix(in srgb, var(--mq-text) 18%, transparent)" }}
                   >
                     Подтвердить почту
                   </Button>
@@ -1563,8 +1565,8 @@ export default function AuthView() {
                   </div>
                   <Button onClick={handleForgotRequest}
                     disabled={fpLoading || !fpEmail}
-                    className="w-full min-h-[44px]"
-                    style={{ backgroundColor: "var(--mq-accent, #e03131)", color: "#ffffff" }}>
+                    className="mq-platinum-btn w-full min-h-[44px]"
+                    style={{ color: "#ffffff" }}>
                     {fpLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Отправить код"}
                   </Button>
                 </div>
@@ -1613,8 +1615,8 @@ export default function AuthView() {
                   </div>
                   <Button onClick={() => handleResetPassword()}
                     disabled={fpLoading || fpCode.some(d => !d) || !fpNewPassword || !fpConfirmPassword}
-                    className="w-full min-h-[44px]"
-                    style={{ backgroundColor: "var(--mq-accent, #e03131)", color: "#ffffff" }}>
+                    className="mq-platinum-btn w-full min-h-[44px]"
+                    style={{ color: "#ffffff" }}>
                     {fpLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Изменить пароль"}
                   </Button>
                 </div>

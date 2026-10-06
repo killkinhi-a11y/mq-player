@@ -92,7 +92,7 @@ function FakeWaveform({ playing, isMine, progress, onSeek }: { playing: boolean;
               height: `${h}px`,
               backgroundColor: isMine
                 ? (isPlayed ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.3)")
-                : (isPlayed ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text) 18%, transparent)"),
+                : (isPlayed ? "color-mix(in srgb, var(--mq-text) 75%, transparent)" : "color-mix(in srgb, var(--mq-text) 18%, transparent)"),
               opacity: playing && !isPlayed ? 0.7 : 1,
               transform: playing && isPlayed ? "scaleY(1.1)" : "scaleY(1)",
               transformOrigin: "center",
@@ -232,8 +232,10 @@ function VoicePlayer({
           onClick={togglePlay}
           className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
           style={{
-            backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 20%, transparent)" : "var(--mq-accent)",
-            boxShadow: isMine ? "none" : "var(--mq-shadow-accent)",
+            /* RED ACCENT FIX: incoming voice play was a solid RED circle —
+               primary playback control = platinum material (flat). */
+            backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 20%, transparent)" : "var(--mq-platinum-lift, #343947)",
+            boxShadow: isMine ? "none" : "inset 0 1px 0 rgba(255,255,255,0.09), 0 2px 10px rgba(0,0,0,0.32)",
           }}
           aria-label={playing ? "Пауза" : "Воспроизвести"}
         >
@@ -303,7 +305,7 @@ function VoicePlayer({
           style={{
             backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 10%, transparent)" : "color-mix(in srgb, var(--mq-text) 4%, transparent)",
             color: isMine ? "rgba(255,255,255,0.9)" : "var(--mq-text)",
-            borderLeft: `2px solid ${isMine ? "rgba(255,255,255,0.4)" : "var(--mq-accent)"}`,
+            borderLeft: `2px solid ${isMine ? "rgba(255,255,255,0.4)" : "color-mix(in srgb, var(--mq-text) 40%, transparent)"}`,
           }}
         >
           {transcription}
@@ -347,14 +349,14 @@ function ReplyPreview({
       `}
       style={{
         backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 12%, transparent)" : "color-mix(in srgb, var(--mq-text) 4%, transparent)",
-        borderLeft: `3px solid ${isMine ? "rgba(255,255,255,0.5)" : "var(--mq-accent)"}`,
+        borderLeft: `3px solid ${isMine ? "rgba(255,255,255,0.5)" : "color-mix(in srgb, var(--mq-text) 45%, transparent)"}`,
       }}
       title="Перейти к сообщению"
     >
       <div className="min-w-0 flex-1">
         <p
           className="mq-t-meta-2 font-bold leading-tight truncate"
-          style={{ color: isMine ? "rgba(255,255,255,0.8)" : "var(--mq-accent)" }}
+          style={{ color: isMine ? "rgba(255,255,255,0.8)" : "var(--mq-text)" }}
         >
           {senderLabel}
         </p>

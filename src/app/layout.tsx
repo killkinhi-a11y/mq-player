@@ -112,8 +112,13 @@ export default function RootLayout({
             — violated WCAG 2.4.7 (Focus Visible) and made keyboard navigation
             impossible for visually-impaired users.
             NEW: hide default outlines only on mouse focus (:focus), but show
-            a visible accent ring on keyboard focus (:focus-visible) with 3:1
-            contrast ratio per WCAG 2.2. Also kill tap highlight (mobile only). */}
+            a NEUTRAL premium ring on keyboard focus (:focus-visible) with 3:1
+            contrast per WCAG 2.2. Also kill tap highlight (mobile only).
+            RED FOCUS FIX: both rules below used var(--mq-accent) (RED) —
+            the input-specific rule outspecifies the neutral global ring in
+            globals.css, so every search/settings input painted a red ring
+            in production. Focus is chrome, not alarm: one neutral ring color
+            everywhere = --mq-focus-ring-color (55% text tone, ~10:1). */}
         <style dangerouslySetInnerHTML={{ __html: `
           *, *::before, *::after {
             -webkit-tap-highlight-color: transparent !important;
@@ -125,13 +130,13 @@ export default function RootLayout({
             --tw-ring-offset-shadow: 0 0 #0000 !important;
             --tw-ring-color: transparent !important;
           }
-          /* Keyboard focus — visible accent ring, 3:1 contrast (WCAG 2.2) */
+          /* Keyboard focus — NEUTRAL ring, 3:1 contrast (WCAG 2.2) */
           *:focus-visible {
-            outline: 2px solid var(--mq-accent, #e03131) !important;
+            outline: 2px solid var(--mq-focus-ring-color, color-mix(in srgb, var(--mq-text, #f0f0f0) 55%, transparent)) !important;
             outline-offset: 2px !important;
           }
           input:focus-visible, textarea:focus-visible, select:focus-visible {
-            outline: 2px solid var(--mq-accent, #e03131) !important;
+            outline: 2px solid var(--mq-focus-ring-color, color-mix(in srgb, var(--mq-text, #f0f0f0) 55%, transparent)) !important;
             outline-offset: 2px !important;
           }
         `}} />
