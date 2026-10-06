@@ -4403,9 +4403,12 @@ html[data-mq-desktop] .mq-card-track {
   }
 }
 
+/* Active (now playing): PLATINUM tint + left bar — the playing identity
+   material. (RED ACCENT FIX: was accent-red tint + red bar — "playing = red"
+   contradicts the platinum playing system used by progress/spatial bars.) */
 .mq-card-track[data-active="true"] {
-  background: color-mix(in srgb, var(--mq-accent) 6%, transparent);
-  border-color: color-mix(in srgb, var(--mq-accent) 14%, transparent);
+  background: color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 5%, transparent);
+  border-color: color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 12%, transparent);
 }
 
 .mq-card-track[data-active="true"]::before {
@@ -4416,7 +4419,7 @@ html[data-mq-desktop] .mq-card-track {
   bottom: 10px;
   width: 2px;
   border-radius: 2px;
-  background: var(--mq-accent);
+  background: linear-gradient(to top, var(--mq-platinum-lift, #343947), #cfd6e4);
 }
 
 .mq-card-track:focus-visible {
@@ -4487,9 +4490,14 @@ html[data-mq-desktop] .mq-card-track {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--mq-accent);
-  color: #fff;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  /* RED ACCENT FIX: was solid accent-red circle — one play language =
+     FLAT PLATINUM (primary playback material, same DNA as mq-platinum-btn). */
+  background: var(--mq-platinum-lift, #343947);
+  border: 1px solid color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 26%, transparent);
+  color: #f4f6fa;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    0 6px 20px rgba(0, 0, 0, 0.5);
   opacity: 0;
   transform: translateY(4px);
   transition: opacity 0.22s ease, transform 0.22s ease;

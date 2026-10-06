@@ -179,7 +179,7 @@ function ReasonLine({ text }: { text: string }) {
       style={{ color: "var(--mq-text-muted)" }}
       data-testid="wave-current-reason"
     >
-      <Sparkles className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--mq-accent)", opacity: 0.75 }} aria-hidden="true" />
+      <Sparkles className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--mq-platinum-hi, #e9edf5)", opacity: 0.75 }} aria-hidden="true" />
       <span className="truncate">{text}</span>
     </p>
   );
@@ -227,9 +227,11 @@ function NextUpArtwork({ src }: { src?: string }) {
   return (
     <span
       className="w-full h-full flex items-center justify-center"
-      style={{ background: "color-mix(in srgb, var(--mq-accent) 14%, var(--mq-bg))" }}
+      /* RED ACCENT FIX: fallback wave avatar was accent-red tint — WAVE
+         identity material is platinum (cold), same as the wordmark. */
+      style={{ background: "color-mix(in srgb, var(--mq-platinum-refl, #8fa3c8) 16%, var(--mq-bg))" }}
     >
-      <Waves className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+      <Waves className="w-5 h-5" style={{ color: "var(--mq-platinum-hi, #e9edf5)" }} />
     </span>
   );
 }
@@ -418,8 +420,10 @@ export default function WaveHome() {
       <div className="relative flex items-center justify-between gap-3 px-5 sm:px-7 pt-5 pb-4">
         <div className="flex items-center gap-3 min-w-0">
           {/* V2.5: bare identity icon (no chip-box) + LIQUID PLATINUM
-              wordmark — Wave identity as the rare material, quiet and cold. */}
-          <Radio className="w-[18px] h-[18px] shrink-0" style={{ color: "var(--mq-accent)" }} aria-hidden="true" />
+              wordmark — Wave identity as the rare material, quiet and cold.
+              (RED ACCENT FIX: the icon was accent red — identity is platinum
+              top to bottom now, matching the wordmark.) */}
+          <Radio className="w-[18px] h-[18px] shrink-0" style={{ color: "var(--mq-platinum-hi, #e9edf5)" }} aria-hidden="true" />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h2

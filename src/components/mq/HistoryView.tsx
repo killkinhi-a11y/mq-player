@@ -639,7 +639,7 @@ export default function HistoryView() {
                             <div className="flex-1 min-w-0">
                               <p
                                 className="text-sm font-semibold truncate"
-                                style={{ color: isActive ? "var(--mq-accent)" : "var(--mq-text)", letterSpacing: "-0.01em" }}
+                                style={{ color: "var(--mq-text)", fontWeight: isActive ? 700 : undefined, letterSpacing: "-0.01em" }}
                               >
                                 {track.title}
                               </p>

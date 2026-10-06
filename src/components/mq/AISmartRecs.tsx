@@ -291,10 +291,12 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
               onClick={() => handlePresetClick(preset.id)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap cursor-pointer transition-colors flex-shrink-0"
               style={{
-                backgroundColor: isActive ? "var(--mq-accent)" : "var(--mq-card)",
-                border: isActive ? "1px solid var(--mq-accent)" : "1px solid var(--mq-border)",
+                /* RED ACCENT FIX: active preset was a solid red pill with red
+                   glow — selected state = platinum-lift + cold hairline. */
+                backgroundColor: isActive ? "var(--mq-platinum-lift, #343947)" : "var(--mq-card)",
+                border: isActive ? "1px solid color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 30%, transparent)" : "1px solid var(--mq-border)",
                 color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)",
-                boxShadow: isActive ? `0 2px 12px color-mix(in srgb, var(--mq-accent) 30%, transparent)` : "none",
+                boxShadow: isActive ? "0 2px 12px rgba(0, 0, 0, 0.35)" : "none",
               }}
             >
               <Icon className="w-3.5 h-3.5" style={{ color: isActive ? "var(--mq-text)" : preset.color }} />

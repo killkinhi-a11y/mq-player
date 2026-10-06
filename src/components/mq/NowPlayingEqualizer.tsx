@@ -43,7 +43,9 @@ export const NowPlayingEqualizer = memo(function NowPlayingEqualizer({
 
   const barColor = variant === "overlay"
     ? "white"
-    : "var(--mq-accent)";
+    /* RED ACCENT FIX: inline playing bars were accent red — the playing
+       identity material is platinum (progress/bars system-wide). */
+    : "var(--mq-platinum-hi, #e9edf5)";
 
   const totalWidth = 4 * cfg.barWidth + 3 * cfg.gap;
 

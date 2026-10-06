@@ -178,7 +178,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
             <div className="w-full h-full flex items-center justify-center">
               <Music
                 className={`${compactMode ? "w-3.5 h-3.5" : "w-4 h-4"}`}
-                style={{ color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)", opacity: isActive ? 0.8 : 0.45 }}
+                style={{ color: "var(--mq-text-muted)", opacity: isActive ? 0.8 : 0.45 }}
               />
             </div>
           )}
@@ -240,7 +240,11 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
                 ${compactMode ? "text-xs font-semibold" : "text-sm sm:text-sm font-semibold"}
               `}
               style={{
-                color: isActive ? "var(--mq-accent)" : "var(--mq-text)",
+                /* RED ACCENT FIX: the now-playing title was accent RED —
+                   playing identity = platinum bars/equalizer marks, the
+                   title stays text-colored with a weight lift. */
+                color: isActive ? "var(--mq-text)" : "var(--mq-text)",
+                fontWeight: isActive ? 700 : undefined,
                 letterSpacing: "-0.01em",
               }}
             >

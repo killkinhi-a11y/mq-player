@@ -32,11 +32,13 @@ export default function SectionHeader({
         <div
           className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
           style={{
-            backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)",
-            boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--mq-accent) 8%, transparent)",
+            /* RED ACCENT FIX: section icon chip was accent-red tint — tonal
+               text tone, same language as every other icon chip. */
+            backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)",
+            boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--mq-text) 10%, transparent)",
           }}
         >
-          <Icon className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+          <Icon className="w-4 h-4" style={{ color: "var(--mq-text)" }} />
         </div>
         <h2
           className="truncate"

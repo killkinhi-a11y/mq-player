@@ -245,12 +245,14 @@ export default function CommandPalette() {
                         onMouseEnter={() => setSelectedIndex(idx)}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors cursor-pointer"
                         style={{
-                          backgroundColor: isSelected ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "transparent",
+                          /* RED ACCENT FIX: selected row was accent-red tint —
+                             tonal text tone, same language as the menus. */
+                          backgroundColor: isSelected ? "color-mix(in srgb, var(--mq-text) 8%, transparent)" : "transparent",
                         }}
                       >
                         <Icon
                           className="w-4 h-4 flex-shrink-0"
-                          style={{ color: isSelected ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
+                          style={{ color: isSelected ? "var(--mq-text)" : "var(--mq-text-muted)" }}
                         />
                         <span
                           className="flex-1 text-sm truncate"
@@ -259,7 +261,7 @@ export default function CommandPalette() {
                           {cmd.label}
                         </span>
                         {isSelected && (
-                          <ChevronRight className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
+                          <ChevronRight className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
                         )}
                       </button>
                     );
