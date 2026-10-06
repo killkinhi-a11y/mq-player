@@ -1,0 +1,338 @@
+{
+  "consoleErrors": [
+    "console.error: Failed to load resource: the server responded with a status of 400 ()",
+    "console.error: Failed to load resource: the server responded with a status of 401 ()",
+    "console.error: Failed to load resource: the server responded with a status of 401 ()",
+    "console.error: Failed to load resource: the server responded with a status of 400 ()"
+  ],
+  "geometry": {
+    "desktop": [
+      {
+        "depth": 0,
+        "tag": "section",
+        "cls": "mq-wave",
+        "rect": {
+          "x": 144,
+          "y": 260,
+          "w": 1152,
+          "h": 812
+        },
+        "radius": "0px",
+        "background": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px solid lab(90.952 0 -0.0000119209)",
+        "boxShadow": "none",
+        "overflow": "hidden",
+        "backdropFilter": "none"
+      },
+      {
+        "depth": 1,
+        "tag": "div",
+        "cls": "mb-4 lg:mb-6",
+        "rect": {
+          "x": 144,
+          "y": 260,
+          "w": 1152,
+          "h": 812
+        },
+        "radius": "0px",
+        "background": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px solid lab(90.952 0 -0.0000119209)",
+        "boxShadow": "none",
+        "overflow": "visible",
+        "backdropFilter": "none"
+      },
+      {
+        "depth": 2,
+        "tag": "div",
+        "cls": "",
+        "rect": {
+          "x": 144,
+          "y": 260,
+          "w": 1152,
+          "h": 812
+        },
+        "radius": "0px",
+        "background": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px solid lab(90.952 0 -0.0000119209)",
+        "boxShadow": "none",
+        "overflow": "visible",
+        "backdropFilter": "none"
+      },
+      {
+        "depth": 3,
+        "tag": "div",
+        "cls": "",
+        "rect": {
+          "x": 144,
+          "y": 260,
+          "w": 1152,
+          "h": 836
+        },
+        "radius": "0px",
+        "background": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px solid lab(90.952 0 -0.0000119209)",
+        "boxShadow": "none",
+        "overflow": "hidden",
+        "backdropFilter": "none"
+      },
+      {
+        "depth": 4,
+        "tag": "div",
+        "cls": "p-3.5 sm:p-4 lg:p-6 max-w-[var(--mq-container-narrow)] lg:max-w-[var(--mq-container-wide)]",
+        "rect": {
+          "x": 120,
+          "y": 128,
+          "w": 1200,
+          "h": 3010
+        },
+        "radius": "0px",
+        "background": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px solid lab(90.952 0 -0.0000119209)",
+        "boxShadow": "none",
+        "overflow": "visible",
+        "backdropFilter": "none"
+      },
+      {
+        "depth": 5,
+        "tag": "div",
+        "cls": "mq-view-enter",
+        "rect": {
+          "x": 0,
+          "y": 128,
+          "w": 1440,
+          "h": 3010
+        },
+        "radius": "0px",
+        "background": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px solid lab(90.952 0 -0.0000119209)",
+        "boxShadow": "none",
+        "overflow": "visible",
+        "backdropFilter": "none"
+      },
+      {
+        "depth": 6,
+        "tag": "main",
+        "cls": "lg:pt-16",
+        "rect": {
+          "x": 0,
+          "y": 64,
+          "w": 1440,
+          "h": 3074
+        },
+        "radius": "0px",
+        "background": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px solid lab(90.952 0 -0.0000119209)",
+        "boxShadow": "none",
+        "overflow": "visible",
+        "backdropFilter": "none"
+      },
+      {
+        "depth": 7,
+        "tag": "div",
+        "cls": "mq-app-root min-h-[100dvh] mq-has-player",
+        "rect": {
+          "x": 0,
+          "y": 10,
+          "w": 1440,
+          "h": 3264
+        },
+        "radius": "0px",
+        "background": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px solid lab(90.952 0 -0.0000119209)",
+        "boxShadow": "none",
+        "overflow": "visible",
+        "backdropFilter": "none"
+      },
+      {
+        "depth": "artwork",
+        "tag": "button.mq-wave-art",
+        "rect": {
+          "x": 172,
+          "y": 340,
+          "w": 374,
+          "h": 374
+        },
+        "radius": "20px",
+        "overflow": "hidden",
+        "backdropFilter": "blur(14px) saturate(1.42)"
+      },
+      {
+        "depth": "artwork-layer",
+        "radius": "14px",
+        "inset": "7px"
+      }
+    ],
+    "mobile": [
+      {
+        "depth": 0,
+        "tag": "section",
+        "cls": "mq-wave",
+        "rect": {
+          "x": 14,
+          "y": 107,
+          "w": 362,
+          "h": 1142
+        },
+        "radius": "0px",
+        "background": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px solid lab(90.952 0 -0.0000119209)",
+        "boxShadow": "none",
+        "overflow": "hidden",
+        "backdropFilter": "none"
+      },
+      {
+        "depth": 1,
+        "tag": "div",
+        "cls": "mb-4 lg:mb-6",
+        "rect": {
+          "x": 14,
+          "y": 107,
+          "w": 362,
+          "h": 1142
+        },
+        "radius": "0px",
+        "background": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px solid lab(90.952 0 -0.0000119209)",
+        "boxShadow": "none",
+        "overflow": "visible",
+        "backdropFilter": "none"
+      },
+      {
+        "depth": 2,
+        "tag": "div",
+        "cls": "",
+        "rect": {
+          "x": 14,
+          "y": 107,
+          "w": 362,
+          "h": 1142
+        },
+        "radius": "0px",
+        "background": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px solid lab(90.952 0 -0.0000119209)",
+        "boxShadow": "none",
+        "overflow": "visible",
+        "backdropFilter": "none"
+      },
+      {
+        "depth": 3,
+        "tag": "div",
+        "cls": "p-3.5 sm:p-4 lg:p-6 max-w-[var(--mq-container-narrow)] lg:max-w-[var(--mq-container-wide)]",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 390,
+          "h": 3901
+        },
+        "radius": "0px",
+        "background": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px solid lab(90.952 0 -0.0000119209)",
+        "boxShadow": "none",
+        "overflow": "visible",
+        "backdropFilter": "none"
+      },
+      {
+        "depth": 4,
+        "tag": "div",
+        "cls": "mq-view-enter",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 390,
+          "h": 3901
+        },
+        "radius": "0px",
+        "background": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px solid lab(90.952 0 -0.0000119209)",
+        "boxShadow": "none",
+        "overflow": "visible",
+        "backdropFilter": "none"
+      },
+      {
+        "depth": 5,
+        "tag": "main",
+        "cls": "lg:pt-16",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 390,
+          "h": 3901
+        },
+        "radius": "0px",
+        "background": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px solid lab(90.952 0 -0.0000119209)",
+        "boxShadow": "none",
+        "overflow": "visible",
+        "backdropFilter": "none"
+      },
+      {
+        "depth": 6,
+        "tag": "div",
+        "cls": "mq-app-root min-h-[100dvh] mq-has-player",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 390,
+          "h": 4075
+        },
+        "radius": "0px",
+        "background": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px solid lab(90.952 0 -0.0000119209)",
+        "boxShadow": "none",
+        "overflow": "visible",
+        "backdropFilter": "none"
+      },
+      {
+        "depth": 7,
+        "tag": "body",
+        "cls": "manrope_e32a9099-module__FVC5Iq__variable antialiased",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 390,
+          "h": 4075
+        },
+        "radius": "0px",
+        "background": "rgb(14, 14, 14)",
+        "backgroundImage": "none",
+        "border": "0px solid lab(90.952 0 -0.0000119209)",
+        "boxShadow": "none",
+        "overflow": "hidden auto",
+        "backdropFilter": "none"
+      },
+      {
+        "depth": "artwork",
+        "tag": "button.mq-wave-art",
+        "rect": {
+          "x": 34,
+          "y": 187,
+          "w": 322,
+          "h": 322
+        },
+        "radius": "20px",
+        "overflow": "hidden",
+        "backdropFilter": "blur(14px) saturate(1.42)"
+      },
+      {
+        "depth": "artwork-layer",
+        "radius": "14px",
+        "inset": "7px"
+      }
+    ]
+  }
+}

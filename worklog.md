@@ -8889,3 +8889,99 @@ Stage Summary:
   suite green). Artifacts: scripts/final-refine/* (qa-capture, styles
   probe, prod E2E, compare composito), download/qa-final-refine/*
   (before/after/compare/prod).
+
+---
+Task ID: final-correction-pass
+Agent: main (Super Z)
+Task: MQ FINAL VISUAL CORRECTION PASS — find and fix the REAL unfixed visual items the previous report missed (screenshot-first audit, not computed-style-only)
+
+Work Log:
+- Synced stale local checkout (v10.2/565t) → origin/main 1a9c7bba (V2.5 +
+  final-refinement, 1077 tests, prod mq-build-202c9726). Restored broken
+  node_modules (next package was a hollow shell → npm install).
+- SCREENSHOT-FIRST BEFORE AUDIT of live production (scripts/final-pass/02):
+  15 shots d1440+m390 all tabs + per-tab DOM probes (glass leak, 3D buttons,
+  ambient, badges, Волна text, overflow) + VLM reads. REAL defects found
+  that computed styles had masked:
+  * CRITICAL §1: .mq-wave had NO surface at all (V2.5 dissolved the card
+    chrome) — the hero read as an unrounded rectangular zone; VLM: "floats
+    with NO defined geometry… reads as a flat rectangular zone".
+  * CRITICAL §6-7: .mq-app-root painted OPAQUE var(--mq-bg) OVER the z:-1
+    editorial ambient → the normal MQ background was INVISIBLE on every
+    tab (flat 14/14/14 luminance everywhere; VLM: "flat black/empty").
+  * §14: «Волна по твоему вкусу» / «Волна от «X»» still live (reasons.ts
+    waveSeedLabel + /api/wave label fallback — outside the UI files the
+    old terminology test scanned).
+  * §13: «WAVE · играет» home chip suffix; Играет/Пауза/WAVE eyebrows in
+    FullTrackView + SpatialFullPlayer headers; ИГРАЕТ context word in the
+    mobile player header.
+  * §4/§7: red primary CTAs still on Home — FeaturedCard «Слушать» pill,
+    Continue-listening red disc + red progress, HeroWaveCTA red disc +
+    red full button, red count badges, red retry, red fallback avatars.
+  * §19: PlayerBar INLINE volume fill + vertical slider track still red
+    (only the CSS hslider had been neutralized) — this was the user's
+    repeated red-volume crop.
+- FIXES (commit bc4f826a):
+  * .mq-wave = refined SOLID surface: radius var(--mq-mat-radius-float,18px),
+    opaque color-mix(mat-3 76% + wave-color-2) cold dye, 13% light hairline,
+    two-layer soft shadow (0 28px 64px -24px / 0 10px 28px -12px), overflow
+    hidden; inner palette wash quieted 0.85→0.6 (0.45 mobile). Artwork glass
+    frame (20/14px + bezel) untouched. First iteration (mat-3-edge border,
+    quiet shadow) got VLM "corner visible but weak" → strengthened to the
+    final recipe; VLM corner verdict then 9/10 "скругление читается
+    однозначно".
+  * .mq-app-root → background-color: transparent ALWAYS (never paints);
+    [data-wave=on] override + 950ms transition deleted. .mq-ambient-base
+    already carries the opaque --mq-bg floor; WAVE liquid (opaque, later
+    in DOM, z -1) covers the ambient in radio mode — mode handoff now
+    purely the wrapper opacity. Pixel-verified AFTER: top strip luminance
+    17-24 + edge vignette on ALL tabs (before: flat 14).
+  * Terminology: waveSeedLabel → "WAVE от «X»/по артисту/…" + default
+    "WAVE", waveReasonText default "WAVE", /api/wave label fallback "WAVE",
+    aria «Следующий в Волне» → «в WAVE».
+  * Labels: home chip "WAVE" only; both desktop full player headers keep
+    album/artist only; mobile player header keeps queue context (WAVE /
+    Очередь) + live dot; queue panel got a hairline divider between
+    Текущий трек and Далее.
+  * Accent discipline: FeaturedCard CTA + Continue play disc + HeroWaveCTA
+    (compact disc + full button) → flat .mq-platinum-btn; Continue progress
+    + queue strip fills → --mq-platinum-progress; quick-row count badge +
+    retry → tonal; fallback avatars → graphite gradient.
+  * Volume: PlayerBar inline fill + mq-vslider track/moz-progress →
+    neutral 34% text tint (hslider parity).
+- Tests: NEW final-correction-pass.test.ts (15 contracts: solid wave
+  surface, artwork radii, root transparent + ambient floor + opaque liquid,
+  eyebrow purge, platinum CTAs, tonal utility chrome, neutral volume ×3,
+  seed/reason/API terminology) + wave-v25-overhaul updated (reasons.ts +
+  api route added to the Волna scan; "NOT a card" pin → solid-surface pin;
+  NEW ambient-visibility pin). 1093/1093 PASS · tsc src 0 · eslint 5
+  pre-existing (baseline parity, verified via stash diff) · build green.
+- LOCAL AFTER verification (06-after-local): app-root rgba(0,0,0,0),
+  ambient gradients live, volume fill color(srgb .96 /.34), wave surface
+  radius 18px + solid bg + hairline + shadow, live Волна text NONE, status
+  badges NONE, overflowX 0 d+m. VLM: wave full "сплошная скруглённая
+  поверхность… дорого и спокойно… кнопки плоские"; mobile wave "уголки
+  чётко видны… ДОРОГО"; home bg "мягкая атмосферная глубина, виньетка,
+  дышащая глубина — не отвлекает".
+- DEPLOY: push 1a9c7bba..bc4f826a → Vercel mq-build-bc4f826a live.
+- PRODUCTION E2E (07-prod-e2e): all acceptance probes green live —
+  app_root rgba(0,0,0,0); volume fill neutral; wave surface 18px solid +
+  hairline + shadow; wave_liquid active; volna_and_badges [] (none);
+  glass_leaks = only the intentional artwork glass bezel; buttons_3d =
+  only the artwork bezel hairlines (no chrome buttons); overflowX 0
+  desktop+mobile; touch targets: zero sub-44px buttons on mobile; console:
+  only pre-existing demo-mode 401/400 resource noise. 15 prod shots.
+- SEEK GUARD (10-seek-guard): with playback paused, ArrowRight = +10s
+  EXACTLY (0:02→0:12→0:22) — no double-seek regression.
+- Artifacts: scripts/final-pass/01-10, download/qa-final-pass/{audit,
+  before, after-local, prod-after, compare} (8 BEFORE/AFTER composites).
+
+Stage Summary:
+- The two CRITICAL visual items are fixed and verified on production:
+  the WAVE hero now sits on a visibly rounded solid surface (VLM 9/10,
+  desktop+mobile), and the editorial normal background is finally VISIBLE
+  on every tab (pixel-verified), while WAVE keeps its distinct liquid
+  identity. Terminology (ВОЛНА→WAVE), status labels, flat/platinum play
+  discipline and neutral volume fills all hold live. Production runs
+  mq-build-bc4f826a. No functional surface touched (playback/queue/lyrics/
+  sources/auth/wave engine intact — 1093/1093 incl. all seek contracts).

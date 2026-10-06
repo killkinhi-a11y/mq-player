@@ -1,0 +1,44 @@
+{
+  "shots": [
+    "d1440-home",
+    "d1440-wave",
+    "d1440-search",
+    "d1440-library",
+    "d1440-chats",
+    "d1440-settings",
+    "m390-home",
+    "m390-wave"
+  ],
+  "probes": {
+    "appRoot": {
+      "rootBg": "rgba(0, 0, 0, 0)",
+      "ambientChildren": [
+        "radial-gradient(120% 90% at 50% 0%, colo",
+        "radial-gradient(44% 52% at 22% 12%, rgba",
+        "url(\"data:image/svg+xml,%3Csvg xmlns='ht",
+        "radial-gradient(125% 105% at 50% 42%, rg"
+      ]
+    },
+    "volumeFill": [
+      "color(srgb 0.960784 0.960784 0.960784 / 0.34)"
+    ],
+    "waveSurface": {
+      "radius": "18px",
+      "bg": "color(srgb 0.117857 0.123504 0.14421)",
+      "border": "1px solid color(srgb 0.960784 0.960784 0.960784 / 0.13)",
+      "shadow": "rgba(0, 0, 0, 0.72) 0px 28px 64px -24px, rgba(0, 0, 0, 0.5) 0px 10px 2",
+      "rect": {
+        "x": 144,
+        "y": 260,
+        "w": 1152,
+        "h": 814
+      }
+    },
+    "volna": [],
+    "waveSurfaceMobile": {
+      "radius": "18px",
+      "bg": "color(srgb 0.117857 0.123504 0.14421)",
+      "border": "1px solid color(srgb 0.960784 0.960784 0.960784 / 0.13)"
+    }
+  }
+}

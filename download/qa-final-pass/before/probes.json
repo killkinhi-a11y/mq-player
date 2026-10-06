@@ -1,0 +1,219 @@
+{
+  "consoleErrors": [],
+  "shots": [
+    "d1440-01-home",
+    "d1440-02-wave",
+    "d1440-03-search",
+    "d1440-04-library",
+    "d1440-05-chats",
+    "d1440-06-settings",
+    "d1440-07-fullplayer",
+    "d1440-08-queue",
+    "m390-01-home",
+    "m390-01b-home-full",
+    "m390-02-wave",
+    "m390-library",
+    "m390-search",
+    "m390-chats",
+    "m390-settings"
+  ],
+  "probes": {
+    "d-home": {
+      "tab": "main",
+      "ambient": {
+        "cls": "mq-ambient-bg",
+        "display": "block",
+        "opacity": "1",
+        "bg": "none"
+      },
+      "glass_leaks": [],
+      "buttons_3d": [],
+      "overflowX": 0,
+      "status_badges": [],
+      "volna_text": []
+    },
+    "d-wave": {
+      "tab": "main",
+      "ambient": {
+        "cls": "mq-ambient-bg",
+        "display": "block",
+        "opacity": "1",
+        "bg": "none"
+      },
+      "glass_leaks": [],
+      "buttons_3d": [],
+      "overflowX": 0,
+      "status_badges": [],
+      "volna_text": [
+        {
+          "text": "Волна по твоему вкусу",
+          "tag": "p"
+        }
+      ]
+    },
+    "d-search": {
+      "tab": "search",
+      "ambient": {
+        "cls": "mq-ambient-bg",
+        "display": "block",
+        "opacity": "1",
+        "bg": "none"
+      },
+      "glass_leaks": [],
+      "buttons_3d": [],
+      "overflowX": 0,
+      "status_badges": [],
+      "volna_text": []
+    },
+    "d-library": {
+      "tab": "library",
+      "ambient": {
+        "cls": "mq-ambient-bg",
+        "display": "block",
+        "opacity": "1",
+        "bg": "none"
+      },
+      "glass_leaks": [],
+      "buttons_3d": [],
+      "overflowX": 0,
+      "status_badges": [],
+      "volna_text": []
+    },
+    "d-chats": {
+      "tab": "messenger",
+      "ambient": {
+        "cls": "mq-ambient-bg",
+        "display": "block",
+        "opacity": "1",
+        "bg": "none"
+      },
+      "glass_leaks": [],
+      "buttons_3d": [],
+      "overflowX": 0,
+      "status_badges": [],
+      "volna_text": []
+    },
+    "d-settings": {
+      "tab": "settings",
+      "ambient": {
+        "cls": "mq-ambient-bg",
+        "display": "block",
+        "opacity": "1",
+        "bg": "none"
+      },
+      "glass_leaks": [],
+      "buttons_3d": [],
+      "overflowX": 0,
+      "status_badges": [],
+      "volna_text": []
+    },
+    "d-queue": {
+      "tab": "settings",
+      "ambient": {
+        "cls": "mq-ambient-bg",
+        "display": "block",
+        "opacity": "1",
+        "bg": "none"
+      },
+      "glass_leaks": [],
+      "buttons_3d": [],
+      "overflowX": 0,
+      "status_badges": [
+        {
+          "text": "Играет",
+          "cls": "mq-text-eyebrow mq-t-meta-2 uppercase tr"
+        }
+      ],
+      "volna_text": []
+    },
+    "m-home": {
+      "tab": "main",
+      "ambient": {
+        "cls": "mq-ambient-bg",
+        "display": "block",
+        "opacity": "1",
+        "bg": "none"
+      },
+      "glass_leaks": [],
+      "buttons_3d": [],
+      "overflowX": 0,
+      "status_badges": [],
+      "volna_text": []
+    },
+    "m-wave": {
+      "tab": "main",
+      "ambient": {
+        "cls": "mq-ambient-bg",
+        "display": "block",
+        "opacity": "1",
+        "bg": "none"
+      },
+      "glass_leaks": [],
+      "buttons_3d": [],
+      "overflowX": 0,
+      "status_badges": [],
+      "volna_text": [
+        {
+          "text": "Волна по твоему вкусу",
+          "tag": "p"
+        }
+      ]
+    },
+    "m-library": {
+      "tab": "main",
+      "ambient": {
+        "cls": "mq-ambient-bg",
+        "display": "block",
+        "opacity": "1",
+        "bg": "none"
+      },
+      "glass_leaks": [],
+      "buttons_3d": [],
+      "overflowX": 0,
+      "status_badges": [],
+      "volna_text": []
+    },
+    "m-search": {
+      "tab": "main",
+      "ambient": {
+        "cls": "mq-ambient-bg",
+        "display": "block",
+        "opacity": "1",
+        "bg": "none"
+      },
+      "glass_leaks": [],
+      "buttons_3d": [],
+      "overflowX": 0,
+      "status_badges": [],
+      "volna_text": []
+    },
+    "m-chats": {
+      "tab": "main",
+      "ambient": {
+        "cls": "mq-ambient-bg",
+        "display": "block",
+        "opacity": "1",
+        "bg": "none"
+      },
+      "glass_leaks": [],
+      "buttons_3d": [],
+      "overflowX": 0,
+      "status_badges": [],
+      "volna_text": []
+    },
+    "m-settings": {
+      "tab": "main",
+      "ambient": {
+        "cls": "mq-ambient-bg",
+        "display": "block",
+        "opacity": "1",
+        "bg": "none"
+      },
+      "glass_leaks": [],
+      "buttons_3d": [],
+      "overflowX": 0,
+      "status_badges": [],
+      "volna_text": []
+    }
+  }
+}
