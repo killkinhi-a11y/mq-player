@@ -10,8 +10,9 @@ import { Input } from "@/components/ui/input";
 const FavoritesView = lazy(() => import("./FavoritesView"));
 const PlaylistView = lazy(() => import("./PlaylistView"));
 const HistoryView = lazy(() => import("./HistoryView"));
+const SpotifyLibraryView = lazy(() => import("./SpotifyLibraryView"));
 
-type LibraryTab = "favorites" | "playlists" | "history";
+type LibraryTab = "favorites" | "playlists" | "history" | "spotify";
 type SortMode = "recent" | "title" | "artist";
 
 // ── W04: layout-matched skeletons ──────────────────────────────────────────
@@ -19,8 +20,18 @@ type SortMode = "recent" | "title" | "artist";
 // chunk lands. Each tab gets a skeleton that mirrors its REAL layout so the
 // swap is seam-free: favorites/history → track-row list; playlists → the
 // square-card grid. mq-shimmer keeps it cheap (single paint animation).
+// Spotify tab icon (official logotype simplified to a mono glyph — keeps
+// the tab bar visually consistent with the lucide line icons).
+function SpotifyTabIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} style={style} fill="currentColor" aria-hidden>
+      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z" />
+    </svg>
+  );
+}
+
 function LibrarySkeleton({ tab }: { tab: LibraryTab }) {
-  if (tab === "playlists") {
+  if (tab === "playlists" || tab === "spotify") {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4" aria-hidden>
         {Array.from({ length: 8 }).map((_, i) => (
@@ -91,11 +102,19 @@ const LibraryView = React.memo(function LibraryView() {
     setLibrarySearchQuery("");
   }, [activeTab, setLibrarySearchQuery]);
 
-  // Tab config with live counts
+  // Tab config with live counts (Spotify tab — V2 §18, always visible;
+  // its content shows connect UI when logged out, real library when in).
+  const spotifyConnected = useAppStore((s) => s.spotifyConnected);
   const tabs: { id: LibraryTab; label: string; icon: React.ElementType; count: number }[] = [
     { id: "favorites", label: "Избранное", icon: Heart, count: likedTrackIds.length },
     { id: "playlists", label: "Плейлисты", icon: ListMusic, count: playlists.length },
     { id: "history", label: "История", icon: Clock, count: history.length },
+    {
+      id: "spotify",
+      label: "Spotify",
+      icon: SpotifyTabIcon,
+      count: spotifyConnected ? -1 : 0, // -1 = connected marker (no number shown)
+    },
   ];
 
   return (
@@ -142,7 +161,7 @@ const LibraryView = React.memo(function LibraryView() {
               >
                 <Icon className="w-4 h-4" />
                 <span>{tab.label}</span>
-                {/* Live count badge */}
+                {/* Live count badge (Spotify connected → green dot marker) */}
                 {tab.count > 0 && (
                   <span
                     className="mq-t-meta-2 font-semibold px-1.5 py-0.5 rounded-full"
@@ -155,6 +174,9 @@ const LibraryView = React.memo(function LibraryView() {
                   >
                     {tab.count}
                   </span>
+                )}
+                {tab.count === -1 && (
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#1db954" }} aria-label="Spotify подключён" />
                 )}
                 {/* Underline indicator */}
                 {isActive && (
@@ -236,6 +258,7 @@ const LibraryView = React.memo(function LibraryView() {
             {activeTab === "favorites" && <FavoritesView />}
             {activeTab === "playlists" && <PlaylistView />}
             {activeTab === "history" && <HistoryView />}
+            {activeTab === "spotify" && <SpotifyLibraryView />}
           </Suspense>
       </motion.div>
     </div>

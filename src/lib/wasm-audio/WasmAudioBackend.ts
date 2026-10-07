@@ -1395,10 +1395,17 @@ export function pauseElementAudio(): void {
 }
 
 /**
- * User-facing seek router: WASM backend when active, element otherwise.
+ * User-facing seek router: Spotify adapter → WASM backend → element.
  * Used by PlayerBar / FullTrackView / keyboard shortcuts / MediaSession.
  */
 export function seekPlayback(time: number): void {
+  // V2 Spotify Official Playback owns the audio device — route seeks there.
+  // Lazy import by contract: the adapter module must not import this file
+  // (it doesn't — verified), so the dependency is acyclic.
+  if (isSpotifyAdapterTransport()) {
+    spotifyAdapterSeek(time);
+    return;
+  }
   const b = getActiveWasmBackend();
   if (b) {
     if (b.seek(time)) return;
@@ -1411,8 +1418,9 @@ export function seekPlayback(time: number): void {
   if (audio && audio.src) audio.currentTime = time;
 }
 
-/** Current playback position (seconds) — WASM interpolated clock or element. */
+/** Current playback position (seconds) — Spotify / WASM clock / element. */
 export function currentPlaybackPosition(): number {
+  if (isSpotifyAdapterTransport()) return spotifyAdapterPosition();
   const b = getActiveWasmBackend();
   if (b && b.active) return b.positionSec;
   try {
@@ -1420,4 +1428,45 @@ export function currentPlaybackPosition(): number {
     if (a && a.src) return a.currentTime;
   } catch {}
   return 0;
+}
+
+// ── V2 Spotify transport bridge (dynamic to keep this module loadable in
+//    non-browser test environments where the SDK does not exist) ──────────
+let spotifyTransport: {
+  isActive: () => boolean;
+  modeIsSpotify: () => boolean;
+  seek: (sec: number) => void;
+  position: () => number;
+} | null = null;
+
+export function bindSpotifyTransport(bridge: {
+  isActive: () => boolean;
+  modeIsSpotify: () => boolean;
+  seek: (sec: number) => void;
+  position: () => number;
+}): void {
+  spotifyTransport = bridge;
+}
+
+function isSpotifyAdapterTransport(): boolean {
+  if (!spotifyTransport) return false;
+  try {
+    return spotifyTransport.isActive() && spotifyTransport.modeIsSpotify();
+  } catch {
+    return false;
+  }
+}
+
+function spotifyAdapterSeek(sec: number): void {
+  try {
+    spotifyTransport?.seek(sec);
+  } catch {}
+}
+
+function spotifyAdapterPosition(): number {
+  try {
+    return spotifyTransport?.position() ?? 0;
+  } catch {
+    return 0;
+  }
 }

@@ -126,3 +126,36 @@ export function trackAttribution(track: {
   if (playback === catalog) playback = undefined;
   return { catalog, playback };
 }
+
+/**
+ * SpotifyOfficialBadge — V2 Mode A marker: the Web Playback SDK owns the
+ * audio device (full official track, user PKCE + Premium). Distinct from the
+ * catalog badges: no bitrate claims (§22 — Spotify does not expose quality
+ * to web clients), just the honest playback mode.
+ */
+export const SpotifyOfficialBadge = memo(function SpotifyOfficialBadge() {
+  return (
+    <span
+      data-mq-provider-badge="spotify-official"
+      title="Полное официальное воспроизведение Spotify (Web Playback SDK)"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "5px",
+        fontSize: 10,
+        fontWeight: 600,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        color: "#1db954",
+        background: "rgba(29,185,84,0.10)",
+        border: "1px solid rgba(29,185,84,0.35)",
+        borderRadius: 6,
+        padding: "2px 7px",
+        lineHeight: 1.4,
+      }}
+    >
+      <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#1db954" }} aria-hidden />
+      Spotify • Official
+    </span>
+  );
+});

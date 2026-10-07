@@ -28,6 +28,7 @@ import { hoverProps } from "@/lib/hoverCapability";
 import { WEB_RELEASE_NOTES } from "@/lib/releaseNotes";
 import { LyricsAppearanceControls } from "@/components/mq/lyrics/LyricsAppearanceControls";
 import AccountLinkingCard from "./AccountLinkingCard";
+import { SpotifyConnectCard } from "./SpotifyConnectCard";
 
 // v72: hotkeys reference for the About tab — the exact bindings
 // useKeyboardShortcuts listens to (mirrors KeyboardShortcutsHelp SHORTCUTS).
@@ -1090,6 +1091,12 @@ export default function SettingsView() {
         {/* ════ PLAYBACK ════ */}
         {activeTab === "playback" && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="space-y-4">
+            {/* V2 — Spotify Official Playback (full tracks, PKCE, Premium) */}
+            <Card>
+              <CardTitle icon={Headphones} title="Источник музыки" />
+              <SpotifyConnectCard />
+            </Card>
+
             <Card>
               <CardTitle icon={Volume2} title="Громкость" />
               <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>

@@ -20,6 +20,7 @@ import { shareTrackUrl, openInAppTrackUrl } from "@/lib/share-urls";
 import QueueView from "./QueueView";
 import { ProgressBar } from "./ProgressBar";
 import { TextSwap } from "./ui/TextSwap";
+import { PlaybackSourceBadge } from "./ui/PlaybackSourceBadge";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import MenuCore, { MenuHeader } from "./ui/MenuCore";
 
@@ -345,6 +346,11 @@ export default function PlayerBar() {
                   className="text-xs truncate"
                   style={{ color: "var(--mq-text-muted)" }}
                 />
+                {/* V2 §15 — honest playback source (Spotify Official /
+                    SoundCloud / Audius / MQ). Static, quiet, below artist. */}
+                <div className="mt-0.5">
+                  <PlaybackSourceBadge variant="mini" />
+                </div>
               </div>
             </button>
 

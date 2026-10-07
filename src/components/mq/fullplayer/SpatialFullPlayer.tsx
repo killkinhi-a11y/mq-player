@@ -73,6 +73,7 @@ import { fetchLyrics } from "@/lib/lyrics-client";
 import { normalizeLegacyLines, type LyricsError } from "@/lib/lyrics/types";
 import { LyricsView, type LyricLine } from "@/components/mq/LyricsView";
 import LiquidTitle from "@/components/mq/LiquidTitle";
+import { PlaybackSourceBadge } from "@/components/mq/ui/PlaybackSourceBadge";
 import MenuCore, { MenuHeader, type MenuElement } from "@/components/mq/ui/MenuCore";
 import { shareTrackUrl, openInAppTrackUrl } from "@/lib/share-urls";
 import { WaveformView } from "@/components/mq/WaveformView";
@@ -966,6 +967,10 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
                   {currentTrack.artist}
                   {currentTrack.album ? ` · ${currentTrack.album}` : ""}
                 </button>
+                {/* V2 §15 — honest playback source under the identity block */}
+                <div className="mt-1">
+                  <PlaybackSourceBadge variant="mini" />
+                </div>
               </div>
               <SpIconButton
                 onClick={() => handleLike()}

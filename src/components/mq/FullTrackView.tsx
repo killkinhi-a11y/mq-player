@@ -18,6 +18,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "@/hooks/use-toast";
 import VolumeSlider from "@/components/ui/volume-slider";
 import { ArtworkImage } from "./ui/ArtworkImage";
+import { PlaybackSourceBadge } from "./ui/PlaybackSourceBadge";
 import { fetchLyrics } from "@/lib/lyrics-client";
 import { normalizeLegacyLines, type LyricsError, type LyricLine } from "@/lib/lyrics/types";
 import { LyricsView } from "./LyricsView";
@@ -32,7 +33,7 @@ import LiquidTitle from "./LiquidTitle";
 import ContextMenu from "./ContextMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
 // V2 multi-provider: catalog → playback attribution + source switch
-import { ProviderChain, trackAttribution } from "./ui/ProviderBadge";
+import { ProviderChain, trackAttribution, SpotifyOfficialBadge } from "./ui/ProviderBadge";
 import { ArrowLeftRight } from "lucide-react";
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -49,6 +50,7 @@ import { ArrowLeftRight } from "lucide-react";
 export default function FullTrackView() {
   const isOpen = useAppStore((s) => s.isFullTrackViewOpen);
   const currentTrack = useAppStore((s) => s.currentTrack);
+  const playbackMode = useAppStore((s) => s.playbackMode);
   const isPlaying = useAppStore((s) => s.isPlaying);
   const progress = useAppStore((s) => s.progress);
   const duration = useAppStore((s) => s.duration);
@@ -677,10 +679,14 @@ export default function FullTrackView() {
             metadata and audio come from (e.g. Spotify catalog, SoundCloud
             audio). Native-source tracks show a single badge. */}
         <div className={`flex flex-wrap items-center gap-2 mt-2 ${isMobile ? "justify-center" : ""}`}>
-          <ProviderChain
-            catalog={trackAttribution(currentTrack).catalog}
-            playback={trackAttribution(currentTrack).playback}
-          />
+          {playbackMode === "spotify" ? (
+            <SpotifyOfficialBadge />
+          ) : (
+            <ProviderChain
+              catalog={trackAttribution(currentTrack).catalog}
+              playback={trackAttribution(currentTrack).playback}
+            />
+          )}
           {currentTrack.versionTag && (
             <span className="mq-t-meta-2 px-1.5 py-0.5 rounded-md" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
               {currentTrack.versionTag}

@@ -1,0 +1,305 @@
+{
+  "search-wps": [
+    {
+      "full_name": "tangkk/v1-spotify",
+      "description": "Spotify web player/controller served from V1 (Web Playback SDK, own queue, favorites)",
+      "stars": 0,
+      "language": "Python",
+      "pushedAt": "2026-10-07T15:17:51Z",
+      "archived": false
+    },
+    {
+      "full_name": "abhishek1734/pixelfm",
+      "description": "PIXELFM — Retro 16-Bit Web Music Player connecting with Spotify OAuth & Web Playback SDK",
+      "stars": 0,
+      "language": "TypeScript",
+      "pushedAt": "2026-09-16T13:10:38Z",
+      "archived": false
+    },
+    {
+      "full_name": "mukhriji468-lgtm/mukh",
+      "description": "Sportify - Next.js web player using Spotify Web Playback SDK (scaffold)",
+      "stars": 0,
+      "language": null,
+      "pushedAt": "2026-08-29T18:57:32Z",
+      "archived": false
+    },
+    {
+      "full_name": "KeepSerene/raag-riff-spotify-clone",
+      "description": "RaagRiff - A modern Spotify web player for discovering music, exploring albums, artists, and playlists. Browse new releases, search tracks, and stream seamlessly with Spotify Premium. Built with the Spotify Web API and Web Playback SDK.",
+      "stars": 0,
+      "language": "JavaScript",
+      "pushedAt": "2026-08-26T21:10:25Z",
+      "archived": false
+    },
+    {
+      "full_name": "luizhenriquefernandes20-svg/spotify-web-player",
+      "description": "Player web com login OAuth PKCE do Spotify, busca via Web API e reproducao via Web Playback SDK com fallback para previas de 30s.",
+      "stars": 0,
+      "language": "TypeScript",
+      "pushedAt": "2026-07-27T23:46:32Z",
+      "archived": false
+    },
+    {
+      "full_name": "BlessedOneKobo/spotify-web-player",
+      "description": "This is an experimental repo for the Spotify Web Playback SDK",
+      "stars": 0,
+      "language": "JavaScript",
+      "pushedAt": "2026-07-02T00:33:46Z",
+      "archived": false
+    },
+    {
+      "full_name": "sharanshanth05-dotcom/retromusicplayer",
+      "description": "🎵 RetroPlayer — A Spotify music player with a retro hacker aesthetic. Features a cassette deck with spinning reels, analog VU meters, frequency visualizer, and terminal console. Built with React + Vite frontend and Node.js + Express backend. Spotify OAuth 2.0, Web Playback SDK, and Audio Features API.",
+      "stars": 0,
+      "language": "JavaScript",
+      "pushedAt": "2026-08-25T10:37:03Z",
+      "archived": false
+    },
+    {
+      "full_name": "Rayxxo/spotify-web-player",
+      "description": "My own music player UI using Spotify's API/Spotify Web Playback SDK api",
+      "stars": 0,
+      "language": "JavaScript",
+      "pushedAt": "2025-12-19T08:17:59Z",
+      "archived": false
+    },
+    {
+      "full_name": "280studios/Spotify-WebPlayer",
+      "description": "A custom Spotify player using the Web Playback SDK.",
+      "stars": 0,
+      "language": "JavaScript",
+      "pushedAt": "2025-07-10T14:41:06Z",
+      "archived": false
+    },
+    {
+      "full_name": "Reabot6/skips-part",
+      "description": "Here’s a clean and clear **project  Spotify Web API + Web Playback SDK  **How it Works:** 1. User logs in with their Spotify Premium account. 2. The player starts the song using Spotify’s playback system. 3. At 1:05, the app automatically seeks to 1:37, skipping Davido’s part. 4. Playback continues with Omah Lay’s final verse and chorus.  ",
+      "stars": 1,
+      "language": null,
+      "pushedAt": "2025-04-30T23:57:20Z",
+      "archived": false
+    },
+    {
+      "full_name": "subhajitroycode/record-player",
+      "description": "A React-based web application that brings the nostalgic vinyl record experience to listening to music. Features an animated turntable interface with realistic record spinning and needle movement, integrated with Spotify Premium for seamless playlist streaming. Built with React, Spotify Web Playback SDK, and Tailwind CSS.",
+      "stars": 3,
+      "language": "JavaScript",
+      "pushedAt": "2025-02-18T15:08:22Z",
+      "archived": false
+    },
+    {
+      "full_name": "Alschn/WebPlayer",
+      "description": "Spotify Web Player clone built with DRF, Next.js, Tailwind, Typescript, Spotipy, Spotify Web API + Web Playback SDK",
+      "stars": 6,
+      "language": "TypeScript",
+      "pushedAt": "2025-02-16T15:28:17Z",
+      "archived": false
+    },
+    {
+      "full_name": "dkkmartin/iplaymusic",
+      "description": "A spotify player using spotify web API & web playback SDK, built with NextJS",
+      "stars": 0,
+      "language": "TypeScript",
+      "pushedAt": "2024-12-03T14:00:41Z",
+      "archived": false
+    },
+    {
+      "full_name": "trongtien/spotify-react-clone",
+      "description": "Docs: https://developer.spotify.com/documentation/web-playback-sdk/howtos/web-app-player",
+      "stars": 0,
+      "language": "TypeScript",
+      "pushedAt": "2024-11-08T06:11:51Z",
+      "archived": false
+    },
+    {
+      "full_name": "spotify/spotify-web-playback-sdk-example",
+      "description": "React based example app that creates a new player in Spotify Connect to play music from in the browse using Spotify Web Playback SDK.",
+      "stars": 204,
+      "language": "JavaScript",
+      "pushedAt": "2024-07-20T21:05:09Z",
+      "archived": false
+    }
+  ],
+  "search-premium-web": [],
+  "search-connect": [
+    {
+      "full_name": "PriyamKeshri/Spotify-Audio-Patch-Bay",
+      "description": "A Spotify Web API client framed as an audio patch bay — REST-only control of any Spotify Connect device, with OAuth 2.0 PKCE, automatic token refresh, and no backend.",
+      "stars": 0,
+      "language": "TypeScript",
+      "pushedAt": "2026-08-22T10:21:58Z",
+      "archived": false
+    },
+    {
+      "full_name": "tobfd/spicetify-websocket",
+      "description": "An asynchronous Python wrapper and WebSocket server for controlling the Spotify desktop client via Spicetify and the spicetify-connect-api extension.",
+      "stars": 4,
+      "language": "Python",
+      "pushedAt": "2026-08-05T22:17:57Z",
+      "archived": false
+    },
+    {
+      "full_name": "kstonge11/spotshop",
+      "description": "Spotshop connects your Spotify library to buy links across Beatport, Bandcamp, and more. Built with React, Vite, Node.js, Express, and the Spotify Web API. OAuth tokens are kept server-side — your credentials never touch the client.",
+      "stars": 1,
+      "language": "JavaScript",
+      "pushedAt": "2026-04-10T06:10:59Z",
+      "archived": false
+    },
+    {
+      "full_name": "wardis962/Spotify-music-taste-analyzer",
+      "description": "A client-side web app that connects to your Spotify account and analyzes your liked songs to generate a personalized music taste profile — no backend, no server required.",
+      "stars": 0,
+      "language": "HTML",
+      "pushedAt": "2026-03-14T14:09:43Z",
+      "archived": false
+    },
+    {
+      "full_name": "carlosjulio-06612/Reminicence-Django",
+      "description": " This project provides a comprehensive guide and implementation for connecting to the Spotify Web API using Django. It covers authentication via the Client Credentials Flow, secure token management, and interaction with core endpoints such as artists, albums, tracks, and playlists.",
+      "stars": 0,
+      "language": "CSS",
+      "pushedAt": "2025-12-16T18:12:53Z",
+      "archived": false
+    },
+    {
+      "full_name": "sharmitha123/spotify-generator",
+      "description": "A lightweight Python project that connects to the Spotify Web API to automatically search for an artist, fetch their top tracks, display results, and open selected songs in the Spotify app.  This script demonstrates how to authenticate with Spotify using the Client Credentials Flow, send API requests, and interact with tracks programmatically.",
+      "stars": 0,
+      "language": null,
+      "pushedAt": "2025-11-23T07:26:43Z",
+      "archived": false
+    },
+    {
+      "full_name": "HubertTouraine/AREA",
+      "description": "An IFTTT-style automation platform that connects multiple services (Google, Discord, Outlook, GitHub, Spotify, etc.) to trigger reactions based on actions. Built with Go backend, Vue 3 web client, and React Native mobile app.",
+      "stars": 0,
+      "language": null,
+      "pushedAt": "2025-11-09T16:41:36Z",
+      "archived": false
+    },
+    {
+      "full_name": "pownas/SpotifyApiConnectCsharp",
+      "description": "Spotify Api Connect Csharp Example from https://github.com/spotify/web-api-examples/blob/master/authorization/client_credentials/app.js",
+      "stars": 0,
+      "language": "C#",
+      "pushedAt": "2023-12-04T20:34:02Z",
+      "archived": false
+    },
+    {
+      "full_name": "akshays2112/Blazor-Music-Client-WebAssembly",
+      "description": "This app is Blazor Music Client which is a Blazor WebAssembly SPA (Single Page Application) written in C# and Razor. It does Authentication and Authorization for both Youtube and Spotify.  It then connects to both cloud services endpoints (Web Services) and work with the information for the Authenticated and Authorized user with their Youtube and Spotify data. This app is not meant to be a replacement for Spotify or Youtube clients but is meant to implement features I would like to have that are not present in the current Spotify and Youtube clients.",
+      "stars": 4,
+      "language": "HTML",
+      "pushedAt": "2023-01-25T18:56:14Z",
+      "archived": false
+    },
+    {
+      "full_name": "anohabbah/timwi-spotify-test",
+      "description": "Connect to Spotify web API using client credentials flow with Nuxt.js.",
+      "stars": 0,
+      "language": "Vue",
+      "pushedAt": "2022-08-02T00:15:15Z",
+      "archived": true
+    },
+    {
+      "full_name": "akshays2112/Blazor-Music-Client-Server",
+      "description": "This app is Blazor Music Client which is a Blazor Server-side SPA (Single Page Application) written in C# and Razor. It does Authentication and Authorization for both Youtube and Spotify.  It then connects to both cloud services endpoints (Web Services) and work with the information for the Authenticated and Authorized user with their Youtube and Spotify data. This app is not meant to be a replacement for Spotify or Youtube clients but is meant to implement features I would like to have that are not present in the current Spotify and Youtube clients.",
+      "stars": 2,
+      "language": "HTML",
+      "pushedAt": "2022-01-13T13:43:26Z",
+      "archived": false
+    },
+    {
+      "full_name": "et0s/freequeue.io",
+      "description": "Web application that connects clients to a host's Spotify account, so clients can play music directly on the host's account. Resolves the problem of \"Hey, can you play this song next please?\". Great for parties or single user Bluetooth devices. *Must be connected to host's public IP",
+      "stars": 0,
+      "language": "JavaScript",
+      "pushedAt": "2021-03-01T03:59:51Z",
+      "archived": false
+    },
+    {
+      "full_name": "jamify/client",
+      "description": "a react.js based web application that connects music lovers around the world",
+      "stars": 0,
+      "language": "TypeScript",
+      "pushedAt": "2020-10-21T13:53:54Z",
+      "archived": false
+    }
+  ],
+  "search-full": [
+    {
+      "full_name": "subedi-prashant/Spotified",
+      "description": "A Spotify companion — view your rankings, recent plays, saved tracks, and playlists, with full in-browser playback for Premium via the Web Playback SDK. Built with Next.js, TypeScript, Tailwind, Drizzle, and Supabase.",
+      "stars": 0,
+      "language": "TypeScript",
+      "pushedAt": "2026-09-29T10:40:17Z",
+      "archived": false
+    },
+    {
+      "full_name": "rahulchaudhari31/Tuneify-A-Spotify-inspired-music-streaming",
+      "description": "A Spotify-inspired music streaming web app built with React + Vite and Express.js, featuring a full-featured audio player, song navigation, seekbar/progress control, covers, and 10 NCS & Salam-e-Ishq tracks, delivering a seamless, ad-free listening experience with intuitive playback controls and smooth navigation",
+      "stars": 0,
+      "language": "JavaScript",
+      "pushedAt": "2026-08-25T07:55:31Z",
+      "archived": false
+    },
+    {
+      "full_name": "visheshio/Spotifyclone",
+      "description": "A modern, lightweight, and responsive Spotify Web Player Clone engineered using pure Vanilla HTML5, CSS3, and JavaScript (ES6+). This project replicates the iconic dark-themed interface of Spotify, featuring real-time audio playback, interactive seek controls, volume management, dynamic album track loading, and full mobile responsiveness.",
+      "stars": 1,
+      "language": "JavaScript",
+      "pushedAt": "2026-09-11T17:48:39Z",
+      "archived": false
+    },
+    {
+      "full_name": "racheen/ai-music-xray",
+      "description": "A full-stack Next.js App Router music visualizer for Vercel. Users can connect Spotify, play a track through the Spotify Web Playback SDK, and see real-time Three.js visuals driven by beat data, progress, tempo, sections, and simulated stems.",
+      "stars": 0,
+      "language": "TypeScript",
+      "pushedAt": "2026-07-11T00:58:19Z",
+      "archived": false
+    },
+    {
+      "full_name": "SamuelLysterCummins0/SpotCIRCLE",
+      "description": "Developed a full-stack Spotify Web Player web application using React.js and Node.js that enables users to track their most-played music, artists, and albums across different time periods. Features include real-time playback control, playlist management, queue manipulation, and dynamic music visualizations with lyrics integration.",
+      "stars": 0,
+      "language": "JavaScript",
+      "pushedAt": "2026-05-16T13:16:42Z",
+      "archived": false
+    },
+    {
+      "full_name": "kevinle623/Statify",
+      "description": "STATIFY - Your digital archivist for Spotify. Visualize your listening habits with an editorial, data-driven aesthetic. Top artists, top tracks, full listening history, and live playback, all in one interface. Built with Next.js 16, React 19, and the Spotify Web API.",
+      "stars": 3,
+      "language": "TypeScript",
+      "pushedAt": "2026-03-28T20:08:08Z",
+      "archived": false
+    },
+    {
+      "full_name": "chanderbahn/Spotify-Clone-Website",
+      "description": "A full-stack music streaming web application inspired by Spotify, built to provide seamless music playback, playlist management, and user authentication. The platform allows users to browse songs, play/pause tracks, manage queues, and enjoy a personalized music experience with a responsive and modern UI.",
+      "stars": 0,
+      "language": "JavaScript",
+      "pushedAt": "2025-08-29T17:27:25Z",
+      "archived": false
+    },
+    {
+      "full_name": "Lokesh-102214/Full-Spotify-Clone-Using-HTML-CSS-And-JAVASCRIPT",
+      "description": "A sleek, responsive Spotify-inspired music player web app built with HTML, CSS, and vanilla JavaScript. Users can browse a playlist of songs, play/pause tracks, and control playback with a fixed bottom player bar.",
+      "stars": 0,
+      "language": "CSS",
+      "pushedAt": "2025-08-06T16:17:34Z",
+      "archived": false
+    },
+    {
+      "full_name": "AmitwithAPJ/SpotifyClone",
+      "description": "A full-stack Spotify Clone built with modern web technologies that replicates key features of the popular music streaming platform. It allows users to browse songs and albums, play/pause tracks, seek playback, control volume, and toggle loop/shuffle. ",
+      "stars": 0,
+      "language": "JavaScript",
+      "pushedAt": "2025-05-23T12:52:12Z",
+      "archived": false
+    }
+  ]
+}

@@ -274,5 +274,8 @@ export function catalogToTrack(dto: CatalogTrackDTO): Track {
     catalogProvider: dto.provider,
     catalogId: dto.catalogId,
     catalogArtistId: dto.artistId,
+    // V2 §7/§16 — official playback URI (Spotify DTOs only): lets the
+    // engine try the Web Playback SDK BEFORE the PlaybackResolver runs.
+    ...(dto.provider === "spotify" && dto.uri ? { spotifyUri: dto.uri, spotifyTrackId: dto.catalogId } : {}),
   };
 }

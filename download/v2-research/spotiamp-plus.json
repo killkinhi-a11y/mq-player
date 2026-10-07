@@ -1,0 +1,71 @@
+{
+  "target": {
+    "owner": "fdeox",
+    "repo": "spotiamp-plus",
+    "slug": "spotiamp-plus"
+  },
+  "name": "fdeox/spotiamp-plus",
+  "description": "A Winamp-style desktop player for Spotify — the classic skinned windows, real skins, a Milkdrop-style visualizer, and full keyboard control, playing your Spotify Premium account natively (no browser).",
+  "stars": 10,
+  "forks": 0,
+  "openIssues": 0,
+  "language": "Rust",
+  "topics": [],
+  "license": "NOASSERTION",
+  "archived": false,
+  "disabled": false,
+  "createdAt": "2026-07-12T20:59:14Z",
+  "pushedAt": "2026-10-07T19:43:40Z",
+  "defaultBranch": "main",
+  "homepage": "",
+  "size": 25733,
+  "languages": {
+    "Rust": 454657,
+    "Svelte": 449677,
+    "JavaScript": 147968,
+    "CSS": 8258,
+    "HTML": 435
+  },
+  "recentCommits": [
+    {
+      "sha": "8ea4c803",
+      "date": "2026-10-07T19:43:31Z",
+      "message": "0.7.6",
+      "author": "fdeox"
+    },
+    {
+      "sha": "2593d65e",
+      "date": "2026-10-07T19:28:34Z",
+      "message": "MilkDrop: the preset's name alone on the bottom line, cleaned up",
+      "author": "fdeox"
+    },
+    {
+      "sha": "9cc60774",
+      "date": "2026-10-07T18:22:44Z",
+      "message": "README and What's new for 0.7.6: MilkDrop, the Spotiamp+ skin, the readouts",
+      "author": "fdeox"
+    }
+  ],
+  "topLevelTree": [
+    "d .github",
+    "f .gitignore",
+    "d .vscode",
+    "f LICENSE",
+    "f PRIVACY.md",
+    "f README.md",
+    "f app-icon.png",
+    "d docs",
+    "f jsconfig.json",
+    "f package-lock.json",
+    "f package.json",
+    "f player.png",
+    "f playlist.png",
+    "d scripts",
+    "d skins",
+    "d src-tauri",
+    "d src",
+    "f svelte.config.js",
+    "f vite.config.js"
+  ],
+  "readme": "<p align=\"center\">\n  <img src=\"docs/brand/banner.png\" alt=\"Spotiamp+ — boost your music\" width=\"100%\">\n</p>\n\n[![Discord](https://img.shields.io/badge/Discord-join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/8Rq5Xycny4)\n\nA Winamp-style desktop player for **Spotify** — the classic skinned windows, real\nskins, a real MilkDrop visualizer, and full keyboard control, playing your\nSpotify Premium account natively (no browser) — and **your own local files**\nright in the same playlist.\n\nOn top of that it adds a playlist and library browser, full catalogue search, and\ndocking windows that snap together like classic Winamp.\n\n> **Premium** streams directly (playback via\n> [librespot](https://github.com/librespot-org/librespot)); **Free** accounts get\n> **Free Mode**, where Spotiamp+ becomes the Winamp face of the official Spotify\n> app and drives it. Login always uses Spotify's own OAuth page.\n\n![Spotiamp+ in action: skins, the Skin Museum, lyrics and the visualizer](docs/demo.gif)\n\n---\n>## Project Status\n\n>Spotiamp+ is actively maintained, but development is currently moving at a slower and more gradual pace due to limited development time.\n>Bug fixes, stability improvements, security updates, and important compatibility fixes will continue. New features will primarily be considered based on community requests, usefulness, and available time.\n>Feature suggestions can be submitted through the Spotiamp+ Discord community.\n\n## Features\n\n- 🎵 **Native Spotify playback** — Premium account via librespot (Ogg 320 kbps),\n  seek, volume, gapless.\n- 🦙 **Lala** — a little llama who lives on your player. She dances to the beat,\n  naps when the music stops, wakes up when you pat her, says something now and\n  then (a fact about the song, your listening streak, a tip) and wanders over to\n  your other windows when she's bored. Drag her along the edge, double-click her\n  for a stroll, right-click her for her size, to quiet her or to hide her.\n- 💿 **Local file playback** — play your own MP3, FLAC, M4A (AAC or Apple\n  Lossless), WAV or OGG files right alongside Spotify. Add files or a whole folder from the playlist\n  menu (or press **O** / **Shift+O**); they land in the playlist as normal rows,\n  mixed with Spotify tracks, with next/previous walking the lot. Name, artist and\n  length come from the file's own tags, the kbps and kHz readouts show the file's\n  own, and the EQ and visualizer work on them too. In Free Mode too.\n- 📂 **Playlist browser & Library window** — browse your Spotify playlists, open\n  a two-pane Library (playlists + tracks), load or queue anything. In the\n  **Library window**, just start typing a song or artist name and the selection\n  jumps to it (what you typed shows in the header). **Pin** your favourite\n  playlists to the top (right-click one), and **drag** songs or whole playlists\n  from the Library onto the playlist. The playlist's **List** button (bottom\n  right) opens it, with the list commands. It opens on *Recently played*, with a\n  *Date* column (added or last played), and the columns size by dragging the\n  lines between them.\n- 🕘 **Recently played & Most played** — two lists in the Library, kept on your\n  own computer by Spotiamp+ (nothing is sent anywhere).\n- 📊 **Listening stats** — time listened, top songs and artists, your streak and\n  when you listen, for the last 7 days, 30 days, year or all time, plus\n  **48 badges** to unlock (night owl, marathon, 30 days in a row, Winamp's\n  birthday…). **Copy** them as a picture to share (Library → *Listening stats*).\n  Every December, **Rewind** looks back on your year.\n- ♡ **Loved songs** — press **F** to love the playing song (or the selected ones\n  in the playlist); they're in the Library under *Loved songs*, with a ♡ next to\n  them everywhere.\n- ⏹️ **Stop after current** — **Ctrl+V** stops when the song ends, like Winamp.\n- 🖱️ **Song menus** — right-click a song, in the playlist or the Library, to play\n  it next, love it, add it to a list, copy its Spotify link or show a local file\n  in its folder.\n- 📄 **M3U playlists** — open and save `.m3u` / `.m3u8` files (right-click →\n  *Playlist*): local files and Spotify songs, in order.\n- 💬 **On-screen display** (optional) — the new song, with its cover, in the\n  corner of the screen for a few seconds (right-click → *Windows*).\n- 🔢 **Jump to track & queue** — press **J** and type part of a song's name to\n  find it in the playlist (arrows pick, **Enter** plays); press **Q** to play\n  the selected song next. The number on a row is its place in the queue.\n  **Ctrl+J** jumps to a time in the song (type `1:23`, **Enter**).\n- 🪄 **Instant mix** — right-click → *Instant mix*: 20 songs like the selected\n  one, added to the end of the playlist or queued to play next.\n- ⏯️ **Picks up where you left off** — your last track is ready at the same\n  spot when you open the app again.\n- 🚫 **No duplicates** — a song is never listed twice; adding one that's\n  already there says so instead.\n- 🔎 **Spotify catalogue search** — search the whole catalogue right in the\n  Library. Double-clicking a search result **adds it to the end of the current\n  playlist** (it doesn't replace what's playing), so you can build a playlist by\n  searching for songs one after another.\n- 🧲 **Docking windows** — the Playlist, Equalizer, Library and Visualizer snap\n  to the main window and move together, just like classic Winamp.\n- 🎚️ **10-band Equalizer** — a pixel-perfect Winamp EQ window with a **real DSP**\n  behind it (biquad peaking filters on the decoded audio), preamp, presets and\n  the animated response curve. **Load and save `.EQF` presets** (yours, or real\n  Winamp ones). **AUTO** works like Winamp's: save a curve for a song or an\n  artist (*Presets*) and it comes back whenever they play. Your EQ is remembered\n  between runs. Plus a **balance** slider next to the volume.\n- 🎨 **Skins** — right-click → *Skins* to switch skins live: **Classic**,\n  **Cherry**, **Amber**, **Emerald**, plus **six bundled classic Winamp skins**\n  right in the menu — the *Classified* series by\n  [Victhor](https://victhor.deviantart.com/) and the Sony/Nucleo hardware-style\n  skins (all rights remain with their original authors), and **Spotiamp+**, our\n  own, in the logo's orange and amber. Open the\n  **Skin Museum** right inside Spotiamp+ (*Skins → Skin Museum…*) to browse\n  thousands of classic skins from the\n  [Winamp Skin Museum](https://skins.webamp.org/) and put one on with a click\n  (star the ones you like to find them under *Favorites*),\n  or **load any Winamp 2.x skin (`.wsz`)** from disk. Every window — player,\n  equalizer, playlist **and the media library** — reskins live and persists\n  across restarts.\n- 🌀 **WebGL visualizer** — a window with **100 audio-reactive patterns**:\n  spectrum analysers, VU meters, a scrolling spectrogram, Milkdrop-style\n  feedback modes, synthwave, a spinning record and more, cycling on click, on\n  a timer, and on every track change. **Double-click it for fullscreen**\n  (**Esc** to come back).\n- 🎆 **MilkDrop** — real MilkDrop presets in the visualizer, drawn by\n  [projectM](https://github.com/projectM-visualizer/projectm) and moving with\n  the music: press **M** there (or its MILKDROP button). About **500 presets**\n  come with it, 150 of them by **Incubo_** (Se7enSlasher), among them his\n  MilkDrop takes on Spotiamp+'s own patterns, and MilkDrop's own textures.\n  **L** opens the preset list: search it, ♥ your favourites and change only\n  between them. A click is the next preset, PIN keeps one, double-click goes\n  fullscreen (with the song's title over it); right-click to choose how often\n  presets change (or to cut on the beat) and for the folder for your own\n  `.milk` files and textures.\n- 🎤 **Lyrics window** — synced, scrolling lyrics that highlight the current\n  line in time with playback; **click a line to jump the song there**\n  (right-click → *Windows → Lyrics*).\n- 🖼️ **Album art window** — the current cover in its own resizable window that\n  docks like the others (right-click → *Windows → Album art*).\n- 🔍 **Scale** — every window at 1×, 1.5×, 2× or 3× (right-click →\n  *Windows → Scale*), or **Ctrl+D** for 2×.\n- 🔊 **Normalize volume** — evens out loudness between songs (right-click →\n  *Audio*), like Spotify's own setting. Pick the **output device** there too.\n- 📌 **Taskbar extras** (optional) — the song title on the taskbar button,\n  progress across it and ⏮ ⏯ ⏭ buttons under its thumbnail (right-click →\n  *Windows*).\n- 🖼️ **Now Playing card** — right-click → *Copy Now Playing card*: an image of\n  the player and the song, ready to paste into Discord or anywhere.\n- 😴 **Sleep timer** — pause playback after 15, 30, 45 or 60 minutes (right-click\n  → *Sleep timer*).\n- 🎛️ **Media keys** — the play/pause/next keys on your keyboard and the buttons\n  on your headset control playback even when Spotiamp+ is in the background\n  (registered through the Windows media session).\n- 🎮 **Discord Rich Presence** — shows the track, artist, **album art** and a\n  live progress bar on your Discord profile while it plays, and clears the moment\n  playback stops.\n- 🪟 **Windowshade mode** — roll any window up to a slim title strip, classic\n  Winamp style.\n- ↕️ **Sortable library** — click a column header (Artist / Album / Title / Date\n  added / Time) to sort your tracks.\n- 🪟 **Remembers your layout** — the library, visualizer, lyrics and album art\n  windows reopen where and how you left them on the next launch.\n- 🔀 **Shuffle & 3-state repeat** — off → repeat-all → repeat-one.\n- ⏱️ **Playlist time readouts** — the selected and total time, and the song's\n  time, in the skin's own letters, where Winamp has them.\n- 🔌 **Auto-reconnect** — recovers automatically if Spotify drops the session,\n  and the song carries on where it was. A moment offline won't sign you out.\n- 🔄 **Built-in updater** — Spotiamp+ flags a new version on launch, and\n  right-click → *Help → Check for updates* downloads and installs it (signed).\n  After an update, a *What's new* window lists the changes once.\n- 🩺 **Diagnostic info** — something wrong? Right-click → *Help → Copy\n  diagnostic info* (or the button in an error box) copies what's needed for a\n  bug report.\n- 🖱️ **Winamp-style right-click menu** — on the playlist and the main window,\n  with each key shown next to what it does.\n- ⌨️ **Keyboard shortcuts** — classic Winamp keys that work from every window\n  (see below), plus the **mouse wheel** over the main window for volume. Press\n  **F1** anywhere for the full list.\n\n## Screenshots\n\n| Classic | Cherry | Amber | Emerald |\n| :-----: | :----: | :---: | :-----: |\n| ![](docs/screenshots/classic2.jpg) | ![](docs/screenshots/cherry.jpg) | ![](docs/screenshots/amber.jpg) | ![](docs/screenshots/emerald.jpg) |\n\n| Media Library | Visualizer |\n| :-----------: | :--------: |\n| ![](docs/screenshots/library.jpg) | ![](docs/screenshots/visualizer.jpg) |\n\n| Equalizer | Lyrics |\n| :-------: | :----: |\n| ![](docs/screenshots/eq.jpg) | ![](docs/screenshots/lyrics.jpg) |\n\n| Fullscreen visualizer |\n| :-------------------: |\n| ![](docs/fullscreen-visualizer.gif) |\n\n### Load any classic Winamp skin\n\nRight-click → *Skins → Skin Museum…* to browse and put one on with a click, or\n*Skins → Load .wsz from disk…* (or pick one of the bundled skins). Every window —\nplayer, equalizer, playlist and library — reskins live.\n\n| Bento Classified | Winamp3 Classified | Winamp5 Classified |\n| :--------------: | :----------------: | :----------------: |\n| ![](docs/screenshots/winampbento.jpg) | ![](docs/screenshots/winamp3.jpg) | ![](docs/screenshots/winamp5.jpg) |\n\n| Nucleo NLog | Sony CDX-MP3 | Sony Esprit V2 |\n| :---------: | :----------: | :------------: |\n| ![](docs/screenshots/Nucleo%20Nlog.jpg) | ![](docs/screenshots/Sony%20CDX-MP3.jpg) | ![](docs/screenshots/Sony%20Esprit%20V2.jpg) |\n\n## Install\n\n1. Download the latest installer from the [**Releases**](../../releases) page.\n2. Run it. Windows SmartScreen may warn because"
+}

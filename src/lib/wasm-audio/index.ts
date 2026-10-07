@@ -17,6 +17,7 @@ export {
   pauseElementAudio,
   seekPlayback,
   currentPlaybackPosition,
+  bindSpotifyTransport,
   warmUpWasmEngine,
   ensureBenchApi,
   OP,

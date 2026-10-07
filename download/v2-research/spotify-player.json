@@ -1,0 +1,90 @@
+{
+  "target": {
+    "owner": "aome510",
+    "repo": "spotify-player",
+    "slug": "spotify-player"
+  },
+  "name": "aome510/spotify-player",
+  "description": "A Spotify player in the terminal with full feature parity",
+  "stars": 7265,
+  "forks": 396,
+  "openIssues": 159,
+  "language": "Rust",
+  "topics": [
+    "cli",
+    "music",
+    "music-player",
+    "player",
+    "rust",
+    "spotify",
+    "spotify-api",
+    "spotify-tui",
+    "terminal",
+    "terminal-based",
+    "tui",
+    "vim"
+  ],
+  "license": "MIT",
+  "archived": false,
+  "disabled": false,
+  "createdAt": "2021-07-08T01:51:43Z",
+  "pushedAt": "2026-09-19T14:40:09Z",
+  "defaultBranch": "master",
+  "homepage": "",
+  "size": 3719,
+  "languages": {
+    "Rust": 648743,
+    "Nix": 4294,
+    "Python": 1586,
+    "Dockerfile": 448,
+    "Emacs Lisp": 290,
+    "Shell": 212
+  },
+  "recentCommits": [
+    {
+      "sha": "7dc9d17a",
+      "date": "2026-09-19T14:40:09Z",
+      "message": "Add TLS backend features (rustls-tls / native-tls) — fixes auth panic on Termux (#1060)",
+      "author": "Charles Hakes"
+    },
+    {
+      "sha": "56694558",
+      "date": "2026-09-12T17:46:10Z",
+      "message": "fix selected item handling in filtered lists (#1084)",
+      "author": "Thang Pham"
+    },
+    {
+      "sha": "d7978f60",
+      "date": "2026-09-12T02:37:13Z",
+      "message": "fix playback not transferred correctly upon re-connection",
+      "author": "Thang Pham"
+    }
+  ],
+  "topLevelTree": [
+    "f .dir-locals.el",
+    "f .dockerignore",
+    "d .github",
+    "f .gitignore",
+    "f .typos.toml",
+    "d .vscode",
+    "f AGENTS.md",
+    "f Cargo.lock",
+    "f Cargo.toml",
+    "f Cross.toml",
+    "f Dockerfile",
+    "f LICENSE",
+    "f README.md",
+    "f THEMES.md",
+    "f checklist.md",
+    "d ci",
+    "f default.nix",
+    "d docs",
+    "d examples",
+    "f flake.lock",
+    "f flake.nix",
+    "d lyric_finder",
+    "d scripts",
+    "d spotify_player"
+  ],
+  "readme": "# spotify_player\n\n## Table of Contents\n\n- [Introduction](#introduction)\n- [Examples](#examples)\n- [Installation](#installation)\n- [Authentication](#authentication)\n  - [How authentication works](#how-authentication-works)\n  - [Why you may be asked to authenticate multiple times](#why-you-may-be-asked-to-authenticate-multiple-times)\n  - [Client ID and rate limits](#client-id-and-rate-limits)\n  - [Using a custom client ID](#using-a-custom-client-id)\n- [Features](#features)\n  - [Spotify Connect](#spotify-connect)\n  - [Streaming](#streaming)\n  - [Audio Visualization](#audio-visualization)\n  - [Media Control](#media-control)\n  - [Image](#image)\n  - [Notify](#notify)\n  - [Mouse support](#mouse-support)\n  - [Daemon](#daemon)\n  - [Fuzzy search](#fuzzy-search)\n  - [CLI commands](#cli-commands)\n- [Commands](#commands)\n- [Configurations](#configurations)\n- [Caches](#caches)\n  - [Logging](#logging)\n- [Acknowledgement](#acknowledgement)\n\n## Introduction\n\n`spotify_player` is a fast, easy to use, and configurable terminal music player.\n\n**Features**\n\n- Minimalist UI with an intuitive paging and popup system.\n- Highly [configurable](https://github.com/aome510/spotify-player/blob/master/docs/config.md)\n- Feature parity with the official Spotify application.\n- Support remote control with [Spotify Connect](#spotify-connect).\n- Support [streaming](#streaming) songs directly from the terminal.\n- Support [audio visualization](#audio-visualization).\n- Support synced lyrics.\n- Support [cross-platform media control](#media-control).\n- Support [image rendering](#image).\n- Support [desktop notification](#notify).\n- Support running the application as [a daemon](#daemon)\n- Offer a wide range of [CLI commands](#cli-commands)\n\n## Examples\n\nA demo of `spotify_player` `v0.5.0-pre-release` on [youtube](https://www.youtube.com/watch/Jbfe9GLNWbA) or on [asciicast](https://asciinema.org/a/446913):\n\nCheckout [examples/README.md](https://github.com/aome510/spotify-player/blob/master/examples/README.md) for more examples.\n\n## Installation\n\nBy default, the application's installed binary is `spotify_player`.\n\n### Requirements\n\nA Spotify Premium account is **required**.\n\n#### Dependencies\n\n##### Windows and MacOS\n\n- [Rust and cargo](https://www.rust-lang.org/tools/install) as the build dependencies\n\n##### Linux\n\n- [Rust and cargo](https://www.rust-lang.org/tools/install) as the build dependencies\n- install `openssl`, `alsa-lib` (`streaming` feature), `libdbus` (`media-control` feature).\n  - For example, on Debian based systems, run the below command to install application's dependencies:\n\n    ```shell\n    sudo apt install libssl-dev libasound2-dev libdbus-1-dev\n    ```\n\n  - On RHEL/Fedora based systems, run the below command to install application's dependencies :\n\n    ```shell\n    sudo dnf install openssl-devel alsa-lib-devel dbus-devel\n    ```\n\n    or if you're using `yum`:\n\n    ```shell\n    sudo yum install openssl-devel alsa-lib-devel dbus-devel\n    ```\n\n##### Termux (Android)\n\n- Two default components require a JVM context that Termux processes don't have:\n  the default TLS backend (`rustls-platform-verifier`, panics during the auth\n  token exchange) and the rodio audio backend (cpal's AAudio host, panics when\n  streaming starts). Build with the `native-tls` feature and the pulseaudio\n  backend instead:\n\n  ```shell\n  pkg install rust openssl pulseaudio\n  cargo install spotify_player --no-default-features --features pulseaudio-backend,media-control,native-tls\n  ```\n\n  This makes authentication, the Web API, and remote device control work. Integrated\n  streaming additionally requires patching librespot's compile-time OS identity\n  (`librespot-core`'s `config::OS`) to `\"linux\"` via `[patch.crates-io]`, because\n  librespot built for `target_os = \"android\"` presents the Android-app identity, which\n  Spotify rejects for keymaster-minted credentials.\n\n### Binaries\n\nApplication's prebuilt binaries can be found in the [Releases Page](https://github.com/aome510/spotify-player/releases).\n\n**Note**: to run the application, Linux systems need to install additional dependencies as specified in the [Dependencies section](#linux).\n\n### Homebrew\n\nRun `brew install spotify_player` to install the application.\n\n### Scoop\n\nRun `scoop install spotify-player` to install the application.\n\n### Cargo\n\nInstall via Cargo:\n\n```\ncargo install spotify_player --locked\n```\n\n### Arch Linux\n\nInstall via Arch Linux:\n\n```\npacman -S spotify-player\n```\n\n**Note**: Defaults to PulseAudio/Pipewire. For a different backend, modify the [official PKGBUILD](https://gitlab.archlinux.org/archlinux/packaging/packages/spotify-player) and rebuild manually. See [Audio Backends](#audio-backend).\n\n### Void Linux\n\nInstall via Void Linux:\n\n```\nxbps-install -S spotify-player\n```\n\n### FreeBSD\n\nInstall via FreeBSD:\n\n```\npkg install spotify-player\n```\n\n### NetBSD\n\nInstall via NetBSD:\n\n```\npkgin install spotify-player\n```\n\nBuild from source on NetBSD:\n\n```\ncd /usr/pkgsrc/audio/spotify-player\nmake install\n```\n\n### NixOS\n\n[spotify-player](https://search.nixos.org/packages?channel=unstable&show=spotify-player&from=0&size=50&sort=relevance&type=packages&query=spotify-player) is available as a Nix package. Install via:\n\n```\nnix-shell -p spotify-player\n```\n\nTo build from source locally, run `nix-shell` in the root of the source checkout. The provided `shell.nix` will install prerequisites.\n\n### Docker\n\n**Note**: The streaming feature is disabled in the Docker image.\n\nDownload the latest Docker image:\n\n```\ndocker pull aome510/spotify_player:latest\n```\n\nRun the Docker container:\n\n```\ndocker run --rm -it aome510/spotify_player:latest\n```\n\nTo use your local config and cache folders:\n\n```\ndocker run --rm \\\n-v $APP_CONFIG_FOLDER:/app/config/ \\\n-v $APP_CACHE_FOLDER:/app/cache/ \\\n-it aome510/spotify_player:latest\n```\n\n## Authentication\n\n`spotify_player` requires a **Spotify Premium** account and authenticates against the Spotify Web API using the [OAuth 2.0 authorization code flow with PKCE](https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow). No client secret is stored or required.\n\nThe simplest way to authenticate is to just **run the application** — on first use it prompts for whichever credentials are not yet cached. Each prompt opens the Spotify authorization page in your browser; after you approve access, Spotify redirects to a local loopback address (`login_redirect_uri`, default `http://127.0.0.1:8989/login`) where `spotify_player` captures the authorization code and exchanges it for an access token. Credentials are cached in the application's [cache folder](#caches), so this is a one-time step per machine.\n\nAlternatively, run the `spotify_player authenticate` CLI command to authenticate all required credentials up front — useful for setting things up ahead of a [daemon](#daemon) or headless launch. Unlike a normal launch, `authenticate` always forces fresh interactive logins, ignoring cached credentials, so it can also be used to re-authenticate from scratch.\n\n### How authentication works\n\nTwo kinds of credentials are involved:\n\n- One or two **Web API tokens**, used for REST calls (playback control, library, search, playlists, etc.). The default setup uses ncspot's client ID. When a custom `client_id` is configured, its token is used first and a separate ncspot token provides fallback access.\n- A **librespot session**, used for the [streaming](#streaming) feature (direct playback and Spotify Connect device registration).\n\nThey authenticate through your Spotify account; the _client ID_ presented to Spotify differs between credentials (see below).\n\n### Why you may be asked to authenticate multiple times\n\nWith the [streaming](#streaming) feature enabled (the default), the first launch normally opens the Spotify authorization page **twice**, in this order:\n\n1. The **Web API token**, presented under the configured `client_id` (ncspot's by default). This is cached as `<client_id>_token.json`.\n2. The **librespot session** credentials, presented under Spotify's official client ID. These are cached as `credentials.json`.\n\nThese are two independent OAuth flows with two different client IDs, so Spotify requires a separate approval for each, and each credential is cached separately in the [cache folder](#caches). This is a one-time step per machine — subsequent launches reuse and silently refresh them unless a cache is cleared or a credential is revoked.\n\nWhen a custom `client_id` is configured, an ncspot fallback Web API token is also requested and cached as `<ncspot_client_id>_token.json`. Its OAuth callback always uses `http://127.0.0.1:8989/login`; `login_redirect_uri` applies only to the custom client. A custom setup with streaming enabled can therefore require three approvals on first launch. Web API token cache filenames include their client IDs, so changing `client_id` requires a new approval instead of reusing a token issued to another client.\n\nA fallback ncspot client is integrated since the custom client might not be registered with [extended quota mode](https://developer.spotify.com/documentation/web-api/concepts/quota-modes) and could therefore doesn't have access to [certain endpoints](https://developer.spotify.com/blog/2024-11-27-changes-to-the-web-api).\n\nThe `spotify_player authenticate` command runs every required flow in one go, forcing a fresh login for each. Without streaming, the librespot flow is omitted, leaving one Web API approval for the default setup or two for a custom-client setup.\n\n### Client ID and rate limits\n\nEvery request to the Spotify Web API is attributed to a Spotify _application_, identified by a **client ID**. The client ID — not your account — determines the [API quota](https://developer.spotify.com/documentation/web-api/concepts/rate-limits) you are subject to.\n\nBy default, `spotify_player` uses [ncspot](https://github.com/hrkfdn/ncspot)'s client ID. This client ID is shared by many users, so its API quota can be exhausted by aggregate usage and cause `429 Too Many Requests` responses. **Registering and configuring your own client ID is strongly recommended** so routine requests use a quota dedicated to your Spotify application.\n\nThe ncspot client ID remains available as a fallback because it is registered in [extended quota mode](https://developer.spotify.com/documentation/web-api/concepts/quota-modes) and predates Spotify's [November 2024 Web API changes](https://developer.spotify.com/blog/2024-11-27-changes-to-the-web-api). It can access endpoints (browse, personalized content, generated playlists, …) that newly-registered applications can no longer use.\n\nWhen a custom `client_id` is configured, `spotify-player` sends most Web API requests through that client first. If Spotify rejects custom-client request with any `4xx` response, the request is attempted once through ncspot. Successful requests and failures outside the `4xx` range do not trigger fallback.\n\nThe custom client uses no request middleware. The ncspot client stores `Retry-After` durations and retries rate-limited GET requests up to two times by default; mutation requests are never delayed or retried by the middleware. Configure the ncspot retry count with `api_rate_limit_retries`; see the [configuration documentation](https://github.com/aome510/spotify-player/blob/master/docs/config.md) for details.\n\n### Using a custom client ID\n\nUse a custom client ID to avoid competing for the shared ncspot client's rate limit. Most requests will be attributed to your own Spotify application instead. Newly registered applications use restricted default quota mode, so endpoints unavailable to the custom client transparently fall back to ncspot.\n\nTo configure one, [register an application](https://developer.spotify.com/dashboard) on the Spotify developer dashboard, add your `login_redirect_uri` (default `http://127.0.0.1:8989/login`) to the app's allowed redirect URIs, then set `client_id` (or `client_id_command`) in `app.toml`. See the [Client id command](https://gith"
+}

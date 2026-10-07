@@ -5,7 +5,9 @@ import { useAppStore } from "@/store/useAppStore";
 import { isDesktopApp } from "@/lib/desktop-mode";
 import { motion, AnimatePresence } from "framer-motion";
 import { genresList, type Track, formatDuration } from "@/lib/musicApi";
+import { searchAll } from "@/lib/spotify";
 import TrackCard from "./TrackCard";
+import ScrollReveal from "./ScrollReveal";
 import { mergeSearchResults } from "@/lib/playback/merge";
 import type { CatalogAlbumDTO, CatalogArtistDTO, CatalogTrackDTO } from "@/lib/spotify/types";
 import { ProviderBadge } from "./ui/ProviderBadge";
@@ -112,6 +114,9 @@ export default function SearchView() {
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  /** V2: Spotify section above the alternative results (§16 — official
+   *  catalog first when connected). */
+  const [spotifyResults, setSpotifyResults] = useState<Track[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{
     current: number; total: number; fileName: string;
@@ -190,6 +195,7 @@ export default function SearchView() {
       // P2-#300: defer to avoid React error #300 when leaving search view
       setTimeout(() => {
         setSearchResults([]);
+        setSpotifyResults([]);
         setHasSearched(false);
       }, 0);
     }
@@ -227,44 +233,67 @@ export default function SearchView() {
       // Typing again re-opens it (onChange resets hasSearched).
       setShowSuggestions(false);
 
-      // ── V2: catalog search in parallel (Spotify preferred, Deezer open
-      // fallback). Honest states: provider "none" → sections simply don't
+      // ── V2 §17: catalog search in parallel. TWO layers, priority order:
+      //  1. USER Spotify (PKCE, direct api.spotify.com) when connected —
+      //     the official catalog with personal context; results carry
+      //     spotifyUri for Spotify Official Playback (§16 priority).
+      //  2. Server catalog (/api/catalog/search — Spotify client-credentials
+      //     preferred, Deezer open fallback) for anonymous sessions.
+      // Honest states: provider "none" → the server section simply doesn't
       // render and SoundCloud/Audius results remain fully functional.
+      const spotifyConnected = useAppStore.getState().spotifyConnected;
+      const trimmedQuery = searchQuery.trim();
+      const userCatalogPromise: Promise<Track[]> = spotifyConnected
+        ? searchAll(trimmedQuery, 20).then((r) => (r ? r.tracks : [])).catch(() => [] as Track[])
+        : Promise.resolve([] as Track[]);
+
       setSpotifyState("loading");
-      const spController = new AbortController();
-      const spFetch = fetch(`/api/catalog/search?q=${encodeURIComponent(searchQuery.trim())}&limit=8`, {
-        signal: spController.signal,
-      })
-        .then(async (r) => {
-          if (!r.ok) throw new Error("http");
-          return (await r.json()) as {
-            provider: "spotify" | "deezer" | "none";
-            tracks: CatalogTrackDTO[];
-            artists: CatalogArtistDTO[];
-            albums: CatalogAlbumDTO[];
-          };
-        })
-        .then((d) => {
-          if (controller.signal.aborted) return;
-          if (d.provider === "none") {
+      const spFetch = spotifyConnected
+        ? userCatalogPromise.then((tracks) => {
+            if (controller.signal.aborted) return;
+            // User-connected search already returned Tracks — feed the
+            // server-DTO section empty so the USER section renders alone
+            // (avoid double-listing the same catalog).
             setSpotifyTracks([]);
             setSpotifyArtists([]);
             setSpotifyAlbums([]);
-            setSpotifyState("unavailable");
-            return;
-          }
-          setSpotifyTracks(d.tracks || []);
-          setSpotifyArtists(d.artists || []);
-          setSpotifyAlbums(d.albums || []);
-          setSpotifyState("ok");
-        })
-        .catch(() => {
-          if (controller.signal.aborted) return;
-          setSpotifyTracks([]);
-          setSpotifyArtists([]);
-          setSpotifyAlbums([]);
-          setSpotifyState("unavailable");
-        });
+            setSpotifyState("idle");
+            setSpotifyResults(tracks);
+          })
+        : fetch(`/api/catalog/search?q=${encodeURIComponent(searchQuery.trim())}&limit=8`, {
+            signal: controller.signal,
+          })
+            .then(async (r) => {
+              if (!r.ok) throw new Error("http");
+              return (await r.json()) as {
+                provider: "spotify" | "deezer" | "none";
+                tracks: CatalogTrackDTO[];
+                artists: CatalogArtistDTO[];
+                albums: CatalogAlbumDTO[];
+              };
+            })
+            .then((d) => {
+              if (controller.signal.aborted) return;
+              setSpotifyResults([]);
+              if (d.provider === "none") {
+                setSpotifyTracks([]);
+                setSpotifyArtists([]);
+                setSpotifyAlbums([]);
+                setSpotifyState("unavailable");
+                return;
+              }
+              setSpotifyTracks(d.tracks || []);
+              setSpotifyArtists(d.artists || []);
+              setSpotifyAlbums(d.albums || []);
+              setSpotifyState("ok");
+            })
+            .catch(() => {
+              if (controller.signal.aborted) return;
+              setSpotifyTracks([]);
+              setSpotifyArtists([]);
+              setSpotifyAlbums([]);
+              setSpotifyState("unavailable");
+            });
 
       try {
         const params = new URLSearchParams({ q: searchQuery.trim() });
@@ -285,10 +314,14 @@ export default function SearchView() {
       } catch {
         if (!controller.signal.aborted) {
           setSearchResults([]);
+          setSpotifyResults([]);
+          setSpotifyTracks([]);
+          setSpotifyArtists([]);
+          setSpotifyAlbums([]);
+          setSpotifyState("unavailable");
         }
       } finally {
         if (!controller.signal.aborted) setIsLoading(false);
-        if (controller.signal.aborted) spController.abort();
       }
     }, 300);
 
@@ -1060,7 +1093,7 @@ export default function SearchView() {
       )}
 
       {/* ── Empty state: no results — quiet editorial pattern ── */}
-      {!activeLoading && activeHasSearched && activeTracks.length === 0 && (
+      {!activeLoading && activeHasSearched && activeTracks.length === 0 && spotifyResults.length === 0 && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1089,6 +1122,29 @@ export default function SearchView() {
           </div>
         </motion.div>
       )}
+
+
+      {/* ── V2 SPOTIFY SECTION — official catalog first when connected (§16) ── */}
+      {!activeLoading && !selectedGenre && spotifyResults.length > 0 && (
+        <ScrollReveal>
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: "#1db954" }} aria-hidden />
+            <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: "var(--mq-text)" }}>
+              Spotify · {spotifyResults.length}
+            </h3>
+            <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
+              официальный каталог
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            {spotifyResults.slice(0, 12).map((track, i) => (
+              <TrackCard key={track.id} track={track} index={i} queue={spotifyResults} />
+            ))}
+          </div>
+        </ScrollReveal>
+      )}
+
+      {/* ── Track results with filter/sort toolbar ── */}
 
       {/* ═══ RESULTS — EDITORIAL DISCOVERY COMPOSITION (§4–§6) ═══
           Mixed density, NOT card-card-card: a hero TOP RESULT, clean track
@@ -1264,8 +1320,7 @@ export default function SearchView() {
         </div>
       )}
 
-      {/* ── Все треки — the deep list with filter/sort toolbar ── */}
-      {!activeLoading && processedTracks.length > 0 && (
+      {/* ── Все треки — the deep list with filter/sort toolbar ── */}      {!activeLoading && processedTracks.length > 0 && (
         <div>
           {/* Section header with filter + sort controls */}
           <div className="flex items-center justify-between mb-3 px-1 flex-wrap gap-2">

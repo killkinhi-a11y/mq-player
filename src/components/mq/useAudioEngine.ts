@@ -15,6 +15,8 @@ import {
 import { replayGain, getDefaultGainForGenre } from "@/lib/replayGain";
 import { getAudiusStream, isAudiusTrack, findAudiusAlternative } from "@/lib/audius";
 import { resolveCatalogTrack } from "@/lib/playback/client";
+import { spotifyPlaybackAdapter } from "@/lib/spotify/playbackAdapter";
+import { spotifyAuth } from "@/lib/spotify/auth";
 import { getLocalBlobUrl } from "./SearchView";
 import { toast } from "@/hooks/use-toast";
 import { updateMyListeningStatus } from "@/hooks/useFriendsListening";
@@ -22,7 +24,7 @@ import { enableSpatialAudio, initSpatialAudio, setMoodPreset, detectMoodFromTrac
 import {
   createWasmBackend, isWasmUnsupported, probeWasmCapabilities, shouldUseWasmBackend,
   isWasmActive, applyEqToWasm, applyLimiterToWasm, applySpatialToWasm,
-  ensureBenchApi, type WasmAudioBackend,
+  ensureBenchApi, seekPlayback, bindSpotifyTransport, type WasmAudioBackend,
 } from "@/lib/wasm-audio";
 import Hls from "hls.js";
 import type { HlsConfig } from "hls.js";
@@ -782,7 +784,7 @@ export interface UseAudioEngineParams {
   playbackRate: number;
   setProgress: (p: number) => void;
   setDuration: (d: number) => void;
-  setPlaybackMode: (m: "soundcloud" | "idle") => void;
+  setPlaybackMode: (m: "soundcloud" | "idle" | "spotify") => void;
   togglePlay: () => void;
   nextTrack: () => void;
   prevTrack: () => void;
@@ -840,22 +842,35 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     if (isRAFRunning.current) return;
     isRAFRunning.current = true;
     const tick = () => {
-      // WASM path: position from the backend's INTERPOLATED engine clock
-      // (A6) — Rust playhead frames + clamped performance.now extrapolation
-      // between 10 Hz stats. Zero React renders; smooth at display rate.
-      const wasm = wasmBackendRef.current;
-      if (wasm && wasm.active && wasm.ctx) {
-        const pos = wasm.positionSec;
-        const dur = wasm.currentDuration;
-        if (isFinite(pos) && isFinite(dur) && dur > 0 && wasm.playing) {
-          progressRAFCallbacks.current.forEach(cb => { try { cb(pos, dur); } catch {} });
+      // V2 Spotify Official path: position from the adapter's interpolated
+      // clock (SDK state events ~1 Hz + performance.now extrapolation).
+      // No raw PCM exists on this path — the visual layer is state-driven.
+      if (spotifyPlaybackAdapter.isActive && useAppStore.getState().playbackMode === "spotify") {
+        if (spotifyPlaybackAdapter.isPlaying) {
+          const pos = spotifyPlaybackAdapter.getPositionSec();
+          const dur = spotifyPlaybackAdapter.getDurationSec();
+          if (isFinite(pos) && isFinite(dur) && dur > 0) {
+            progressRAFCallbacks.current.forEach(cb => { try { cb(pos, dur); } catch {} });
+          }
         }
       } else {
-        const a = getAudioElement();
-        if (a && !a.paused && a.duration && isFinite(a.duration)) {
-          const ct = a.currentTime;
-          const dur = a.duration;
-          progressRAFCallbacks.current.forEach(cb => { try { cb(ct, dur); } catch {} });
+        const wasm = wasmBackendRef.current;
+        if (wasm && wasm.active && wasm.ctx) {
+          // WASM path: position from the backend's INTERPOLATED engine clock
+          // (A6) — Rust playhead frames + clamped performance.now extrapolation
+          // between 10 Hz stats. Zero React renders; smooth at display rate.
+          const pos = wasm.positionSec;
+          const dur = wasm.currentDuration;
+          if (isFinite(pos) && isFinite(dur) && dur > 0 && wasm.playing) {
+            progressRAFCallbacks.current.forEach(cb => { try { cb(pos, dur); } catch {} });
+          }
+        } else {
+          const a = getAudioElement();
+          if (a && !a.paused && a.duration && isFinite(a.duration)) {
+            const ct = a.currentTime;
+            const dur = a.duration;
+            progressRAFCallbacks.current.forEach(cb => { try { cb(ct, dur); } catch {} });
+          }
         }
       }
       if (isRAFRunning.current) {
@@ -1002,12 +1017,84 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   const setDurationRef = useRef(setDuration);
   const isPlayingRef = useRef(isPlaying);
 
+  // ── V2 Spotify Official Playback state ──
+  // Forced-alternative marker: after a hard SDK/DRM failure mid-track, the
+  // same track is re-loaded through the alternative resolver (no retry loop).
+  const forceSpotifyFallbackRef = useRef<string | null>(null);
+  // Position continuity when playback switches sources for the SAME track.
+  const spotifyResumePositionRef = useRef<{ id: string; positionSec: number } | null>(null);
+  const [spotifyRetryTick, setSpotifyRetryTick] = useState(0);
+
   useEffect(() => { prevTrackRef.current = prevTrack; }, [prevTrack]);
   useEffect(() => { nextTrackRef.current = nextTrack; }, [nextTrack]);
   useEffect(() => { setProgressRef.current = setProgress; }, [setProgress]);
   useEffect(() => { setDurationRef.current = setDuration; }, [setDuration]);
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
   useEffect(() => { isDraggingRef.current = isDragging; }, [isDragging]);
+
+  // ── V2 Spotify adapter events → engine/store bridge ──
+  // One subscription for the hook's lifetime: state (duration/playbackState),
+  // end-of-track (SDK holds one track — MQ's queue advances), errors
+  // (mid-play DRM/license failures → honest fallback to the alternative).
+  useEffect(() => {
+    const offState = spotifyPlaybackAdapter.onState((snap) => {
+      if (!spotifyPlaybackAdapter.isActive) return;
+      const st = useAppStore.getState();
+      if (st.playbackMode !== "spotify") return;
+      if (snap.durationSec && isFinite(snap.durationSec) && snap.durationSec > 0) {
+        if (Math.abs(st.duration - snap.durationSec) > 0.5) setDurationRef.current(snap.durationSec);
+      }
+      if (!isDraggingRef.current) {
+        useAppStore.setState({
+          playbackState: snap.paused ? "paused" : "playing",
+          isBuffering: false,
+        });
+      }
+    });
+    const offEnded = spotifyPlaybackAdapter.onEnded(() => {
+      const st = useAppStore.getState();
+      if (st.playbackMode === "spotify") {
+        console.log("[Player] Spotify track ended — advancing MQ queue");
+        nextTrackRef.current();
+      }
+    });
+    const offError = spotifyPlaybackAdapter.onError((err) => {
+      const st = useAppStore.getState();
+      if (st.playbackMode !== "spotify" || !st.currentTrack) return;
+      if (st.currentTrack.source !== "spotify" || !st.currentTrack.spotifyUri) return;
+      // Only mid-play failures land here (load failures return through
+      // loadTrack). Re-load the same track through the alternative resolver.
+      console.warn(`[Player] Spotify mid-play error (${err.kind}): ${err.message}`);
+      try {
+        toast({
+          title: "Spotify: ошибка воспроизведения",
+          description: "Переключаюсь на альтернативный источник",
+        });
+      } catch {}
+      spotifyResumePositionRef.current = {
+        id: st.currentTrack.id,
+        positionSec: spotifyPlaybackAdapter.getPositionSec(),
+      };
+      forceSpotifyFallbackRef.current = st.currentTrack.id;
+      setSpotifyRetryTick((t) => t + 1);
+    });
+    return () => { offState(); offEnded(); offError(); };
+  }, []);
+
+  // V2 Spotify: bind the transport bridge once — seekPlayback() /
+  // currentPlaybackPosition() (PlayerBar, FullTrackView, keyboard, Media
+  // Session) then route to the SDK while it owns playback.
+  useEffect(() => {
+    bindSpotifyTransport({
+      isActive: () => spotifyPlaybackAdapter.isActive,
+      modeIsSpotify: () => useAppStore.getState().playbackMode === "spotify",
+      seek: (sec) => {
+        spotifyPlaybackAdapter.seek(sec);
+        setProgressRef.current(sec);
+      },
+      position: () => spotifyPlaybackAdapter.getPositionSec(),
+    });
+  }, []);
 
   // ── Gapless preload helper ──
   const gaplessPreloadNextTrack = useCallback(async (nextTrackData: Track) => {
@@ -2062,6 +2149,18 @@ export function useAudioEngine(params: UseAudioEngineParams) {
 
     const loadTrack = async () => {
       try {
+        // V2 Spotify: forced-alternative marker applies to ONE track load —
+        // clear it when a different track starts.
+        if (forceSpotifyFallbackRef.current && forceSpotifyFallbackRef.current !== currentTrack.id) {
+          forceSpotifyFallbackRef.current = null;
+        }
+        // V2 Spotify: leaving official playback (e.g. a SoundCloud track was
+        // queued) — make sure the SDK device is paused so it cannot play
+        // over the element engine.
+        if (currentTrack.source !== "spotify" && useAppStore.getState().playbackMode === "spotify") {
+          spotifyPlaybackAdapter.pause().catch(() => {});
+          useAppStore.getState().setSpotifyFallbackNotice(null);
+        }
         // T1 — engine picked up the track (store → engine handoff measured)
         pbMark("T1-track-selected");
         // ── v2 GAPLESS ADVANCE SHORT-CIRCUIT ──
@@ -2099,6 +2198,53 @@ export function useAudioEngine(params: UseAudioEngineParams) {
         // catalog track in store.currentTrack + queue and this load effect
         // re-runs on the new id through the normal source paths.
         if (currentTrack.source === "spotify" && currentTrack.catalogId && !currentTrack.playbackId) {
+          // ── V2 §16 PRIORITY STEP 1 — Spotify Official Playback FIRST ──
+          // Full tracks via the Web Playback SDK (user PKCE session +
+          // Premium + desktop Chromium/Firefox/Edge). Only when the URI is
+          // present AND official playback is genuinely available; anything
+          // else falls through to the PlaybackResolver (SoundCloud/Audius)
+          // with honest attribution — Deezer catalog tracks never have a
+          // spotifyUri, so they go straight to the resolver.
+          const forcedFallback = forceSpotifyFallbackRef.current === currentTrack.id;
+          if (
+            !forcedFallback &&
+            currentTrack.catalogProvider !== "deezer" &&
+            currentTrack.spotifyUri &&
+            (await spotifyPlaybackAdapter.isOfficialAvailable())
+          ) {
+            // The SDK owns the audio device — the element engine must not
+            // touch it. Pause any element/WASM audio from a previous track.
+            const _pre = getAudioElement();
+            _pre.pause();
+            const _preInactive = getInactiveAudio();
+            if (_preInactive) _preInactive.pause();
+            setPlaybackMode("spotify");
+            resetCorsState();
+            pbMark("T5-network-start", "spotify-official");
+            useAppStore.getState().setSpotifyFallbackNotice(null);
+            const played = await spotifyPlaybackAdapter.play(currentTrack.spotifyUri, {
+              volumePercent: useAppStore.getState().volume,
+            });
+            if (cancelled) return;
+            if (played) {
+              // Duration arrives via player_state_changed (events effect);
+              // seed optimistically from the catalog metadata.
+              const dur = spotifyPlaybackAdapter.getDurationSec() || currentTrack.duration || 0;
+              if (dur) setDuration(dur);
+              setProgress(0);
+              setIsLoadingTrack(false);
+              setPlayError(false);
+              retryCountRef.current = 0;
+              prevTrackIdForCrossfade.current = currentTrack.id;
+              console.log(`[Player] Spotify Official Playback (full track): ${currentTrack.title}`);
+              return;
+            }
+            console.warn("[Player] Spotify official play() failed — falling back to the PlaybackResolver");
+          } else if (currentTrack.spotifyUri && !forcedFallback) {
+            console.log("[Player] Spotify Official unavailable (not connected / Free / unsupported browser) — PlaybackResolver (SoundCloud/Audius)");
+          }
+
+          // ── PRIORITY STEP 2 — PlaybackResolver (alternative sources) ──
           useAppStore.setState({ catalogResolving: true });
           const outcome = await resolveCatalogTrack({
             provider: currentTrack.catalogProvider === "deezer" ? "deezer" : "spotify",
@@ -2244,13 +2390,21 @@ export function useAudioEngine(params: UseAudioEngineParams) {
 
         if (cancelled) return;
 
-        if (currentTrack.source === "demo" && currentTrack.audioUrl) {
+
+        // ── V2 load-shape track ──
+        // Spotify catalog tracks were fully handled above (official playback
+        // via the Web Playback SDK, or PlaybackResolver replacement with a
+        // playable composite track — both return). Everything below plays
+        // through the standard source paths (demo / audius / soundcloud /
+        // local) with the trackData load shape.
+        let trackData: Track = currentTrack;
+        if (trackData.source === "demo" && trackData.audioUrl) {
           // WASM path first (same-origin /demo files: Range + no CORS issues)
-          if (await tryWasmLoad(currentTrack.audioUrl, currentTrack, { isHls: false, isEncrypted: false })) return;
+          if (await tryWasmLoad(trackData.audioUrl, trackData, { isHls: false, isEncrypted: false })) return;
           setPlaybackMode("soundcloud");
           resetCorsState();
           ensureWebAudioConnected(audioEl);
-          audioEl.src = currentTrack.audioUrl;
+          audioEl.src = trackData.audioUrl;
           pbMark("T5-network-start", "demo");
           // Re-apply volume after track change (audio element resets to 1.0 on new src)
           audioEl.volume = Math.pow(useAppStore.getState().volume / 100, 2);
@@ -2263,19 +2417,19 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             cancelCrossfade();
             if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
           }
-          prevTrackIdForCrossfade.current = currentTrack.id;
-        } else if (currentTrack.source === "audius" || isAudiusTrack(currentTrack.id)) {
+          prevTrackIdForCrossfade.current = trackData.id;
+        } else if (trackData.source === "audius" || isAudiusTrack(trackData.id)) {
           // P2: Audius — free, decentralized music. Resolve stream URL.
           // V2: catalog-resolved tracks carry the NATIVE audius id in
           // playbackId (track.id is the composite catalog identity).
           setPlaybackMode("soundcloud");
           resetCorsState();
-          const audiusId = currentTrack.playbackId || currentTrack.id;
+          const audiusId = trackData.playbackId || trackData.id;
           const audiusUrl = await getAudiusStream(audiusId);
           if (cancelled) return;
           if (audiusUrl) {
             // WASM path first (Audius progressive mp3)
-            if (await tryWasmLoad(audiusUrl, currentTrack, { isHls: false, isEncrypted: false })) return;
+            if (await tryWasmLoad(audiusUrl, trackData, { isHls: false, isEncrypted: false })) return;
             ensureWebAudioConnected(audioEl);
             audioEl.crossOrigin = "anonymous";
             audioEl.src = audiusUrl;
@@ -2290,33 +2444,33 @@ export function useAudioEngine(params: UseAudioEngineParams) {
               cancelCrossfade();
               if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
             }
-            prevTrackIdForCrossfade.current = currentTrack.id;
+            prevTrackIdForCrossfade.current = trackData.id;
           } else {
-            console.warn("[Player] Audius stream failed:", currentTrack.title);
+            console.warn("[Player] Audius stream failed:", trackData.title);
             setPlayError(true);
             setIsLoadingTrack(false);
             try {
-              toast({ title: "Трек недоступен", description: currentTrack.title });
+              toast({ title: "Трек недоступен", description: trackData.title });
             } catch {}
             const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 1500);
           }
-        } else if (currentTrack.source === "soundcloud" && currentTrack.scTrackId) {
+        } else if (trackData.source === "soundcloud" && trackData.scTrackId) {
           setPlaybackMode("soundcloud");
           resetCorsState();
 
-          const stream = await resolveSoundCloudStream(currentTrack.scTrackId);
+          const stream = await resolveSoundCloudStream(trackData.scTrackId);
           if (cancelled) return;
 
           // ── Preview-only track? Try Audius as fallback for full stream ──
-          if (stream && stream.isPreview && currentTrack.title && currentTrack.artist) {
+          if (stream && stream.isPreview && trackData.title && trackData.artist) {
             console.log("[Player] Track is preview-only (SNIP), trying Audius fallback...");
             try {
-              const audiusUrl = await findAudiusAlternative(currentTrack.artist, currentTrack.title);
+              const audiusUrl = await findAudiusAlternative(trackData.artist, trackData.title);
               if (cancelled) return;
               if (audiusUrl) {
                 console.log("[Player] Audius alternative found — using full stream");
                 // WASM path first (Audius progressive mp3)
-                if (await tryWasmLoad(audiusUrl, currentTrack, { isHls: false, isEncrypted: false })) return;
+                if (await tryWasmLoad(audiusUrl, trackData, { isHls: false, isEncrypted: false })) return;
                 audioEl.crossOrigin = "anonymous";
                 audioEl.src = audiusUrl;
                 audioEl.volume = Math.pow(useAppStore.getState().volume / 100, 2);
@@ -2330,7 +2484,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                   cancelCrossfade();
                   if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
                 }
-                prevTrackIdForCrossfade.current = currentTrack.id;
+                prevTrackIdForCrossfade.current = trackData.id;
                 setIsLoadingTrack(false);
                 return;
               }
@@ -2350,7 +2504,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             // hls.js/element path — see AUDIO_ENGINE_ARCHITECTURE.md §1.4).
             if (!isHlsStream && !stream.isEncrypted) {
               const wasmUrl = proxyStreamUrl(stream.url);
-              if (await tryWasmLoad(wasmUrl, currentTrack, { isHls: false, isEncrypted: false })) {
+              if (await tryWasmLoad(wasmUrl, trackData, { isHls: false, isEncrypted: false })) {
                 prefetchNextTrackStream();
                 return;
               }
@@ -2388,10 +2542,10 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                   try { hls.destroy(); } catch {}
                   delete (audioEl as any)._hlsInstance;
                   prevTrackIdForCrossfade.current = null;
-                  if (!(await tryFallbackStream(audioEl, currentTrack, cancelled))) {
+                  if (!(await tryFallbackStream(audioEl, trackData, cancelled))) {
                     setIsLoadingTrack(false);
                     setPlayError(true);
-                    PlayerErrorLogger.log(currentTrack?.title || "unknown", "HLS manifest timeout (15s)", "skip");
+                    PlayerErrorLogger.log(trackData?.title || "unknown", "HLS manifest timeout (15s)", "skip");
                     pendingTimeouts.push(setTimeout(() => nextTrackRef.current(), 1500));
                   }
                 }
@@ -2432,8 +2586,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                   prevTrackIdForCrossfade.current = null;
                   try { hls.destroy(); } catch {}
                   delete (audioEl as any)._hlsInstance;
-                  PlayerErrorLogger.log(currentTrack?.title || "unknown", "DRM timeout (25s)", "skip");
-                  const failTrackId = currentTrack.id;
+                  PlayerErrorLogger.log(trackData?.title || "unknown", "DRM timeout (25s)", "skip");
+                  const failTrackId = trackData.id;
                   const t = setTimeout(() => {
                     if (useAppStore.getState().currentTrack?.id === failTrackId) nextTrackRef.current();
                   }, 2000);
@@ -2470,7 +2624,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                       }
                     });
                   }
-                  prevTrackIdForCrossfade.current = currentTrack.id;
+                  prevTrackIdForCrossfade.current = trackData.id;
                 }
               });
 
@@ -2478,11 +2632,11 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                 if (data.type === Hls.ErrorTypes.KEY_SYSTEM_ERROR) {
                   console.error("[Player] DRM/Key system error:", data.details, data.fatal);
                   if (drmTimeout) clearTimeout(drmTimeout);
-                  if (await tryFallbackStream(audioEl, currentTrack, cancelled)) return;
-                  if (!retryingRef.current && currentTrack.scTrackId) {
+                  if (await tryFallbackStream(audioEl, trackData, cancelled)) return;
+                  if (!retryingRef.current && trackData.scTrackId) {
                     retryingRef.current = true;
                     console.warn("[Player] DRM failed, all fallbacks exhausted — re-resolving stream...");
-                    resolveSoundCloudStream(currentTrack.scTrackId, { noCache: true }).then(async (freshStream) => {
+                    resolveSoundCloudStream(trackData.scTrackId, { noCache: true }).then(async (freshStream) => {
                       retryingRef.current = false;
                       if (cancelled) return;
                       if (freshStream && freshStream.url) {
@@ -2546,16 +2700,16 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                   if (drmTimeout) clearTimeout(drmTimeout);
                   if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
                     console.warn("[Player] Attempting HLS network recovery...");
-                    if (await tryFallbackStream(audioEl, currentTrack, cancelled)) return;
+                    if (await tryFallbackStream(audioEl, trackData, cancelled)) return;
                     hls.startLoad();
                   } else {
-                    if (await tryFallbackStream(audioEl, currentTrack, cancelled)) return;
+                    if (await tryFallbackStream(audioEl, trackData, cancelled)) return;
                     hls.destroy();
                     delete (audioEl as any)._hlsInstance;
                     setIsLoadingTrack(false);
                     setPlayError(true);
                     prevTrackIdForCrossfade.current = null;
-                    PlayerErrorLogger.log(currentTrack?.title || "unknown", `HLS fatal: ${data.type}/${data.details}`, "skip");
+                    PlayerErrorLogger.log(trackData?.title || "unknown", `HLS fatal: ${data.type}/${data.details}`, "skip");
                     const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 1500);
                   }
                 }
@@ -2606,16 +2760,16 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                 crossfadeRef.current = true;
                 if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
                 crossfadeTo(audioEl);
-                prevTrackIdForCrossfade.current = currentTrack.id;
+                prevTrackIdForCrossfade.current = trackData.id;
               } else {
                 cancelCrossfade();
                 if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
-                prevTrackIdForCrossfade.current = currentTrack.id;
+                prevTrackIdForCrossfade.current = trackData.id;
               }
             }
-          } else if (currentTrack.audioUrl) {
+          } else if (trackData.audioUrl) {
             resetCorsState();
-            audioEl.src = proxyStreamUrl(currentTrack.audioUrl);
+            audioEl.src = proxyStreamUrl(trackData.audioUrl);
             // Re-apply volume after track change (audio element resets to 1.0 on new src)
             audioEl.volume = Math.pow(useAppStore.getState().volume / 100, 2);
             audioEl.load();
@@ -2627,14 +2781,14 @@ export function useAudioEngine(params: UseAudioEngineParams) {
               cancelCrossfade();
               if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
             }
-            prevTrackIdForCrossfade.current = currentTrack.id;
+            prevTrackIdForCrossfade.current = trackData.id;
           } else {
-            console.warn(`[Player] No stream URL for SC track: ${currentTrack.title}`);
+            console.warn(`[Player] No stream URL for SC track: ${trackData.title}`);
             setPlayError(true);
             setIsLoadingTrack(false);
             prevTrackIdForCrossfade.current = null;
             const isDrm = stream?.drmRestricted;
-            PlayerErrorLogger.log(currentTrack.title || "unknown", isDrm ? "DRM restricted (no playable stream)" : "No stream URL", "skip");
+            PlayerErrorLogger.log(trackData.title || "unknown", isDrm ? "DRM restricted (no playable stream)" : "No stream URL", "skip");
             consecutiveFailuresRef.current++;
             if (consecutiveFailuresRef.current >= MAX_CONSECUTIVE_FAILURES) {
               // Same circuit breaker as skipToNextWithError — see comment there.
@@ -2651,18 +2805,18 @@ export function useAudioEngine(params: UseAudioEngineParams) {
               toast({
                 title: "Трек недоступен",
                 description: isDrm
-                  ? `"${currentTrack.title || "неизвестный"}" — защищён DRM, воспроизведение невозможно`
-                  : `Трек недоступен: ${currentTrack.title || "неизвестный"}`,
+                  ? `"${trackData.title || "неизвестный"}" — защищён DRM, воспроизведение невозможно`
+                  : `Трек недоступен: ${trackData.title || "неизвестный"}`,
               });
             } catch {}
             const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 1500);
           }
-        } else if (currentTrack.audioUrl || currentTrack.id.startsWith("local_")) {
+        } else if (trackData.audioUrl || trackData.id.startsWith("local_")) {
           setPlaybackMode("soundcloud");
 
-          let audioSrc = currentTrack.audioUrl;
-          if (currentTrack.id.startsWith("local_")) {
-            const blobUrl = getLocalBlobUrl(currentTrack.id);
+          let audioSrc = trackData.audioUrl;
+          if (trackData.id.startsWith("local_")) {
+            const blobUrl = getLocalBlobUrl(trackData.id);
             if (blobUrl) {
               audioSrc = blobUrl;
             } else if (!audioSrc || audioSrc === "blob://client-side") {
@@ -2690,13 +2844,13 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             cancelCrossfade();
             if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
           }
-          prevTrackIdForCrossfade.current = currentTrack.id;
+          prevTrackIdForCrossfade.current = trackData.id;
         } else {
-          console.warn(`[Player] No audio source for track: ${currentTrack.title}`);
+          console.warn(`[Player] No audio source for track: ${trackData.title}`);
           setPlayError(true);
           setIsLoadingTrack(false);
           try {
-            toast({ title: "Ошибка воспроизведения", description: `Нет источника: ${currentTrack.title || "неизвестный"}` });
+            toast({ title: "Ошибка воспроизведения", description: `Нет источника: ${trackData.title || "неизвестный"}` });
           } catch {}
           const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 1500);
         }
@@ -2714,7 +2868,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     loadTrack();
 
     return () => { cancelled = true; pendingTimeouts.forEach(t => clearTimeout(t)); };
-  }, [currentTrack?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentTrack?.id, spotifyRetryTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Playback rate effect ──
   useEffect(() => {
@@ -2761,6 +2915,22 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   useEffect(() => {
     const audio = getAudioElement();
     const secondary = getInactiveAudio();
+
+    // ── V2 Spotify Official path: transport routes to the SDK adapter;
+    // the element engine stays paused (SDK owns the audio device) ──
+    if (spotifyPlaybackAdapter.isActive && useAppStore.getState().playbackMode === "spotify") {
+      if (isPlaying) {
+        spotifyPlaybackAdapter.resume();
+      } else {
+        spotifyPlaybackAdapter.pause();
+        if (audio.src) audio.pause();
+        if (secondary && secondary.src) secondary.pause();
+      }
+      setTimeout(() => {
+        useAppStore.setState({ playbackState: isPlaying ? "playing" : "paused", isBuffering: false });
+      }, 0);
+      return;
+    }
 
     // ── WASM path: transport routes to the backend, element stays paused ──
     const wasm = wasmBackendRef.current;
@@ -2845,7 +3015,33 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     const secondary = getInactiveAudio();
     if (secondary) secondary.volume = vol;
     wasmBackendRef.current?.setVolume(vol);
+    // V2 Spotify Official: SDK device volume (0..1 linear, not squared —
+    // the SDK applies its own curve).
+    if (spotifyPlaybackAdapter.isActive) {
+      spotifyPlaybackAdapter.setVolume(Math.min(100, Math.max(0, volume)));
+    }
   }, [volume, currentTrack?.id]);
+
+  // ── V2 Spotify: position continuity on source switch (§26 manual/auto
+  // switch keeps currentTime). When official playback died mid-track and the
+  // same track re-loaded through the alternative resolver, seek the
+  // alternative engine to the saved position once it is ready. ──
+  useEffect(() => {
+    const marker = spotifyResumePositionRef.current;
+    if (!marker || !currentTrack || marker.id !== currentTrack.id) return;
+    const st = useAppStore.getState();
+    if (st.playbackMode !== "soundcloud" || isLoadingTrack || !st.isPlaying) return;
+    const pos = Math.max(0, marker.positionSec - 1.5); // slight overlap
+    spotifyResumePositionRef.current = null;
+    const t = setTimeout(() => {
+      try {
+        seekPlayback(pos);
+        setProgress(pos);
+        console.log(`[Player] Source switch: resumed at ${Math.floor(pos / 60)}:${String(Math.floor(pos % 60)).padStart(2, "0")}`);
+      } catch {}
+    }, 600);
+    return () => clearTimeout(t);
+  }, [currentTrack?.id, isLoadingTrack, spotifyRetryTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Spatial audio effect ──
   // Toggles the spatial audio chain (5-band stereo widening) on/off.

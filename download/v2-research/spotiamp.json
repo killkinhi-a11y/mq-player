@@ -1,0 +1,56 @@
+{
+  "target": {
+    "owner": "YANIV3487",
+    "repo": "spotiamp",
+    "slug": "spotiamp"
+  },
+  "name": "YANIV3487/spotiamp",
+  "description": "Retro Winamp-styled web player for real Spotify playback (PKCE, no server)",
+  "stars": 0,
+  "forks": 0,
+  "openIssues": 0,
+  "language": "JavaScript",
+  "topics": [],
+  "license": null,
+  "archived": false,
+  "disabled": false,
+  "createdAt": "2026-07-03T22:02:54Z",
+  "pushedAt": "2026-07-04T00:56:49Z",
+  "defaultBranch": "master",
+  "homepage": null,
+  "size": 35,
+  "languages": {
+    "JavaScript": 27526,
+    "CSS": 15581,
+    "HTML": 10781
+  },
+  "recentCommits": [
+    {
+      "sha": "add8f837",
+      "date": "2026-07-04T00:56:41Z",
+      "message": "Restore Lyrics window",
+      "author": "Yaniv Shachar"
+    },
+    {
+      "sha": "9290316f",
+      "date": "2026-07-04T00:50:21Z",
+      "message": "Revert background visualizer and lyrics overlay",
+      "author": "Yaniv Shachar"
+    },
+    {
+      "sha": "72ae139c",
+      "date": "2026-07-04T00:47:01Z",
+      "message": "Move visualizer to page background, make lyrics a floating overlay",
+      "author": "Yaniv Shachar"
+    }
+  ],
+  "topLevelTree": [
+    "f .gitignore",
+    "f CLAUDE.md",
+    "f README.md",
+    "d css",
+    "f index.html",
+    "d js"
+  ],
+  "readme": "# Spotiamp\n\nA retro Winamp-styled player that controls real Spotify playback in your browser (Authorization Code + PKCE, no server/secret needed).\n\n## Requirements\n\n- **Spotify Premium** — the Web Playback SDK refuses to stream for free accounts.\n- A Spotify Developer app (free to create).\n- Any static file server (this is plain HTML/CSS/JS, no build step).\n\n## Setup\n\nNo file editing is required — the app asks for a Spotify Client ID the first time it loads and remembers it in that browser's `localStorage` from then on. This is what makes a single deployment (your own machine or a hosted URL) reusable by anyone with their own Spotify account:\n\n1. Serve this folder over `http://` (not `file://` — Spotify's OAuth redirect requires it), e.g.:\n   ```\n   npx serve -l 5500\n   ```\n   or deploy it to any static host (GitHub Pages, Netlify, Vercel, …) — see \"Sharing / hosting\" below.\n2. Open the page. It shows the exact **Redirect URI** to register (computed from wherever you're serving it) — go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), create an app, and add that URI under its settings.\n3. Copy that app's **Client ID** into the page's input box and click **Save**.\n4. Click **Connect to Spotify** and log in.\n\n(Optional local convenience: copy `js/config.example.js` to `js/config.js` — gitignored — and set `CLIENT_ID` there to skip step 3 on your own machine. Entirely optional; the app works with no config file at all.)\n\n## Sharing / hosting\n\nBecause the Client ID lives in the visitor's own browser storage, not in the code, you can put this on any static host and hand out one link:\n\n1. Push this repo to GitHub and enable **GitHub Pages** (Settings → Pages → deploy from branch), or deploy to Netlify/Vercel/Cloudflare Pages by pointing them at this folder — no build step needed.\n2. Send people the resulting URL.\n3. **Each person needs their own Spotify Developer app** (their own Client ID) with that exact hosted URL registered as its Redirect URI — Client IDs aren't secret, but the app they belong to controls who's allowed to authenticate. Spotify apps start in **Development Mode**, which caps logins to ~25 explicitly-added Spotify accounts (under the app's \"Users and Access\" tab in the dashboard) — each person adds their *own* account to their *own* app, so this only matters if someone else tries to use *your* Client ID instead of creating their own.\n\n## Using it\n\n- **EQ** / **PL** / **LYR** (next to the volume slider) open the graphic equalizer, Playlist/Search, and Lyrics windows. Search failures (expired token, no active device yet, etc.) are reported as text under the search box instead of failing silently. Lyrics load automatically for whatever's currently playing.\n- The eject button (▲, bottom row) opens the Playlist/Search window and focuses the search box.\n- Transport buttons, seek bar, and volume behave like classic Winamp; the balance slider is present for looks (see limitations below).\n- **SHUFFLE** / the loop-icon button toggle Spotify's shuffle and repeat (off → context → track) modes.\n- The orange circle button shades the main window (collapses it to just the titlebar).\n- Drag any window by its titlebar.\n- **X** on the main window logs you out.\n\n## Known limitations\n\n- The visualizer bars and the equalizer are both stylized, not real audio processing — Spotify's Web Playback SDK streams DRM-protected audio through a sandboxed decoder and never exposes raw samples or an insertable Web Audio node. The visualizer bars react to play/pause state instead of an FFT, and moving the EQ sliders doesn't change the actual sound.\n- Lyrics come from a free third-party lookup ([lyrics.ovh](https://lyrics.ovh)), not Spotify — Spotify's own API doesn't expose lyrics to any third-party app. They're plain text (not synced to playback position) and matched by artist/title, so some tracks (rare songs, live/remix versions, non-English titles) won't be found.\n- The kbps/kHz readout shows `—` rather than real numbers — Spotify doesn't expose per-track bitrate or sample rate to any web app, official or third-party. The balance slider is decorative for the same reason (no stereo-pan API).\n- Access tokens are stored in `localStorage` and refreshed automatically; logging out clears them.\n- This app only controls playback on **this** browser tab's Spotify Connect device — switching devices from the Spotify app elsewhere will move playback away from it.\n"
+}

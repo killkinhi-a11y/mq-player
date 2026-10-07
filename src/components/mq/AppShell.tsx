@@ -7,6 +7,7 @@ import { themes, applyThemeToDOM } from "@/lib/themes";
 import { canPollProtected } from "@/lib/authGate";
 import { useGlobalNotifications } from "@/hooks/useGlobalNotifications";
 import { useListenSessionSync } from "@/hooks/useListenSessionSync";
+import { useSpotifySession } from "@/hooks/useSpotifySession";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAndroidPermissions } from "@/hooks/use-android-permissions";
 import { isDesktopApp } from "@/lib/desktop-mode";
@@ -689,6 +690,9 @@ export default function AppShell() {
     void ensureFontsLoaded().catch(() => {});
   }, []);
   useLyricsAppearanceSync();
+  // V2 Spotify — global session sync (store slice stays honest for search,
+  // library and the player badges; the adapter reads tokens directly).
+  useSpotifySession();
 
   // MediaSession API — required for lock screen / notification / Android Auto controls
   const _progress = useAppStore((s) => s.progress);

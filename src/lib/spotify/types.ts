@@ -96,6 +96,9 @@ export interface CatalogTrackDTO {
   provider: CatalogProviderId;
   /** Provider-native track id (match-cache key, deep links). */
   catalogId: string;
+  /** Provider play URI (Spotify only — drives the Web Playback SDK for
+   *  full official playback; Deezer tracks never carry one). */
+  uri?: string;
   title: string;
   artist: string;
   artistId?: string;
@@ -153,3 +156,61 @@ export interface CatalogPlaylistDTO {
   trackCount: number;
   externalUrl?: string;
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   V2 SPOTIFY OFFICIAL PLAYBACK — client-side session types (PKCE + SDK)
+   Complements the server catalog DTOs above: these describe the USER
+   session (OAuth PKCE) and the Web Playback SDK adapter surface.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/** Minimal normalized Spotify user session info (GET /v1/me, user token). */
+export interface SpotifyUserInfo {
+  id: string;
+  displayName: string | null;
+  email?: string | null;
+  /** "premium" | "free" | "open" — product tier from /me. */
+  product: string;
+  country?: string;
+  images?: { url: string; height?: number; width?: number }[];
+}
+
+/** Snapshot of the auth manager state (for React + engine consumers). */
+export interface SpotifySessionStatus {
+  /** Config endpoint returned a Client ID (feature can be offered). */
+  configured: boolean;
+  /** Has a refresh token (user completed OAuth at least once). */
+  connected: boolean;
+  /** Last /me product === "premium". */
+  premium: boolean;
+  user: SpotifyUserInfo | null;
+}
+
+/** Player state snapshot published by the adapter (from player_state_changed). */
+export interface SpotifyPlayerStateSnapshot {
+  paused: boolean;
+  positionSec: number;
+  durationSec: number;
+  trackUri: string | null;
+  trackId: string | null;
+  title: string | null;
+  artist: string | null;
+  albumName: string | null;
+  artworkUrl: string | null;
+}
+
+export type SpotifyAdapterErrorKind =
+  | "init"
+  | "auth"
+  | "account"
+  | "playback"
+  | "license"
+  | "network";
+
+export interface SpotifyAdapterError {
+  kind: SpotifyAdapterErrorKind;
+  message: string;
+  at: number;
+}
+
+/** Result of the official-playback attempt for a track. */
+export type SpotifyOfficialResult = "playing" | "unavailable" | "fatal";

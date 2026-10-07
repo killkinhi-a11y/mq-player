@@ -12,7 +12,7 @@ import { Play, Pause, SkipBack, SkipForward, ChevronDown, ChevronUp, Heart, Shuf
 import ContextMenu from "./ContextMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
 // V2 multi-provider: catalog → playback attribution + source switch
-import { ProviderChain, trackAttribution } from "./ui/ProviderBadge";
+import { ProviderChain, trackAttribution, SpotifyOfficialBadge } from "./ui/ProviderBadge";
 import { LyricsView, type LyricLine, type LyricsError } from "./LyricsView";
 import { shareTrackUrl } from "@/lib/share-urls";
 import MenuCore, { MenuHeader, backLabelSpec, type MenuElement } from "./ui/MenuCore";
@@ -63,6 +63,7 @@ function EscapeHandler({ active, onEscape }: { active: boolean; onEscape: () => 
 
 function FullTrackViewMobileInner() {
   const isOpen = useAppStore((s) => s.isFullTrackViewOpen);
+  const playbackMode = useAppStore((s) => s.playbackMode);
   const currentTrack = useAppStore((s) => s.currentTrack);
   const isPlaying = useAppStore((s) => s.isPlaying);
   const duration = useAppStore((s) => s.duration);
@@ -766,10 +767,14 @@ function FullTrackViewMobileInner() {
             </button>
             {/* V2: catalog → playback attribution + source switch (44px target) */}
             <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <ProviderChain
-                catalog={trackAttribution(currentTrack).catalog}
-                playback={trackAttribution(currentTrack).playback}
-              />
+              {playbackMode === "spotify" ? (
+                <SpotifyOfficialBadge />
+              ) : (
+                <ProviderChain
+                  catalog={trackAttribution(currentTrack).catalog}
+                  playback={trackAttribution(currentTrack).playback}
+                />
+              )}
               {currentTrack.versionTag && (
                 <span className="mq-t-meta-2 px-1.5 py-0.5 rounded-md" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
                   {currentTrack.versionTag}

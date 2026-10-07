@@ -216,10 +216,29 @@ interface AppState {
   duration: number;
   shuffle: boolean;
   repeat: "off" | "all" | "one";
-  playbackMode: "soundcloud" | "idle";
+  /** "spotify" = Spotify Official Playback (Web Playback SDK) owns audio;
+   *  "soundcloud" = element/WASM engine (SoundCloud/Audius/local);
+   *  "idle" = nothing loaded. */
+  playbackMode: "soundcloud" | "idle" | "spotify";
   playbackState: PlaybackState;
   isBuffering: boolean;
   isDragging: boolean;
+
+  // ── V2 Spotify session (NOT persisted — derived from the PKCE session) ──
+  spotifyConnected: boolean;
+  spotifyPremium: boolean;
+  spotifyDisplayName: string | null;
+  /** Official playback possible in THIS browser (desktop Chromium/Firefox/Edge). */
+  spotifyPlaybackSupported: boolean;
+  /** Auto-switched to an alternative source for the current Spotify track. */
+  spotifyFallbackNotice: string | null;
+  setSpotifySession: (s: {
+    connected: boolean;
+    premium: boolean;
+    displayName: string | null;
+    playbackSupported: boolean;
+  }) => void;
+  setSpotifyFallbackNotice: (notice: string | null) => void;
 
   // Sleep timer
   sleepTimerActive: boolean;
@@ -418,7 +437,7 @@ interface AppState {
   prevTrack: () => void;
   toggleShuffle: () => void;
   toggleRepeat: () => void;
-  setPlaybackMode: (mode: "soundcloud" | "idle") => void;
+  setPlaybackMode: (mode: "soundcloud" | "idle" | "spotify") => void;
   syncWithPlaybackEngine: () => void;
   restorePlayback: () => Promise<boolean>;
 
@@ -756,10 +775,16 @@ const initialState = {
   duration: 0,
   shuffle: false,
   repeat: "off" as "off" | "all" | "one",
-  playbackMode: "idle" as "soundcloud" | "idle",
+  playbackMode: "idle" as "soundcloud" | "idle" | "spotify",
   playbackState: "idle" as PlaybackState,
   isBuffering: false,
   isDragging: false,
+  // V2 Spotify session — starts empty; the session hook syncs it on mount.
+  spotifyConnected: false,
+  spotifyPremium: false,
+  spotifyDisplayName: null,
+  spotifyPlaybackSupported: false,
+  spotifyFallbackNotice: null,
   sleepTimerActive: false,
   sleepTimerMinutes: 30,
   sleepTimerRemaining: 0,
@@ -1755,6 +1780,14 @@ export const useAppStore = create<AppState>()(
         })),
 
       setPlaybackMode: (mode) => set({ playbackMode: mode }),
+      setSpotifySession: (s) =>
+        set({
+          spotifyConnected: s.connected,
+          spotifyPremium: s.premium,
+          spotifyDisplayName: s.displayName,
+          spotifyPlaybackSupported: s.playbackSupported,
+        }),
+      setSpotifyFallbackNotice: (notice) => set({ spotifyFallbackNotice: notice }),
 
       startSleepTimer: (minutes) => {
         const endTime = Date.now() + minutes * 60 * 1000;
@@ -3356,6 +3389,9 @@ export const useAppStore = create<AppState>()(
           // Import source attribution (yandex public import) — tiny, but the
           // contract requires it to SURVIVE persistence, not just live in RAM.
           ...(t._src ? { _src: t._src, _srcTrackId: t._srcTrackId, _srcPlaylistKind: t._srcPlaylistKind } : {}),
+          // V2 Spotify identity — without these a persisted queue track loses
+          // its official-playback URI on reload.
+          spotifyUri: t.spotifyUri, spotifyTrackId: t.spotifyTrackId,
         } as Track);
 
         // ── Size caps to prevent localStorage overflow (~5MB limit) ──

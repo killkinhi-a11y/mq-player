@@ -1,0 +1,56 @@
+{
+  "target": {
+    "owner": "spotify",
+    "repo": "spotify-web-playback-sdk-example",
+    "slug": "spotify-web-playback-sdk-example"
+  },
+  "name": "spotify/spotify-web-playback-sdk-example",
+  "description": "React based example app that creates a new player in Spotify Connect to play music from in the browse using Spotify Web Playback SDK.",
+  "stars": 204,
+  "forks": 249,
+  "openIssues": 12,
+  "language": "JavaScript",
+  "topics": [
+    "spotify",
+    "spotify-sdk",
+    "spotify-web-playback-sdk"
+  ],
+  "license": "Apache-2.0",
+  "archived": false,
+  "disabled": false,
+  "createdAt": "2021-07-28T20:53:26Z",
+  "pushedAt": "2024-07-20T21:05:09Z",
+  "defaultBranch": "main",
+  "homepage": "",
+  "size": 26,
+  "languages": {
+    "JavaScript": 6742,
+    "CSS": 2065,
+    "HTML": 1721
+  },
+  "recentCommits": [
+    {
+      "sha": "d2270017",
+      "date": "2022-10-06T13:46:43Z",
+      "message": "Create catalog-info.yaml",
+      "author": "Per Ploug"
+    },
+    {
+      "sha": "e0daa494",
+      "date": "2021-09-06T10:56:00Z",
+      "message": "Initial import",
+      "author": "Alvaro Navarro"
+    }
+  ],
+  "topLevelTree": [
+    "f .gitignore",
+    "f LICENSE",
+    "f README.md",
+    "f catalog-info.yaml",
+    "f package.json",
+    "d public",
+    "d server",
+    "d src"
+  ],
+  "readme": "# Web Playback SDK Javascript Tutorial\n\nThis repository contains the source code for the [Web Playback SDK Guide](https://developer.spotify.com/documentation/web-playback-sdk/guide/).\n\n## Using your own credentials\n\nYou will need to register your app and get your own credentials from the\n[Spotify for Developers Dashboard](https://developer.spotify.com/dashboard/)\n\nTo do so, go to your Spotify for Developers Dashboard, create your\napplication and register the following callback URI:\n\n`http://localhost:3000/auth/callback`\n\nOnce you have created your app, create a file called `.env` in the root folder\nof the repository with your Spotify credentials:\n\n```bash\nSPOTIFY_CLIENT_ID='my_client_id'\nSPOTIFY_CLIENT_SECRET='my_client_secret'\n```\n\n## Installation\n\nThese examples run on Node.js. On its\n[website](http://www.nodejs.org/download/) you can find instructions on how to\ninstall it.\n\nOnce installed, clone the repository and install its dependencies running:\n\n```bash\nnpm install\n```\n\n## Running the example\n\nStart both client and server with the following command:\n\n```bash\nnpm run dev\n```\n\nThe React application will start on `http://localhost:3000`\n\n## Resources\n\n- Follow [@SpotifyPlatform](https://twitter.com/SpotifyPlatform) on Twitter for Spotify for Developers updates.\n- Join the [Spotify for Developers Community Forum](https://community.spotify.com/t5/Spotify-for-Developers/bd-p/Spotify_Developer).\n\n## Code of Conduct\n\nThis project adheres to the [Open Source Code of\nConduct](https://github.com/spotify/code-of-conduct/blob/master/code-of-conduct.md).\nBy participating, you are expected to honor this code.\n\n## License\n\nCopyright 2021 Spotify AB.\n\nLicensed under the Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0\n\n"
+}

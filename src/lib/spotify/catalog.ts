@@ -132,6 +132,9 @@ export function normalizeTrack(t: SpotifyTrack): CatalogTrackDTO {
     provider: "spotify",
     id: `sp_${t.id}`,
     catalogId: t.id,
+    // Play URI — drives the Web Playback SDK for full official playback
+    // (V2 §7: PKCE + Premium). Server-side secret flow only builds the DTO.
+    uri: t.uri,
     title: t.name || "Unknown",
     artist: (t.artists || []).map((a) => a.name).join(", ") || "Unknown Artist",
     artistId: t.artists?.[0]?.id,

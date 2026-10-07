@@ -1,0 +1,53 @@
+{
+  "target": {
+    "owner": "id-fant",
+    "repo": "apple-music-liquidglass",
+    "slug": "lumen-apple-music-liquidglass"
+  },
+  "name": "id-fant/apple-music-liquidglass",
+  "description": "Web Player with a UI style that intrigued me",
+  "stars": 0,
+  "forks": 0,
+  "openIssues": 0,
+  "language": "JavaScript",
+  "topics": [],
+  "license": null,
+  "archived": false,
+  "disabled": false,
+  "createdAt": "2026-05-09T18:04:04Z",
+  "pushedAt": "2026-05-17T07:37:01Z",
+  "defaultBranch": "main",
+  "homepage": "https://apple-music-liquidglass.vercel.app",
+  "size": 466,
+  "languages": {
+    "JavaScript": 159327,
+    "CSS": 85011,
+    "HTML": 23192
+  },
+  "recentCommits": [
+    {
+      "sha": "05157f55",
+      "date": "2026-05-17T07:36:56Z",
+      "message": "Updating README.md",
+      "author": "id-fant"
+    },
+    {
+      "sha": "9ba5356e",
+      "date": "2026-05-17T07:27:51Z",
+      "message": "iTunes placeholder not loading on Vercel deployment fix attempt",
+      "author": "id-fant"
+    },
+    {
+      "sha": "e027ffbb",
+      "date": "2026-05-17T07:19:58Z",
+      "message": "iTunes taking too long to load fixed",
+      "author": "id-fant"
+    }
+  ],
+  "topLevelTree": [
+    "f .gitignore",
+    "f README.md",
+    "d app"
+  ],
+  "readme": "# Lumen — Liquid Glass Player\n\nAn Apple Music–inspired web player with an iOS 26 / Frutiger Aero \"liquid glass\" aesthetic — translucent surfaces, backdrop blur, refractive saturation, and floating album-art gradient blobs. Browser-only, no backend.\n\n## Stack\n\n- **Vite 5 + React 18** — React is used only for the floating Tweaks panel; the entire UI runs on vanilla JS.\n- **HTML5 `<audio>`** for preview playback (iTunes mode) with a simulated timeline when no audio URL is available.\n- **Spotify Web Playback SDK** for full-song playback (Premium mode) — Lumen registers itself as a Spotify Connect device in the browser.\n- **Two interchangeable catalog backends** behind one interface: **iTunes Search** (no auth) and **Spotify Web API** (PKCE OAuth).\n\n## Run it\n\n```bash\ncd app\nnpm install\nnpm run dev\n```\n\nVite serves at `http://127.0.0.1:5173/`. The app boots in iTunes mode by default — searchable artists, top albums and songs charts, and 30-second preview playback.\n\n## Spotify mode\n\nConnecting Spotify unlocks user-library views (Recently Added, Songs, Albums, Artists, your playlists), your real #1 top artist on For You, and — with Premium — full-song playback, like/unlike that syncs to your Spotify library, and add-to-queue.\n\n1. Create an app at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard).\n2. Add `http://127.0.0.1:5173/` as a redirect URI (exact match, trailing slash). Spotify rejects `localhost` for new apps.\n3. Add your account email under **User Management** while the app is in development mode.\n4. Copy the Client ID into `app/.env`:\n\n   ```\n   VITE_SPOTIFY_CLIENT_ID=your_client_id_here\n   ```\n\n   PKCE doesn't need a client secret — **don't add one** (anything `VITE_*`-prefixed is bundled into the production JS where anyone can extract it with DevTools).\n\n5. Click the connect-Spotify icon in the title bar.\n\n**Premium gating**: full-song playback, like-sync, queue control, and most user-library views all require Premium (Spotify's Web API and SDK refuse free accounts in development-mode apps). Without Premium, Lumen falls back gracefully to iTunes mode for browsing, with a \"Premium required\" status surfaced in the title bar and library views. To unblock without Premium, request Extended Quota Mode in the Spotify dashboard.\n\n## Features\n\n### Playback\n- **Full-song playback** in Spotify Premium mode via the Web Playback SDK — the browser becomes a Spotify Connect device.\n- **30-second previews** in iTunes mode (or Spotify free).\n- **Apple-Music-style fullscreen now-playing**: tap the transport bar (desktop) or minibar (mobile). Floating album-color gradient blobs sampled from the cover via canvas, scale-on-pause cover, scrub bar, shuffle / repeat / like, and a More-options bottom sheet.\n- **Back arrow** in the fullscreen top-left dismisses; ESC works too.\n\n### Discovery\n- **For You** auto-cycles through featured artists every 14s (iTunes mode rotates chart leaders; Spotify locks on your #1 top artist).\n- **Artist pages** with hero, top tracks, Discography rail, Singles rail (separate from albums when present).\n- **Album pages** — the artist name above the Play button is a clickable link to that artist's discography.\n- **\"See all\"** on Discography / Singles toggles the rail between horizontal scroll and a responsive wrapping grid.\n- **Segmented tabs** (Overview / Songs / Discography) filter what's visible.\n\n### Library\n- **Like / Unlike** (heart icon) — local-only in iTunes mode; syncs to your Spotify library (`PUT /v1/me/tracks`) in Spotify mode, with optimistic UI and rollback on failure.\n- **Your playlists** populate the sidebar when connected with Spotify Premium.\n- **Recently Added / Songs / Albums / Artists** pull from your actual Spotify library.\n\n### Track rows\n- **3-dot context menu** on every row: Add to Queue (Spotify), Go to Artist, Like / Unlike, Copy Link, Open in Spotify. Liquid-glass popover positioned to the anchor.\n- **Marquee scrolling** for long titles and album names — text smoothly scrolls horizontally to reveal the full content. Detects overflow via `ResizeObserver` so it re-evaluates on resize, rotation, and layout changes. Container width stays bounded; only the inner text moves.\n\n### Mobile UX\n- **Six responsive tiers** (≤1200, ≤980, ≤640, ≤500, ≤380, ≤360, ≤300, plus landscape-short).\n- **Bottom tab bar** with 5 destinations (Listen Now, Browse, Radio, Library, Search). Active tab gets a translucent iOS 26 glass pill behind it.\n- **Mobile drawer** (`.side`) is ~65% opaque with `backdrop-filter: blur(28px) saturate(1.6)` so ~35% of the background refracts through.\n- **Now-playing minibar** stretches the full device width; tapping it opens the fullscreen player.\n- **Edge-anchored bottom bars** — minibar and tabbar span exactly the detected screen width via a JS-tracked `--device-w` CSS variable.\n\n### Polish\n- **Liquid glass material** everywhere — backdrop blur, saturate, top-edge sheen, inner highlight, soft drop shadow.\n- **Track-change cover zoom** in the fullscreen player — scales from 1.08 → 1 with fade-in over 520ms (pure compositor properties, no filter blur for max perf).\n- **iOS-26 button press**: `scale(0.96)` on `:active` (Emil's 0.95–0.98 band), hover gated behind `(hover: hover)` so touch devices don't stick.\n- **`prefers-reduced-motion`** clamps all animations to ~0ms.\n\n## Keyboard shortcuts\n\n| Key       | Action                                    |\n| --------- | ----------------------------------------- |\n| `Space`   | Play / pause                              |\n| `←` / `→` | Previous / next track                     |\n| `↑` / `↓` | Volume ±5%                                |\n| `L`       | Like / unlike the current track           |\n| `M`       | Mute toggle (remembers previous level)    |\n| `/`       | Focus the search bar                      |\n| `Esc`     | Close the fullscreen player or More sheet |\n\nShortcuts are suppressed while typing into an input field.\n\n## Layout\n\n```\napp/\n├── index.html\n├── public/audio/                 — local mp3s (gitignored)\n└── src/\n    ├── main.js                   — boot, navigation, viewport tracking, DOM wiring\n    ├── styles.css                — all CSS (~1800 lines)\n    ├── player.js                 — vanilla view system, marquee, row menu, fullscreen\n    ├── audio-engine.js           — local <audio> wrapper + sim fallback\n    ├── views.js                  — view loaders (For You, artist, album, playlist, etc.)\n    ├── featured-artists.js       — fallback artist rotation\n    ├── tracks.js                 — static demo data\n    ├── itunes/{api,catalog}.js\n    ├── spotify/\n    │   ├── api.js                — fetch wrapper (GET/PUT/POST/DELETE)\n    │   ├── auth.js               — PKCE OAuth flow\n    │   ├── catalog.js            — Web API endpoints (catalog, library, queue, transport)\n    │   └── playback.js           — Web Playback SDK engine (Premium full-song playback)\n    └── tweaks/{mount,TweaksPanel,controls}.jsx + apply.js\n```\n\n## Tweaks panel\n\nClick the slider icon in the title bar. Adjusts blur, saturation, glass tint, edge strength, and accent color live. Persisted to `localStorage.lumen.tweaks`.\n\n## Build\n\n```bash\ncd app\nnpm run build\n```\n\nOutputs to `app/dist/`. The build is a static site — drop the `dist/` folder on any HTTP host.\n\n## Roadmap\n\nDeferred from the foundation work — see [HANDOFF.md](HANDOFF.md) for full estimates:\n\n- **Queue panel UI** — drag-to-reorder list of upcoming tracks, click-to-skip. Web API is already wired.\n- **Lyrics** via LRCLib — synced scrolling lyrics in the fullscreen player.\n- **Recently Played view** — local history of the last 50 played tracks.\n- **Search filters** — Tracks / Albums tabs in the search dropdown.\n- **Local mp3 import** — drag-and-drop files for offline-style playback.\n- **Stats / Wrapped** view — top tracks, artists, genres across all time ranges (Spotify-only).\n- **PWA** — installable as a desktop/mobile app via `vite-plugin-pwa`.\n"
+}
