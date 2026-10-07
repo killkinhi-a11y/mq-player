@@ -185,10 +185,16 @@ export async function deezerArtist(id: string): Promise<DeezerArtistFull | null>
   const albums: CatalogAlbumDTO[] = [];
   const singles: CatalogAlbumDTO[] = [];
   const eps: CatalogAlbumDTO[] = [];
-  const seen = new Set<number>();
+  // Dedup by id AND by normalized name (Deezer lists some releases twice
+  // under different regional ids — the user should see one JACKBOYS 2).
+  const seenIds = new Set<number>();
+  const seenNames = new Set<string>();
   for (const al of albumsPage?.data || []) {
-    if (!al || seen.has(al.id)) continue;
-    seen.add(al.id);
+    if (!al || seenIds.has(al.id)) continue;
+    const nameKey = `${(al.title || "").toLowerCase().trim()}|${al.artist?.name || ""}`.replace(/\s+/g, " ");
+    if (seenNames.has(nameKey)) continue;
+    seenIds.add(al.id);
+    seenNames.add(nameKey);
     const dto = dzNormalizeAlbum(al);
     if (al.record_type === "single") singles.push(dto);
     else if (al.record_type === "ep") eps.push(dto);
