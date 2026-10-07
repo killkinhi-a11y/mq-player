@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import { persist, createJSONStorage, type StateStorage } from "zustand/middleware";
+import { toast } from "@/hooks/use-toast";
 import { type Track, type Message as ChatMessage, detectUserCountry, countryNameFromCode } from "@/lib/musicApi";
+import type { CatalogTrackInput, ResolveCandidate } from "@/lib/playback/client";
+import { buildPlayableTrack } from "@/lib/playback/client";
+import type { CatalogAlbumDTO } from "@/lib/spotify/types";
 import { extractTasteProfile } from "@/lib/tasteProfile";
 import { themes, applyThemeToDOM } from "@/lib/themes";
 import { pbStart } from "@/lib/playbackTimeline";
@@ -505,8 +509,30 @@ interface AppState {
   selectedGroupId: string | null;
 
   // Artist detail view (shared across views)
-  selectedArtist: { name: string; avatar?: string; followers?: number; genre?: string; trackCount?: number } | null;
-  setSelectedArtist: (artist: { name: string; avatar?: string; followers?: number; genre?: string; trackCount?: number } | null) => void;
+  selectedArtist: { name: string; avatar?: string; followers?: number; genre?: string; trackCount?: number; spotifyArtistId?: string } | null;
+  setSelectedArtist: (artist: { name: string; avatar?: string; followers?: number; genre?: string; trackCount?: number; spotifyArtistId?: string } | null) => void;
+
+  /* ── V2 multi-provider engine: catalog → playback ── */
+
+  /** True while the PlaybackResolver matches the current catalog track. */
+  catalogResolving: boolean;
+  /** Low-confidence match → choose-source sheet (autoplay suppressed). */
+  lowConfidencePick: { catalog: CatalogTrackInput; alternatives: ResolveCandidate[] } | null;
+  dismissLowConfidencePick: () => void;
+  /** Play a specific candidate from the low-confidence list. */
+  confirmSourcePick: (candidate: ResolveCandidate) => void;
+  /** Manual playback-source switch — preserves currentTime when possible. */
+  switchPlaybackSource: (candidate: ResolveCandidate) => void;
+  /** Pending seek applied once the switched track reaches "playing". */
+  _seekOnLoad: { trackId: string; position: number } | null;
+  /** Spotify album page context. */
+  selectedSpotifyAlbum: CatalogAlbumDTO | null;
+  openSpotifyAlbum: (album: CatalogAlbumDTO) => void;
+  closeSpotifyAlbum: () => void;
+  /** Manual source-switch sheet state (player "change source"). */
+  sourceSwitcher: { alternatives: ResolveCandidate[]; currentId: string | null } | null;
+  openSourceSwitcher: () => Promise<void>;
+  closeSourceSwitcher: () => void;
 
   // Collaborative listening
   listenSession: {
@@ -787,7 +813,14 @@ const initialState = {
   favoriteArtists: [] as FavoriteArtist[],
   onboardingComplete: false as boolean,
   selectedGroupId: null as string | null,
-  selectedArtist: null as { name: string; avatar?: string; followers?: number; genre?: string; trackCount?: number } | null,
+  selectedArtist: null as { name: string; avatar?: string; followers?: number; genre?: string; trackCount?: number; spotifyArtistId?: string } | null,
+
+  // V2 multi-provider engine
+  catalogResolving: false,
+  lowConfidencePick: null as { catalog: CatalogTrackInput; alternatives: ResolveCandidate[] } | null,
+  _seekOnLoad: null as { trackId: string; position: number } | null,
+  selectedSpotifyAlbum: null as CatalogAlbumDTO | null,
+  sourceSwitcher: null as { alternatives: ResolveCandidate[]; currentId: string | null } | null,
 
   // Collaborative listening
   listenSession: null as any,
@@ -2353,6 +2386,77 @@ export const useAppStore = create<AppState>()(
           get().setView("main");
         }
       },
+
+      // ── V2 multi-provider engine actions ──
+      dismissLowConfidencePick: () => set({ lowConfidencePick: null }),
+
+      confirmSourcePick: (candidate) => {
+        const pick = get().lowConfidencePick;
+        if (!pick) return;
+        set({ lowConfidencePick: null });
+        // User explicitly chose this source — trust it (userPicked path).
+        const track = buildPlayableTrack(pick.catalog, candidate);
+        get().playTrack(track);
+      },
+
+      switchPlaybackSource: (candidate) => {
+        const state = get();
+        const cur = state.currentTrack;
+        if (!cur || !cur.spotifyId) return;
+        // Preserve position across the source switch (02:31 → 02:30).
+        const position = state.progress > 1 ? state.progress : 0;
+        const catalog: CatalogTrackInput = {
+          spotifyId: cur.spotifyId,
+          title: cur.title,
+          artist: cur.artist,
+          album: cur.album || undefined,
+          albumImage: cur.cover || undefined,
+          durationSec: cur.duration,
+        };
+        const track = buildPlayableTrack(catalog, candidate);
+        // Keep queue context: swap the current queue item in place.
+        const qi = state.queue.findIndex((t) => t.id === cur.id);
+        set({
+          ...(qi >= 0 ? { queue: state.queue.map((t, i) => (i === qi ? track : t)) } : {}),
+          ...(position > 1 ? { _seekOnLoad: { trackId: track.id, position } } : {}),
+        });
+        get().playTrack(track);
+      },
+
+      openSpotifyAlbum: (album) => {
+        set({ selectedSpotifyAlbum: album });
+        if (get().currentView !== "main") {
+          get().setView("main");
+        }
+      },
+
+      closeSpotifyAlbum: () => set({ selectedSpotifyAlbum: null }),
+
+      openSourceSwitcher: async () => {
+        const st = get();
+        const cur = st.currentTrack;
+        if (!cur) return;
+        // Same-source native tracks (plain SoundCloud search result, local file)
+        // have no catalog identity to re-resolve — only catalog tracks can switch.
+        if (!cur.spotifyId) {
+          toast({ title: "Смена источника недоступна", description: "Трек воспроизводится из своего источника" });
+          return;
+        }
+        set({ sourceSwitcher: { alternatives: [], currentId: cur.playbackId ? `${cur.playbackProvider}:${cur.playbackId}` : null } });
+        const { fetchAlternatives } = await import("@/lib/playback/client");
+        const alternatives = await fetchAlternatives(cur.spotifyId, {
+          title: cur.title,
+          artist: cur.artist,
+          album: cur.album || undefined,
+          durationSec: cur.duration,
+        });
+        if (get().sourceSwitcher) {
+          set({ sourceSwitcher: { alternatives, currentId: get().sourceSwitcher?.currentId ?? null } });
+        }
+      },
+
+      closeSourceSwitcher: () => set({ sourceSwitcher: null }),
+
       removeFavoriteArtist: (artistId) => {
         set((s) => ({
           favoriteArtists: (Array.isArray(s.favoriteArtists) ? s.favoriteArtists : []).filter(a => a.id !== artistId),

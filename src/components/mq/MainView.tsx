@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
+import dynamic from "next/dynamic";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -19,6 +20,10 @@ import { type HomeRecCategory as RecCategory, type HomeCuratedPlaylist as Curate
 import { useIsMobile } from "@/hooks/use-mobile";
 import ScrollReveal from "./ScrollReveal";
 import ArtistDetailView from "./ArtistDetailView";
+// V2 multi-provider: Spotify catalog artist page + album page (lazy — only
+// loaded when a Spotify context is actually opened).
+const SpotifyArtistView = dynamic(() => import("./SpotifyArtistView").then((m) => m.SpotifyArtistView), { ssr: false });
+const AlbumDetailView = dynamic(() => import("./AlbumDetailView").then((m) => m.AlbumDetailView), { ssr: false });
 import ContextMenu from "./ContextMenu";
 import ArtistActionsMenu, { type ArtistMenuTarget } from "./ArtistActionsMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
@@ -98,6 +103,8 @@ function MainView() {
   const isPlaying = useAppStore((s) => s.isPlaying);
   const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
   const selectedArtist = useAppStore((s) => s.selectedArtist);
+  const selectedSpotifyAlbum = useAppStore((s) => s.selectedSpotifyAlbum);
+  const closeSpotifyAlbum = useAppStore((s) => s.closeSpotifyAlbum);
   const favoriteArtists = useAppStore((s) => s.favoriteArtists);
   const radioMode = useAppStore((s) => s.radioMode);
   const duration = useAppStore((s) => s.duration);
@@ -409,8 +416,34 @@ function MainView() {
     pullStartY.current = null;
   }, [pullDistance, handleRetryRecs]);
 
+  // ── Album page (V2 catalog context — early return, AFTER all hooks) ──
+  if (selectedSpotifyAlbum) {
+    return (
+      <AlbumDetailView
+        album={selectedSpotifyAlbum}
+        onBack={closeSpotifyAlbum}
+        compactMode={compactMode}
+        animationsEnabled={animationsEnabled}
+      />
+    );
+  }
+
   // ── Artist detail (early return AFTER all hooks — see note above) ──
   if (selectedArtist) {
+    // V2: Spotify-linked artist → full catalog artist page (top tracks,
+    // albums, singles, EPs, appears-on, related). SoundCloud artists keep
+    // the existing ArtistDetailView — untouched path.
+    if (selectedArtist.spotifyArtistId) {
+      return (
+        <SpotifyArtistView
+          spotifyArtistId={selectedArtist.spotifyArtistId}
+          artistName={selectedArtist.name}
+          onBack={() => setSelectedArtist(null)}
+          compactMode={compactMode}
+          animationsEnabled={animationsEnabled}
+        />
+      );
+    }
     return (
       <ArtistDetailView
         artist={selectedArtist}

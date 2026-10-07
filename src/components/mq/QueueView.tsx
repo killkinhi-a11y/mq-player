@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import { formatDuration, type Track } from "@/lib/musicApi";
 import ContextMenu from "./ContextMenu";
+import { ProviderBadge } from "./ui/ProviderBadge";
 import { useLongPress } from "@/hooks/useLongPress";
 import {
   X,
@@ -572,8 +573,14 @@ function NowPlayingCard({
         >
           {track.title}
         </p>
-        <p className="text-xs truncate mq-t-meta">
-          {track.artist}
+        <p className="text-xs truncate mq-t-meta flex items-center gap-1.5">
+          <span className="truncate">{track.artist}</span>
+          {/* V2: queue attribution — catalog / playback provider chip */}
+          {(track.catalogProvider === "spotify" || track.playbackProvider) && (
+            <ProviderBadge
+              provider={track.catalogProvider === "spotify" ? "spotify" : track.source === "audius" ? "audius" : "soundcloud"}
+            />
+          )}
         </p>
       </div>
 
@@ -694,10 +701,15 @@ function HistoryTrackItem({
           {track.title}
         </p>
         <p
-          className="mq-t-meta-2 truncate"
+          className="mq-t-meta-2 truncate flex items-center gap-1.5"
           style={{ color: "var(--mq-text-muted)" }}
         >
-          {track.artist}
+          <span className="truncate">{track.artist}</span>
+          {(track.catalogProvider === "spotify" || track.playbackProvider) && (
+            <ProviderBadge
+              provider={track.catalogProvider === "spotify" ? "spotify" : track.source === "audius" ? "audius" : "soundcloud"}
+            />
+          )}
         </p>
       </div>
 

@@ -14,6 +14,7 @@ import {
 } from "@/lib/audioEngine";
 import { replayGain, getDefaultGainForGenre } from "@/lib/replayGain";
 import { getAudiusStream, isAudiusTrack, findAudiusAlternative } from "@/lib/audius";
+import { resolveCatalogTrack } from "@/lib/playback/client";
 import { getLocalBlobUrl } from "./SearchView";
 import { toast } from "@/hooks/use-toast";
 import { updateMyListeningStatus } from "@/hooks/useFriendsListening";
@@ -2091,6 +2092,74 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             markTransitionOutcome("skipped");
           }
         }
+        // ── V2 CATALOG TRACK (Spotify metadata, playback not yet resolved) ──
+        // Catalog tracks enter the queue as source:"spotify" with no playback
+        // id. The PlaybackResolver matches them to a real audio source
+        // (SoundCloud / Audius); on success the resolved track REPLACES the
+        // catalog track in store.currentTrack + queue and this load effect
+        // re-runs on the new id through the normal source paths.
+        if (currentTrack.source === "spotify" && currentTrack.spotifyId && !currentTrack.playbackId) {
+          useAppStore.setState({ catalogResolving: true });
+          const outcome = await resolveCatalogTrack({
+            spotifyId: currentTrack.spotifyId,
+            title: currentTrack.title,
+            artist: currentTrack.artist,
+            album: currentTrack.album || undefined,
+            albumImage: currentTrack.cover || undefined,
+            durationSec: currentTrack.duration,
+          });
+          useAppStore.setState({ catalogResolving: false });
+          if (cancelled) return;
+
+          if (outcome.track) {
+            const st = useAppStore.getState();
+            const qi = st.queue.findIndex((t) => t.id === currentTrack.id);
+            useAppStore.setState({
+              currentTrack: outcome.track,
+              duration: outcome.track.duration,
+              ...(qi >= 0
+                ? { queue: st.queue.map((t, i) => (i === qi ? outcome.track! : t)) }
+                : {}),
+            });
+            pbMark("T4-url-resolved", `resolver:${outcome.track.playbackProvider}:${outcome.track._resolveConfidence ?? ""}`);
+            return; // load effect re-runs with the resolved playable track
+          }
+
+          if (outcome.lowConfidence) {
+            // Honest no-match: candidates exist but none is trustworthy.
+            // Show the choose-source sheet; never autoplay a wrong track.
+            useAppStore.setState({
+              lowConfidencePick: {
+                catalog: {
+                  spotifyId: currentTrack.spotifyId,
+                  title: currentTrack.title,
+                  artist: currentTrack.artist,
+                  album: currentTrack.album || "",
+                  albumImage: currentTrack.cover || "",
+                  durationSec: currentTrack.duration,
+                },
+                alternatives: outcome.alternatives,
+              },
+              isPlaying: false,
+              playbackState: "paused",
+              isBuffering: false,
+            });
+            setIsLoadingTrack(false);
+            return;
+          }
+
+          // Hard failure (network / no candidates at all) — honest error state.
+          setPlayError(true);
+          useAppStore.setState({ isPlaying: false, playbackState: "error", isBuffering: false });
+          setIsLoadingTrack(false);
+          toast({
+            title: "Источник воспроизведения не найден",
+            description: `${currentTrack.artist} — ${currentTrack.title}: нет совпадений в аудио-источниках`,
+            variant: "destructive",
+          });
+          return;
+        }
+
         // New track: tear down any WASM backend from the previous track.
         if (wasmBackendRef.current) {
           try { wasmBackendRef.current.dispose(); } catch {}
@@ -2805,6 +2874,33 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     // Route the same intent to the Rust engine when it owns playback.
     pushSpatialToWasm();
   }, [spatialAudioEnabled, pushSpatialToWasm]);
+
+  // ── V2: pending seek-on-load (manual source-switch continuity) ──
+  // When the user switches playback source mid-track, switchPlaybackSource
+  // stores the last position; once the new source reaches "playing" we apply
+  // it so listening continues where it left off (02:31 → 02:30), never
+  // restarting the track without reason.
+  const _playbackStateForSeek = useAppStore((s) => s.playbackState);
+  useEffect(() => {
+    if (_playbackStateForSeek !== "playing") return;
+    const pending = useAppStore.getState()._seekOnLoad;
+    if (!pending) return;
+    const cur = useAppStore.getState().currentTrack;
+    if (!cur || cur.id !== pending.trackId) return;
+    useAppStore.setState({ _seekOnLoad: null });
+    if (!isFinite(pending.position) || pending.position <= 1) return;
+    const el = getAudioElement();
+    try {
+      if (wasmBackendRef.current?.active) {
+        wasmBackendRef.current.seek(pending.position);
+        useAppStore.setState({ progress: pending.position });
+      } else if (el) {
+        el.currentTime = pending.position;
+        useAppStore.setState({ progress: pending.position });
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [_playbackStateForSeek]);
 
   useEffect(() => {
     // Auto-detect mood from track when spatial audio is on

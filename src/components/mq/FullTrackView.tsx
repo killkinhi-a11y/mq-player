@@ -31,6 +31,9 @@ import { TextSwap } from "./ui/TextSwap";
 import LiquidTitle from "./LiquidTitle";
 import ContextMenu from "./ContextMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
+// V2 multi-provider: catalog → playback attribution + source switch
+import { ProviderChain, trackAttribution } from "./ui/ProviderBadge";
+import { ArrowLeftRight } from "lucide-react";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — full-screen premium player
@@ -670,6 +673,33 @@ export default function FullTrackView() {
             {currentTrack.album}
           </p>
         )}
+        {/* V2: catalog → playback attribution — the user always sees where
+            metadata and audio come from (e.g. Spotify catalog, SoundCloud
+            audio). Native-source tracks show a single badge. */}
+        <div className={`flex flex-wrap items-center gap-2 mt-2 ${isMobile ? "justify-center" : ""}`}>
+          <ProviderChain
+            catalog={trackAttribution(currentTrack).catalog}
+            playback={trackAttribution(currentTrack).playback}
+          />
+          {currentTrack.versionTag && (
+            <span className="mq-t-meta-2 px-1.5 py-0.5 rounded-md" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
+              {currentTrack.versionTag}
+            </span>
+          )}
+          {currentTrack.spotifyId && (
+            <button
+              onClick={() => useAppStore.getState().openSourceSwitcher()}
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium hover:opacity-80 transition-opacity"
+              style={{ background: "var(--mq-surface-2)", border: "1px solid var(--mq-edge)", color: "var(--mq-text-muted)" }}
+              aria-label="Сменить источник воспроизведения"
+              title="Сменить источник воспроизведения"
+              data-mq-switch-source
+            >
+              <ArrowLeftRight className="w-3 h-3" />
+              Сменить источник
+            </button>
+          )}
+        </div>
         <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 mq-t-meta-2 tabular-nums ${isMobile ? "justify-center" : ""}`} style={{ color: "var(--mq-text-muted)" }}>
           {duration > 0 && (
             <span className="flex items-center gap-1 shrink-0"><Clock className="w-3 h-3" />{formatDuration(duration)}</span>

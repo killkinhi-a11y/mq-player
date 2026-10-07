@@ -8,9 +8,11 @@ import { formatDuration } from "@/lib/musicApi";
 import type { Track } from "@/lib/musicApi";
 import { toast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
-import { Play, Pause, SkipBack, SkipForward, ChevronDown, ChevronUp, Heart, Shuffle, Repeat, Repeat1, Music, ListMusic, Share2, Loader2, Mic2, ThumbsDown, History, X, MoreHorizontal, Volume2, Volume1, VolumeX, Timer, Gauge, AirVent, ListPlus, Sliders, User as UserIcon, Users, Copy, Download } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, ChevronDown, ChevronUp, Heart, Shuffle, Repeat, Repeat1, Music, ListMusic, Share2, Loader2, Mic2, ThumbsDown, History, X, MoreHorizontal, Volume2, Volume1, VolumeX, Timer, Gauge, AirVent, ListPlus, Sliders, User as UserIcon, Users, Copy, Download, ArrowLeftRight } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
+// V2 multi-provider: catalog → playback attribution + source switch
+import { ProviderChain, trackAttribution } from "./ui/ProviderBadge";
 import { LyricsView, type LyricLine, type LyricsError } from "./LyricsView";
 import { shareTrackUrl } from "@/lib/share-urls";
 import MenuCore, { MenuHeader, backLabelSpec, type MenuElement } from "./ui/MenuCore";
@@ -762,6 +764,30 @@ function FullTrackViewMobileInner() {
               <TextSwap text={currentTrack.artist} swapKey={currentTrack.id} className="min-w-0 flex-1" />
               <ChevronUp className="w-3.5 h-3.5 flex-shrink-0 rotate-90 opacity-60" />
             </button>
+            {/* V2: catalog → playback attribution + source switch (44px target) */}
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <ProviderChain
+                catalog={trackAttribution(currentTrack).catalog}
+                playback={trackAttribution(currentTrack).playback}
+              />
+              {currentTrack.versionTag && (
+                <span className="mq-t-meta-2 px-1.5 py-0.5 rounded-md" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
+                  {currentTrack.versionTag}
+                </span>
+              )}
+              {currentTrack.spotifyId && (
+                <button
+                  onClick={() => useAppStore.getState().openSourceSwitcher()}
+                  aria-label="Сменить источник воспроизведения"
+                  className="mq-press inline-flex items-center gap-1.5 rounded-lg"
+                  style={{ minWidth: 44, minHeight: 36, padding: "0 10px", background: "var(--mq-glass-bg)", border: "1px solid var(--mq-edge)", color: "var(--mq-text-muted)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
+                  data-mq-switch-source
+                >
+                  <ArrowLeftRight className="w-3 h-3" />
+                  Источник
+                </button>
+              )}
+            </div>
           </div>
           <button
             onClick={handleLike}

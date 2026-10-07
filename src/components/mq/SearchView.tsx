@@ -6,6 +6,9 @@ import { isDesktopApp } from "@/lib/desktop-mode";
 import { motion, AnimatePresence } from "framer-motion";
 import { genresList, type Track, formatDuration } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
+import { mergeSearchResults } from "@/lib/playback/merge";
+import type { CatalogAlbumDTO, CatalogArtistDTO, CatalogTrackDTO } from "@/lib/spotify/types";
+import { ProviderBadge } from "./ui/ProviderBadge";
 import ContextMenu from "./ContextMenu";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import { useLongPress } from "@/hooks/useLongPress";
@@ -102,6 +105,7 @@ export default function SearchView() {
   const compactMode = useAppStore((s) => s.compactMode);
   const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
   const setView = useAppStore((s) => s.setView);
+  const openSpotifyAlbum = useAppStore((s) => s.openSpotifyAlbum);
   const likedTrackIds = useAppStore((s) => s.likedTrackIds);
   const likedTracksData = useAppStore((s) => s.likedTracksData);
   const [showFilters, setShowFilters] = useState(false);
@@ -130,6 +134,12 @@ export default function SearchView() {
   // Genre filter search
   const [genreTracks, setGenreTracks] = useState<Track[]>([]);
   const [isGenreLoading, setIsGenreLoading] = useState(false);
+
+  // ── V2 multi-provider search state (Spotify catalog in parallel) ──
+  const [spotifyTracks, setSpotifyTracks] = useState<CatalogTrackDTO[]>([]);
+  const [spotifyArtists, setSpotifyArtists] = useState<CatalogArtistDTO[]>([]);
+  const [spotifyAlbums, setSpotifyAlbums] = useState<CatalogAlbumDTO[]>([]);
+  const [spotifyState, setSpotifyState] = useState<"idle" | "loading" | "ok" | "unavailable">("idle");
 
   // Stable hash for deterministic Quick Picks ordering
   const hashId = (str: string): number => {
@@ -195,6 +205,10 @@ export default function SearchView() {
         if (!selectedGenre) {
           setSearchResults([]);
           setHasSearched(false);
+          setSpotifyTracks([]);
+          setSpotifyArtists([]);
+          setSpotifyAlbums([]);
+          setSpotifyState("idle");
         }
       }, 0);
       return;
@@ -213,18 +227,61 @@ export default function SearchView() {
       // Typing again re-opens it (onChange resets hasSearched).
       setShowSuggestions(false);
 
+      // ── V2: Spotify catalog search in parallel (metadata provider).
+      // Honest states: unavailable/off → sections simply don't render and
+      // SoundCloud/Audius results remain fully functional.
+      setSpotifyState("loading");
+      const spController = new AbortController();
+      const spFetch = fetch(`/api/spotify/search?q=${encodeURIComponent(searchQuery.trim())}&limit=8`, {
+        signal: spController.signal,
+      })
+        .then(async (r) => {
+          if (!r.ok) throw new Error("http");
+          return (await r.json()) as {
+            configured: boolean;
+            unavailable?: boolean;
+            tracks: CatalogTrackDTO[];
+            artists: CatalogArtistDTO[];
+            albums: CatalogAlbumDTO[];
+          };
+        })
+        .then((d) => {
+          if (controller.signal.aborted) return;
+          if (!d.configured || d.unavailable) {
+            setSpotifyTracks([]);
+            setSpotifyArtists([]);
+            setSpotifyAlbums([]);
+            setSpotifyState("unavailable");
+            return;
+          }
+          setSpotifyTracks(d.tracks || []);
+          setSpotifyArtists(d.artists || []);
+          setSpotifyAlbums(d.albums || []);
+          setSpotifyState("ok");
+        })
+        .catch(() => {
+          if (controller.signal.aborted) return;
+          setSpotifyTracks([]);
+          setSpotifyArtists([]);
+          setSpotifyAlbums([]);
+          setSpotifyState("unavailable");
+        });
+
       try {
         const params = new URLSearchParams({ q: searchQuery.trim() });
-        const res = await fetch(`/api/music/search?${params}`, { signal: controller.signal });
-        if (!controller.signal.aborted) {
+        const [res] = await Promise.all([
+          fetch(`/api/music/search?${params}`, { signal: controller.signal }),
+          spFetch,
+        ]);
+        if (!controller.signal.aborted && res.ok) {
           const data = await res.json();
           setSearchResults(data.tracks || []);
-          const query = searchQuery.trim();
-          if (query) {
-            const updated = [query, ...getSearchHistory().filter(h => h.toLowerCase() !== query.toLowerCase())].slice(0, MAX_HISTORY);
-            saveSearchHistory(updated);
-            setSearchHistory(updated);
-          }
+        }
+        const query = searchQuery.trim();
+        if (query) {
+          const updated = [query, ...getSearchHistory().filter(h => h.toLowerCase() !== query.toLowerCase())].slice(0, MAX_HISTORY);
+          saveSearchHistory(updated);
+          setSearchHistory(updated);
         }
       } catch {
         if (!controller.signal.aborted) {
@@ -232,6 +289,7 @@ export default function SearchView() {
         }
       } finally {
         if (!controller.signal.aborted) setIsLoading(false);
+        if (controller.signal.aborted) spController.abort();
       }
     }, 300);
 
@@ -339,7 +397,14 @@ export default function SearchView() {
     processNext();
   }, [toggleLike]);
 
-  const activeTracks = selectedGenre ? genreTracks : searchResults;
+  const activeTracks = useMemo<Track[]>(() => {
+    if (selectedGenre) return genreTracks;
+    // ── V2 multi-provider merge: Spotify catalog tracks first, then
+    // SoundCloud/Audius results deduped against them (pure, tested helper —
+    // same canonical work across sources = one row; catalog identity wins,
+    // playback still resolves to the best available audio source).
+    return mergeSearchResults(spotifyTracks, searchResults);
+  }, [selectedGenre, genreTracks, searchResults, spotifyTracks]);
   const activeLoading = selectedGenre ? isGenreLoading : isLoading;
   const activeHasSearched = selectedGenre || hasSearched;
 
@@ -486,9 +551,9 @@ export default function SearchView() {
   // cards. Pure derivation: no extra fetches, memoized, works for any
   // query and any source (SoundCloud / Audius / local files).
 
-  interface ArtistGroup { name: string; cover?: string; count: number; topTrack: Track }
+  interface ArtistGroup { name: string; cover?: string; count: number; topTrack: Track; spotifyArtistId?: string; followers?: number }
   const artistGroups = useMemo<ArtistGroup[]>(() => {
-    if (activeTracks.length === 0) return [];
+    if (activeTracks.length === 0 && spotifyArtists.length === 0) return [];
     const map = new Map<string, ArtistGroup>();
     for (const t of activeTracks) {
       if (!t.artist?.trim()) continue;
@@ -497,10 +562,47 @@ export default function SearchView() {
       if (g) { g.count += 1; if (!g.cover && t.cover) g.cover = t.cover; }
       else map.set(key, { name: t.artist.trim(), cover: t.cover, count: 1, topTrack: t });
     }
-    return [...map.values()].sort((a, b) => b.count - a.count).slice(0, 8);
-  }, [activeTracks]);
+    // V2: enrich/insert REAL Spotify artists (verified images, follower
+    // counts, deep-linkable artist pages) — matched by name, else appended.
+    for (const sp of spotifyArtists.slice(0, 6)) {
+      const key = sp.name.trim().toLowerCase();
+      const g = map.get(key);
+      if (g) {
+        g.spotifyArtistId = sp.spotifyId;
+        g.followers = sp.followers;
+        if (sp.image) g.cover = sp.image;
+      } else {
+        map.set(key, {
+          name: sp.name,
+          cover: sp.image || undefined,
+          count: 0,
+          topTrack: activeTracks[0] ?? ({} as Track),
+          spotifyArtistId: sp.spotifyId,
+          followers: sp.followers,
+        });
+      }
+    }
+    const all = [...map.values()];
+    // Spotify-linked artists first (they open the full V2 artist page),
+    // then by result dominance.
+    return all
+      .sort((a, b) => (b.spotifyArtistId ? 1 : 0) - (a.spotifyArtistId ? 1 : 0) || b.count - a.count)
+      .slice(0, 8);
+  }, [activeTracks, spotifyArtists]);
 
-  const albumGroups = useMemo<{ album: string; artist: string; cover?: string; count: number }[]>(() => {
+  const albumGroups = useMemo<{ album: string; artist: string; cover?: string; count: number; spotifyAlbumId?: string; year?: string }[]>(() => {
+    // V2: REAL Spotify albums first — full cover art, year, clickable into
+    // the full album page. SC-derived groups (album names on SC tracks)
+    // remain as a fallback when Spotify is unavailable.
+    const spAlbums = spotifyAlbums.slice(0, 5).map((al) => ({
+      album: al.name,
+      artist: al.artist,
+      cover: al.image || undefined,
+      count: al.totalTracks,
+      spotifyAlbumId: al.spotifyId,
+      year: al.year,
+    }));
+    if (spAlbums.length > 0) return spAlbums;
     if (activeTracks.length === 0) return [];
     const map = new Map<string, { album: string; artist: string; cover?: string; count: number }>();
     for (const t of activeTracks) {
@@ -511,7 +613,7 @@ export default function SearchView() {
       else map.set(key, { album: t.album.trim(), artist: t.artist || "", cover: t.cover, count: 1 });
     }
     return [...map.values()].sort((a, b) => b.count - a.count).slice(0, 5);
-  }, [activeTracks]);
+  }, [activeTracks, spotifyAlbums]);
 
   const playlistMatches = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -528,9 +630,15 @@ export default function SearchView() {
   } | {
     kind: "track"; track: Track;
   } | null>(() => {
-    if (activeTracks.length === 0) return null;
+    if (activeTracks.length === 0 && artistGroups.length === 0) return null;
+    // V2: a Spotify-linked artist (verified page) wins the hero slot;
+    // otherwise the artist dominating the results (≥2 tracks), else the
+    // first (most relevant) track.
+    const spotifyArtist = artistGroups.find((a) => a.spotifyArtistId);
+    if (spotifyArtist) return { kind: "artist", artist: spotifyArtist };
     const best = artistGroups[0];
     if (best && best.count >= 2) return { kind: "artist", artist: best };
+    if (activeTracks.length === 0) return null;
     return { kind: "track", track: activeTracks[0] };
   }, [artistGroups, activeTracks]);
 
@@ -986,7 +1094,7 @@ export default function SearchView() {
             <div className="lg:col-span-5">
               <TopResultCard
                 result={topResult}
-                onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })}
+                onArtistClick={(name, cover, spId) => setSelectedArtist({ name, avatar: cover, spotifyArtistId: spId })}
                 onPlay={playTrack}
               />
             </div>
@@ -1008,7 +1116,7 @@ export default function SearchView() {
                       track={track}
                       index={i}
                       queue={fullTracks}
-                      onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })}
+                      onArtistClick={(name, cover, spId) => setSelectedArtist({ name, avatar: cover, spotifyArtistId: spId })}
                     />
                   </motion.div>
                 ))}
@@ -1031,7 +1139,7 @@ export default function SearchView() {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, amount: 0.1 }}
                     transition={{ duration: 0.2, delay: Math.min(i * 0.015, 0.12), ease: "easeOut" }}
-                    onClick={() => setSelectedArtist({ name: a.name, avatar: a.cover })}
+                    onClick={() => setSelectedArtist({ name: a.name, avatar: a.cover, spotifyArtistId: a.spotifyArtistId })}
                     className="mq-row group"
                   >
                     <span className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 mq-art flex items-center justify-center" style={{ backgroundColor: "var(--mq-surface-2)" }}>
@@ -1044,7 +1152,10 @@ export default function SearchView() {
                     <span className="min-w-0 flex-1 text-left">
                       <span className="block text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{a.name}</span>
                       <span className="block mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
-                        Артист · {a.count} {a.count === 1 ? "трек" : a.count < 5 ? "трека" : "треков"}
+                        Артист ·{" "}
+                        {a.followers != null && a.followers > 0
+                          ? `${Intl.NumberFormat("ru-RU").format(a.followers)} слушателей`
+                          : `${a.count} ${a.count === 1 ? "трек" : a.count < 5 ? "трека" : "треков"}`}
                       </span>
                     </span>
                     <ChevronRight className="w-4 h-4 flex-shrink-0 opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "var(--mq-text-muted)" }} />
@@ -1069,7 +1180,24 @@ export default function SearchView() {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, amount: 0.1 }}
                     transition={{ duration: 0.2, delay: Math.min(i * 0.015, 0.12), ease: "easeOut" }}
-                    onClick={() => handleTrendingClick(al.artist || al.album)}
+                    onClick={() => {
+                      // V2: real Spotify album → full album page context.
+                      if (al.spotifyAlbumId) {
+                        openSpotifyAlbum({
+                          id: `spl_${al.spotifyAlbumId}`,
+                          spotifyId: al.spotifyAlbumId,
+                          name: al.album,
+                          artist: al.artist,
+                          image: al.cover || "",
+                          year: al.year,
+                          albumType: "album",
+                          totalTracks: al.count,
+                          totalDurationSec: 0,
+                        });
+                        return;
+                      }
+                      handleTrendingClick(al.artist || al.album);
+                    }}
                     className="text-left group"
                   >
                     <span className="block aspect-square rounded-[var(--mq-r-card)] overflow-hidden mb-2 mq-art" style={{ backgroundColor: "var(--mq-surface-2)", boxShadow: "var(--mq-mat-2-shadow)" }}>
@@ -1083,7 +1211,9 @@ export default function SearchView() {
                     </span>
                     <span className="block text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{al.album}</span>
                     <span className="block mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
-                      {al.artist || "Альбом"} · {al.count} {al.count === 1 ? "трек" : al.count < 5 ? "трека" : "треков"}
+                      {al.artist || "Альбом"}
+                      {al.year ? ` · ${al.year}` : ""}
+                      {al.spotifyAlbumId ? " · Альбом" : ` · ${al.count} ${al.count === 1 ? "трек" : al.count < 5 ? "трека" : "треков"}`}
                     </span>
                   </motion.button>
                 ))}
@@ -1183,7 +1313,7 @@ export default function SearchView() {
                   track={track}
                   index={i}
                   queue={processedTracks}
-                  onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })}
+                  onArtistClick={(name, cover, spId) => setSelectedArtist({ name, avatar: cover, spotifyArtistId: spId })}
                 />
               </motion.div>
             ))}
@@ -1256,7 +1386,7 @@ export default function SearchView() {
                               track={track}
                               index={i}
                               queue={featuredRows}
-                              onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })}
+                              onArtistClick={(name, cover, spId) => setSelectedArtist({ name, avatar: cover, spotifyArtistId: spId })}
                             />
                           ))
                       )}
@@ -1470,7 +1600,7 @@ const SearchTrackRow = memo(function SearchTrackRow({
   track: Track;
   index: number;
   queue: Track[];
-  onArtistClick?: (artistName: string, coverUrl?: string) => void;
+  onArtistClick?: (artistName: string, coverUrl?: string, spotifyArtistId?: string) => void;
 }) {
   const currentTrackId = useAppStore((s) => s.currentTrack?.id);
   const isPlaying = useAppStore((s) => s.isPlaying);
@@ -1571,12 +1701,23 @@ const SearchTrackRow = memo(function SearchTrackRow({
                 shrink-0 + nowrap — they can never be squeezed, wrapped, or
                 clipped by a pathological title/artist. */}
             <button
-              onClick={(e) => { e.stopPropagation(); onArtistClick?.(track.artist, track.cover); }}
+              onClick={(e) => { e.stopPropagation(); onArtistClick?.(track.artist, track.cover, track.spotifyArtistId); }}
               className="text-xs flex-1 min-w-0 text-left truncate hover:underline"
               style={{ color: "var(--mq-text-muted)" }}
             >
               {track.artist}
             </button>
+            {/* V2: provider attribution — catalog (Spotify) / native source */}
+            {(track.catalogProvider === "spotify" || track.playbackProvider) && (
+              <span className="flex items-center gap-1 shrink-0">
+                <ProviderBadge provider={track.catalogProvider === "spotify" ? "spotify" : track.source === "audius" ? "audius" : "soundcloud"} />
+              </span>
+            )}
+            {track.versionTag && (
+              <span className="mq-t-meta-2 px-1.5 py-0 rounded-md shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
+                {track.versionTag}
+              </span>
+            )}
             {track.duration > 0 && (
               <span className="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
                 <span style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>·</span>
@@ -1771,9 +1912,9 @@ function TopResultCard({
   onPlay,
 }: {
   result:
-    | { kind: "artist"; artist: { name: string; cover?: string; count: number; topTrack: Track } }
+    | { kind: "artist"; artist: { name: string; cover?: string; count: number; topTrack: Track; spotifyArtistId?: string; followers?: number } }
     | { kind: "track"; track: Track };
-  onArtistClick: (name: string, cover?: string) => void;
+  onArtistClick: (name: string, cover?: string, spotifyArtistId?: string) => void;
   onPlay: (track: Track, queue: Track[]) => void;
 }) {
   const isArtist = result.kind === "artist";
@@ -1794,11 +1935,11 @@ function TopResultCard({
       className="mq-search-topresult group"
       role="button"
       tabIndex={0}
-      onClick={() => { if (isArtist) onArtistClick(result.artist.name, result.artist.cover); }}
+      onClick={() => { if (isArtist) onArtistClick(result.artist.name, result.artist.cover, result.artist.spotifyArtistId); }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          if (isArtist) onArtistClick(result.artist.name, result.artist.cover);
+          if (isArtist) onArtistClick(result.artist.name, result.artist.cover, result.artist.spotifyArtistId);
         }
       }}
       aria-label={isArtist ? `Открыть артиста ${title}` : `Слушать ${title}`}
@@ -1852,7 +1993,7 @@ function TopResultCard({
         </button>
         {!isArtist && track.artist && (
           <button
-            onClick={(e) => { e.stopPropagation(); onArtistClick(track.artist, track.cover); }}
+            onClick={(e) => { e.stopPropagation(); onArtistClick(track.artist, track.cover, track.spotifyArtistId); }}
             className="flex items-center h-10 px-4 rounded-full text-[13px] font-semibold transition-colors duration-150"
             style={{
               backgroundColor: "color-mix(in srgb, var(--mq-text) 7%, transparent)",

@@ -8,7 +8,7 @@ export interface Track {
   genre: string;
   audioUrl: string;
   previewUrl?: string;
-  source: "soundcloud" | "local" | "demo" | "jamendo" | "audius";
+  source: "soundcloud" | "local" | "demo" | "jamendo" | "audius" | "spotify";
   scTrackId?: number;
   scStreamPolicy?: string;
   scIsFull?: boolean;
@@ -31,6 +31,24 @@ export interface Track {
   _srcTrackId?: string;
   /** Source playlist kind (Yandex playlist id) the track was imported from. */
   _srcPlaylistKind?: number;
+
+  /* ── V2 multi-provider engine: catalog → playback attribution ── */
+
+  /** Catalog provider the metadata came from (Spotify catalog → SC audio). */
+  catalogProvider?: "spotify";
+  /** Catalog track id (Spotify base62 id) — match-cache key. */
+  spotifyId?: string;
+  /** Catalog artist id (Spotify) — deep-links the artist page. */
+  spotifyArtistId?: string;
+  /** Audio provider actually playing this track (source field remains the
+   *  historical playback source for the audio engine). */
+  playbackProvider?: "soundcloud" | "audius";
+  /** Provider-native id of the audio source (scTrackId / audius id). */
+  playbackId?: string;
+  /** Resolver confidence of the catalog→playback match (0…1). */
+  _resolveConfidence?: number;
+  /** Version tag detected by the PlaybackResolver ("live", "remix", …). */
+  versionTag?: string;
 }
 
 export interface Playlist {
