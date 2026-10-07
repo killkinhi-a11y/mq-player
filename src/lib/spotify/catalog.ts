@@ -62,15 +62,22 @@ export async function getSpotifyToken(): Promise<string | null> {
       body: "grant_type=client_credentials",
       signal: AbortSignal.timeout(8000),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      lastDiag = `token-http-${res.status}`;
+      return null;
+    }
     const data = (await res.json()) as { access_token?: string; expires_in?: number };
-    if (!data.access_token) return null;
+    if (!data.access_token) {
+      lastDiag = "token-no-access-token";
+      return null;
+    }
     tokenCache = {
       token: data.access_token,
       expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000,
     };
     return tokenCache.token;
   } catch {
+    lastDiag = "token-network";
     return null;
   }
 }
@@ -78,7 +85,10 @@ export async function getSpotifyToken(): Promise<string | null> {
 /** Authenticated GET with timeout; null on any failure. */
 async function spGet<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T | null> {
   const token = await getSpotifyToken();
-  if (!token) return null;
+  if (!token) {
+    lastDiag = "no-token";
+    return null;
+  }
   try {
     const url = new URL(SPOTIFY_API + path);
     if (params) {
@@ -92,15 +102,27 @@ async function spGet<T>(path: string, params?: Record<string, string | number | 
     });
     if (res.status === 401) {
       tokenCache = null; // token revoked mid-flight — force refresh next call
+      lastDiag = "http-401";
       return null;
     }
-    if (res.status === 429) return null; // rate limited — caller degrades
-    if (!res.ok) return null;
+    if (res.status === 429) {
+      lastDiag = "http-429"; // rate limited — caller degrades
+      return null;
+    }
+    if (!res.ok) {
+      lastDiag = `http-${res.status}`;
+      return null;
+    }
+    lastDiag = "ok";
     return (await res.json()) as T;
-  } catch {
+  } catch (e) {
+    lastDiag = e instanceof Error && e.name === "TimeoutError" ? "timeout" : "network";
     return null;
   }
 }
+
+/** Last failure reason for diagnostics — HTTP status only, NEVER secrets. */
+export let lastDiag = "idle";
 
 /* ── Normalizers (Spotify → MQ DTOs) ───────────────────────────────── */
 

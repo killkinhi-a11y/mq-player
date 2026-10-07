@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isSpotifyConfigured, spotifySearch } from "@/lib/spotify/catalog";
+import { isSpotifyConfigured, spotifySearch, lastDiag } from "@/lib/spotify/catalog";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 /**
@@ -53,10 +53,12 @@ async function handler(request: NextRequest) {
   const result = await spotifySearch(q, limit);
   if (!result) {
     // Spotify unreachable — honest unavailable state (not an error: the rest
-    // of the app keeps working with SoundCloud/Audius catalog).
+    // of the app keeps working with SoundCloud/Audius catalog). diag carries
+    // the failure class (HTTP status / network) — never credentials.
     return NextResponse.json({
       configured: true,
       unavailable: true,
+      diag: lastDiag,
       tracks: [],
       artists: [],
       albums: [],
