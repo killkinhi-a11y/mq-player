@@ -658,15 +658,20 @@ export const WaveAmbientBackground = memo(function WaveAmbientBackground({
     root.style.setProperty("--mq-backdrop-lum", lum.toFixed(3));
     /* THEME-AWARE GLASS TINT (§0): the tint literal carries the ACTIVE
        THEME's glass hue (from the ambient spec) instead of a fixed cold
-       white — the floating layer speaks the theme's colour voice. */
-    const themeGlass = themes[useAppStore.getState().currentTheme]?.ambient?.glass || "#e2e8f0";
+       white — the floating layer speaks the theme's colour voice.
+       NOTE deps: currentTheme is a dep (not just palette) — with a track
+       playing, `palette` is the STABLE extracted.p reference, so a theme
+       switch alone would not re-run this effect and the tint literal
+       would go stale (reproduced + verified in scripts/final-design/
+       debug-g2tint.mjs). */
+    const themeGlass = themes[currentTheme]?.ambient?.glass || "#e2e8f0";
     const glassRgb = hexToRgb(themeGlass.startsWith("#") ? themeGlass : "#e2e8f0");
     root.style.setProperty(
       "--mq-g2-tint",
       `rgba(${glassRgb[0]}, ${glassRgb[1]}, ${glassRgb[2]}, ${tintA.toFixed(3)})`,
     );
     root.style.setProperty("--mq-g2-veil", `rgba(3, 5, 10, ${veilA.toFixed(3)})`);
-  }, [palette]);
+  }, [palette, currentTheme]);
 
   /* ── engine lifecycle ──
      Created lazily on first activation; parked when inactive (the CSS

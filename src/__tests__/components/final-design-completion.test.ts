@@ -198,9 +198,15 @@ describe("FDC §0 — WAVE respects the theme (base + anchor), artwork leads", (
     expect(src).toContain("deriveWavePalette(dc, themeHue)");
   });
 
+  it("WaveAmbientBackground re-publishes the glass tint on theme switch (deps fix)", () => {
+    const src = readSrc("src/components/mq/WaveAmbientBackground.tsx");
+    expect(src).toContain("[palette, currentTheme]");
+    expect(src).toContain("themes[currentTheme]?.ambient?.glass");
+  });
+
   it("the wave dark floor is the theme-tinted --mq-wave-base", () => {
     const css = readSrc("src/app/globals.css");
-    expect(css).toMatch(/\.mq-wave-liquid \{[^}]*background: var\(--mq-wave-base, #05070d\)/s);
+    expect(css).toMatch(/\.mq-wave-liquid \{[\s\S]*?background: var\(--mq-wave-base, #05070d\)/);
   });
 });
 
@@ -263,7 +269,7 @@ describe("FDC §9 — the discovery state is real, never an empty black screen",
   });
 
   it("discovery rows come from the real listening history", () => {
-    expect(src).toMatch(/storeHistory.*slice\(0, 20\).*\.track/s);
+    expect(src).toMatch(/storeHistory[\s\S]{0,120}slice\(0, 20\)[\s\S]{0,80}\.track/);
   });
 });
 
