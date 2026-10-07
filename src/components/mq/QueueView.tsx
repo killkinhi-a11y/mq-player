@@ -576,9 +576,14 @@ function NowPlayingCard({
         <p className="text-xs truncate mq-t-meta flex items-center gap-1.5">
           <span className="truncate">{track.artist}</span>
           {/* V2: queue attribution — catalog / playback provider chip */}
-          {(track.catalogProvider === "spotify" || track.playbackProvider) && (
+          {(track.catalogProvider || track.playbackProvider) && (
             <ProviderBadge
-              provider={track.catalogProvider === "spotify" ? "spotify" : track.source === "audius" ? "audius" : "soundcloud"}
+              provider={
+                track.catalogProvider === "deezer" ? "deezer"
+                : track.catalogProvider === "spotify" ? "spotify"
+                : track.source === "audius" ? "audius"
+                : "soundcloud"
+              }
             />
           )}
         </p>
@@ -705,9 +710,14 @@ function HistoryTrackItem({
           style={{ color: "var(--mq-text-muted)" }}
         >
           <span className="truncate">{track.artist}</span>
-          {(track.catalogProvider === "spotify" || track.playbackProvider) && (
+          {(track.catalogProvider || track.playbackProvider) && (
             <ProviderBadge
-              provider={track.catalogProvider === "spotify" ? "spotify" : track.source === "audius" ? "audius" : "soundcloud"}
+              provider={
+                track.catalogProvider === "deezer" ? "deezer"
+                : track.catalogProvider === "spotify" ? "spotify"
+                : track.source === "audius" ? "audius"
+                : "soundcloud"
+              }
             />
           )}
         </p>

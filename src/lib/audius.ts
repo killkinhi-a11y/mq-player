@@ -81,8 +81,12 @@ export async function getAudiusStream(trackId: string): Promise<string | null> {
   const host = await getAudiusHost();
   if (!host) return null;
 
-  // trackId is prefixed with "audius_"
-  const audiusId = trackId.replace("audius_", "");
+  // trackId formats: "audius_<id>" (legacy), native "<id>", or the V2
+  // composite catalog id "cat_<provider>_<catalogId>_audius_<id>" — the
+  // last segment after the final underscore is always the native id.
+  const audiusId = trackId.includes("_audius_")
+    ? trackId.split("_").pop() || trackId.replace(/^audius_/, "")
+    : trackId.replace(/^audius_/, "");
 
   try {
     // Audius returns a 301 redirect to the actual stream URL

@@ -2266,9 +2266,12 @@ export function useAudioEngine(params: UseAudioEngineParams) {
           prevTrackIdForCrossfade.current = currentTrack.id;
         } else if (currentTrack.source === "audius" || isAudiusTrack(currentTrack.id)) {
           // P2: Audius — free, decentralized music. Resolve stream URL.
+          // V2: catalog-resolved tracks carry the NATIVE audius id in
+          // playbackId (track.id is the composite catalog identity).
           setPlaybackMode("soundcloud");
           resetCorsState();
-          const audiusUrl = await getAudiusStream(currentTrack.id);
+          const audiusId = currentTrack.playbackId || currentTrack.id;
+          const audiusUrl = await getAudiusStream(audiusId);
           if (cancelled) return;
           if (audiusUrl) {
             // WASM path first (Audius progressive mp3)

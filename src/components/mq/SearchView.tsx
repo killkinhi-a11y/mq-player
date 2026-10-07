@@ -1710,10 +1710,17 @@ const SearchTrackRow = memo(function SearchTrackRow({
             >
               {track.artist}
             </button>
-            {/* V2: provider attribution — catalog (Spotify) / native source */}
-            {(track.catalogProvider === "spotify" || track.playbackProvider) && (
+            {/* V2: provider attribution — catalog (Spotify/Deezer) / native source */}
+            {(track.catalogProvider || track.playbackProvider) && (
               <span className="flex items-center gap-1 shrink-0">
-                <ProviderBadge provider={track.catalogProvider === "spotify" ? "spotify" : track.source === "audius" ? "audius" : "soundcloud"} />
+                <ProviderBadge
+                  provider={
+                    track.catalogProvider === "deezer" ? "deezer"
+                    : track.catalogProvider === "spotify" ? "spotify"
+                    : track.source === "audius" ? "audius"
+                    : "soundcloud"
+                  }
+                />
               </span>
             )}
             {track.versionTag && (
