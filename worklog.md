@@ -9141,3 +9141,94 @@ Stage Summary:
   visually verified local + 4 on production; search BEFORE/AFTER proof
   captured from real production. 1172/1172 tests, no functional surface
   touched (playback/queue/lyrics/sources/auth/wave engine intact).
+
+---
+Task ID: final-design-completion-v2
+Agent: main (Super Z)
+Task: MQ FINAL DESIGN COMPLETION V2 — Search BEFORE QUERY full redesign (§0–§4) + Liquid Glass as the only premium material (§10, Liquid Platinum retired) + theme/Search acceptance (§5–§7, §20) + remaining visual closure, on top of mq-build-aba25a28.
+
+Work Log:
+- BASELINE: synced to 25b744e3 (= production mq-build-aba25a28). BEFORE
+  captured from production: search before/after (desktop+mobile), home —
+  download/qa-v2/before/ (console = known demo noise only).
+- §1 SEARCH HOME (before query) FULL REDESIGN — SearchView.tsx:
+  * EDITORIAL ANCHOR: DiscoveryFeaturedCard (mq-card-feature, solid §18) —
+    "Продолжить слушать" (last played, warm) / "Из популярного" (catalog,
+    cold) + "Слушали недавно" rows beside it (lg 5/7 grid — mirrors the
+    AFTER-query TopResult+Треки composition → ONE design language).
+  * §1.4 Недавние запросы = compact ROWS (clock icon, hairline separators,
+    per-row X delete, hover; 6 visible + "Показать ещё"/"Свернуть") — the
+    old horizontal chip strip REMOVED.
+  * §1.5 light layers: Быстрый доступ compact tiles (mq-card-sm tone),
+    Артисты рядом horizontal avatar strip (only with 3+ real artists),
+    Популярные запросы chips at the bottom.
+  * §1.3 COLD START: real catalog tracks via /api/music/genre (day-rotated
+    genre, retry-on-transient-failure) → featured + "Популярная музыка"
+    rows + Обзор жанров tiles (8 real catalog shortcuts) + chips — a
+    finished product, never an empty screen.
+  * Smooth BEFORE→AFTER: discovery block exits via AnimatePresence
+    (180ms rise-out); results rise in 200ms (§19/§22 bands).
+- §10 LIQUID GLASS = the signature material; Liquid Platinum RETIRED:
+  * materials-v25.css — .mq-platinum-btn redefined as FLAT LIQUID GLASS
+    primary control: translucent tonal stack (168° sheen → body tone →
+    deep veil rgba(6,9,16,.52) → THEME-AWARE --mq-g2-tint) + cold hairline
+    edge + ONE top light + soft seat; hover tonal, pressed scale .96;
+    #f4f6fa text readable on any backdrop (light themes too). Class name
+    kept (15+ call sites); material replaced.
+  * --mq-platinum-progress: gradient → SOLID cold light (90% platinum-hi +
+    theme glass mix) — no platinum gradients anywhere.
+  * .mq-platinum-text (WAVE wordmark): silver gradient → solid near-white
+    with theme-glass whisper. .mq-platinum-line: single-color fade.
+  * globals.css — .mq-play-overlay → flat liquid glass (same stack);
+    .mq-card-track[data-active]::before indicator: gradient → solid
+    cold-light. SpatialFullPlayer seek fills: gradient → solid token.
+  * Inline glass blur (MenuCore pattern) added to the two PRIMARY play
+    controls: FullTrackView main play + MainView hero play.
+  * MobileDock active-tab line: single color. MainView recommended-card
+    left edge: single-color cold-light fade.
+- §20 SEARCH + THEME: sticky search strip is now a floating glass surface
+  (86% bg mix + inline blur 14px) — the theme ambient shows through it in
+  EVERY search state; the FIELD stays solid/quiet. Probe: exactly ONE blur
+  surface in SearchView (test-pinned).
+- §4 TOUCH: .mq-hit44 invisible halo utility (touch devices only) applied
+  to small search-home controls (Очистить, row X, Показать ещё, chips,
+  refresh) — visual size unchanged, hit area ≥44px.
+- TESTS: 6 material contracts updated to the V2 language (glass primary,
+  solid progress, sticky-strip blur allowance, mq-press on hero play,
+  cold-light edge comment) + 5 new V2 search-home contracts (editorial
+  anchor, recent rows, cold start, light layers, featured marker).
+  1176/1176 PASS (67 files) · tsc src clean · eslint: 0 NEW errors
+  (SearchView remaining 2 set-state-in-effect = pre-existing baseline).
+- QA LOCAL (download/qa-v2/local/): BEFORE (prod) + AFTER (local) full
+  matrix — search warm/cold/after (desktop 1440 + mobile 390, incl.
+  full-page), 8 desktop tabs + 6 mobile tabs, 4 themes × (NORMAL home +
+  WAVE + search) grids, mid-transition frame, card/glass close-ups,
+  BEFORE/AFTER composites. VLM verdicts: COLD-START-PREMIUM,
+  DISCOVERY-EDITORIAL, MOBILE-COMPOSED, EDITORIAL-PREMIUM (after-query,
+  play button reads FLAT TRANSLUCENT DARK GLASS), THEMES-DISTINCT (4/4
+  atmospheres named + distinct), WAVE-THEME-AWARE, SEARCH-THEME-AWARE,
+  transition SMOOTH, tabs UNIFIED, MOBILE-PREMIUM, close-ups
+  CARD-SOLID-PREMIUM + GLASS-REFINED, BEFORE/AFTER ×2 AFTER-BETTER.
+  Probes: overflowX=0 everywhere (desktop+mobile), ambient pools distinct
+  per theme (154,163,178 / 143,184,168 / 184,160,172 / 223,230,242).
+- QA NOTE: the in-memory read rate-limiter (60/min) throttles rapid
+  multi-context QA runs — separate script invocations per device required;
+  real users unaffected. Sync-blocked cold profile used for true cold
+  captures (demo account accumulates server-synced history).
+- «Волна» sweep: remaining uses are waveform-only (Settings "Волна в
+  плеере" + comments) — allowed by §13. No ВОЛНА/WAVE/Играет/Сейчас
+  играет/Пауза status badges near tracks (verified: reason text only in
+  FullTrackView queue when radioMode && _reason; labels like "Пауза" only
+  on real transport buttons).
+
+Stage Summary:
+- Search is now a FULL discovery experience in BOTH states: BEFORE =
+  editorial anchor (featured + recent rows) + compact rows + light strips,
+  with a real catalog cold start; AFTER = the existing editorial results
+  (kept) — one design language across the transition.
+- Liquid Platinum is fully retired as a material: primary controls are
+  flat liquid glass (theme-aware tint), progress/identity marks are solid
+  cold light, no chrome/metallic/platinum gradients remain; cards stay
+  solid; glass stays on floating/interactive layer only.
+- Theme = environment verified across 4 themes (normal + wave + search).
+- 1176/1176 tests, tsc clean, eslint parity, build green.

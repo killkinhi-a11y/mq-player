@@ -1057,12 +1057,13 @@ function FeaturedCard({
       }}
       aria-label={`Рекомендованный трек: ${track.title}`}
     >
-      {/* Platinum left light edge */}
+      {/* Cold-light left edge — the recommended identity mark (V2 §10:
+         single-color fade, no metallic two-tone gradient) */}
       <span
         aria-hidden="true"
         className="absolute left-0 top-0 bottom-0 w-[2px]"
         style={{
-          background: "linear-gradient(180deg, color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 60%, transparent), color-mix(in srgb, var(--mq-platinum-refl, #8fa3c8) 32%, transparent))",
+          background: "linear-gradient(180deg, color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 60%, transparent), color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 22%, transparent))",
         }}
       />
       <div className="flex flex-col sm:flex-row">
@@ -1211,10 +1212,13 @@ function ContinueListeningCard({
     >
       <button
         onClick={onToggle}
-        className="mq-platinum-btn w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform"
-        /* FINAL CORRECTION §7: flat platinum play — the red disc is gone;
-          primary playback is the platinum material everywhere. */
+        className="mq-platinum-btn mq-press w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+        /* V2 §10.5: flat liquid-glass primary play (no red disc, no metal);
+           inline backdrop blur = content-aware glass over the hero surface
+           (Lightning strips backdrop-filter from stylesheets — MenuCore
+           pattern). */
         aria-label={isPlaying ? "Пауза" : "Продолжить"}
+        style={{ backdropFilter: "var(--mq-blur-md)", WebkitBackdropFilter: "var(--mq-blur-md)" }}
       >
         {isPlaying ? (
           <Pause className="w-5 h-5" fill="currentColor" />
@@ -1500,7 +1504,7 @@ function HeroWaveCTA({ compact = false }: { compact?: boolean }) {
         </div>
         <span
           className="mq-platinum-btn w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
-          /* FINAL CORRECTION §7: flat platinum play disc. */
+          /* V2 §10.4: flat liquid-glass play disc (mq-platinum-btn class). */
           aria-hidden="true"
         >
           <Play className="w-[18px] h-[18px] translate-x-[1px]" fill="currentColor" />

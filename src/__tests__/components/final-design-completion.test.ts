@@ -252,20 +252,56 @@ describe("FDC §5 — the search field is compact, solid, quiet", () => {
     expect(src).toContain('borderRadius: "var(--mq-mat-radius, 14px)"');
   });
 
-  it("no glass capsule, no blur on the field", () => {
-    expect(src).not.toContain("backdropFilter");
-    expect(src).not.toContain("mq-glass2");
+  it("no glass capsule on the FIELD itself; the sticky strip is the floating glass layer (V2 §20)", () => {
+    // The INPUT stays solid + quiet: no glass class, no blur on the field.
+    const input = src.match(/<Input[\s\S]{0,2200}?<\/div>/)?.[0] ?? src.slice(0, 0);
+    expect(input).not.toContain("mq-glass2");
+    // The sticky strip (a FLOATING surface) carries the theme-aware
+    // translucent glass + inline blur — ambient shows through in every
+    // search state. Exactly ONE blur surface allowed in the view.
+    const blurCount = (src.match(/backdropFilter: "blur\(14px\)"/g) || []).length;
+    expect(blurCount).toBe(1);
+    expect(src).toContain('backgroundColor: "color-mix(in srgb, var(--mq-bg) 86%, transparent)"');
   });
 });
 
-describe("FDC §9 — the discovery state is real, never an empty black screen", () => {
+describe("FDC §9 + V2 §1 — Search Home (before query) is a real discovery experience", () => {
   const src = readSrc("src/components/mq/SearchView.tsx");
 
-  it("real-data sections: quick picks, recently played, popular queries", () => {
+  it("real-data sections: featured anchor, recently played, popular queries", () => {
     expect(src).toContain("Быстрый доступ");
     expect(src).toContain("Слушали недавно");
     expect(src).toContain("Популярные запросы");
     expect(src).toContain("const discoveryTracks");
+  });
+
+  it("V2 §1.2 — editorial anchor: featured discovery card + compact rows", () => {
+    expect(src).toContain("DiscoveryFeaturedCard");
+    expect(src).toContain('data-mq-search-featured');
+    expect(src).toContain("Продолжить слушать");
+    // mixed density: featured (5 cols) + rows (7 cols) mirrors the
+    // AFTER-query Top Result composition — one design language
+    expect(src).toMatch(/lg:col-span-5[\s\S]{0,600}lg:col-span-7/);
+  });
+
+  it("V2 §1.4 — recent searches are compact ROWS with delete + expand, not pills", () => {
+    expect(src).toContain("recent-search-row");
+    expect(src).toContain("Показать ещё");
+    expect(src).toContain("RECENT_ROWS_VISIBLE");
+    // no horizontal chip strip for recent queries
+    expect(src).not.toContain("Недавние запросы — горизонт");
+  });
+
+  it("V2 §1.3 — graceful cold start: real catalog tracks + genre shortcuts", () => {
+    expect(src).toContain("COLD_START_GENRES");
+    expect(src).toContain("isColdStart");
+    expect(src).toContain("Обзор жанров");
+    expect(src).toContain("Из популярного");
+  });
+
+  it("V2 §1.5 — light quick discovery: artist strip + compact liked tiles", () => {
+    expect(src).toContain("Артисты рядом");
+    expect(src).toContain("в избранном");
   });
 
   it("discovery rows come from the real listening history", () => {

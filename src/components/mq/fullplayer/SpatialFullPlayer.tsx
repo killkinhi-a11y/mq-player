@@ -1889,12 +1889,11 @@ function SpatialStyles({ children }: { children?: React.ReactNode }) {
         input.mq-sp-seek::-webkit-slider-runnable-track {
           height: 6px;
           border-radius: 3px;
-          /* RED ACCENT FIX: seek fill was var(--mq-accent) (RED) — every
-             other progress surface uses the platinum gradient token. The
-             fill segment mirrors it: lift→#cfd6e4, then the grey track. */
+          /* V2 §10: seek fill = SOLID cold light (the platinum gradient
+             language is retired; mirrors --mq-platinum-progress). */
           background: linear-gradient(to right,
-            color-mix(in srgb, var(--mq-platinum-lift, #343947) 85%, transparent) 0%,
-            #cfd6e4 var(--mq-seek-pct, 0%),
+            var(--mq-platinum-progress, #e8ecf4) 0%,
+            var(--mq-platinum-progress, #e8ecf4) var(--mq-seek-pct, 0%),
             rgba(255,255,255,0.14) var(--mq-seek-pct, 0%), rgba(255,255,255,0.14) 100%);
           box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
         }
@@ -1918,10 +1917,8 @@ function SpatialStyles({ children }: { children?: React.ReactNode }) {
         input.mq-sp-seek::-moz-range-progress {
           height: 6px;
           border-radius: 3px;
-          /* RED ACCENT FIX: was var(--mq-accent). Platinum fill (webkit parity). */
-          background: linear-gradient(90deg,
-            color-mix(in srgb, var(--mq-platinum-lift, #343947) 85%, transparent),
-            #cfd6e4);
+          /* V2 §10: solid cold-light fill (webkit parity). */
+          background: var(--mq-platinum-progress, #e8ecf4);
         }
         input.mq-sp-seek::-moz-range-thumb {
           width: 14px;

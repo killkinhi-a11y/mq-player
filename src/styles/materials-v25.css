@@ -1,16 +1,19 @@
-/* ═══════════════════════════════════════════════════════════════════════════
-   MQ MATERIAL SYSTEM — V2.5 base + FINAL VISUAL REFINEMENT.
+/* ═══════════════════════════════════════════════════════════════════════
+   MQ MATERIAL SYSTEM — V2.5 base + FINAL DESIGN COMPLETION V2.
 
-   FINAL REFINEMENT PRINCIPLES (hard rules):
-   - BUTTONS ARE FLAT. No 3D chrome, no bevels, no specular sweeps, no
-     pillowed neumorphism. A control reads as INTERFACE, not as a physical
-     object: tonal contrast + hairline edge + very subtle top light only.
+   FINAL MATERIAL RULES (V2):
+   - THE SIGNATURE PREMIUM MATERIAL IS LIQUID GLASS. There is no
+     "Liquid Platinum" material: no chrome, no metallic buttons, no
+     silver 3D controls, no platinum gradients. The old platinum family
+     survives ONLY as the "cold light" accent COLORS (focus rings,
+     progress fill, active edge) — colors, never volumes.
+   - BUTTONS ARE FLAT LIQUID GLASS. A control reads as INTERFACE, not as
+     a physical object: tonal glass stack + hairline edge + one subtle
+     top light. No bevel, no raised 3D, no gloss sweep.
    - CARDS ARE SOLID. Opaque dark surfaces with a whisper of tonal
      variation, hairline edge, quiet shadow. Never glass, never blurred.
-   - GLASS IS FOR FLOATING UI ONLY (nav, PlayerBar, mini player, dock,
-     menus, overlays). It is the material of the interactive layer.
-   - PLATINUM IS A COLOR, NOT A VOLUME: cold dark silver used sparingly
-     (primary play, active progress, WAVE identity, selected state).
+   - GLASS IS FOR FLOATING/INTERACTIVE UI ONLY (nav, PlayerBar, mini
+     player, dock, menus, overlays, primary controls).
 
    ⚠ PIPELINE CONTRACT (learned the hard way): the Lightning CSS pipeline
      REMOVES @supports blocks it resolves as false, strips backdrop-filter
@@ -21,7 +24,7 @@
      (the established MenuCore pattern).
 
    Motion: MICRO 80–160ms / STANDARD 180–300ms / SIGNATURE 500–1000ms.
-   ═══════════════════════════════════════════════════════════════════════════ */
+   ═════════════════════════════════════════════════════════════════════ */
 
 :root {
   /* ── Runtime input: measured backdrop luminance 0..1 ──────────────────
@@ -63,19 +66,20 @@
   --mq-glass-veil-player: rgba(4, 7, 14, 0.24);
   --mq-glass-veil-dock: rgba(4, 7, 14, 0.2);
 
-  /* ── Liquid Platinum palette (cold, premium; reflection hues follow the
-     THEME ambient (§0) — a whisper of the theme's colour voice, 28% mix) ── */
-  --mq-platinum-base: #22252d;      /* dark silver */
-  --mq-platinum-lift: #343947;      /* lit silver edge */
-  --mq-platinum-hi: #e9edf5;        /* cold white specular */
+  /* ── Cold-light accent palette (formerly "platinum") — COLORS only.
+     The V2 signature material is LIQUID GLASS; this family survives as
+     the cold light accent: focus rings, progress fill, active edges.
+     Reflection hues follow the THEME ambient (§0) — a whisper of the
+     theme's colour voice, 28% mix. NO metallic surfaces, NO gradients. */
+  --mq-platinum-base: #22252d;      /* deep cold tone (active marks) */
+  --mq-platinum-lift: #343947;      /* cold tonal accent (indicators) */
+  --mq-platinum-hi: #e9edf5;        /* cold white (focus, progress) */
   --mq-platinum-refl: color-mix(in srgb, #8fa3c8 72%, var(--mq-amb-platinum, #8fa3c8));
   --mq-platinum-violet: color-mix(in srgb, #a48fc4 70%, var(--mq-amb-platinum, #8fa3c8));
-  /* Active progress — the one-look platinum gradient (fill for seek bars
-     and progress strips; a COLOR, never a bevel). */
+  /* Active progress — SOLID cold light (V2 §10: no platinum gradients;
+     a flat bright fill with a whisper of the theme's glass hue). */
   --mq-platinum-progress:
-    linear-gradient(90deg,
-      color-mix(in srgb, var(--mq-platinum-lift) 85%, transparent),
-      #cfd6e4);
+    color-mix(in srgb, var(--mq-platinum-hi) 90%, var(--mq-amb-glass, #e2e8f0));
 
   /* ── Motion scale ────────────────────────────────────────────────────────
      MICRO 80–160ms: hovers, presses, focus rings, small reveals.
@@ -351,27 +355,37 @@
 .mq-btn-neutral:disabled { opacity: 0.45; cursor: default; }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   LIQUID PLATINUM — the signature ACCENT, flat and cold.
-   FINAL REFINEMENT: platinum is a COLOR LANGUAGE (dark cold silver +
-   one hairline of light), NOT a physical chrome object. No radial
-   specular, no reflection band, no bevel shadows, no hover sweep.
-   Use ONLY: primary playback control, active progress, WAVE identity,
-   selected state, key navigation accent.
+   PRIMARY CONTROL — REFINED LIQUID GLASS (V2 §10.4–10.5).
+   The old "Liquid Platinum" material is RETIRED: no chrome, no matte
+   metal, no silver volume. A primary control is now a FLAT, slightly
+   translucent glass button:
+     - controlled transparency (deep veil — #f4f6fa text stays readable
+       over ANY backdrop, light or dark);
+     - theme-aware tint (--mq-g2-tint follows the theme's ambient glass);
+     - very thin cold-light edge + ONE subtle top light (the specular
+       hint of real glass, not a bevel);
+     - soft pressed state (scale 0.96), tonal hover.
+   Hierarchy comes from SIZE / CONTRAST / TINT / POSITION — never 3D.
+   (Class name kept: 15+ call sites; the material is what changed.)
    ═══════════════════════════════════════════════════════════════════════ */
 
 .mq-platinum-btn {
   position: relative;
-  border: 1px solid color-mix(in srgb, var(--mq-platinum-hi) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mq-platinum-hi) 24%, transparent);
   cursor: pointer;
   color: #f4f6fa;
-  /* DESIGN COMPLETION: FLAT matte metal. The old 11% vertical gradient
-     read as gloss in screenshots — kill the tonal shift; the material
-     IS the color + hairline edge + one top light. */
-  background: var(--mq-platinum-lift);
-  /* ONE subtle top light + soft seat shadow. No bevel, no rim, no gloss. */
+  /* V2 §10.4 FLAT LIQUID GLASS: translucent tonal stack (sheen -> body
+     tone -> deep veil -> theme glass tint). No metal, no gradient gloss,
+     no bevel shadows. */
+  background:
+    linear-gradient(168deg, rgba(255, 255, 255, 0.055), transparent 46%),
+    color-mix(in srgb, var(--mq-text) 9%, transparent),
+    rgba(6, 9, 16, 0.52),
+    var(--mq-g2-tint);
+  /* ONE subtle top light + a soft seat. Depth, not volume. */
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.09),
-    0 2px 10px rgba(0, 0, 0, 0.32);
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 10px rgba(0, 0, 0, 0.22);
   transition:
     transform var(--mq-mo-micro) var(--mq-ease-press),
     border-color var(--mq-mo-micro) var(--mq-ease-out),
@@ -379,7 +393,7 @@
 }
 
 .mq-platinum-btn:hover {
-  border-color: color-mix(in srgb, var(--mq-platinum-hi) 30%, transparent);
+  border-color: color-mix(in srgb, var(--mq-platinum-hi) 34%, transparent);
   filter: brightness(1.05);
 }
 
@@ -393,7 +407,7 @@
   box-shadow:
     0 0 0 2px var(--mq-bg),
     0 0 0 4px color-mix(in srgb, var(--mq-platinum-hi) 70%, transparent),
-    0 2px 10px rgba(0, 0, 0, 0.32);
+    0 2px 10px rgba(0, 0, 0, 0.22);
 }
 
 /* Disabled — flat and honest, no dim-glow theatrics. */
@@ -401,26 +415,21 @@
   filter: saturate(0.6) brightness(0.8);
 }
 
-/* Platinum identity line — selected state / Wave identity mark.
-   A 1px cold light line with a blue breath. Rare, quiet, precise. */
+/* Identity hairline — selected state / WAVE identity mark. A 1px cold
+   light line (single color, theme-kissed) fading at both ends via alpha
+   stops. Quiet, precise — not a chrome sweep. */
 .mq-platinum-line {
   background: linear-gradient(90deg,
     transparent,
-    color-mix(in srgb, var(--mq-platinum-hi) 55%, transparent) 22%,
-    color-mix(in srgb, var(--mq-platinum-refl) 40%, transparent) 55%,
+    color-mix(in srgb, var(--mq-platinum-hi) 45%, transparent) 24%,
+    color-mix(in srgb, var(--mq-platinum-hi) 30%, transparent) 60%,
     transparent);
 }
 
-/* Platinum text — the WAVE wordmark. Cold silver, never glowing. */
+/* Cold-light text — the WAVE wordmark. V2 §10: solid near-white with a
+   whisper of the theme glass hue; no silver gradient, no metallic sheen. */
 .mq-platinum-text {
-  background: linear-gradient(180deg,
-    #f2f5fb 0%,
-    #cfd6e4 48%,
-    #aab4c8 62%,
-    #e6ebf4 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: color-mix(in srgb, var(--mq-platinum-hi) 92%, var(--mq-amb-glass, #e2e8f0));
 }
 
 /* ═══════════════════════════════════════════════════════════════════════

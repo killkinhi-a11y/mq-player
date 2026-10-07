@@ -12,8 +12,9 @@
  *  3. §4–5  Liquid Glass is ONE material system with roles
  *           (BASE/NAV/PLAYER/DOCK/MENU/ACTIVE) that holds WITHOUT blur:
  *           tonal separation (veil) carries it; blur is secondary (≤12px).
- *  4. §6–7  Platinum is FLAT matte metal (no gradient gloss) and RARE;
- *           everyday actions speak neutral graphite (.mq-btn-neutral).
+ *  4. §6–7  V2: the primary control is FLAT LIQUID GLASS (translucent
+ *           tonal stack + theme tint + hairline edge); the platinum family
+ *           survives as cold-light ACCENT COLORS only. Neutral is default.
  *  5. §9    The NORMAL MQ background is a LIVING atmosphere: three
  *           drifting layers at different ultra-slow speeds — never one
  *           flat/black layer, never a single-gradient page.
@@ -98,12 +99,19 @@ describe("DC §4–5 — Liquid Glass v3: one material, six roles, tonal-first",
   });
 });
 
-describe("DC §6–7 — platinum is flat matte metal; neutral is the default action", () => {
-  it("the platinum button carries NO gradient gloss (one flat fill)", () => {
+describe("DC §6–7 — primary control is flat Liquid Glass; neutral is the default action", () => {
+  it("the primary button is FLAT LIQUID GLASS: translucent stack, theme tint, NO metallic fill (V2 §10)", () => {
     const css = materials();
     const btn = css.match(/\.mq-platinum-btn \{[\s\S]*?\n\}/)?.[0] ?? "";
-    expect(btn).not.toContain("linear-gradient");
-    expect(btn).toContain("background: var(--mq-platinum-lift)");
+    // V2 §10.4: translucent tonal stack (sheen -> body tone -> deep veil ->
+    // theme glass tint). The ONLY gradient allowed is the subtle glass
+    // sheen line — never a metallic two-tone gloss.
+    expect(btn).toContain("var(--mq-g2-tint)");
+    expect(btn).toContain("rgba(6, 9, 16, 0.52)");
+    // metallic remnants are gone: no opaque platinum-lift fill, no chrome
+    expect(btn).not.toContain("background: var(--mq-platinum-lift)");
+    const sheenGradients = (btn.match(/linear-gradient/g) || []).length;
+    expect(sheenGradients).toBeLessThanOrEqual(1);
   });
 
   it("a neutral action class exists for everyday buttons", () => {

@@ -158,13 +158,13 @@ function MobileDockInner() {
       <style>{`
         .mq-nav { transition: color .18s var(--mq-ease-out, ease); -webkit-tap-highlight-color: transparent; user-select: none; }
         .mq-nav-tab { position: relative; transition: color .18s var(--mq-ease-out, ease); }
-        /* Active tab — a 1px LIQUID PLATINUM light line instead of a flat
-           accent bar: selected state as a rare material, quiet and precise. */
+        /* Active tab — a 1px cold-light line (V2 §10: single color with
+           soft alpha ends — the identity mark, not a metallic sweep). */
         .mq-nav-tab::before {
           content: "";
           position: absolute; top: 0; left: 50%; transform: translateX(-50%);
           width: 18px; height: 2px; border-radius: 0 0 3px 3px;
-          background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 80%, var(--mq-platinum-refl, #8fa3c8)) 45%, transparent);
+          background: linear-gradient(90deg, transparent, var(--mq-platinum-hi, #e9edf5) 45%, transparent);
           opacity: 0; transition: opacity .16s ease;
         }
         .mq-nav-tab[data-active="true"]::before { opacity: 1; }

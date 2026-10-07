@@ -217,9 +217,9 @@ describe("V2.5 §5 — card system: surface hierarchy, no nested card chrome", (
     expect(src).toContain("var(--mq-mat-2-bg)");
     expect(src).toContain("var(--mq-mat-3-bg)");
     expect(src).toContain("var(--mq-mat-1-bg)");
-    // FeaturedCard: platinum light edge, not the 3px accent bar
+    // FeaturedCard: cold-light edge (V2: single-color fade), not the 3px accent bar
     expect(src).not.toContain('borderLeft: "3px solid var(--mq-accent)"');
-    expect(src).toContain("Platinum left light edge");
+    expect(src).toContain("Cold-light left edge");
     // QuickActionGrid de-nested: ambient surface, no bordered box
     expect(src).not.toContain('grid grid-cols-4 lg:grid-cols-2 gap-2 rounded-2xl p-2"');
   });

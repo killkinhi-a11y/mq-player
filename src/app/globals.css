@@ -4459,9 +4459,9 @@ html[data-mq-desktop] .mq-card-track {
   }
 }
 
-/* Active (now playing): PLATINUM tint + left bar — the playing identity
-   material. (RED ACCENT FIX: was accent-red tint + red bar — "playing = red"
-   contradicts the platinum playing system used by progress/spatial bars.) */
+/* Active (now playing): cold-light tint + left bar — the playing identity
+   material. (RED ACCENT FIX: was accent-red tint + red bar; V2 §10: the
+   2px indicator is now a SOLID cold-light mark — no metallic gradient.) */
 .mq-card-track[data-active="true"] {
   background: color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 5%, transparent);
   border-color: color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 12%, transparent);
@@ -4475,7 +4475,7 @@ html[data-mq-desktop] .mq-card-track {
   bottom: 10px;
   width: 2px;
   border-radius: 2px;
-  background: linear-gradient(to top, var(--mq-platinum-lift, #343947), #cfd6e4);
+  background: color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 78%, transparent);
 }
 
 .mq-card-track:focus-visible {
@@ -4546,14 +4546,19 @@ html[data-mq-desktop] .mq-card-track {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* RED ACCENT FIX: was solid accent-red circle — one play language =
-     FLAT PLATINUM (primary playback material, same DNA as mq-platinum-btn). */
-  background: var(--mq-platinum-lift, #343947);
+  /* V2 §10.4: one play language = FLAT LIQUID GLASS — translucent tonal
+     stack (top sheen -> body tone -> deep veil -> theme glass tint) + cold
+     hairline edge + one inner top light. No metal, no bevel, no gloss. */
+  background:
+    linear-gradient(168deg, rgba(255, 255, 255, 0.055), transparent 46%),
+    color-mix(in srgb, var(--mq-text) 9%, transparent),
+    rgba(6, 9, 16, 0.52),
+    var(--mq-g2-tint);
   border: 1px solid color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 26%, transparent);
   color: #f4f6fa;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.09),
-    0 6px 20px rgba(0, 0, 0, 0.5);
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 6px 20px rgba(0, 0, 0, 0.4);
   opacity: 0;
   transform: translateY(4px);
   transition: opacity 0.22s ease, transform 0.22s ease;
@@ -5723,4 +5728,19 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
 }
 @media (max-width: 767px) {
   .mq-search-topresult { padding: 14px; }
+}
+
+/* ── mq-hit44 — invisible 44px touch halo (V2 §4) ─────────────────────────
+   Small controls (chips, row actions, text buttons) keep their visual size
+   but guarantee a >=44px touch target: a pseudo-element pad extends the
+   hit area symmetrically without shifting layout. Pointer-only devices
+   skip it (mouse precision doesn't need the halo). */
+.mq-hit44 { position: relative; }
+@media (hover: none) {
+  .mq-hit44::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: inherit;
+  }
 }

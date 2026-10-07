@@ -1225,10 +1225,14 @@ export default function FullTrackView() {
         </button>
         <motion.button
           onClick={togglePlay}
-
+         
           aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
-          className="mq-platinum-btn w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center relative"
+          className="mq-platinum-btn mq-press w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center relative"
           title="Play/Pause (Space)"
+          /* V2 §10.5: PRIMARY control = refined Liquid Glass — the inline
+             backdrop blur (Lightning strips it from stylesheets; MenuCore
+             pattern) makes the glass content-aware over the player art. */
+          style={{ backdropFilter: "var(--mq-blur-md)", WebkitBackdropFilter: "var(--mq-blur-md)" }}
         >
           {isLoading ? <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" style={{ color: "#f4f6fa" }} />
             : (

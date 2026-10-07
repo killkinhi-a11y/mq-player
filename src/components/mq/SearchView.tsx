@@ -6,7 +6,6 @@ import { isDesktopApp } from "@/lib/desktop-mode";
 import { motion, AnimatePresence } from "framer-motion";
 import { genresList, type Track, formatDuration } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
-import ScrollReveal from "./ScrollReveal";
 import ContextMenu from "./ContextMenu";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import { useLongPress } from "@/hooks/useLongPress";
@@ -18,10 +17,10 @@ import {
   type SuggestionSourceTrack,
 } from "@/lib/search-suggestions";
 import {
-  Search, X, SlidersHorizontal, Play, Upload, Clock, Trash2, CheckCircle2,
-  AlertCircle, Loader2, Headphones, TrendingUp, ChevronRight, Music, Sparkles,
-  RefreshCw, Flame, Zap, Mic, Disc, Heart, Piano, Radio, RotateCcw, ListMusic,
-  Hash, ArrowRight, MoreHorizontal, User
+  Search, X, SlidersHorizontal, Play, Upload, Clock, CheckCircle2,
+  AlertCircle, Loader2, TrendingUp, ChevronRight, Music, Sparkles,
+  RefreshCw, Flame, Zap, Mic, Disc, Heart, Piano, Radio, ListMusic,
+  MoreHorizontal, User
 } from "lucide-react";
 
 const SEARCH_HISTORY_KEY = "mq-search-history";
@@ -31,6 +30,14 @@ const MAX_HISTORY = 15;
 const TRENDING_SEARCHES = [
   "Поп", "Рок", "Хип-хоп", "Электроника", "Инди", "R&B", "Джаз",
 ];
+
+// ── Cold-start catalog rotation (V2 §1.3): which genre feeds the
+//    "Популярная музыка" discovery block on a fresh profile. Real catalog
+//    data only — the rotation just gives it a curated feel per day. ──
+const COLD_START_GENRES = ["Pop", "Rock", "Electronic", "Hip-Hop", "Jazz", "Classical", "R&B"];
+
+// How many recent-search rows show before "Показать ещё" (§1.4)
+const RECENT_ROWS_VISIBLE = 6;
 
 // ── Genre to Russian label mapping ── (moved to lib/search-suggestions —
 // GENRE_LABELS is the single source; re-exported here for the genre chips)
@@ -119,7 +126,6 @@ export default function SearchView() {
   const [quickPicksSeed, setQuickPicksSeed] = useState(0);
   const [isDebouncing, setIsDebouncing] = useState(false);
   const genreScrollRef = useRef<HTMLDivElement>(null);
-  const historyScrollRef = useRef<HTMLDivElement>(null);
 
   // Genre filter search
   const [genreTracks, setGenreTracks] = useState<Track[]>([]);
@@ -537,6 +543,71 @@ export default function SearchView() {
     [storeHistory]
   );
 
+  // ═══ SEARCH HOME (V2 §1) — the BEFORE-QUERY discovery composition ═══
+  // The featured anchor + compact rows + light strips. Everything derives
+  // from REAL user state; the cold start (no history/likes/searches)
+  // pulls real tracks from the genre catalog (rotates by day — a curated
+  // feel without inventing data).
+  const isColdStart =
+    searchHistory.length === 0 &&
+    quickPicks.length === 0 &&
+    discoveryTracks.length === 0 &&
+    suggestionArtists.length === 0;
+
+  const [coldTracks, setColdTracks] = useState<Track[]>([]);
+  // default TRUE: the cold start begins fetching immediately — no sync
+  // setState in the effect body (react-compiler cascading-render rule);
+  // the flag only ever turns false (after load/retry/give-up) or stays
+  // unused once the profile turns out to be warm (isColdStart false).
+  const [coldLoading, setColdLoading] = useState(true);
+  useEffect(() => {
+    if (!isColdStart) return;
+    let cancelled = false;
+    const genre = COLD_START_GENRES[new Date().getDate() % COLD_START_GENRES.length];
+    const load = async (retry: boolean) => {
+      let willRetry = false;
+      try {
+        const res = await fetch(`/api/music/genre?genre=${encodeURIComponent(genre)}`);
+        if (!cancelled) {
+          if (res.ok) {
+            const data = await res.json();
+            const tracks = ((data.tracks || []) as Track[]).slice(0, 6);
+            setColdTracks(tracks);
+            // Transient failure (e.g. rate-limit hiccup): one quiet retry so
+            // the cold start keeps its anchor instead of degrading silently.
+            willRetry = tracks.length === 0 && retry;
+          } else {
+            willRetry = retry;
+          }
+        }
+      } catch {
+        willRetry = !cancelled && retry;
+      }
+      if (cancelled) return;
+      if (willRetry) {
+        setTimeout(() => { if (!cancelled) load(false); }, 2500);
+      } else {
+        setColdLoading(false);
+      }
+    };
+    load(true);
+    return () => { cancelled = true; };
+  }, [isColdStart]);
+
+  // Featured discovery item (§1.2): the last played track (warm state) or
+  // the catalog pick (cold start). The editorial anchor of Search Home.
+  const featuredTrack = discoveryTracks[0] || coldTracks[0] || null;
+  // Rows beside the featured card — history (warm) or catalog (cold)
+  const featuredRows = useMemo(
+    () => (discoveryTracks.length > 0 ? discoveryTracks.slice(1, 5) : coldTracks.slice(1, 6)),
+    [discoveryTracks, coldTracks]
+  );
+  const featuredEyebrow = discoveryTracks.length > 0 ? "Продолжить слушать" : "Из популярного";
+  const featuredSectionTitle = discoveryTracks.length > 0 ? "Слушали недавно" : "Популярная музыка";
+
+  // Recent searches — compact rows (§1.4), expandable past the visible cut
+  const [historyExpanded, setHistoryExpanded] = useState(false);
+
   // Full tracks section visible only when there are more than the preview
   const fullTracks = processedTracks;
   const hasEditorialTop = !activeLoading && !!topResult && (searchQuery.trim().length > 0 || !!selectedGenre);
@@ -583,7 +654,14 @@ export default function SearchView() {
       <motion.div initial={animationsEnabled ? { opacity: 0, y: -8 } : undefined} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
         className={"sticky top-0 z-20 -mx-3 sm:-mx-4 lg:-mx-5 px-3 sm:px-4 lg:px-5 py-2.5" + (isDesktopApp() ? " lg:top-[var(--mq-topbar-h)]" : "")}
-        style={{ backgroundColor: "var(--mq-bg)" }}>
+        /* V2 §20: the sticky strip is a FLOATING surface — translucent glass
+           (inline blur: Lightning strips it from stylesheets) so the
+           theme-aware ambient shows through it in EVERY search state. */
+        style={{
+          backgroundColor: "color-mix(in srgb, var(--mq-bg) 86%, transparent)",
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+        }}>
         <div className="flex gap-2">
         <div className="flex-1 relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px]" style={{ color: isFocused ? "var(--mq-text)" : "var(--mq-text-muted)", transition: "color 0.25s ease" }} />
@@ -819,78 +897,6 @@ export default function SearchView() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* ── Recent searches — horizontal tag chips ── */}
-      {!searchQuery.trim() && !selectedGenre && searchHistory.length > 0 && !hasSearched && (
-        <ScrollReveal direction="up" delay={0.1}>
-          <div>
-            {/* Section header */}
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-2" style={{ color: "var(--mq-text-muted)" }}>
-                <Clock className="w-3.5 h-3.5" />
-                Недавние запросы
-              </h3>
-              <motion.button
-
-                onClick={handleClearHistory}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-lg mq-t-meta-2 font-medium transition-colors hover:bg-[var(--mq-overlay-hover)]"
-                style={{ color: "var(--mq-text-muted)" }}
-              >
-                <Trash2 className="w-3 h-3" />
-                Очистить
-              </motion.button>
-            </div>
-            {/* Tag chips with horizontal scroll */}
-            <div className="relative -mx-1 px-1">
-              <div
-                ref={historyScrollRef}
-                className="flex gap-2 overflow-x-auto pb-1 scrollbar-none"
-                style={{
-                  scrollbarWidth: "none",
-                  msOverflowStyle: "none",
-                  scrollBehavior: "smooth",
-                  WebkitOverflowScrolling: "touch",
-                }}
-              >
-                {searchHistory.slice(0, 12).map((query, i) => (
-                  <motion.div
-                    key={query}
-                    initial={animationsEnabled ? { opacity: 0 } : undefined}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: i * 0.03, duration: 0.2 }}
-                    className="flex-shrink-0 group relative"
-                  >
-                    {/* §F: hover = CSS only. whileHover inherited the entrance
-                        stagger delay (i*0.03) and fought `transition-all`. */}
-                    <button
-                      onClick={() => handleHistoryClick(query)}
-                      className="flex items-center gap-2 pl-2.5 pr-1.5 py-1.5 rounded-xl text-xs font-medium bg-[var(--mq-card)] hover:bg-[var(--mq-card-hover)] hover:scale-[1.03] transition-[background-color,transform] duration-150 cursor-pointer"
-                      style={{
-                        color: "var(--mq-text-muted)",
-                        border: "1px solid var(--mq-border-thin)",
-                      }}
-                    >
-                      <Clock className="w-3 h-3 opacity-40" />
-                      <span className="whitespace-nowrap">{query}</span>
-                      {/* Remove individual item button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveHistoryItem(query);
-                        }}
-                        className="w-4 h-4 rounded-full flex items-center justify-center transition-opacity ml-0.5 sm:opacity-0 sm:group-hover:opacity-60 sm:group-hover:pointer-events-auto hover:!opacity-100"
-                        style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)" }}
-                      >
-                        <X className="w-2.5 h-2.5" />
-                      </button>
-                    </button>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </ScrollReveal>
-      )}
 
       {/* ── Results header — real section head: serif title, count meta, one action ── */}
       <AnimatePresence>
@@ -1185,165 +1191,269 @@ export default function SearchView() {
         </div>
       )}
 
-      {/* ═══ DISCOVERY STATE (§9) — no query yet: a real place to start ═══
-          Editorial composition from REAL data only: quick picks (liked),
-          recently played (history), popular queries. Never an empty black
-          screen, never an invented "popular" list. */}
-      {!activeHasSearched && !activeLoading && !searchQuery.trim() && !selectedGenre && (
-        <div className="space-y-7">
-          {/* Quick Picks — 4 liked tracks, reshufflable */}
-          {quickPicks.length > 0 && (
-            <motion.div
-              initial={animationsEnabled ? { opacity: 0, y: 8 } : undefined}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.06, duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
-            >
-              <div className="flex items-center gap-2.5 mb-2.5">
-                <Sparkles className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
-                <h2 className="mq-t-shelf" style={{ color: "var(--mq-text)" }}>Быстрый доступ</h2>
-                <button
-                  onClick={() => setQuickPicksSeed(s => s + 1)}
-                  className="ml-auto p-2.5 rounded-lg transition-colors hover:bg-[var(--mq-overlay-hover)] flex-shrink-0"
-                  style={{ color: "var(--mq-text-muted)" }}
-                  title="Обновить"
-                  aria-label="Обновить"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {quickPicks.map((track, i) => (
-                  <motion.button
-                    key={track.id}
-                    initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.06 + i * 0.025, duration: 0.2 }}
-                    onClick={() => playTrack(track, quickPicks)}
-                    className="flex items-center gap-2.5 p-2.5 rounded-[var(--mq-r-card)] text-left cursor-pointer group transition-colors duration-150"
-                    style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
-                  >
-                    <div className="w-10 h-10 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art">
-                      {track.cover ? (
-                        <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" draggable={false} />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-surface-2)" }}>
-                          <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+
+      {/* ═══ SEARCH HOME (V2 §1) — BEFORE QUERY: MUSIC DISCOVERY ═══
+          Not an empty page: an editorial composition with ONE featured
+          anchor + compact rows + light horizontal strips — different
+          densities, real data only (history / likes / artists / catalog).
+          Cold start (fresh profile) = real catalog tracks + genre
+          shortcuts + popular queries — a finished product from minute one.
+          Exits with a 180ms rise-out so BEFORE → typing → RESULTS reads as
+          ONE search experience (no jump to a different site). */}
+      <AnimatePresence>
+        {!activeHasSearched && !activeLoading && !searchQuery.trim() && !selectedGenre && (
+          <motion.div
+            key="mq-search-home"
+            initial={animationsEnabled ? { opacity: 0, y: 8 } : undefined}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
+            className="space-y-8"
+          >
+            {/* ── 1. THE ANCHOR — featured item + compact rows (mixed density) ── */}
+            {(featuredTrack || (isColdStart && coldLoading)) && (
+              <section>
+                <div className="grid lg:grid-cols-12 gap-5 lg:gap-6 items-start">
+                  {/* Featured card — the main discovery item */}
+                  <div className="lg:col-span-5 order-1">
+                    {featuredTrack ? (
+                      <DiscoveryFeaturedCard
+                        track={featuredTrack}
+                        eyebrow={featuredEyebrow}
+                        onPlay={() => playTrack(featuredTrack, featuredRows.length > 0 ? [featuredTrack, ...featuredRows] : [featuredTrack])}
+                      />
+                    ) : (
+                      <div className="mq-card-feature p-5" aria-hidden="true">
+                        <div className="flex items-center gap-4">
+                          <Skeleton className="w-[104px] h-[104px] rounded-[var(--mq-r-card)] flex-shrink-0" />
+                          <div className="flex-1 space-y-3">
+                            <Skeleton className="h-3 w-20" />
+                            <Skeleton className="h-5 w-4/5" />
+                            <Skeleton className="h-3 w-1/2" />
+                          </div>
                         </div>
+                      </div>
+                    )}
+                  </div>
+                  {/* Compact rows beside the anchor */}
+                  {(featuredRows.length > 0 || (isColdStart && coldLoading && discoveryTracks.length === 0)) && (
+                  <div className="lg:col-span-7 min-w-0 order-2">
+                    <div className="flex items-baseline justify-between mb-1.5 px-1">
+                      <h2 className="mq-t-shelf" style={{ color: "var(--mq-text)" }}>{featuredSectionTitle}</h2>
+                      {(isColdStart && coldLoading && discoveryTracks.length === 0) && <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>загружаем…</span>}
+                    </div>
+                    <div className="space-y-0.5">
+                      {((isColdStart && coldLoading && discoveryTracks.length === 0)
+                        ? Array.from({ length: 3 }).map((_, i) => (
+                            <div key={i} className="flex items-center gap-3 p-3 rounded-[var(--mq-r-card)]" style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}>
+                              <Skeleton className="w-12 h-12 rounded-[var(--mq-r-art)] flex-shrink-0" />
+                              <div className="flex-1 space-y-2"><Skeleton className="h-3.5 w-2/3" /><Skeleton className="h-3 w-2/5" /></div>
+                            </div>
+                          ))
+                        : featuredRows.map((track, i) => (
+                            <SearchTrackRow
+                              key={track.id + "_" + i}
+                              track={track}
+                              index={i}
+                              queue={featuredRows}
+                              onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })}
+                            />
+                          ))
                       )}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
-                      <p className="mq-t-meta-2 truncate mq-t-meta">{track.artist}</p>
+                  </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* ── 2. НЕДАВНИЕ ЗАПРОСЫ — compact rows, not pills (§1.4) ── */}
+            {searchHistory.length > 0 && (
+              <section>
+                <div className="flex items-center justify-between mb-1 px-1">
+                  <h2 className="mq-t-shelf" style={{ color: "var(--mq-text)" }}>Недавние запросы</h2>
+                  <button
+                    onClick={handleClearHistory}
+                    className="mq-hit44 mq-t-meta-2 font-medium px-2.5 py-1.5 rounded-lg transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                    style={{ color: "var(--mq-text-muted)" }}
+                    aria-label="Очистить историю запросов"
+                  >
+                    Очистить
+                  </button>
+                </div>
+                <div className="grid sm:grid-cols-2 sm:gap-x-8">
+                  {(historyExpanded ? searchHistory : searchHistory.slice(0, RECENT_ROWS_VISIBLE)).map((query) => (
+                    <div
+                      key={query}
+                      className="flex items-center gap-1 recent-search-row group"
+                      style={{ borderBottom: "1px solid var(--mq-border-hairline, color-mix(in srgb, var(--mq-text) 6%, transparent))" }}
+                    >
+                      <Clock className="w-3.5 h-3.5 flex-shrink-0 ml-1 pointer-events-none" style={{ color: "var(--mq-text-muted)", opacity: 0.55 }} />
+                      <button
+                        onClick={() => handleHistoryClick(query)}
+                        className="flex-1 min-w-0 text-left py-3 pr-2 text-sm font-medium truncate transition-colors"
+                        style={{ color: "var(--mq-text)" }}
+                      >
+                        {query}
+                      </button>
+                      <button
+                        onClick={() => handleRemoveHistoryItem(query)}
+                        className="mq-hit44 w-9 h-9 my-1 mr-1 rounded-full flex items-center justify-center flex-shrink-0 transition-colors sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100"
+                        style={{ color: "var(--mq-text-muted)" }}
+                        aria-label={`Удалить запрос «${query}» из истории`}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                  </motion.button>
-                ))}
-              </div>
-            </motion.div>
-          )}
+                  ))}
+                </div>
+                {searchHistory.length > RECENT_ROWS_VISIBLE && (
+                  <button
+                    onClick={() => setHistoryExpanded((v) => !v)}
+                    className="mq-hit44 mt-2.5 px-2 py-1.5 -ml-2 rounded-lg mq-t-meta font-semibold transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                    style={{ color: "var(--mq-text-muted)" }}
+                  >
+                    {historyExpanded ? "Свернуть" : `Показать ещё (${searchHistory.length - RECENT_ROWS_VISIBLE})`}
+                  </button>
+                )}
+              </section>
+            )}
 
-          {/* Слушали недавно — real listening history rows */}
-          {discoveryTracks.length > 0 && (
-            <motion.section
-              initial={animationsEnabled ? { opacity: 0, y: 8 } : undefined}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1, duration: 0.25 }}
-            >
-              <div className="flex items-center gap-2.5 mb-1.5 px-1">
-                <Clock className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
-                <h2 className="mq-t-shelf" style={{ color: "var(--mq-text)" }}>Слушали недавно</h2>
-              </div>
-              <div className="space-y-0.5">
-                {discoveryTracks.map((track, i) => (
-                  <SearchTrackRow
-                    key={track.id + "_" + i}
-                    track={track}
-                    index={i}
-                    queue={discoveryTracks}
-                    onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })}
-                  />
-                ))}
-              </div>
-            </motion.section>
-          )}
+            {/* ── 3. БЫСТРЫЙ ДОСТУП — light liked tiles (§1.5: lighter than results) ── */}
+            {quickPicks.length > 0 && (
+              <section>
+                <div className="flex items-center gap-2.5 mb-2.5 px-1">
+                  <Sparkles className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
+                  <h2 className="mq-t-shelf" style={{ color: "var(--mq-text)" }}>Быстрый доступ</h2>
+                  <button
+                    onClick={() => setQuickPicksSeed(s => s + 1)}
+                    className="mq-hit44 ml-auto p-2.5 rounded-lg transition-colors hover:bg-[var(--mq-overlay-hover)] flex-shrink-0"
+                    style={{ color: "var(--mq-text-muted)" }}
+                    title="Обновить"
+                    aria-label="Обновить"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {quickPicks.map((track) => (
+                    <button
+                      key={track.id}
+                      onClick={() => playTrack(track, quickPicks)}
+                      className="flex items-center gap-2.5 p-2 rounded-[var(--mq-r-card)] text-left cursor-pointer group transition-colors duration-150"
+                      style={{ backgroundColor: "var(--mq-mat-1-bg)", border: "1px solid var(--mq-card-sm-edge)" }}
+                    >
+                      <div className="w-9 h-9 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art">
+                        {track.cover ? (
+                          <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" draggable={false} />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-surface-2)" }}>
+                            <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
+                        <p className="mq-t-meta-2 truncate mq-t-meta">{track.artist}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
 
-          {/* Популярные запросы — chips; quiet hero only when there is
-              literally nothing personal to show */}
-          {searchHistory.length > 0 || quickPicks.length > 0 || discoveryTracks.length > 0 ? (
-            <motion.section
-              initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.14, duration: 0.25 }}
-            >
+            {/* ── 4. АРТИСТЫ РЯДОМ — light horizontal strip (tiny artwork, §1.5) ── */}
+            {suggestionArtists.length >= 3 && (
+              <section>
+                <div className="flex items-baseline justify-between mb-3 px-1">
+                  <h2 className="mq-t-shelf" style={{ color: "var(--mq-text)" }}>Артисты рядом</h2>
+                  <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>из твоей музыки</span>
+                </div>
+                <div
+                  className="flex gap-4 sm:gap-5 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1"
+                  style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
+                >
+                  {suggestionArtists.slice(0, 10).map((a) => (
+                    <button
+                      key={a.name}
+                      onClick={() => setSelectedArtist({ name: a.name, avatar: a.avatar })}
+                      className="flex flex-col items-center gap-2 flex-shrink-0 w-[76px] pt-1 pb-1 rounded-[var(--mq-r-card)] transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                      style={{ minHeight: 44 }}
+                    >
+                      <span className="w-14 h-14 rounded-full overflow-hidden mq-art flex items-center justify-center" style={{ backgroundColor: "var(--mq-surface-2)", boxShadow: "var(--mq-art-edge)" }}>
+                        {a.avatar ? (
+                          <img src={a.avatar} alt="" className="w-full h-full object-cover" loading="lazy" draggable={false} />
+                        ) : (
+                          <User className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
+                        )}
+                      </span>
+                      <span className="w-full text-center">
+                        <span className="block text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>{a.name}</span>
+                        <span className="block mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
+                          {a.count >= 99 ? "в избранном" : `${a.count} в истории`}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* ── 5. ОБЗОР ЖАНРОВ — catalog shortcuts (cold start §1.3) ── */}
+            {isColdStart && (
+              <section>
+                <div className="flex items-baseline justify-between mb-2.5 px-1">
+                  <h2 className="mq-t-shelf" style={{ color: "var(--mq-text)" }}>Обзор жанров</h2>
+                  <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>каталог MQ</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {genresList.map((g) => (
+                    <button
+                      key={g}
+                      onClick={() => { setSelectedGenre(g); setSearchQuery(""); if (searchInputRef.current) searchInputRef.current.blur(); }}
+                      className="flex items-center gap-3 p-3 rounded-[var(--mq-r-card)] text-left transition-colors duration-150"
+                      style={{ backgroundColor: "var(--mq-mat-1-bg)", border: "1px solid var(--mq-card-sm-edge)", minHeight: 44 }}
+                    >
+                      <span className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
+                        {genreIcons[g] || <Music className="w-4 h-4" />}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{genreLabels[g] || g}</span>
+                        <span className="block mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>жанр</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* ── 6. ПОПУЛЯРНЫЕ ЗАПРОСЫ — the lightest layer, editorial chips ── */}
+            <section>
               <div className="flex items-center gap-2 mb-2.5 px-1">
                 <TrendingUp className="w-4 h-4" style={{ color: "var(--mq-text-muted)", opacity: 0.8 }} />
                 <h2 className="mq-t-shelf" style={{ color: "var(--mq-text)" }}>Популярные запросы</h2>
               </div>
               <div className="flex flex-wrap gap-2">
-                {TRENDING_SEARCHES.map((term, i) => (
-                  <motion.button
+                {TRENDING_SEARCHES.map((term) => (
+                  <button
                     key={term}
-                    initial={animationsEnabled ? { opacity: 0 } : undefined}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: i * 0.025, duration: 0.18 }}
                     onClick={() => handleTrendingClick(term)}
-                    className="px-4 py-2 rounded-[var(--mq-r-card)] text-xs font-medium bg-[var(--mq-card)] hover:bg-[var(--mq-card-hover)] hover:scale-[1.03] transition-[background-color,transform] duration-150 cursor-pointer"
-                    style={{
-                      color: "var(--mq-text-muted)",
-                      border: "1px solid var(--mq-border-thin)",
-                    }}
+                    className="mq-hit44 px-4 py-2 rounded-full text-xs font-medium bg-[var(--mq-card)] hover:bg-[var(--mq-card-hover)] transition-colors duration-150 cursor-pointer"
+                    style={{ color: "var(--mq-text-muted)", border: "1px solid var(--mq-border-thin)" }}
                   >
                     {term}
-                  </motion.button>
+                  </button>
                 ))}
               </div>
-            </motion.section>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-14">
-              <div style={{
-                width: 72,
-                height: 72,
-                borderRadius: 24,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "linear-gradient(135deg, color-mix(in srgb, var(--mq-text) 8%, transparent), color-mix(in srgb, var(--mq-text) 4%, transparent))",
-                border: "1px solid var(--mq-edge)",
-                marginBottom: 18,
-              }}>
-                <Headphones className="w-8 h-8" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }} />
-              </div>
-              <p className="text-lg font-bold mb-1.5" style={{ color: "var(--mq-text)", letterSpacing: "-0.01em" }}>Что послушаем?</p>
-              <p className="text-sm leading-relaxed max-w-[300px] text-center mb-7" style={{ color: "var(--mq-text-muted)" }}>
-                Введите название, артиста или жанр — или выберите подсказку ниже
-              </p>
-              <div className="w-full max-w-md">
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {TRENDING_SEARCHES.map((term, i) => (
-                    <motion.button
-                      key={term}
-                      initial={animationsEnabled ? { opacity: 0 } : undefined}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.2 + i * 0.03, duration: 0.2 }}
-                      onClick={() => handleTrendingClick(term)}
-                      className="px-4 py-2 rounded-[var(--mq-r-card)] text-xs font-medium bg-[var(--mq-card)] hover:bg-[var(--mq-card-hover)] hover:scale-[1.03] transition-[background-color,transform] duration-150 cursor-pointer"
-                      style={{
-                        color: "var(--mq-text-muted)",
-                        border: "1px solid var(--mq-border-thin)",
-                      }}
-                    >
-                      {term}
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+            </section>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
 }
+
 
 // ═════════════════════════════════════════════════════════════════════════
 // SEARCH TRACK ROW — clean visual row optimized for mobile
@@ -1753,6 +1863,99 @@ function TopResultCard({
             К артисту
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// DISCOVERY FEATURED CARD (V2 §1.2) — the anchor of Search Home.
+// The ONE dominant discovery item (last played / catalog pick): a solid
+// featured card (CONTENT CARD = SOLID, same family as the Top Result —
+// one design language before and after the query). Compact on mobile
+// (horizontal), vertical on desktop.
+// ═════════════════════════════════════════════════════════════════════════
+
+function DiscoveryFeaturedCard({
+  track,
+  eyebrow,
+  onPlay,
+}: {
+  track: Track;
+  eyebrow: string;
+  onPlay: () => void;
+}) {
+  return (
+    <div className="mq-card-feature group" data-mq-search-featured>
+      {/* Desktop (lg+): vertical composition — eyebrow, art, title, meta, play */}
+      <div className="hidden lg:block">
+        <p className="mq-t-meta text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: "var(--mq-text-muted)" }}>
+          {eyebrow}
+        </p>
+        <div
+          className="mq-art mt-3 w-full aspect-square"
+          style={{ borderRadius: "var(--mq-r-card)", backgroundColor: "var(--mq-surface-2)" }}
+          aria-hidden="true"
+        >
+          {track.cover ? (
+            <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" draggable={false} />
+          ) : (
+            <span className="w-full h-full flex items-center justify-center">
+              <Music className="w-8 h-8" style={{ color: "var(--mq-text-muted)" }} />
+            </span>
+          )}
+        </div>
+        <h3
+          className="mq-t-display text-[19px] leading-tight mt-3 break-words"
+          style={{ color: "var(--mq-text)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+        >
+          {track.title}
+        </h3>
+        <p className="mq-t-meta mt-1 truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
+        <div className="flex items-center gap-2 mt-4">
+          <button
+            onClick={onPlay}
+            className="mq-platinum-btn flex items-center gap-1.5 h-10 px-4 rounded-full text-[13px] font-semibold"
+            aria-label={`Слушать ${track.title}`}
+          >
+            <Play className="w-3.5 h-3.5" fill="currentColor" />
+            Слушать
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile (<lg): compact horizontal composition — art 96px + text + play */}
+      <div className="lg:hidden flex items-center gap-3.5">
+        <div
+          className="mq-art flex-shrink-0"
+          style={{ width: 96, height: 96, borderRadius: "var(--mq-r-card)", backgroundColor: "var(--mq-surface-2)" }}
+          aria-hidden="true"
+        >
+          {track.cover ? (
+            <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" draggable={false} />
+          ) : (
+            <span className="w-full h-full flex items-center justify-center">
+              <Music className="w-6 h-6" style={{ color: "var(--mq-text-muted)" }} />
+            </span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="mq-t-meta text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: "var(--mq-text-muted)" }}>
+            {eyebrow}
+          </p>
+          <h3 className="mq-t-display text-[17px] leading-tight mt-1 break-words" style={{ color: "var(--mq-text)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+            {track.title}
+          </h3>
+          <p className="mq-t-meta mt-0.5 truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
+        </div>
+        <button
+          onClick={onPlay}
+          className="mq-platinum-btn w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+          style={{ padding: 0 }}
+          aria-label={`Слушать ${track.title}`}
+        >
+          <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+        </button>
       </div>
     </div>
   );

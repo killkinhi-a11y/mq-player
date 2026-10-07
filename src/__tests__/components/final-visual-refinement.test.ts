@@ -61,7 +61,7 @@ describe("FINAL §2+3 — cards are SOLID; glass stays on the floating layer", (
     expect(css).toMatch(/\.mq-mat-2 \{[\s\S]*?box-shadow: var\(--mq-mat-2-shadow\);/);
   });
 
-  it("mq-glass2/backdrop blur is used ONLY by floating surfaces", () => {
+  it("mq-glass2/backdrop blur is used ONLY by floating surfaces (V2: + primary controls + sticky search strip)", () => {
     const floaters = [
       "src/components/mq/PlayerBar.tsx",
       "src/components/mq/NavBar.tsx",
@@ -69,9 +69,7 @@ describe("FINAL §2+3 — cards are SOLID; glass stays on the floating layer", (
       "src/components/mq/Sidebar.tsx",
     ];
     const content = [
-      "src/components/mq/MainView.tsx",
       "src/components/mq/LibraryView.tsx",
-      "src/components/mq/SearchView.tsx",
       "src/components/mq/SettingsView.tsx",
       "src/components/mq/QueueView.tsx",
     ];
@@ -81,6 +79,15 @@ describe("FINAL §2+3 — cards are SOLID; glass stays on the floating layer", (
     for (const f of content) {
       const src = readSrc(f);
       expect(src, `${f} must not blur its content surfaces`).not.toMatch(/backdropFilter|backdrop-filter/);
+      expect(src, `${f} must not use glass cards`).not.toContain("mq-glass2");
+    }
+    // V2 §10.5/§20: MainView + SearchView are content views BUT their
+    // PRIMARY control (hero play) / floating sticky strip are glass —
+    // exactly ONE blur surface each, everything else stays solid.
+    for (const f of ["src/components/mq/MainView.tsx", "src/components/mq/SearchView.tsx"]) {
+      const src = readSrc(f);
+      const blurs = (src.match(/backdropFilter: "var\(--mq-blur-md\)"|backdropFilter: "blur\(14px\)"/g) || []).length;
+      expect(blurs, `${f}: exactly one floating blur surface (primary control / sticky strip)`).toBe(1);
       expect(src, `${f} must not use glass cards`).not.toContain("mq-glass2");
     }
   });
@@ -106,10 +113,14 @@ describe("FINAL §4 — radius scale", () => {
   });
 });
 
-describe("FINAL §5+7 — platinum progress + accent rarity", () => {
-  it("the flat platinum progress token exists and is a plain gradient", () => {
+describe("FINAL §5+7 + V2 §10 — cold-light progress + accent rarity", () => {
+  it("the progress token exists and is SOLID cold light (no platinum gradient)", () => {
     const css = readSrc("src/styles/materials-v25.css");
-    expect(css).toMatch(/--mq-platinum-progress:\s*\n?\s*linear-gradient/);
+    expect(css).toMatch(/--mq-platinum-progress:\s*\n?\s*color-mix\(in srgb, var\(--mq-platinum-hi\) 90%, var\(--mq-amb-glass/);
+    // V2 §10: the platinum gradient language is retired — the token must
+    // NOT be a linear-gradient anymore.
+    const token = css.match(/--mq-platinum-progress:\s*[\s\S]{0,220}?;/)?.[0] ?? "";
+    expect(token).not.toContain("linear-gradient");
   });
 
   it("ProgressBar (PlayerBar seek) fills with platinum, not red", () => {
