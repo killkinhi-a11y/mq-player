@@ -462,6 +462,22 @@ function SpotifyArtistViewBase({ catalogArtistId, catalogProvider, artistName, o
         <div className="space-y-8">
           {hero}
 
+          {/* Honest empty state: catalog entry exists but has no content
+              (duplicate/secondary profile on the provider). */}
+          {data.topTracks.length === 0 &&
+            data.albums.length === 0 &&
+            data.singles.length === 0 &&
+            data.eps.length === 0 &&
+            data.related.length === 0 && (
+              <div className="mq-empty">
+                <Music2 className="w-7 h-7" style={{ color: "var(--mq-text-muted)" }} />
+                <p className="mq-empty-title">Нет данных по этому исполнителю</p>
+                <p className="mq-empty-hint">
+                  Запись исполнителя в каталоге пуста — попробуйте поискать другой профиль.
+                </p>
+              </div>
+            )}
+
           {/* Popular tracks */}
           {topTrackQueue.length > 0 && (
             <section>

@@ -563,7 +563,12 @@ export default function SearchView() {
     }
     // V2: enrich/insert REAL catalog artists (verified images, follower
     // counts, deep-linkable artist pages) — matched by name, else appended.
-    for (const sp of spotifyArtists.slice(0, 6)) {
+    // Follower-sorted: catalog search often returns duplicate/secondary
+    // artist entries (e.g. regional duplicates) — the main profile wins.
+    const catalogArtists = [...spotifyArtists]
+      .sort((a, b) => (b.followers || 0) - (a.followers || 0))
+      .slice(0, 6);
+    for (const sp of catalogArtists) {
       const key = sp.name.trim().toLowerCase();
       const g = map.get(key);
       if (g) {
