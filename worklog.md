@@ -9284,3 +9284,51 @@ Stage Summary:
   tint + sheen over inline blur) — menus, nav, player surfaces, sidebar
   and all primary controls read as real glass; the regression test pins
   the safe pattern. All V2 search states + themes verified live.
+---
+Task ID: v2-multi-provider
+Agent: main (Super Z)
+Task: MQ V2 — multi-provider music engine (Spotify catalog + PlaybackResolver + provider attribution), full cycle to production
+
+Work Log:
+- Synced local main 0→53 commits behind → fast-forward to ba0f8179 (= production v88 baseline; upload/ pasted images restored, untracked backed up to .backup-upload/)
+- Baseline gates: vitest 1177/1177 (67 files); tsc src 0 after prisma generate; pre-existing lint errors inventoried (FullTrackView/Mobile 5 = 5 after)
+- ANALYSIS: streamResolver.ts = SC stream URL resolution (HLS/DRM), NOT catalog resolver; Track.source union had no spotify; search = SC+Audius only; ArtistDetailView = SC artist-tracks flow; spotify-charts fetcher already had client-credentials token flow (SPOTIFY_CLIENT_ID/SECRET server-side)
+- NEW ENGINE (src/lib/playback/): versions.ts (13 version markers, normalizeText, tokenSimilarity, exactTitle); resolver.ts (scoring: ISRC +100 / title +40 [token-core containment for "Artist - Title" uploads] / artist +40 / duration +20 banded / album +10 / karaoke&cover −100 / slowed&reverb&sped-up −60 / live −50 / remix&instrumental −40 / acoustic −30 / radio-edit&edit&extended −15 / remaster −10 / SNIP −25 / popularity tiebreak ≤4; confidence 0..1; AUTO_PLAY_THRESHOLD 0.6; match cache 7d TTL LRU 500); client.ts (resolveCatalogTrack, buildPlayableTrack, catalogToTrack, userTrackSourcePreference localStorage, local resolve cache); merge.ts (search dedupe: token-core containment + artist sim ≥0.8 + same version class)
+- NEW CATALOG (src/lib/spotify/): catalog.ts (token cache, search/artists/albums/tracks/related/top-tracks/appears-on normalizers, graceful null on unconfigured/unreachable); types.ts (API + DTO shapes)
+- NEW ROUTES: /api/resolve (POST+GET; SC+Audius candidates, prefer/force, lowConfidence honest state), /api/spotify/search, /api/spotify/suggestions, /api/spotify/artist/[id], /api/spotify/album/[id], /api/spotify/track/[id] (all cached, honest configured/unavailable flags)
+- CLIENT: Track model + spotify source + catalogProvider/spotifyId/spotifyArtistId/playbackProvider/playbackId/_resolveConfidence/versionTag (additive); store + catalogResolving/lowConfidencePick/sourceSwitcher/selectedSpotifyAlbum/confirmSourcePick/switchPlaybackSource (position-preserving)/openSourceSwitcher/openSpotifyAlbum; useAudioEngine + lazy resolve branch (source spotify → resolve → swap currentTrack+queue → effect re-runs on normal path) + _seekOnLoad effect for source-switch continuity
+- UI: ProviderBadge/ProviderChain (spotify/soundcloud/audius/mq/local); SourceSheet (low-confidence chooser with "Открыть в Spotify"/"Искать вручную" + manual source switch with confidence %); SpotifyArtistView (hero dominant-color, popular, albums/singles+EPs/appears-on, related; follow/shuffle/play; catalogResolving hint); AlbumDetailView (hero + # | track | duration | source | actions + play/shuffle/queue/open-spotify); SearchView parallel Spotify fetch + mergeSearchResults + Spotify artist rows (followers) + album tiles → album page + Top Result prefers verified artist + badge/versionTag on rows; queue rows + fullscreen players (desktop+mobile) attribution + "Сменить источник"
+- Local QA: /api/spotify/search configured:false (no local creds — honest); /api/resolve goosebumps → fan re-upload (wrong artist) 0.24 lowConfidence → NO autoplay (correct); after containment scoring fix official-style upload = 94
+- GATES: vitest 1259/1259 (72 files; 1177 existing + 82 new — zero regressions); tsc src 0; eslint 0 new (baseline 5=5); production build PASS (new routes compiled)
+- Committed ec28184b (28 files) → pushed main → Vercel production deploy triggered
+
+Stage Summary:
+- Architecture: Catalog (Spotify) → NormalizedTrack → PlaybackResolver → Audio Provider (SC/Audius) → existing MQ engine; catalog/playback never conflated; every surface shows attribution
+- Existing functionality untouched: SC playback, HLS/DRM, WASM, lyrics, wave radio, playlists, yandex import all pass their tests
+- Pending: production deploy verification + live smoke test + security audit (next Task ID)
+---
+Task ID: v2-production-qa
+Agent: main (Super Z)
+Task: V2 multi-provider engine — production deploy verification, Deezer fallback diagnosis, live E2E + security audit
+
+Work Log:
+- Production deploys verified via /version.json: ec28184b → f931a828 (diag) → c9d87640 (probe) → 97e9d2cb (deezer) → db77bb13 (dedup) → f9e486c1 (audius id fix + badges) → a4bcec15 (artist sort + empty state) — FINAL: mq-build-a4bcec15, version 88
+- DIAGNOSIS (critical): /api/spotify/diag probe proved SPOTIFY_CLIENT_ID/SECRET are VALID (token: ok) but the app is in Spotify DEVELOPMENT MODE → ALL Web API endpoints return http-403 (extended quota required). The old charts route's "Spotify" data was actually the Deezer fallback all along. NO code can fix this — needs Spotify app extended-quota approval. Documented for the owner.
+- SOLUTION per multi-provider directive: Deezer open catalog (no auth, ISRC-bearing) as catalog fallback; Spotify lights up automatically when/if API access is granted. Model renamed to provider-aware: catalogProvider (spotify|deezer) + catalogId + catalogArtistId; /api/catalog/* provider-agnostic routes (Spotify preferred, Deezer fallback, honest provider:"none")
+- PRODUCTION E2E (browser 1440x900 + 390x844, demo mode):
+  * SEARCH: /api/catalog/search returns deezer (goosebumps w/ ISRC, FE!N, SICKO MODE; artists w/ followers; albums ASTROWORLD/UTOPIA); search UI shows ТОП-РЕЗУЛЬТАТ (catalog artist) + ТРЕКИ (Deezer-badged catalog rows, deduped vs SC) + АРТИСТЫ + АЛЬБОМЫ sections; 95 rows desktop, 12 deezer badges; mobile 390px: no overflowX, badges render
+  * ARTIST PAGE V2: Daft Punk (id 27, follower-sort fix landed after dup-profile bug 412557421) — hero (5,217,598 слушателей, Deezer badge, Слушать/В избранное) + 10 top tracks + 27 releases + 12 related; top-track click → resolved → PLAYING
+  * ALBUM PAGE V2: Starboy · 2016 · 18 треков · 1:08:33 — full track list (# | track | duration | source | actions), play from album → PLAYING
+  * PLAYBACK RESOLVER: Blinding Lights conf=1.00 → SoundCloud; Snooze 1.00; Bad Guy 1.00; goosebumps honestly low-conf (0.46: SC has only fan re-uploads w/ wrong artist fields) → choose-source UX, never auto-plays wrong track
+  * SOURCE SHEET: switch mode 8 candidates w/ confidence %; mobile sheet fits viewport (390x844, inViewport); switch executed on mobile → playback continued, badges deezer→soundcloud
+  * ATTRIBUTION: fullscreen player desktop + mobile show ProviderChain "dual" (deezer → soundcloud); "Сменить источник" button on both
+- BUGS FOUND+FIXED live: (1) audius engine used composite catalog id on stream URL → 400; now uses native playbackId + getAudiusStream hardened for composite ids (2) badge condition only matched spotify catalogProvider → deezer rows badgeless; now any catalogProvider (3) Deezer artist duplicates (regional second profiles) won over main profiles → follower-sorted (4) content-less artist profiles → honest empty state
+- SECURITY AUDIT: (a) src/lib/spotify/catalog.ts + src/lib/deezer/catalog.ts imported ONLY by API routes; client components use `import type` only (b) built client chunks: 0 hits for SPOTIFY_CLIENT_SECRET/client_secret/grant_type (c) 0 hits for api.spotify.com/accounts.spotify.com in client bundle (d) production HTML: 0 secret indicators (e) API responses: no tokens/secrets (diag returns status classes only) (f) browser console: 0 page errors (g) secrets only in Vercel env, server-side
+- FINAL SMOKE: /api/catalog/{search,artist,album,track} 200; /api/spotify/{search,diag} 200; /api/resolve conf=1.00; regression: music/search, music/trending, music/spotify-charts, music/lyrics all 200
+- QA artifacts: download/qa-v2/ (desktop-search-catalog, desktop-artist-page(+playing), desktop-album-page, desktop-fullplayer-attribution, mobile-search-catalog, mobile-fullplayer, mobile-source-sheet)
+- Test gates at final commit: vitest 1263/1263 (73 files; 1177 baseline + 86 V2), tsc src 0 errors, eslint 0 new (baseline 5=5), production build PASS ×5
+
+Stage Summary:
+- V2 multi-provider engine LIVE in production: Catalog (Spotify-ready/Deezer-active) → PlaybackResolver → Audio (SoundCloud/Audius) → existing MQ engine, with honest attribution everywhere
+- BLOCKER documented: Spotify Web API 403 for this app (development mode) — needs extended quota in Spotify Developer Dashboard; Deezer fallback covers the full catalog experience meanwhile
+- Zero regressions; existing deploy settings/domain/project untouched (same Vercel project mq1.vercel.app, auto-deploy from main)
