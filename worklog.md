@@ -9066,3 +9066,78 @@ Stage Summary:
   selected identities speak platinum; all 14 tabs share one material
   language (verified by DOM probes + VLM on production screenshots).
   No functional regressions (1120/1120 incl. seek contracts).
+
+---
+Task ID: final-design-completion
+Agent: main (Super Z)
+Task: MQ FINAL DESIGN COMPLETION — theme-aware background environment (§0-§2) + search full redesign (§3-§11) + remaining visual work closure (§12-§26) on top of mq-build-138fab12
+
+Work Log:
+- THEME-AWARE ENVIRONMENT: themes.ts — every theme (26) now ships a full
+  ambient spec (pool/poolAlt/deep/deepAlt/haze/inkTop/inkFloor/floor/
+  glass/platinum/vignette/grain/waveBase/waveHue); applyThemeToDOM
+  publishes 15 --mq-amb-*/wave vars. globals.css — ambient layers consume
+  the registered vars (STRENGTHS stay global: 16/14/11/12/9/6.5% → no
+  theme can turn neon); Daylight light-room physics (multiply grain,
+  softer haze/vignette via .daylight-theme).
+- THEME TRANSITION §1: 22 @property registrations (ambient + core surface
+  colors) + html.mq-theme-switch transitions them at 850ms → background +
+  cards + glass + accent cross-fade as ONE material system (choreography
+  window 450→1000ms; surfaces 0.35→0.5s). Mid-transition frame VLM: SMOOTH,
+  no flash/FOUC.
+- MATERIALS: --mq-g2-tint = theme glass (8.5%); platinum refl/violet carry
+  a 28% theme mix. WaveAmbientBackground: publish effect deps fixed to
+  [palette, currentTheme] (with a track playing, palette is the STABLE
+  extracted.p → tint literal went stale on theme switch; reproduced +
+  verified via debug-g2tint.mjs; fix live on prod).
+- WAVE theme-aware: deriveWavePalette(dc, anchorHueDeg) — achromatic
+  covers anchor on the theme hue; defaultPaletteForHue() (226 ===
+  DEFAULT_WAVE_PALETTE exactly → zero SSR/JS discontinuity); wave floor =
+  theme-tinted --mq-wave-base; WaveAmbientBackground subscribes
+  currentTheme.
+- SEARCH REDESIGN: editorial mixed-density results (TOP RESULT hero card
+  [solid §18, .mq-search-topresult] + 4 preview track rows + Артисты rows
+  + Альбомы tiles + Ваши плейлисты + Все треки with filters); discovery
+  state from real data (Быстрый доступ + Слушали недавно [history] +
+  Недавние + Популярные); compact solid field 46/48px; 3D stagger → calm
+  200ms rise (§19). Settings swatches preview each theme's ambient
+  character. Queue: px-5 gutter parity (one column rhythm).
+- TESTS: NEW final-design-completion.test.ts (+52 contracts: complete
+  ambient spec per theme, distinct atmospheres, @property + 850ms
+  choreography, glass/platinum theme mix, wave anchor/default palette,
+  search editorial sections/field/motion/discovery, solid topresult).
+  wave-v25 + FCP pins updated to theme-aware spec. 1172/1172 PASS · tsc
+  clean · eslint 564 (55 pre-existing errors = parity, +4 img warnings) ·
+  build green ×3.
+- QA LOCAL (scripts/final-design/): 41-shot matrix — 6 themes ×
+  (NORMAL+WAVE) homes + mid-transition, search d+m states, 12 desktop
+  tabs + 6 mobile tabs; probes: ambient distinct per theme, topResult,
+  overflow 0 d+m, sub44 0. VLM: THEMES-DISTINCT ("visually distinct in
+  hue and mood... product identity preserved"), WAVE-THEME-AWARE,
+  DISCOVERY-STATE, EDITORIAL-MIXED, PREMIUM-NEUTRAL focus, MOBILE-COMPOSED,
+  LIGHT-THEME-OK, tabs UNIFIED, queue COHERENT after fix,
+  AFTER-BETTER ×4 (results d+m, empty state).
+- PROD BEFORE (mq-build-138fab12): search = old flat list (topResult
+  false, 80 identical rows); --mq-amb-pool UNSET (no theme ambient).
+- DEPLOY: c42f64d1 → aba25a28 (glass-tint deps fix). PRODUCTION
+  VERIFIED on mq-build-aba25a28: ambient vars live + distinct per theme
+  (Obsidian/Abyss/Borealis/Daylight pools rgb(154,163,178)/(127,168,201)/
+  (143,184,168)/(223,230,242)); g2tint follows theme (fix verified);
+  platinumRefl carries theme mix; focus ring color(srgb .96/.96/.96/.55)
+  2px neutral; search editorial live (topResult/artists/albums/allTracks,
+  92 rows); mobile topResult + overflowX 0 + sub44 0; console = only
+  pre-existing demo-mode noise (turnstile CSP/401/400). VLM prod:
+  THEMES-DISTINCT, WAVE-THEME-AWARE, Daylight wave INTENTIONAL-CONTRAST-OK,
+  search EDITORIAL-PREMIUM.
+- Artifacts: scripts/final-design/* (qa-capture, prod-after, extras,
+  debug-g2tint, make-compare, vlm-audit), download/qa-final-design/
+  {local, prod(before), prod-after, compare}.
+
+Stage Summary:
+- Production = mq-build-aba25a28. A theme is now an ATMOSPHERE (ambient
+  pools/deep/haze/vignette/grain/glass/platinum/wave base per theme,
+  850ms unified cross-fade) and Search is a real discovery screen
+  (editorial mixed-density results + real-data empty state). 6 themes
+  visually verified local + 4 on production; search BEFORE/AFTER proof
+  captured from real production. 1172/1172 tests, no functional surface
+  touched (playback/queue/lyrics/sources/auth/wave engine intact).
