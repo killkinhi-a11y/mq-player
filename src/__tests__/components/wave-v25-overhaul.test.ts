@@ -133,13 +133,24 @@ describe("V2.5 §2 — dual ambient: calm editorial vs liquid WAVE", () => {
     expect(shell).toMatch(/<AmbientBackground \/>/); // unconditional mount
   });
 
-  it("globals define the editorial graphite/navy light pools", () => {
+  it("globals define the editorial light pools (THEME-AWARE, fixed strengths)", () => {
     const css = readSrc("src/app/globals.css");
-    // DESIGN COMPLETION: the living editorial atmosphere — strengthened
-    // until VISIBLE on screenshots between dense cards (VLM-verified).
-    expect(css).toContain("#9aa3b2 16%"); // graphite pool
-    expect(css).toContain("#44598a 14%"); // cold navy whisper
-    expect(css).toContain("#2c3a67 12%"); // indigo breath
+    // FINAL DESIGN COMPLETION §0: the atmosphere is a THEME-AWARE
+    // environment — the pool colors come from the active theme's ambient
+    // spec (registered @property vars, cross-faded by the theme-switch
+    // choreography) while the STRENGTHS stay global so no theme turns
+    // neon. Obsidian defaults are pinned in :root + @property blocks.
+    expect(css).toContain("var(--mq-amb-pool) 16%"); // primary theme light
+    expect(css).toContain("var(--mq-amb-pool-alt) 14%"); // theme colour voice
+    expect(css).toContain("var(--mq-amb-deep) 12%"); // second register
+    // the registrations that make a theme switch CROSS-FADE (§1)
+    expect(css).toMatch(/@property --mq-amb-pool \{ syntax: "<color>"/);
+    expect(css).toMatch(/@property --mq-bg \{ syntax: "<color>"/);
+    expect(css).toContain("--mq-amb-pool 850ms");
+    // per-theme specs exist for every theme (themes.ts)
+    const themesSrc = readSrc("src/lib/themes.ts");
+    expect(themesSrc).toMatch(/ambient: amb\(/);
+    expect(themesSrc).toContain("--mq-amb-pool");
   });
 
   it("WaveHome's local wash reads the WAVE scene palette (--wave-color-*)", () => {

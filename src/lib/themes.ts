@@ -1,3 +1,34 @@
+export interface ThemeAmbient {
+  /** Primary light pool — the room's main light (graphite glow / theme tone). */
+  pool: string;
+  /** Secondary register pool — the theme's colour voice, right of center. */
+  poolAlt: string;
+  /** Deep mass #1 — the second, deeper register of the room. */
+  deep: string;
+  /** Deep mass #2 — companion of deep, slightly offset hue. */
+  deepAlt: string;
+  /** Luminous haze — the "air" bloom behind the content column + top light. */
+  haze: string;
+  /** Ink mixed over --mq-bg at the TOP of the floor gradient. */
+  inkTop: string;
+  /** Ink mixed over --mq-bg at the BOTTOM of the floor gradient. */
+  inkFloor: string;
+  /** Floor glow pool color (bottom of the room). */
+  floor: string;
+  /** Glass tint — the Liquid Glass hue for floating surfaces. */
+  glass: string;
+  /** Platinum reflection tint — subtly shifts the platinum family hue. */
+  platinum: string;
+  /** Full vignette color WITH alpha (outer edge of the room). */
+  vignette: string;
+  /** Grain opacity (0..0.05). */
+  grain: number;
+  /** WAVE dark base — the near-black tinted floor behind the liquid scene. */
+  waveBase: string;
+  /** WAVE anchor hue (deg 0..360) — used when artwork is achromatic. */
+  waveHue: number;
+}
+
 export interface ThemeConfig {
   id: string;
   name: string;
@@ -14,7 +45,29 @@ export interface ThemeConfig {
   gradient: string;
   glowColor: string;
   className?: string;
+  /**
+   * THEME-AWARE ENVIRONMENT (FINAL DESIGN COMPLETION §0):
+   * a theme is not an accent swap — it is an ATMOSPHERE. The ambient
+   * spec drives the normal background (light pools, deep masses, haze,
+   * vignette, grain), the glass tint, the platinum reflection and the
+   * WAVE base. Must stay CALM (strengths are fixed in CSS) — identity
+   * through hue, never through loudness.
+   */
+  ambient: ThemeAmbient;
 }
+
+/* ── Ambient helpers ──────────────────────────────────────────────────
+   Every ambient uses the SAME layer geometry (globals.css); only the
+   COLORS change. Strengths stay global so no theme can turn neon. */
+const amb = (
+  pool: string, poolAlt: string, deep: string, deepAlt: string,
+  haze: string, inkTop: string, inkFloor: string, floor: string,
+  glass: string, platinum: string, waveHue: number, waveBase: string,
+  grain = 0.035, vignette = "rgba(0, 0, 0, 0.32)",
+): ThemeAmbient => ({
+  pool, poolAlt, deep, deepAlt, haze, inkTop, inkFloor, floor,
+  glass, platinum, vignette, grain, waveBase, waveHue,
+});
 
 export const themes: Record<string, ThemeConfig> = {
   default: {
@@ -32,6 +85,9 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#0e0e0eee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(224,49,49,0.08) 0%, transparent 50%)",
     glowColor: "rgba(224,49,49,0.3)",
+    // graphite + cold navy — the reference editorial room
+    ambient: amb("#9aa3b2", "#44598a", "#2c3a67", "#37416b", "#b9c4dd",
+      "#10141f", "#0c1018", "#6d7686", "#e2e8f0", "#8fa3c8", 226, "#05070d"),
   },
   ocean: {
     id: "ocean",
@@ -48,7 +104,9 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#0a1628ee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(14,165,233,0.1) 0%, transparent 50%)",
     glowColor: "rgba(14,165,233,0.3)",
-    className: "ocean-theme",
+    // deep blue + cyan haze
+    ambient: amb("#7fa8c9", "#2b6a9e", "#16406b", "#123257", "#a8d4e8",
+      "#0a1626", "#081220", "#3f6e96", "#cfe4f2", "#9cc4de", 210, "#040a14"),
   },
   neon: {
     id: "neon",
@@ -65,7 +123,9 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#0a0a0aee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(244,63,94,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(168,85,247,0.06) 0%, transparent 40%)",
     glowColor: "rgba(244,63,94,0.35)",
-    className: "neon-theme",
+    // graphite + muted magenta/rose atmosphere
+    ambient: amb("#a894ae", "#8a3a5c", "#47224a", "#3a1d40", "#d8b8d2",
+      "#171320", "#120e18", "#6d5f74", "#ecd8e8", "#c894b4", 330, "#0d0510"),
   },
   sunset: {
     id: "sunset",
@@ -82,7 +142,9 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#1a100aee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(249,115,22,0.1) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(234,88,12,0.06) 0%, transparent 40%)",
     glowColor: "rgba(249,115,22,0.35)",
-    className: "sunset-theme",
+    // graphite + muted burgundy/amber
+    ambient: amb("#b39a86", "#96502e", "#4a2a1c", "#3d241a", "#e0c4a4",
+      "#1c1410", "#16100c", "#7a6250", "#f0dcc4", "#d4a884", 25, "#0e0806"),
   },
   aurora: {
     id: "aurora",
@@ -99,7 +161,9 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#0a0f14ee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(52,211,153,0.08) 0%, transparent 50%), radial-gradient(ellipse at 70% 30%, rgba(56,189,248,0.05) 0%, transparent 40%)",
     glowColor: "rgba(52,211,153,0.3)",
-    className: "aurora-theme",
+    // dark emerald + teal atmosphere
+    ambient: amb("#8fb8a8", "#2d6e5e", "#16443c", "#123a35", "#b8e0d0",
+      "#0a1614", "#081210", "#43705f", "#d0ece0", "#9ccab8", 160, "#040c0a"),
   },
   cyberpunk: {
     id: "cyberpunk",
@@ -116,7 +180,9 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#0d0015ee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(255,42,109,0.1) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(5,217,232,0.06) 0%, transparent 40%)",
     glowColor: "rgba(255,42,109,0.35)",
-    className: "cyberpunk-theme",
+    // deep violet + magenta whisper
+    ambient: amb("#9a8ab8", "#7a2a6e", "#3a1466", "#2c1050", "#c0b0e8",
+      "#120a1e", "#0d0716", "#5f5080", "#ddd0f0", "#b48fd8", 285, "#08040f"),
   },
   synthwave: {
     id: "synthwave",
@@ -133,7 +199,9 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#120a20ee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(224,64,251,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(255,110,64,0.05) 0%, transparent 40%)",
     glowColor: "rgba(224,64,251,0.3)",
-    className: "synthwave-theme",
+    // deep indigo + violet atmosphere
+    ambient: amb("#9a90c0", "#6a3a9e", "#32205e", "#2a1a4e", "#cdbaf0",
+      "#120c20", "#0e0918", "#5c5085", "#ded2f4", "#b49ae0", 265, "#070512"),
   },
   midnight: {
     id: "midnight",
@@ -150,7 +218,10 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#000000ee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(255,255,255,0.03) 0%, transparent 50%)",
     glowColor: "rgba(255,255,255,0.15)",
-    className: "midnight-theme",
+    // pure graphite + silver — monochrome studio
+    ambient: amb("#a8a8b0", "#565964", "#2a2c34", "#23252c", "#c8c8d2",
+      "#101014", "#0c0c10", "#6a6a74", "#e4e4ea", "#b8b8c4", 220, "#050506",
+      0.03, "rgba(0, 0, 0, 0.38)"),
   },
   black: {
     id: "black",
@@ -167,7 +238,10 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#000000ee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(224,49,49,0.06) 0%, transparent 50%)",
     glowColor: "rgba(224,49,49,0.2)",
-    className: "black-theme",
+    // near-black + the faintest red whisper
+    ambient: amb("#8a8a90", "#3a2a2e", "#1c1216", "#160f12", "#a8a8b0",
+      "#0a0a0c", "#060608", "#4a4a50", "#d8d8de", "#989098", 350, "#030304",
+      0.03, "rgba(0, 0, 0, 0.4)"),
   },
   "liquid-glass": {
     id: "liquid-glass",
@@ -184,9 +258,11 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "rgba(10,15,26,0.9)",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(59,130,246,0.12) 0%, transparent 50%), radial-gradient(ellipse at 80% 30%, rgba(168,85,247,0.08) 0%, transparent 40%)",
     glowColor: "rgba(59,130,246,0.3)",
-    className: "liquid-glass-theme",
+    // deep blue + blue/violet haze
+    ambient: amb("#90b0d8", "#3a5a9e", "#1e3a6e", "#182e58", "#c0d8f0",
+      "#0c1424", "#0a101c", "#4a6a9a", "#d8e8f8", "#a4c0e0", 220, "#050a16"),
   },
-  "sakura": {
+  sakura: {
     id: "sakura",
     name: "Sakura",
     background: "#1a1015",
@@ -201,9 +277,11 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#1a1015ee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(244,114,182,0.1) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(251,113,133,0.06) 0%, transparent 40%)",
     glowColor: "rgba(244,114,182,0.35)",
-    className: "sakura-theme",
+    // warm graphite + rose
+    ambient: amb("#b8a0ac", "#9e5068", "#4a2434", "#3e1e2c", "#e8c8d2",
+      "#181016", "#120c10", "#7a6068", "#f0dce4", "#d8a4b4", 340, "#0c060a"),
   },
-  "frost": {
+  frost: {
     id: "frost",
     name: "Frost",
     background: "#0c1520",
@@ -218,7 +296,9 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#0c1520ee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(56,189,248,0.1) 0%, transparent 50%), radial-gradient(ellipse at 80% 30%, rgba(165,180,252,0.06) 0%, transparent 40%)",
     glowColor: "rgba(56,189,248,0.3)",
-    className: "frost-theme",
+    // steel blue + ice haze
+    ambient: amb("#a0c0dc", "#4a7aa8", "#1e3f60", "#183450", "#d0e4f4",
+      "#0c1622", "#0a121c", "#50748f", "#e0eef8", "#accbe0", 205, "#050b12"),
   },
   volcano: {
     id: "volcano",
@@ -235,7 +315,10 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#1a0a0aee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(255,69,0,0.12) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(255,140,0,0.06) 0%, transparent 40%)",
     glowColor: "rgba(255,69,0,0.35)",
-    className: "volcano-theme",
+    // dark maroon + ember
+    ambient: amb("#b89080", "#8a3820", "#431812", "#361410", "#e0b8a0",
+      "#170c0a", "#100806", "#6e4a3c", "#f0d8c8", "#d09470", 15, "#0b0403",
+      0.035, "rgba(8, 2, 0, 0.34)"),
   },
   arctic: {
     id: "arctic",
@@ -252,7 +335,9 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#0a1520ee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(136,204,255,0.1) 0%, transparent 50%), radial-gradient(ellipse at 80% 30%, rgba(180,220,255,0.06) 0%, transparent 40%)",
     glowColor: "rgba(136,204,255,0.3)",
-    className: "arctic-theme",
+    // arctic blue + ice white air
+    ambient: amb("#a8cce8", "#4a82b4", "#1c405e", "#16344e", "#d8ecfa",
+      "#0a141f", "#081019", "#4a7494", "#e4f2fc", "#b0d4ec", 200, "#040a12"),
   },
   phantom: {
     id: "phantom",
@@ -269,7 +354,9 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#111111ee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(167,139,250,0.1) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(129,140,248,0.06) 0%, transparent 40%)",
     glowColor: "rgba(167,139,250,0.3)",
-    className: "phantom-theme",
+    // graphite + violet
+    ambient: amb("#a294bc", "#5f4a99", "#2e2450", "#261e42", "#c8b8e4",
+      "#100c1a", "#0c0914", "#5c5080", "#e0d8f0", "#b0a0d4", 260, "#060410"),
   },
   daylight: {
     id: "daylight",
@@ -289,7 +376,10 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "rgba(248,249,250,0.95)",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(201,42,42,0.06) 0%, transparent 50%)",
     glowColor: "rgba(201,42,42,0.15)",
-    className: "daylight-theme",
+    // LIGHT room: silver daylight, soft blue-gray shadow pools, paper air
+    ambient: amb("#dfe6f2", "#c4cee2", "#aeb9d0", "#b8c2d6", "#ffffff",
+      "#ffffff", "#eceef4", "#c8d0de", "#ffffff", "#8fa3c8", 220, "#dfe3ec",
+      0.022, "rgba(105, 112, 128, 0.14)"),
   },
   // ===== Seasonal Themes =====
   halloween: {
@@ -307,7 +397,10 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#0d0a00ee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(255,102,0,0.12) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(180,83,9,0.08) 0%, transparent 40%)",
     glowColor: "rgba(255,102,0,0.35)",
-    className: "halloween-theme",
+    // dark umber + pumpkin ember
+    ambient: amb("#b09a70", "#9e5810", "#40260a", "#341e08", "#dcc08c",
+      "#171008", "#110b05", "#6e5a34", "#ecdcb4", "#cc9448", 30, "#0a0600",
+      0.038, "rgba(6, 3, 0, 0.34)"),
   },
   newyear: {
     id: "newyear",
@@ -324,7 +417,9 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#0a0510ee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(251,191,36,0.1) 0%, transparent 50%), radial-gradient(ellipse at 60% 30%, rgba(167,139,250,0.06) 0%, transparent 40%), radial-gradient(ellipse at 90% 80%, rgba(239,68,68,0.05) 0%, transparent 30%)",
     glowColor: "rgba(251,191,36,0.35)",
-    className: "newyear-theme",
+    // deep indigo night + gold candlelight
+    ambient: amb("#a8a4c4", "#8a7434", "#2c2450", "#241e42", "#d0cce8",
+      "#100c1c", "#0c0916", "#5c567e", "#e4e0f4", "#d4b464", 250, "#060410"),
   },
   valentine: {
     id: "valentine",
@@ -341,7 +436,9 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#150810ee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(244,63,94,0.12) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(251,113,133,0.08) 0%, transparent 40%), radial-gradient(ellipse at 50% 20%, rgba(253,164,175,0.06) 0%, transparent 35%)",
     glowColor: "rgba(244,63,94,0.35)",
-    className: "valentine-theme",
+    // dark plum + rose
+    ambient: amb("#bc98a8", "#9e3a54", "#47203a", "#3b1a30", "#ecc0d0",
+      "#180e14", "#120a0e", "#7c5868", "#f4d8e0", "#dc9aac", 345, "#0c0508"),
   },
   spring: {
     id: "spring",
@@ -358,7 +455,9 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#0a120aee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(74,222,128,0.1) 0%, transparent 50%), radial-gradient(ellipse at 70% 30%, rgba(134,239,172,0.06) 0%, transparent 40%)",
     glowColor: "rgba(74,222,128,0.3)",
-    className: "spring-theme",
+    // deep green + fresh air
+    ambient: amb("#9cc494", "#3e8a4a", "#1c4a2e", "#164026", "#c8e8c0",
+      "#0c140c", "#081008", "#4a7050", "#d8f0d0", "#a0cca0", 130, "#040a05"),
   },
   summer: {
     id: "summer",
@@ -375,7 +474,9 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#151008ee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(250,204,21,0.12) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(249,115,22,0.08) 0%, transparent 40%)",
     glowColor: "rgba(250,204,21,0.35)",
-    className: "summer-theme",
+    // dark sand + warm gold
+    ambient: amb("#c8b478", "#b07a20", "#4e3612", "#402c0e", "#f0dca4",
+      "#181208", "#120d05", "#7c6838", "#f8ecc4", "#e0b45c", 45, "#0d0904"),
   },
   autumn: {
     id: "autumn",
@@ -392,7 +493,9 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#120a05ee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(217,119,6,0.12) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(180,83,9,0.08) 0%, transparent 40%)",
     glowColor: "rgba(217,119,6,0.35)",
-    className: "autumn-theme",
+    // dark umber + amber
+    ambient: amb("#bc9a78", "#965418", "#452a10", "#38220c", "#e4c8a0",
+      "#161008", "#100b06", "#74603f", "#f0dcbc", "#d0a060", 28, "#0a0603"),
   },
   stpatrick: {
     id: "stpatrick",
@@ -409,7 +512,9 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#050d05ee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(34,197,94,0.12) 0%, transparent 50%), radial-gradient(ellipse at 80% 30%, rgba(74,222,128,0.06) 0%, transparent 40%)",
     glowColor: "rgba(34,197,94,0.35)",
-    className: "stpatrick-theme",
+    // deep emerald
+    ambient: amb("#90c098", "#2a7a3e", "#14452a", "#103a22", "#b8e4c0",
+      "#081208", "#060e06", "#3e6c4c", "#ccf0d4", "#84c898", 140, "#030a05"),
   },
   streaming: {
     id: "streaming",
@@ -426,7 +531,9 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "rgba(18,18,18,0.92)",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(229,62,62,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(128,90,213,0.06) 0%, transparent 40%)",
     glowColor: "rgba(229,62,62,0.3)",
-    className: "streaming-theme",
+    // graphite + red/violet media room
+    ambient: amb("#a0a2b4", "#6e3a44", "#2c2438", "#241e30", "#c8c4dc",
+      "#121018", "#0e0c12", "#5a5468", "#dcd8e8", "#a894c0", 255, "#07050c"),
   },
   easter: {
     id: "easter",
@@ -443,7 +550,9 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#0f0a12ee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(192,132,252,0.1) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(232,121,249,0.06) 0%, transparent 40%), radial-gradient(ellipse at 50% 20%, rgba(251,191,36,0.04) 0%, transparent 30%)",
     glowColor: "rgba(192,132,252,0.3)",
-    className: "easter-theme",
+    // dark violet + pastel air
+    ambient: amb("#ac9cc8", "#7e5cc0", "#34245e", "#2a1e4e", "#d8ccf0",
+      "#100a1c", "#0c0816", "#584c80", "#e4dcf4", "#b89ce0", 270, "#06040e"),
   },
   blood: {
     id: "blood",
@@ -460,7 +569,10 @@ export const themes: Record<string, ThemeConfig> = {
     navBg: "#080404ee",
     gradient: "radial-gradient(ellipse at 20% 50%, rgba(204,0,0,0.12) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(139,0,0,0.08) 0%, transparent 40%), radial-gradient(ellipse at 50% 80%, rgba(180,0,0,0.05) 0%, transparent 35%)",
     glowColor: "rgba(204,0,0,0.4)",
-    className: "blood-theme",
+    // near-black + crimson breath
+    ambient: amb("#a8888c", "#7e1a22", "#38080e", "#2c060a", "#d0a8ac",
+      "#140608", "#0e0406", "#603a3e", "#e8ccce", "#c05860", 355, "#070203",
+      0.037, "rgba(10, 0, 0, 0.38)"),
   },
 };
 
@@ -493,6 +605,25 @@ export function applyThemeToDOM(theme: ThemeConfig, customAccent?: string) {
   root.style.setProperty("--mq-gradient", theme.gradient);
   root.style.setProperty("--mq-glow", theme.glowColor);
 
+  /* ── THEME-AWARE ENVIRONMENT (§0): the atmosphere layer ──
+     Registered @property colors (globals.css) so the whole room
+     cross-fades as one material system during a theme switch. */
+  const a = theme.ambient;
+  root.style.setProperty("--mq-amb-pool", a.pool);
+  root.style.setProperty("--mq-amb-pool-alt", a.poolAlt);
+  root.style.setProperty("--mq-amb-deep", a.deep);
+  root.style.setProperty("--mq-amb-deep-alt", a.deepAlt);
+  root.style.setProperty("--mq-amb-haze", a.haze);
+  root.style.setProperty("--mq-amb-ink-top", a.inkTop);
+  root.style.setProperty("--mq-amb-ink-floor", a.inkFloor);
+  root.style.setProperty("--mq-amb-floor", a.floor);
+  root.style.setProperty("--mq-amb-glass", a.glass);
+  root.style.setProperty("--mq-amb-platinum", a.platinum);
+  root.style.setProperty("--mq-amb-vignette", a.vignette);
+  root.style.setProperty("--mq-amb-grain", String(a.grain));
+  root.style.setProperty("--mq-wave-base", a.waveBase);
+  root.style.setProperty("--mq-wave-anchor-h", String(a.waveHue));
+
   // P1.2: Set --mq-accent-rgb so rgba(var(--mq-accent-rgb), α) works
   // Previously this was never set — the static "224,49,49" from
   // design-tokens.css always won, making alpha-blended accents red
@@ -514,11 +645,14 @@ export function applyThemeToDOM(theme: ThemeConfig, customAccent?: string) {
   // (the previous always-on blanket rule overrode every component's own
   // transition timing). First application (initial load) skips the
   // animation — no flash of intermediate colors on boot.
+  // FINAL DESIGN COMPLETION §1: the choreography window now covers the
+  // full 850ms registered-property cross-fade (was 450ms) so background,
+  // cards, glass tint and accent arrive as ONE material system.
   if (!root.dataset.mqThemeApplied) {
     root.dataset.mqThemeApplied = "1";
   } else {
     root.classList.add("mq-theme-switch");
-    window.setTimeout(() => root.classList.remove("mq-theme-switch"), 450);
+    window.setTimeout(() => root.classList.remove("mq-theme-switch"), 1000);
   }
 }
 

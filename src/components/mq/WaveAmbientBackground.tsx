@@ -68,13 +68,16 @@
  * Unmount cancels rAF, removes listeners and releases the GL context.
  */
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState, useMemo } from "react";
 import { extractColors } from "@/hooks/useDominantColor";
 import type { DominantColors } from "@/hooks/useDominantColor";
 import { useAppStore } from "@/store/useAppStore";
 import type { Track } from "@/lib/musicApi";
+import { themes } from "@/lib/themes";
 import {
   DEFAULT_WAVE_PALETTE,
+  DEFAULT_WAVE_ANCHOR_HUE,
+  defaultPaletteForHue,
   deriveWavePalette,
   hexToRgb,
   lerpPalette,
@@ -583,11 +586,25 @@ export const WaveAmbientBackground = memo(function WaveAmbientBackground({
         inactive, so the scene is instantly ready when the Wave turns on).
         The DEFAULT is DERIVED at render (no state) — only real extractions
         go through state, always asynchronously (no sync setState in
-        effects → no cascading renders). ── */
+        effects → no cascading renders).
+        THEME-AWARE (§0): the fallback room anchors on the ACTIVE THEME's
+        hue (ambient spec) — WAVE respects the theme while the artwork
+        stays the primary voice. ── */
   const trackId = currentTrack?.id ?? null;
   const coverUrl = currentTrack?.cover ?? null;
   const [extracted, setExtracted] = useState<{ id: string; p: WavePalette } | null>(null);
-  const palette = extracted && extracted.id === trackId ? extracted.p : DEFAULT_WAVE_PALETTE;
+  const currentTheme = useAppStore((s) => s.currentTheme);
+  const themeHue = useMemo(() => {
+    const t = themes[currentTheme];
+    return t?.ambient?.waveHue ?? DEFAULT_WAVE_ANCHOR_HUE;
+  }, [currentTheme]);
+  const palette = useMemo<WavePalette>(() => {
+    if (extracted && extracted.id === trackId) return extracted.p;
+    // No track / no artwork → the THEME-anchored default room
+    if (!trackId || !coverUrl) return defaultPaletteForHue(themeHue);
+    // Extraction pending → cold default (theme-anchored once it resolves)
+    return defaultPaletteForHue(themeHue);
+  }, [extracted, trackId, coverUrl, themeHue]);
 
   useEffect(() => {
     if (!trackId || !coverUrl) return; // no track → derived DEFAULT, nothing to do
@@ -602,14 +619,15 @@ export const WaveAmbientBackground = memo(function WaveAmbientBackground({
     let cancelled = false;
     extractColors(coverUrl).then((dc: DominantColors) => {
       if (cancelled) return;
-      const p = deriveWavePalette(dc);
+      // Achromatic covers anchor on the theme hue (§0)
+      const p = deriveWavePalette(dc, themeHue);
       paletteCache.set(trackId, p);
       setExtracted({ id: trackId, p });
     });
     return () => {
       cancelled = true;
     };
-  }, [trackId, coverUrl]);
+  }, [trackId, coverUrl, themeHue]);
 
   /* ── publish CSS variables (fallback layer + future Wave UI hooks) ── */
   useEffect(() => {
@@ -638,7 +656,15 @@ export const WaveAmbientBackground = memo(function WaveAmbientBackground({
     const tintA = 0.055 + (1 - lum) * 0.04;   // 5.5%–9.5% white-ish
     const veilA = Math.min(0.14, lum * 0.14);  // 0–14% dark veil
     root.style.setProperty("--mq-backdrop-lum", lum.toFixed(3));
-    root.style.setProperty("--mq-g2-tint", `rgba(226, 232, 240, ${tintA.toFixed(3)})`);
+    /* THEME-AWARE GLASS TINT (§0): the tint literal carries the ACTIVE
+       THEME's glass hue (from the ambient spec) instead of a fixed cold
+       white — the floating layer speaks the theme's colour voice. */
+    const themeGlass = themes[useAppStore.getState().currentTheme]?.ambient?.glass || "#e2e8f0";
+    const glassRgb = hexToRgb(themeGlass.startsWith("#") ? themeGlass : "#e2e8f0");
+    root.style.setProperty(
+      "--mq-g2-tint",
+      `rgba(${glassRgb[0]}, ${glassRgb[1]}, ${glassRgb[2]}, ${tintA.toFixed(3)})`,
+    );
     root.style.setProperty("--mq-g2-veil", `rgba(3, 5, 10, ${veilA.toFixed(3)})`);
   }, [palette]);
 

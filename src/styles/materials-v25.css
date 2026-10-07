@@ -38,7 +38,11 @@
      tint/veil pair with JS-computed literals while the liquid scene is
      up. NO calc(), NO color-mix inside var() fallbacks (pipeline drops
      those). Plain color-mix in the VALUE is fine and theme-aware. */
-  --mq-g2-tint: color-mix(in srgb, var(--mq-text) 8%, transparent);
+  /* THEME-AWARE GLASS TINT (§0): the glass hue follows the theme's
+     ambient spec (registered color → cross-fades on switch). While the
+     WAVE scene is live, WaveAmbientBackground publishes content-aware
+     literal overrides on top (JS-computed from artwork luminance). */
+  --mq-g2-tint: color-mix(in srgb, var(--mq-amb-glass, #e2e8f0) 8.5%, transparent);
   /* deeper veil = real tonal separation from the content behind */
   --mq-g2-veil: rgba(4, 7, 14, 0.30);
   --mq-g2-sheen: color-mix(in srgb, var(--mq-text) 4.5%, transparent);
@@ -59,12 +63,13 @@
   --mq-glass-veil-player: rgba(4, 7, 14, 0.24);
   --mq-glass-veil-dock: rgba(4, 7, 14, 0.2);
 
-  /* ── Liquid Platinum palette (fixed, cold, premium) ─────────────────── */
+  /* ── Liquid Platinum palette (cold, premium; reflection hues follow the
+     THEME ambient (§0) — a whisper of the theme's colour voice, 28% mix) ── */
   --mq-platinum-base: #22252d;      /* dark silver */
   --mq-platinum-lift: #343947;      /* lit silver edge */
   --mq-platinum-hi: #e9edf5;        /* cold white specular */
-  --mq-platinum-refl: #8fa3c8;      /* blue reflection */
-  --mq-platinum-violet: #a48fc4;    /* violet reflection (secondary) */
+  --mq-platinum-refl: color-mix(in srgb, #8fa3c8 72%, var(--mq-amb-platinum, #8fa3c8));
+  --mq-platinum-violet: color-mix(in srgb, #a48fc4 70%, var(--mq-amb-platinum, #8fa3c8));
   /* Active progress — the one-look platinum gradient (fill for seek bars
      and progress strips; a COLOR, never a bevel). */
   --mq-platinum-progress:

@@ -75,7 +75,10 @@ describe("FCP §6–7 — the normal MQ background exists without WAVE, on every
   it("the WAVE liquid scene stays opaque so it covers the ambient in radio mode", () => {
     const css = readSrc("src/app/globals.css");
     const liquid = css.match(/\.mq-wave-liquid \{[^}]*\}/)?.[0] ?? "";
-    expect(liquid).toMatch(/background:\s*#/);
+    // FINAL DESIGN COMPLETION §0: the base is THEME-AWARE (registered
+    // --mq-wave-base with an opaque near-black fallback) — still opaque,
+    // never transparent, so it fully covers the ambient in radio mode.
+    expect(liquid).toMatch(/background:\s*var\(--mq-wave-base, #05070d\)/);
     expect(liquid).not.toContain("transparent");
   });
 });

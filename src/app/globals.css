@@ -294,6 +294,27 @@ input, textarea, select {
 
 /* MQ Player Theme Variables */
 :root {
+  /* ── THEME-AWARE ENVIRONMENT VARS (FINAL DESIGN COMPLETION §0) ────────
+     Registered via @property (bottom of file) so a theme switch CROSS-FADES
+     the whole atmosphere (light pools, deep masses, haze, vignette, grain,
+     glass tint, platinum reflection) instead of snapping. Defaults here =
+     the Obsidian room; applyThemeToDOM writes per-theme values inline.
+     Layout note: the @property blocks live at the END of this file. */
+  --mq-amb-pool: #9aa3b2;
+  --mq-amb-pool-alt: #44598a;
+  --mq-amb-deep: #2c3a67;
+  --mq-amb-deep-alt: #37416b;
+  --mq-amb-haze: #b9c4dd;
+  --mq-amb-ink-top: #10141f;
+  --mq-amb-ink-floor: #0c1018;
+  --mq-amb-floor: #6d7686;
+  --mq-amb-glass: #e2e8f0;
+  --mq-amb-platinum: #8fa3c8;
+  --mq-amb-vignette: rgba(0, 0, 0, 0.32);
+  --mq-amb-grain: 0.035;
+  --mq-wave-base: #05070d;
+  --mq-wave-anchor-h: 226;
+
   --mq-bg: #0e0e0e;
   --mq-card: #1a1a1a;
   --mq-card-hover: #222222;
@@ -609,13 +630,48 @@ input[type="color"]::-webkit-color-swatch {
  * Tailwind transition utility (utilities live in @layer, unlayered rules
  * win) — all duration-150/200 hovers silently ran at 250ms, and framer
  * whileHover backgroundColors double-eased. Instead: a transient class
- * applied by applyThemeToDOM for ~450ms that colors ONLY the large
- * surfaces (html/body/cards) — components keep their designed timings. */
+ * applied by applyThemeToDOM for ~1000ms that colors ONLY the large
+ * surfaces (html/body/cards) — components keep their designed timings.
+ *
+ * FINAL DESIGN COMPLETION §1: the class ALSO transitions the REGISTERED
+ * theme/environment custom properties on <html> (they are set inline by
+ * applyThemeToDOM on this very element). Registered <color>/<number>
+ * properties interpolate, and every gradient that consumes them
+ * (ambient pools, floor, glass tint, platinum reflection) repaints per
+ * frame → background + cards + glass + accent cross-fade as ONE material
+ * system, 850ms, no flash, no white frame. */
 html.mq-theme-switch,
 html.mq-theme-switch body,
 html.mq-theme-switch [class*="mq-"] {
-  transition: background-color 0.35s ease, border-color 0.35s ease,
-    color 0.35s ease, box-shadow 0.35s ease !important;
+  transition: background-color 0.5s ease, border-color 0.5s ease,
+    color 0.5s ease, box-shadow 0.5s ease !important;
+}
+html.mq-theme-switch {
+  transition:
+    --mq-amb-pool 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-amb-pool-alt 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-amb-deep 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-amb-deep-alt 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-amb-haze 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-amb-ink-top 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-amb-ink-floor 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-amb-floor 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-amb-glass 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-amb-platinum 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-amb-vignette 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-amb-grain 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-wave-base 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-bg 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-card 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-card-hover 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-accent 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-text 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-text-muted 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-border 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-input-bg 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    --mq-player-bg 850ms cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.5s ease, border-color 0.5s ease,
+    color 0.5s ease, box-shadow 0.5s ease !important;
 }
 
 /* Framer Motion managed elements — no CSS transition interference.
@@ -4694,7 +4750,8 @@ html[data-mq-desktop] .mq-card-track {
    ultra-slow speeds (240s / 400s / 560s) in different directions —
    perceived as ambience, never as animation; no recognizable cycle.
    §9.3 RESTRAINT: pools sit BELOW content luminance — depth, not noise.
-   §9.4 IDENTITY: fixed cold tones, never artwork-driven.
+   §9.4 IDENTITY: THEME-AWARE tones (ambient spec per theme), never
+   artwork-driven — that is WAVE's job. Geometry fixed, hues per theme.
    §9.8 COST: zero blur filters, zero JS, transform-only animation.
    WAVE crossfades OVER this layer (opaque liquid scene above) — the two
    identities never mix. prefers-reduced-motion freezes all drift. ── */
@@ -4705,68 +4762,70 @@ html[data-mq-desktop] .mq-card-track {
   overflow: hidden;
   pointer-events: none;
 }
-/* Floor — the opaque base. A cold wash from the top edge over --mq-bg so
-   the room is never a flat hex: light center-top, navy cast floor. */
+/* Floor — the opaque base. A wash from the top edge over --mq-bg so
+   the room is never a flat hex: light center-top, THEME-cast floor.
+   THEME-AWARE (§0): inks come from the theme's ambient spec — registered
+   colors, so the floor cross-fades during a theme switch. */
 .mq-ambient-base {
   position: absolute;
   inset: 0;
   background:
     radial-gradient(120% 78% at 50% -8%,
-      color-mix(in srgb, #aebbd6 5%, transparent) 0%,
+      color-mix(in srgb, var(--mq-amb-haze) 5%, transparent) 0%,
       transparent 58%),
     linear-gradient(180deg,
-      color-mix(in srgb, #10141f 55%, var(--mq-bg)) 0%,
+      color-mix(in srgb, var(--mq-amb-ink-top) 55%, var(--mq-bg)) 0%,
       var(--mq-bg) 46%,
-      color-mix(in srgb, #0c1018 40%, var(--mq-bg)) 100%);
+      color-mix(in srgb, var(--mq-amb-ink-floor) 40%, var(--mq-bg)) 100%);
 }
-/* Layer 1 — graphite + navy pools, the primary light of the room.
-   Overlapping wide radials so no single edge reads as a "circle".
-   VLM-verified strength: visible on screenshots BETWEEN dense cards
-   (was 10%/9% — read as flat black on card-heavy pages). */
+/* Layer 1 — the theme's primary light pools. Overlapping wide radials
+   so no single edge reads as a "circle". THEME-AWARE: colors from the
+   theme's ambient spec; STRENGTHS stay global (calm, never neon).
+   VLM-verified strength: visible on screenshots BETWEEN dense cards. */
 .mq-ambient-pools {
   position: absolute;
   inset: -24%;
   background:
-    /* graphite light pooling upper-left */
+    /* primary theme light, upper-left */
     radial-gradient(42% 50% at 24% 14%,
-      color-mix(in srgb, #9aa3b2 16%, transparent) 0%, transparent 72%),
-    /* cold navy whisper, right of center */
+      color-mix(in srgb, var(--mq-amb-pool) 16%, transparent) 0%, transparent 72%),
+    /* the theme's colour voice, right of center */
     radial-gradient(46% 56% at 82% 24%,
-      color-mix(in srgb, #44598a 14%, transparent) 0%, transparent 74%),
-    /* deep graphite floor glow, bottom */
+      color-mix(in srgb, var(--mq-amb-pool-alt) 14%, transparent) 0%, transparent 74%),
+    /* theme floor glow, bottom */
     radial-gradient(44% 48% at 55% 95%,
-      color-mix(in srgb, #6d7686 11%, transparent) 0%, transparent 72%);
+      color-mix(in srgb, var(--mq-amb-floor) 11%, transparent) 0%, transparent 72%);
   animation: mq-ambient-drift-a 240s ease-in-out infinite alternate;
   will-change: transform;
 }
-/* Layer 2 — the indigo breath: one very soft mass, slower, opposite
-   direction. Gives the room its second, deeper register. */
+/* Layer 2 — the theme's second, deeper register: one very soft mass,
+   slower, opposite direction. */
 .mq-ambient-indigo {
   position: absolute;
   inset: -30%;
   background:
     radial-gradient(52% 60% at 68% 72%,
-      color-mix(in srgb, #2c3a67 12%, transparent) 0%, transparent 76%),
+      color-mix(in srgb, var(--mq-amb-deep) 12%, transparent) 0%, transparent 76%),
     radial-gradient(40% 46% at 12% 62%,
-      color-mix(in srgb, #37416b 9%, transparent) 0%, transparent 78%);
+      color-mix(in srgb, var(--mq-amb-deep-alt) 9%, transparent) 0%, transparent 78%);
   animation: mq-ambient-drift-b 400s ease-in-out infinite alternate;
   will-change: transform;
 }
 /* Layer 3 — luminous haze: a huge, barely-there bloom behind the content
-  column, slowest of all. The "air" of the room. */
+  column, slowest of all. The "air" of the room, tinted by the theme. */
 .mq-ambient-haze {
   position: absolute;
   inset: -36%;
   background:
     radial-gradient(60% 44% at 50% 34%,
-      color-mix(in srgb, #b9c4dd 6.5%, transparent) 0%, transparent 70%);
+      color-mix(in srgb, var(--mq-amb-haze) 6.5%, transparent) 0%, transparent 70%);
   animation: mq-ambient-drift-c 560s ease-in-out infinite alternate;
   will-change: transform;
 }
 .mq-ambient-grain {
   position: absolute;
   inset: 0;
-  opacity: 0.035;
+  opacity: var(--mq-amb-grain, 0.035);
   mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
   background-size: 160px 160px;
@@ -4774,7 +4833,7 @@ html[data-mq-desktop] .mq-card-track {
 .mq-ambient-vignette {
   position: absolute;
   inset: 0;
-  background: radial-gradient(125% 105% at 50% 42%, transparent 55%, rgba(0, 0, 0, 0.32) 100%);
+  background: radial-gradient(125% 105% at 50% 42%, transparent 55%, var(--mq-amb-vignette, rgba(0, 0, 0, 0.32)) 100%);
 }
 /* Three drifts, three directions, three speeds — no shared phase. */
 @keyframes mq-ambient-drift-a {
@@ -4794,9 +4853,15 @@ html[data-mq-desktop] .mq-card-track {
   .mq-ambient-pools { opacity: 0.85; }
   .mq-ambient-indigo { opacity: 0.8; }
   .mq-ambient-haze { opacity: 0.7; }
-  .mq-ambient-grain { opacity: 0.028; }
-  .mq-ambient-vignette { background: radial-gradient(130% 110% at 50% 42%, transparent 58%, rgba(0, 0, 0, 0.24) 100%); }
+  .mq-ambient-grain { opacity: calc(var(--mq-amb-grain, 0.035) * 0.8); }
+  .mq-ambient-vignette { background: radial-gradient(130% 110% at 50% 42%, transparent 58%, color-mix(in srgb, var(--mq-amb-vignette, rgba(0, 0, 0, 0.32)) 75%, transparent) 100%); }
 }
+
+/* LIGHT THEME ROOM (Daylight): the same layer geometry, a different
+   physics — on paper, light pools read as soft silver daylight, the deep
+   masses become cool shadow, and grain multiplies instead of overlay. */
+.daylight-theme .mq-ambient-grain { mix-blend-mode: multiply; }
+.daylight-theme .mq-ambient-haze { opacity: 0.55; }
 
 /* ════════════════════════════════════════════════════════════════════════
    WAVE — LIQUID AMBIENT BACKGROUND (WaveAmbientBackground.tsx)
@@ -4825,7 +4890,9 @@ html[data-mq-desktop] .mq-card-track {
   z-index: -1;
   overflow: hidden;
   pointer-events: none;
-  background: #05070d; /* dark base behind the canvas during fades */
+  /* THEME-AWARE BASE (§0): the dark floor behind the canvas during fades
+     is tinted by the active theme (registered → cross-fades on switch). */
+  background: var(--mq-wave-base, #05070d);
   opacity: 0;
   transition: opacity 950ms cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -5595,4 +5662,65 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
   .mq-wave-btn:active {
     transform: none;
   }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   @PROPERTY REGISTRATIONS — THEME-AWARE ENVIRONMENT (§0-§1)
+
+   Registered custom properties INTERPOLATE on transition (unregistered
+   vars snap). html.mq-theme-switch (see the choreography block at the top
+   of this file) transitions every property below for 850ms, so switching
+   a theme cross-fades the ENTIRE atmosphere — light pools, deep masses,
+   haze, floor inks, vignette, grain, glass tint, platinum reflection,
+   WAVE base — together with the core surface colors (--mq-bg / cards /
+   accent / text). One material system, one motion.
+
+   initial-values = the Obsidian room (matches the :root static defaults
+   above → identical first paint, no flash on boot; applyThemeToDOM
+   writes per-theme values inline on <html> at hydration).
+   ════════════════════════════════════════════════════════════════════════ */
+@property --mq-amb-pool { syntax: "<color>"; inherits: true; initial-value: #9aa3b2; }
+@property --mq-amb-pool-alt { syntax: "<color>"; inherits: true; initial-value: #44598a; }
+@property --mq-amb-deep { syntax: "<color>"; inherits: true; initial-value: #2c3a67; }
+@property --mq-amb-deep-alt { syntax: "<color>"; inherits: true; initial-value: #37416b; }
+@property --mq-amb-haze { syntax: "<color>"; inherits: true; initial-value: #b9c4dd; }
+@property --mq-amb-ink-top { syntax: "<color>"; inherits: true; initial-value: #10141f; }
+@property --mq-amb-ink-floor { syntax: "<color>"; inherits: true; initial-value: #0c1018; }
+@property --mq-amb-floor { syntax: "<color>"; inherits: true; initial-value: #6d7686; }
+@property --mq-amb-glass { syntax: "<color>"; inherits: true; initial-value: #e2e8f0; }
+@property --mq-amb-platinum { syntax: "<color>"; inherits: true; initial-value: #8fa3c8; }
+@property --mq-amb-vignette { syntax: "<color>"; inherits: true; initial-value: rgba(0, 0, 0, 0.32); }
+@property --mq-amb-grain { syntax: "<number>"; inherits: true; initial-value: 0.035; }
+@property --mq-wave-base { syntax: "<color>"; inherits: true; initial-value: #05070d; }
+/* Core surface colors — registered so cards/text/accent ride the same
+   850ms choreography (set inline on <html> by applyThemeToDOM). */
+@property --mq-bg { syntax: "<color>"; inherits: true; initial-value: #0e0e0e; }
+@property --mq-card { syntax: "<color>"; inherits: true; initial-value: #1a1a1a; }
+@property --mq-card-hover { syntax: "<color>"; inherits: true; initial-value: #222222; }
+@property --mq-accent { syntax: "<color>"; inherits: true; initial-value: #e03131; }
+@property --mq-text { syntax: "<color>"; inherits: true; initial-value: #f0f0f0; }
+@property --mq-text-muted { syntax: "<color>"; inherits: true; initial-value: #9a9a9a; }
+@property --mq-border { syntax: "<color>"; inherits: true; initial-value: rgba(255, 255, 255, 0.05); }
+@property --mq-input-bg { syntax: "<color>"; inherits: true; initial-value: #1a1a1a; }
+@property --mq-player-bg { syntax: "<color>"; inherits: true; initial-value: #111111; }
+
+/* ── SEARCH — TOP RESULT CARD (FINAL DESIGN COMPLETION §4) ───────────
+   The hero of the redesigned search results: a SOLID content surface
+   (never glass, §18), moderate radius, hairline edge, quiet shadow.
+   Hover = tonal lift only — no 3D, no sweep. */
+.mq-search-topresult {
+  padding: 18px;
+  border-radius: var(--mq-card-r-md, 16px);
+  background: var(--mq-card-feature-bg);
+  border: 1px solid var(--mq-card-feature-edge);
+  box-shadow: var(--mq-mat-2-shadow);
+  cursor: pointer;
+  transition: background-color 0.18s ease, border-color 0.18s ease;
+}
+.mq-search-topresult:hover {
+  background: var(--mq-mat-3-bg-hover);
+  border-color: var(--mq-mat-3-edge-hover);
+}
+@media (max-width: 767px) {
+  .mq-search-topresult { padding: 14px; }
 }

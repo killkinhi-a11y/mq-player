@@ -473,6 +473,74 @@ export default function SearchView() {
     return result;
   }, [activeTracks, filterDuration, sortBy]);
 
+  // ═══ SEARCH REDESIGN (§3–§6): EDITORIAL DISCOVERY COMPOSITION ═══
+  // Results are grouped client-side from the flat track list into
+  // ARTISTS / ALBUMS / TOP RESULT / PLAYLIST MATCHES — each content type
+  // gets its OWN visual density instead of an endless run of identical
+  // cards. Pure derivation: no extra fetches, memoized, works for any
+  // query and any source (SoundCloud / Audius / local files).
+
+  interface ArtistGroup { name: string; cover?: string; count: number; topTrack: Track }
+  const artistGroups = useMemo<ArtistGroup[]>(() => {
+    if (activeTracks.length === 0) return [];
+    const map = new Map<string, ArtistGroup>();
+    for (const t of activeTracks) {
+      if (!t.artist?.trim()) continue;
+      const key = t.artist.trim().toLowerCase();
+      const g = map.get(key);
+      if (g) { g.count += 1; if (!g.cover && t.cover) g.cover = t.cover; }
+      else map.set(key, { name: t.artist.trim(), cover: t.cover, count: 1, topTrack: t });
+    }
+    return [...map.values()].sort((a, b) => b.count - a.count).slice(0, 8);
+  }, [activeTracks]);
+
+  const albumGroups = useMemo<{ album: string; artist: string; cover?: string; count: number }[]>(() => {
+    if (activeTracks.length === 0) return [];
+    const map = new Map<string, { album: string; artist: string; cover?: string; count: number }>();
+    for (const t of activeTracks) {
+      if (!t.album?.trim()) continue;
+      const key = `${t.album.trim().toLowerCase()}|${(t.artist || "").toLowerCase()}`;
+      const g = map.get(key);
+      if (g) { g.count += 1; if (!g.cover && t.cover) g.cover = t.cover; }
+      else map.set(key, { album: t.album.trim(), artist: t.artist || "", cover: t.cover, count: 1 });
+    }
+    return [...map.values()].sort((a, b) => b.count - a.count).slice(0, 5);
+  }, [activeTracks]);
+
+  const playlistMatches = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return (userPlaylists || [])
+      .filter((p) => p?.name?.toLowerCase().includes(q))
+      .slice(0, 4);
+  }, [userPlaylists, searchQuery]);
+
+  // TOP RESULT: the artist dominating the results (≥2 tracks) wins —
+  // otherwise the first (most relevant) track.
+  const topResult = useMemo<{
+    kind: "artist"; artist: ArtistGroup;
+  } | {
+    kind: "track"; track: Track;
+  } | null>(() => {
+    if (activeTracks.length === 0) return null;
+    const best = artistGroups[0];
+    if (best && best.count >= 2) return { kind: "artist", artist: best };
+    return { kind: "track", track: activeTracks[0] };
+  }, [artistGroups, activeTracks]);
+
+  // Top tracks preview — the 4 most relevant rows next to the top card
+  const previewTracks = useMemo(() => processedTracks.slice(0, 4), [processedTracks]);
+
+  // Discovery rows (empty state §9): real listening history, no invention
+  const discoveryTracks = useMemo<Track[]>(
+    () => (Array.isArray(storeHistory) ? storeHistory : []).slice(0, 20).map((h) => h?.track).filter(Boolean).slice(0, 6),
+    [storeHistory]
+  );
+
+  // Full tracks section visible only when there are more than the preview
+  const fullTracks = processedTracks;
+  const hasEditorialTop = !activeLoading && !!topResult && (searchQuery.trim().length > 0 || !!selectedGenre);
+
   // ── Main Search View ──
   return (
     <div className={`${compactMode ? "p-3 sm:p-4 lg:p-5 pb-[var(--mq-player-clearance)] sm:pb-32 lg:pb-32 space-y-4" : "p-4 sm:p-5 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-36 lg:pb-36 space-y-5"} max-w-[var(--mq-container-base)] lg:max-w-[var(--mq-container-wide)] mx-auto relative mq-anim-fade-in`} style={{ scrollBehavior: "smooth" }}>
@@ -502,61 +570,8 @@ export default function SearchView() {
       {/* ── Page header — editorial voice: display serif + meta hint ── */}
       <div className="flex items-baseline justify-between mb-1">
         <h1 className="mq-t-display text-[26px] sm:text-[30px]" style={{ color: "var(--mq-text)" }}>Поиск</h1>
-        <p className="mq-t-meta text-xs hidden sm:block">Треки · артисты · жанры · свои файлы</p>
+        <p className="mq-t-meta text-xs hidden sm:block">Треки · артисты · альбомы · свои файлы</p>
       </div>
-
-      {/* ── Quick Picks — 4 random liked tracks ── */}
-      {!searchQuery.trim() && !selectedGenre && quickPicks.length > 0 && (
-        <motion.div
-          initial={animationsEnabled ? { opacity: 0, y: 8 } : undefined}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.08, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-        >
-          <div className="flex items-center gap-2.5 mb-3">
-            <Sparkles className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
-            <h2 className="mq-t-title mq-t-section" style={{ color: "var(--mq-text)" }}>Быстрый доступ</h2>
-            <button
-              onClick={() => setQuickPicksSeed(s => s + 1)}
-              className="ml-auto p-2.5 rounded-lg transition-colors hover:bg-[var(--mq-overlay-hover)] flex-shrink-0"
-              style={{ color: "var(--mq-text-muted)" }}
-              title="Обновить"
-              aria-label="Обновить"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {quickPicks.map((track, i) => (
-              <motion.button
-                key={track.id}
-                initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.08 + i * 0.03, duration: 0.3 }}
-                /* §HOVER: own tap transition — entrance delay never leaks
-                   into the press feedback. */
-
-                onClick={() => playTrack(track, quickPicks)}
-                className="flex items-center gap-2.5 p-2.5 rounded-[var(--mq-r-card)] text-left cursor-pointer group transition-colors duration-150"
-                style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
-              >
-                <div className="w-10 h-10 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art">
-                  {track.cover ? (
-                    <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" draggable={false} />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-surface-2)" }}>
-                      <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
-                  <p className="mq-t-meta-2 truncate mq-t-meta">{track.artist}</p>
-                </div>
-              </motion.button>
-            ))}
-          </div>
-        </motion.div>
-      )}
 
       {/* ── Search bar ── */}
       {/* v72 mobile: field takes the FULL width; Фильтры/Загрузить move to
@@ -575,7 +590,7 @@ export default function SearchView() {
           <Input
             ref={searchInputRef}
             data-search-input
-            placeholder="Искать треки, артисты, альбомы..."
+            placeholder="Треки, артисты, альбомы…"
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -605,10 +620,10 @@ export default function SearchView() {
                 setShowSuggestions(false);
               }, 200);
             }}
-            className="pl-11 pr-11 min-h-[48px] mq-t-section font-medium"
+            className="pl-11 pr-11 h-[48px] lg:h-[46px] text-[15px] mq-t-section font-medium"
             style={{
-              backgroundColor: isFocused ? "var(--mq-surface-1)" : "var(--mq-surface-1)",
-              borderRadius: 14,
+              backgroundColor: "var(--mq-surface-1)",
+              borderRadius: "var(--mq-mat-radius, 14px)",
               border: isFocused ? "1.5px solid color-mix(in srgb, var(--mq-text) 30%, transparent)" : "1px solid var(--mq-edge)",
               color: "var(--mq-text)",
               boxShadow: isFocused ? "0 1px 8px color-mix(in srgb, var(--mq-text) 8%, transparent)" : "none",
@@ -954,13 +969,164 @@ export default function SearchView() {
         </motion.div>
       )}
 
-      {/* ── Track results with filter/sort toolbar ── */}
+      {/* ═══ RESULTS — EDITORIAL DISCOVERY COMPOSITION (§4–§6) ═══
+          Mixed density, NOT card-card-card: a hero TOP RESULT, clean track
+          rows, artist rows, compact album tiles and playlist matches —
+          each content type with its OWN visual weight. */}
+      {!activeLoading && hasEditorialTop && topResult && (
+        <div className="space-y-7">
+          {/* ── Top block: hero result + track preview rows ── */}
+          <div className="grid lg:grid-cols-12 gap-5 lg:gap-6 items-start">
+            <div className="lg:col-span-5">
+              <TopResultCard
+                result={topResult}
+                onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })}
+                onPlay={playTrack}
+              />
+            </div>
+            <div className="lg:col-span-7 min-w-0">
+              <div className="flex items-baseline justify-between mb-1.5 px-1">
+                <h3 className="mq-t-shelf">Треки</h3>
+                <span className="mq-t-meta-2 mq-t-num" style={{ color: "var(--mq-text-muted)" }}>{fullTracks.length}</span>
+              </div>
+              <div className="space-y-0.5">
+                {previewTracks.map((track, i) => (
+                  <motion.div
+                    key={track.id + "_" + i}
+                    initial={{ opacity: 0, y: 6 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.1 }}
+                    transition={{ duration: 0.2, delay: Math.min(i * 0.015, 0.15), ease: "easeOut" }}
+                  >
+                    <SearchTrackRow
+                      track={track}
+                      index={i}
+                      queue={fullTracks}
+                      onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })}
+                    />
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ── АРТИСТЫ — clean rows ── */}
+          {artistGroups.length >= 2 && (
+            <section>
+              <div className="flex items-baseline justify-between mb-1.5 px-1">
+                <h3 className="mq-t-shelf">Артисты</h3>
+                <span className="mq-t-meta-2 mq-t-num" style={{ color: "var(--mq-text-muted)" }}>{artistGroups.length}</span>
+              </div>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-1">
+                {artistGroups.map((a, i) => (
+                  <motion.button
+                    key={a.name}
+                    initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.1 }}
+                    transition={{ duration: 0.2, delay: Math.min(i * 0.015, 0.12), ease: "easeOut" }}
+                    onClick={() => setSelectedArtist({ name: a.name, avatar: a.cover })}
+                    className="mq-row group"
+                  >
+                    <span className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 mq-art flex items-center justify-center" style={{ backgroundColor: "var(--mq-surface-2)" }}>
+                      {a.cover ? (
+                        <img src={a.cover} alt="" className="w-full h-full object-cover" loading="lazy" draggable={false} />
+                      ) : (
+                        <User className="w-[18px] h-[18px]" style={{ color: "var(--mq-text-muted)" }} />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1 text-left">
+                      <span className="block text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{a.name}</span>
+                      <span className="block mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
+                        Артист · {a.count} {a.count === 1 ? "трек" : a.count < 5 ? "трека" : "треков"}
+                      </span>
+                    </span>
+                    <ChevronRight className="w-4 h-4 flex-shrink-0 opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "var(--mq-text-muted)" }} />
+                  </motion.button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── АЛЬБОМЫ — compact tiles ── */}
+          {albumGroups.length >= 2 && (
+            <section>
+              <div className="flex items-baseline justify-between mb-2.5 px-1">
+                <h3 className="mq-t-shelf">Альбомы</h3>
+                <span className="mq-t-meta-2 mq-t-num" style={{ color: "var(--mq-text-muted)" }}>{albumGroups.length}</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                {albumGroups.map((al, i) => (
+                  <motion.button
+                    key={al.album + "|" + al.artist}
+                    initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.1 }}
+                    transition={{ duration: 0.2, delay: Math.min(i * 0.015, 0.12), ease: "easeOut" }}
+                    onClick={() => handleTrendingClick(al.artist || al.album)}
+                    className="text-left group"
+                  >
+                    <span className="block aspect-square rounded-[var(--mq-r-card)] overflow-hidden mb-2 mq-art" style={{ backgroundColor: "var(--mq-surface-2)", boxShadow: "var(--mq-mat-2-shadow)" }}>
+                      {al.cover ? (
+                        <img src={al.cover} alt="" className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-[1.03]" loading="lazy" draggable={false} />
+                      ) : (
+                        <span className="w-full h-full flex items-center justify-center">
+                          <Disc className="w-6 h-6" style={{ color: "var(--mq-text-muted)" }} />
+                        </span>
+                      )}
+                    </span>
+                    <span className="block text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{al.album}</span>
+                    <span className="block mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
+                      {al.artist || "Альбом"} · {al.count} {al.count === 1 ? "трек" : al.count < 5 ? "трека" : "треков"}
+                    </span>
+                  </motion.button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── ВАШИ ПЛЕЙЛИСТЫ — compact match cards ── */}
+          {playlistMatches.length > 0 && (
+            <section>
+              <div className="flex items-baseline justify-between mb-1.5 px-1">
+                <h3 className="mq-t-shelf">Ваши плейлисты</h3>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-1">
+                {playlistMatches.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => { storeSetSelectedPlaylistId(p.id); setView("playlists"); }}
+                    className="mq-row group"
+                  >
+                    <span className="w-11 h-11 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art flex items-center justify-center" style={{ backgroundColor: "var(--mq-surface-2)" }}>
+                      {p.cover ? (
+                        <img src={p.cover} alt="" className="w-full h-full object-cover" loading="lazy" draggable={false} />
+                      ) : (
+                        <ListMusic className="w-[18px] h-[18px]" style={{ color: "var(--mq-text-muted)" }} />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1 text-left">
+                      <span className="block text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{p.name}</span>
+                      <span className="block mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
+                        Плейлист · {p.tracks?.length ?? 0} {p.tracks?.length === 1 ? "трек" : "треков"}
+                      </span>
+                    </span>
+                    <ChevronRight className="w-4 h-4 flex-shrink-0 opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "var(--mq-text-muted)" }} />
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
+
+      {/* ── Все треки — the deep list with filter/sort toolbar ── */}
       {!activeLoading && processedTracks.length > 0 && (
         <div>
           {/* Section header with filter + sort controls */}
           <div className="flex items-center justify-between mb-3 px-1 flex-wrap gap-2">
             <h3 className="mq-t-shelf">
-              Треки · {processedTracks.length}
+              Все треки · {processedTracks.length}
             </h3>
             <div className="flex items-center gap-1.5">
               {/* Duration filter dropdown */}
@@ -997,16 +1163,15 @@ export default function SearchView() {
             </div>
           </div>
 
-          {/* Track list with 3D scroll-reveal stagger */}
-          <div className="space-y-1" style={{ perspective: "1000px" }}>
+          {/* Track list — calm 200ms rise-in (§19: 150–250ms, no 3D) */}
+          <div className="space-y-0.5">
             {processedTracks.map((track, i) => (
               <motion.div
                 key={track.id + "_" + i}
-                initial={{ opacity: 0, z: -30, rotateX: 5 }}
-                whileInView={{ opacity: 1, z: 0, rotateX: 0 }}
+                initial={{ opacity: 0, y: 6 }}
+                whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.1 }}
-                transition={{ duration: 0.3, delay: Math.min(i * 0.02, 0.3), ease: [0.16, 1, 0.3, 1] }}
-                style={{ transformStyle: "preserve-3d" }}
+                transition={{ duration: 0.2, delay: Math.min(i * 0.012, 0.18), ease: "easeOut" }}
               >
                 <SearchTrackRow
                   track={track}
@@ -1020,111 +1185,160 @@ export default function SearchView() {
         </div>
       )}
 
-      {/* ── Default empty state — hero with trending searches ── */}
-      {!activeHasSearched && !activeLoading && searchHistory.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-20">
-          <motion.div
-            initial={animationsEnabled ? { opacity: 0, scale: 0.9 } : undefined}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: "spring", stiffness: 200, damping: 18, delay: 0.05 }}
-            className="mb-5"
-          >
-            <div style={{
-              width: 88,
-              height: 88,
-              borderRadius: 28,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "linear-gradient(135deg, color-mix(in srgb, var(--mq-text) 8%, transparent), color-mix(in srgb, var(--mq-text) 4%, transparent))",
-              border: "1px solid var(--mq-edge)",
-            }}>
-              <Headphones className="w-9 h-9" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }} />
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={animationsEnabled ? { opacity: 0, y: 8 } : undefined}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.12 }}
-            className="text-center mb-8"
-          >
-            <p className="text-lg font-bold mb-1.5" style={{ color: "var(--mq-text)", letterSpacing: "-0.01em" }}>Что послушаем?</p>
-            <p className="text-sm leading-relaxed max-w-[280px]" style={{ color: "var(--mq-text-muted)" }}>
-              Введите название, артиста или жанр — или выберите подсказку ниже
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={animationsEnabled ? { opacity: 0, y: 8 } : undefined}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="w-full max-w-md"
-          >
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingUp className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }} />
-              <h4 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
-                Популярные запросы
-              </h4>
-            </div>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {TRENDING_SEARCHES.map((term, i) => (
-                <motion.button
-                  key={term}
-                  initial={animationsEnabled ? { opacity: 0 } : undefined}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.25 + i * 0.03, duration: 0.25 }}
-                  /* §F: hover = CSS only (stagger delay was leaking into the
-                     whileHover tween; transition-all fought framer writes). */
-                  onClick={() => handleTrendingClick(term)}
-                  className="px-4 py-2 rounded-xl text-xs font-medium bg-[var(--mq-card)] hover:bg-[var(--mq-card-hover)] hover:scale-[1.04] transition-[background-color,transform] duration-150 cursor-pointer"
-                  style={{
-                    color: "var(--mq-text-muted)",
-                    border: "1px solid var(--mq-border-thin)",
-                  }}
+      {/* ═══ DISCOVERY STATE (§9) — no query yet: a real place to start ═══
+          Editorial composition from REAL data only: quick picks (liked),
+          recently played (history), popular queries. Never an empty black
+          screen, never an invented "popular" list. */}
+      {!activeHasSearched && !activeLoading && !searchQuery.trim() && !selectedGenre && (
+        <div className="space-y-7">
+          {/* Quick Picks — 4 liked tracks, reshufflable */}
+          {quickPicks.length > 0 && (
+            <motion.div
+              initial={animationsEnabled ? { opacity: 0, y: 8 } : undefined}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.06, duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+            >
+              <div className="flex items-center gap-2.5 mb-2.5">
+                <Sparkles className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
+                <h2 className="mq-t-shelf" style={{ color: "var(--mq-text)" }}>Быстрый доступ</h2>
+                <button
+                  onClick={() => setQuickPicksSeed(s => s + 1)}
+                  className="ml-auto p-2.5 rounded-lg transition-colors hover:bg-[var(--mq-overlay-hover)] flex-shrink-0"
+                  style={{ color: "var(--mq-text-muted)" }}
+                  title="Обновить"
+                  aria-label="Обновить"
                 >
-                  {term}
-                </motion.button>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-      )}
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {quickPicks.map((track, i) => (
+                  <motion.button
+                    key={track.id}
+                    initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.06 + i * 0.025, duration: 0.2 }}
+                    onClick={() => playTrack(track, quickPicks)}
+                    className="flex items-center gap-2.5 p-2.5 rounded-[var(--mq-r-card)] text-left cursor-pointer group transition-colors duration-150"
+                    style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
+                  >
+                    <div className="w-10 h-10 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art">
+                      {track.cover ? (
+                        <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" draggable={false} />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-surface-2)" }}>
+                          <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
+                      <p className="mq-t-meta-2 truncate mq-t-meta">{track.artist}</p>
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+            </motion.div>
+          )}
 
-      {/* ── Trending searches — shown when there IS search history ── */}
-      {!searchQuery.trim() && !selectedGenre && searchHistory.length > 0 && !hasSearched && (
-        <motion.div
-          initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: 0.3 }}
-          className="mt-2"
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }} />
-            <h4 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
-              Популярные запросы
-            </h4>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {TRENDING_SEARCHES.map((term, i) => (
-              <motion.button
-                key={term}
-                initial={animationsEnabled ? { opacity: 0 } : undefined}
-                animate={{ opacity: 1 }}
-                transition={{ delay: i * 0.03, duration: 0.2 }}
-                /* §F: hover = CSS only — see note above. */
-                onClick={() => handleTrendingClick(term)}
-                className="px-4 py-2 rounded-xl text-xs font-medium bg-[var(--mq-card)] hover:bg-[var(--mq-card-hover)] hover:scale-[1.04] transition-[background-color,transform] duration-150 cursor-pointer"
-                style={{
-                  color: "var(--mq-text-muted)",
-                  border: "1px solid var(--mq-border-thin)",
-                }}
-              >
-                {term}
-              </motion.button>
-            ))}
-          </div>
-        </motion.div>
+          {/* Слушали недавно — real listening history rows */}
+          {discoveryTracks.length > 0 && (
+            <motion.section
+              initial={animationsEnabled ? { opacity: 0, y: 8 } : undefined}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1, duration: 0.25 }}
+            >
+              <div className="flex items-center gap-2.5 mb-1.5 px-1">
+                <Clock className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
+                <h2 className="mq-t-shelf" style={{ color: "var(--mq-text)" }}>Слушали недавно</h2>
+              </div>
+              <div className="space-y-0.5">
+                {discoveryTracks.map((track, i) => (
+                  <SearchTrackRow
+                    key={track.id + "_" + i}
+                    track={track}
+                    index={i}
+                    queue={discoveryTracks}
+                    onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })}
+                  />
+                ))}
+              </div>
+            </motion.section>
+          )}
+
+          {/* Популярные запросы — chips; quiet hero only when there is
+              literally nothing personal to show */}
+          {searchHistory.length > 0 || quickPicks.length > 0 || discoveryTracks.length > 0 ? (
+            <motion.section
+              initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.14, duration: 0.25 }}
+            >
+              <div className="flex items-center gap-2 mb-2.5 px-1">
+                <TrendingUp className="w-4 h-4" style={{ color: "var(--mq-text-muted)", opacity: 0.8 }} />
+                <h2 className="mq-t-shelf" style={{ color: "var(--mq-text)" }}>Популярные запросы</h2>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {TRENDING_SEARCHES.map((term, i) => (
+                  <motion.button
+                    key={term}
+                    initial={animationsEnabled ? { opacity: 0 } : undefined}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: i * 0.025, duration: 0.18 }}
+                    onClick={() => handleTrendingClick(term)}
+                    className="px-4 py-2 rounded-[var(--mq-r-card)] text-xs font-medium bg-[var(--mq-card)] hover:bg-[var(--mq-card-hover)] hover:scale-[1.03] transition-[background-color,transform] duration-150 cursor-pointer"
+                    style={{
+                      color: "var(--mq-text-muted)",
+                      border: "1px solid var(--mq-border-thin)",
+                    }}
+                  >
+                    {term}
+                  </motion.button>
+                ))}
+              </div>
+            </motion.section>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-14">
+              <div style={{
+                width: 72,
+                height: 72,
+                borderRadius: 24,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "linear-gradient(135deg, color-mix(in srgb, var(--mq-text) 8%, transparent), color-mix(in srgb, var(--mq-text) 4%, transparent))",
+                border: "1px solid var(--mq-edge)",
+                marginBottom: 18,
+              }}>
+                <Headphones className="w-8 h-8" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }} />
+              </div>
+              <p className="text-lg font-bold mb-1.5" style={{ color: "var(--mq-text)", letterSpacing: "-0.01em" }}>Что послушаем?</p>
+              <p className="text-sm leading-relaxed max-w-[300px] text-center mb-7" style={{ color: "var(--mq-text-muted)" }}>
+                Введите название, артиста или жанр — или выберите подсказку ниже
+              </p>
+              <div className="w-full max-w-md">
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {TRENDING_SEARCHES.map((term, i) => (
+                    <motion.button
+                      key={term}
+                      initial={animationsEnabled ? { opacity: 0 } : undefined}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.2 + i * 0.03, duration: 0.2 }}
+                      onClick={() => handleTrendingClick(term)}
+                      className="px-4 py-2 rounded-[var(--mq-r-card)] text-xs font-medium bg-[var(--mq-card)] hover:bg-[var(--mq-card-hover)] hover:scale-[1.03] transition-[background-color,transform] duration-150 cursor-pointer"
+                      style={{
+                        color: "var(--mq-text-muted)",
+                        border: "1px solid var(--mq-border-thin)",
+                      }}
+                    >
+                      {term}
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
     </div>
@@ -1430,6 +1644,116 @@ function SearchSuggestions({
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// TOP RESULT CARD (§4) — the hero of the search results.
+// A solid surface (CONTENT CARD = SOLID, §18) with the dominant match:
+// the artist that owns the results, or the most relevant track.
+// Typography ladder: eyebrow (meta) → title (display) → meta → actions.
+// ═════════════════════════════════════════════════════════════════════════
+
+function TopResultCard({
+  result,
+  onArtistClick,
+  onPlay,
+}: {
+  result:
+    | { kind: "artist"; artist: { name: string; cover?: string; count: number; topTrack: Track } }
+    | { kind: "track"; track: Track };
+  onArtistClick: (name: string, cover?: string) => void;
+  onPlay: (track: Track, queue: Track[]) => void;
+}) {
+  const isArtist = result.kind === "artist";
+  const track: Track = isArtist ? result.artist.topTrack : result.track;
+  const title = isArtist ? result.artist.name : result.track.title;
+  const cover = isArtist ? result.artist.cover : result.track.cover;
+  const meta = isArtist
+    ? `Артист · ${result.artist.count} ${result.artist.count === 1 ? "трек" : result.artist.count < 5 ? "трека" : "треков"}`
+    : `Трек · ${result.track.artist}${result.track.duration > 0 ? ` · ${formatDuration(result.track.duration)}` : ""}`;
+
+  const handlePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onPlay(track, [track]);
+  };
+
+  return (
+    <div
+      className="mq-search-topresult group"
+      role="button"
+      tabIndex={0}
+      onClick={() => { if (isArtist) onArtistClick(result.artist.name, result.artist.cover); }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          if (isArtist) onArtistClick(result.artist.name, result.artist.cover);
+        }
+      }}
+      aria-label={isArtist ? `Открыть артиста ${title}` : `Слушать ${title}`}
+    >
+      <p className="mq-t-meta text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: "var(--mq-text-muted)" }}>
+        Топ-результат
+      </p>
+      <div className="flex items-center gap-4 mt-2.5">
+        <div
+          className={isArtist ? "mq-art flex-shrink-0" : "mq-art flex-shrink-0"}
+          style={{
+            width: 104,
+            height: 104,
+            borderRadius: isArtist ? "50%" : "var(--mq-mat-radius-float, 18px)",
+            overflow: "hidden",
+            backgroundColor: "var(--mq-surface-2)",
+            boxShadow: "var(--mq-mat-2-shadow)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {cover ? (
+            <img src={cover} alt="" className="w-full h-full object-cover" loading="lazy" draggable={false} />
+          ) : (
+            isArtist
+              ? <User className="w-8 h-8" style={{ color: "var(--mq-text-muted)" }} />
+              : <Music className="w-8 h-8" style={{ color: "var(--mq-text-muted)" }} />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="mq-t-display text-[20px] sm:text-[24px] leading-tight break-words" style={{
+            color: "var(--mq-text)",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}>
+            {title}
+          </h3>
+          <p className="mq-t-meta mt-1 truncate" style={{ color: "var(--mq-text-muted)" }}>{meta}</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 mt-4">
+        <button
+          onClick={handlePlay}
+          className="mq-platinum-btn flex items-center gap-1.5 h-10 px-4 rounded-full text-[13px] font-semibold transition-colors duration-150"
+        >
+          <Play className="w-3.5 h-3.5" fill="currentColor" />
+          Слушать
+        </button>
+        {!isArtist && track.artist && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onArtistClick(track.artist, track.cover); }}
+            className="flex items-center h-10 px-4 rounded-full text-[13px] font-semibold transition-colors duration-150"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--mq-text) 7%, transparent)",
+              color: "var(--mq-text)",
+              border: "1px solid var(--mq-edge)",
+            }}
+          >
+            К артисту
+          </button>
+        )}
+      </div>
     </div>
   );
 }

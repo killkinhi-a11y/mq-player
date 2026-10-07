@@ -306,9 +306,11 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
             >
               {/* Current track / Now playing — enhanced */}
               {currentTrack && (
-                <div className="px-4 pt-3 pb-2">
+                <div className="px-5 pt-3 pb-2">
                   {/* FINAL §12: no now-playing status eyebrow — the card
-                      itself + equalizer say it; quiet label only. */}
+                      itself + equalizer say it; quiet label only.
+                      FDC §13: same px-5 gutter as the sections below —
+                      one column rhythm, no inset card. */}
                   <p
                     className="mq-text-eyebrow mb-2"
                     style={{ color: "var(--mq-text-muted)" }}

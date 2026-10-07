@@ -820,13 +820,23 @@ export default function SettingsView() {
                         data-active={isActive}
                         className="mq-swatch group relative p-2 rounded-xl flex flex-col items-center gap-1.5"
                       >
-                        {/* Mini UI preview — the theme's own colors: background,
-                            card block, accent bar + dot. Communicates the actual
-                            look, not just a gradient ball. */}
+                        {/* Mini UI preview — the theme's own ENVIRONMENT:
+                            ambient light pools (theme-aware background, §0)
+                            + card block, accent bar + dot. Communicates the
+                            actual room the theme creates, not a flat ball. */}
                         <div
                           className="w-full rounded-lg overflow-hidden relative shrink-0"
                           style={{ backgroundColor: theme.background || "#0e0e0e", height: 44, border: "1px solid color-mix(in srgb, " + String(theme.text || "#fff") + " 8%, transparent)" }}
                         >
+                          {/* the theme's ambient character (poolAlt + deep, hex8 alpha) */}
+                          <div
+                            className="absolute inset-0"
+                            style={{
+                              background:
+                                "radial-gradient(80% 100% at 22% 12%, " + String(theme.ambient?.poolAlt || "#44598a") + "55, transparent 70%)," +
+                                "radial-gradient(70% 90% at 85% 95%, " + String(theme.ambient?.deep || "#2c3a67") + "33, transparent 75%)",
+                            }}
+                          />
                           <div
                             className="absolute left-1.5 top-2 bottom-2 rounded-[3px]"
                             style={{ width: 14, backgroundColor: theme.card || "#1a1a1a" }}

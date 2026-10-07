@@ -49,6 +49,9 @@ export const DEFAULT_WAVE_PALETTE: WavePalette = {
 /** Anchor hue for achromatic covers — cold navy/indigo family. */
 const COLD_HUE = 226 / 360;
 
+/** Default anchor hue in DEGREES (0..360) — the Obsidian room. */
+export const DEFAULT_WAVE_ANCHOR_HUE = 226;
+
 /* ── colour helpers ──────────────────────────────────────────────────── */
 
 export function hexToRgb(hex: string): [number, number, number] {
@@ -125,15 +128,25 @@ function capChannels(c: [number, number, number], maxChannel: number): [number, 
  *   red artwork    → dark burgundy / red highlight (hue ~350 kept)
  *   green artwork  → emerald / deep teal           (hue ~150 kept)
  * Warm yellows/oranges are desaturated so they read as dark amber rather
- * than mud; near-achromatic covers fall back to the cold indigo family.
+ * than mud; near-achromatic covers fall back to the anchor family —
+ * THEME-AWARE (§0): the anchor hue comes from the active theme's ambient
+ * spec (default cold indigo), so even the fallback WAVE room respects
+ * the selected theme.
+ *
+ * @param anchorHueDeg theme anchor hue in DEGREES (0..360) used when the
+ *        artwork is achromatic. Defaults to the cold indigo family.
  */
-export function deriveWavePalette(dc: DominantColors): WavePalette {
+export function deriveWavePalette(dc: DominantColors, anchorHueDeg?: number): WavePalette {
   const primary = hexToRgb(dc.primary || "#3355ff");
   const [h, s] = rgbToHsl(primary[0], primary[1], primary[2]);
 
-  // Achromatic / nearly-grey cover → cold family (still tinted by luma)
+  // Achromatic / nearly-grey cover → the THEME's anchor family
   const achromatic = s < 0.16;
-  const baseHue = achromatic ? COLD_HUE : h;
+  const anchorHue =
+    anchorHueDeg != null && Number.isFinite(anchorHueDeg)
+      ? (((anchorHueDeg % 360) + 360) % 360) / 360
+      : COLD_HUE;
+  const baseHue = achromatic ? anchorHue : h;
   // Warm yellow-orange → desaturate harder (dark amber, never neon)
   const warm = baseHue > 30 / 360 && baseHue < 75 / 360;
 
@@ -177,6 +190,29 @@ export function paletteToCss(p: WavePalette): WavePaletteCss {
     c2: rgbToHex(p.c2),
     c3: rgbToHex(p.c3),
     hl: rgbToHex(p.hl),
+  };
+}
+
+/**
+ * THEME-AWARE default palette (no artwork / extraction pending):
+ * the same dark-liquid construction, anchored on the THEME's hue
+ * (§0 — WAVE respects the selected theme even before artwork weighs in).
+ * Lightness/saturation mirror DEFAULT_WAVE_PALETTE so every theme's
+ * fallback room keeps the identical calm register.
+ */
+export function defaultPaletteForHue(hueDeg: number): WavePalette {
+  const norm = ((Math.round(hueDeg) % 360) + 360) % 360;
+  // The canonical cold room — EXACTLY the CSS @property initial values
+  // (zero discontinuity between SSR fallback and the JS-derived palette).
+  if (norm === 226) return DEFAULT_WAVE_PALETTE;
+  const h = norm / 360;
+  const warm = h > 30 / 360 && h < 75 / 360;
+  const sat = warm ? 0.36 : 0.46;
+  return {
+    c1: capChannels(hslToRgb(h, 0.3, 0.062), 40),
+    c2: capChannels(hslToRgb(h, sat, 0.19), 78),
+    c3: capChannels(hslToRgb((h + 24 / 360) % 1, 0.38, 0.13), 56),
+    hl: hslToRgb(h, 0.12, 0.83),
   };
 }
 
