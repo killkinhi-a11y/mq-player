@@ -623,8 +623,11 @@ function FullTrackViewMobileInner() {
         input.mq-ft-seek-input::-webkit-slider-runnable-track {
           height: 6px;
           border-radius: 3px;
+          /* V2 §10: seek fill = SOLID cold light token (same as every
+             progress surface — the platinum gradient language is retired). */
           background: linear-gradient(to right,
-            #cfd6e4 0%, #cfd6e4 var(--mq-seek-pct, 0%),
+            var(--mq-platinum-progress, #e8ecf4) 0%,
+            var(--mq-platinum-progress, #e8ecf4) var(--mq-seek-pct, 0%),
             var(--mq-glass-bg) var(--mq-seek-pct, 0%), var(--mq-glass-bg) 100%);
           box-shadow: var(--mq-shadow-inner-glow);
         }

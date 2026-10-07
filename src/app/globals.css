@@ -3972,11 +3972,15 @@ a:focus-visible {
      that and keep both spellings. */
   border-radius: calc(var(--mq-r-card) + 4px);
   /* V2.5: Liquid Glass v2 — backdrop-adaptive tint + veil + specular sheen;
-     flat border replaced by the edge-lit hairline (inset ring). */
-  background:
+     flat border replaced by the edge-lit hairline (inset ring).
+     V2 GLASS FIX: veil = background-color, tint/sheen = image overlays
+     (multi-layer background shorthand with color layers invalidates at
+     runtime after var substitution — the tonal stack silently never
+     rendered; see the RENDER CONTRACT in materials-v25.css). */
+  background-color: var(--mq-glass-veil-menu);
+  background-image:
     linear-gradient(165deg, var(--mq-g2-sheen), transparent 44%),
-    var(--mq-glass-veil-menu),
-    var(--mq-g2-tint);
+    linear-gradient(var(--mq-g2-tint), var(--mq-g2-tint));
   border: 1px solid var(--mq-g2-edge-mid);
   box-shadow:
     inset 0 1px 0 var(--mq-g2-edge-mid),
@@ -4546,14 +4550,14 @@ html[data-mq-desktop] .mq-card-track {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* V2 §10.4: one play language = FLAT LIQUID GLASS — translucent tonal
-     stack (top sheen -> body tone -> deep veil -> theme glass tint) + cold
-     hairline edge + one inner top light. No metal, no bevel, no gloss. */
-  background:
+  /* V2 §10.4: one play language = FLAT LIQUID GLASS — deep veil body
+     (background-color) + tint/sheen image overlays (RENDER CONTRACT:
+     multi-layer background shorthand with color layers invalidates at
+     runtime). No metal, no bevel, no gloss. */
+  background-color: rgba(6, 9, 16, 0.52);
+  background-image:
     linear-gradient(168deg, rgba(255, 255, 255, 0.055), transparent 46%),
-    color-mix(in srgb, var(--mq-text) 9%, transparent),
-    rgba(6, 9, 16, 0.52),
-    var(--mq-g2-tint);
+    linear-gradient(var(--mq-g2-tint), var(--mq-g2-tint));
   border: 1px solid color-mix(in srgb, var(--mq-platinum-hi, #e9edf5) 26%, transparent);
   color: #f4f6fa;
   box-shadow:
@@ -5055,11 +5059,13 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
   gap: var(--mq-space-1);
   padding: var(--mq-space-4) var(--mq-space-3) var(--mq-space-3);
   /* V2.5: backdrop-adaptive glass tint + veil (content-aware), edge-lit
-     right hairline replaces the flat border-right. */
-  background:
+     right hairline replaces the flat border-right.
+     V2 GLASS FIX: veil = background-color, tint/sheen = image overlays
+     (runtime-safe; see the RENDER CONTRACT in materials-v25.css). */
+  background-color: var(--mq-g2-veil);
+  background-image:
     linear-gradient(165deg, var(--mq-g2-sheen), transparent 44%),
-    var(--mq-g2-veil),
-    var(--mq-g2-tint);
+    linear-gradient(var(--mq-g2-tint), var(--mq-g2-tint));
   /* BLUR is set INLINE in Sidebar.tsx (pipeline strips stylesheet
      backdrop-filter). Inner top light + right edge-lit hairline: */
   box-shadow:

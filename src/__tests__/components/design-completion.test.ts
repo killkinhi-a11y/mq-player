@@ -110,8 +110,13 @@ describe("DC §6–7 — primary control is flat Liquid Glass; neutral is the de
     expect(btn).toContain("rgba(6, 9, 16, 0.52)");
     // metallic remnants are gone: no opaque platinum-lift fill, no chrome
     expect(btn).not.toContain("background: var(--mq-platinum-lift)");
-    const sheenGradients = (btn.match(/linear-gradient/g) || []).length;
-    expect(sheenGradients).toBeLessThanOrEqual(1);
+    // RENDER CONTRACT (V2 glass fix): the tint/body-tone ride as FLAT
+    // linear-gradient(c, c) overlays (image layers are runtime-valid;
+    // multi-layer background shorthand with color layers is not).
+    expect(btn).toContain("background-color: rgba(6, 9, 16, 0.52)");
+    expect(btn).toContain("linear-gradient(var(--mq-g2-tint), var(--mq-g2-tint))");
+    const sweeps = (btn.match(/linear-gradient\(\s*\d+deg/g) || []).length;
+    expect(sweeps).toBeLessThanOrEqual(1); // only the ONE subtle sheen
   });
 
   it("a neutral action class exists for everyday buttons", () => {
@@ -119,6 +124,21 @@ describe("DC §6–7 — primary control is flat Liquid Glass; neutral is the de
     expect(css).toContain(".mq-btn-neutral {");
     expect(css).toContain(".mq-btn-neutral:active");
   });
+
+  it("RENDER CONTRACT: no multi-layer background shorthand with bare color layers (runtime-invalid)", () => {
+    // After var substitution, plain COLOR layers (veil/tint) that are not
+    // the final layer invalidate the WHOLE background declaration in every
+    // browser — the glass tonal stack silently disappears. The safe shape:
+    // background-color (veil) + flat linear-gradient(c, c) overlays.
+    for (const file of ["src/styles/materials-v25.css", "src/app/globals.css"]) {
+      const css = readSrc(file);
+      // a multi-layer background shorthand ending in a bare COLOR layer
+      // (var() or rgba()) after a comma — runtime-invalid after substitution
+      const layerTail = /,\s*(?:var\(--mq-[a-z0-9-]+\)|rgba\([^)]*\))\s*;/;
+      for (const m of css.matchAll(/background:[^;{}]*;/g)) {
+        expect(m[0], `${file}: multi-layer background with bare color layers -> ${m[0].slice(0, 60)}`).not.toMatch(layerTail);
+      }
+    }});
 });
 
 describe("DC §9 — the normal MQ background is a living atmosphere", () => {
