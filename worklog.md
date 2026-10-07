@@ -9332,3 +9332,81 @@ Stage Summary:
 - V2 multi-provider engine LIVE in production: Catalog (Spotify-ready/Deezer-active) → PlaybackResolver → Audio (SoundCloud/Audius) → existing MQ engine, with honest attribution everywhere
 - BLOCKER documented: Spotify Web API 403 for this app (development mode) — needs extended quota in Spotify Developer Dashboard; Deezer fallback covers the full catalog experience meanwhile
 - Zero regressions; existing deploy settings/domain/project untouched (same Vercel project mq1.vercel.app, auto-deploy from main)
+
+---
+Task ID: v2-spotify-official
+Agent: main (Super Z)
+Task: V2 REWORK — replace the Deezer→SoundCloud default path with FULL
+OFFICIAL SPOTIFY PLAYBACK (Spotify Web Playback SDK + OAuth PKCE), per the
+owner's rework directive (research first, no previews, no Deezer substitute
+for Spotify playback, priority: Spotify Official → SoundCloud/Audius).
+
+Work Log:
+- DEEP RESEARCH before any implementation (download/v2-research/):
+  GitHub API + source reads of Kopuz (1901★, Rust+Dioxus, WPS via browser
+  bridge), Lumen/apple-music-liquidglass (PKCE+WPS), Spotiamp (PKCE+WPS,
+  plain JS — adapter reference), Spotiamp+ (librespot desktop), librespot
+  (own disclaimer: "probably forbidden"), spotify-player (TUI+librespot),
+  go-librespot (GPL), official WPS example. + repo searches.
+  VERDICT (RESEARCH-REPORT.md): Web Playback SDK + OAuth PKCE is the ONLY
+  legal web-native full-track path; librespot family rejected (ToS risk,
+  GPL, no browser path). Key constraints documented: SDK = desktop
+  Chromium/Firefox/Edge only (no Safari/mobile), Premium required, no raw
+  PCM (state-driven visuals only), no bitrate claims, SDK holds 1 track
+  (MQ queue drives), DRM license failures can kill tracks ~10s in (Kopuz).
+- Implemented on top of the parallel agent's multi-provider engine (their
+  PlaybackResolver/ISRC scoring/provider badges/low-confidence sheet/source
+  switcher PRESERVED as the Mode B fallback):
+  * src/lib/spotify/pkce.ts — Auth Code + PKCE S256 (RFC 7636 vector
+    tested), no client secret anywhere.
+  * auth.ts — session manager: config load (/api/spotify/config — public
+    Client ID only), token exchange/refresh (browser→accounts.spotify.com),
+    /me product detection (Premium gating), honest logout.
+  * playbackAdapter.ts — SpotifyPlaybackAdapter (§13 API): connect/play/
+    pause/resume/seek/next/previous/setVolume/setShuffle/setRepeat/getState
+    + ready/state/ended/error events; interpolated position clock (RAF-
+    smooth), Kopuz end-of-track heuristics (paused@0 + near-end), session
+    downgrade on account/init errors (no retry loops), 404→reconnect+retry,
+    403→honest downgrade.
+  * userCatalog.ts — USER catalog (PKCE token): search/artist/album/
+    playlist/library §17-19; tracks carry BOTH catalogId (their composite
+    identity) AND spotifyUri (Mode A key).
+  * Engine merge (useAudioEngine): their catalog branch got a PRIORITY STEP
+    1 — Spotify Official Playback FIRST (spotifyUri + Premium + supported
+    browser + not session-forced), then their PlaybackResolver (Mode B).
+    Adapter events bridge (duration/playbackState/end→queue advance/mid-play
+    DRM error→forced fallback WITH position continuity), RAF spotify
+    position source, isPlaying transport routing, volume routing, transport
+    bridge (seekPlayback/currentPlaybackPosition → SDK while Mode A).
+  * UI: their ProviderBadge system extended with SpotifyOfficialBadge
+    («Spotify • Official», no bitrate claims §22); PlayerBar/Spatial get
+    PlaybackSourceBadge wrapper (official↔ProviderChain); Search: user
+    Spotify section FIRST when connected (server Deezer/Spotify catalog only
+    for anonymous); Library: Spotify tab (liked/playlists/albums/artists/
+    recent/top — live user data §18); Settings→Звук→Источник музыки:
+    connect/disconnect + Premium/browser status.
+  * /spotify/callback page — PKCE code exchange + /me + redirect.
+  * Their CatalogTrackDTO + normalizeTrack + catalogToTrack now carry uri →
+    persisted queue tracks keep the official-playback key.
+  * Removed my interim resolve-alternative route (their /api/resolve with
+    ISRC/version scoring supersedes it).
+- MERGE with origin/main (parallel agent's v2 multi-provider engine +
+  design v3 + yandex import): 8 conflicts resolved (engine, store, Search,
+  FullTrackView×2, AppShell, spotify types/catalog); their engine/UI/QA'd
+  behavior preserved; my work re-based cleanly on top.
+- Gates: vitest 1306/1306 (76 files: their 769 v2 tests + my 43 spotify
+  tests [pkce/adapter/catalog: RFC vector, browser gate, official
+  availability, §13 surface, state/ended heuristics, error kinds, mapping,
+  no-preview policy] + existing suites); tsc src/ 0 errors; eslint 0 new;
+  production build PASS (118 pages); client bundle secret-scan CLEAN
+  (public URLs only: authorize, api/token [PKCE, no secret], v1, sdk.scdn.co).
+- Deploy: commit 3da014de pushed to main → Vercel production (see QA below).
+
+Stage Summary:
+- Spotify Official Playback integrated as the TOP priority source; the
+  Deezer→SoundCloud path survives ONLY as the honest fallback for anonymous
+  sessions / Free accounts / unsupported browsers (exactly §16/§25-26).
+- OWNER ACTION REQUIRED for the Premium E2E (§20-21, >90s full-track test):
+  register https://mq1.vercel.app/spotify/callback (+ localhost variant) in
+  the Spotify Developer Dashboard of the existing MQ app, and connect a
+  Premium account via Settings→Звук→Источник музыки. PKCE needs NO secret.
