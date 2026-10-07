@@ -2098,10 +2098,11 @@ export function useAudioEngine(params: UseAudioEngineParams) {
         // (SoundCloud / Audius); on success the resolved track REPLACES the
         // catalog track in store.currentTrack + queue and this load effect
         // re-runs on the new id through the normal source paths.
-        if (currentTrack.source === "spotify" && currentTrack.spotifyId && !currentTrack.playbackId) {
+        if (currentTrack.source === "spotify" && currentTrack.catalogId && !currentTrack.playbackId) {
           useAppStore.setState({ catalogResolving: true });
           const outcome = await resolveCatalogTrack({
-            spotifyId: currentTrack.spotifyId,
+            provider: currentTrack.catalogProvider === "deezer" ? "deezer" : "spotify",
+            catalogId: currentTrack.catalogId,
             title: currentTrack.title,
             artist: currentTrack.artist,
             album: currentTrack.album || undefined,
@@ -2131,7 +2132,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             useAppStore.setState({
               lowConfidencePick: {
                 catalog: {
-                  spotifyId: currentTrack.spotifyId,
+                  provider: currentTrack.catalogProvider === "deezer" ? "deezer" : "spotify",
+                  catalogId: currentTrack.catalogId,
                   title: currentTrack.title,
                   artist: currentTrack.artist,
                   album: currentTrack.album || "",

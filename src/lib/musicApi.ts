@@ -34,12 +34,12 @@ export interface Track {
 
   /* ── V2 multi-provider engine: catalog → playback attribution ── */
 
-  /** Catalog provider the metadata came from (Spotify catalog → SC audio). */
-  catalogProvider?: "spotify";
-  /** Catalog track id (Spotify base62 id) — match-cache key. */
-  spotifyId?: string;
-  /** Catalog artist id (Spotify) — deep-links the artist page. */
-  spotifyArtistId?: string;
+  /** Catalog provider the metadata came from (Spotify / Deezer). */
+  catalogProvider?: "spotify" | "deezer";
+  /** Provider-native catalog track id — match-cache key + deep links. */
+  catalogId?: string;
+  /** Catalog artist id — deep-links the artist page. */
+  catalogArtistId?: string;
   /** Audio provider actually playing this track (source field remains the
    *  historical playback source for the audio engine). */
   playbackProvider?: "soundcloud" | "audius";

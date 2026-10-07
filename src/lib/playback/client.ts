@@ -22,7 +22,8 @@ import type { CatalogTrackDTO } from "@/lib/spotify/types";
 
 /** Minimal catalog track input — enough for resolve + playable build. */
 export interface CatalogTrackInput {
-  spotifyId: string;
+  provider: "spotify" | "deezer";
+  catalogId: string;
   title: string;
   artist: string;
   album?: string;
@@ -117,7 +118,7 @@ export function buildPlayableTrack(
   const isSc = cand.provider === "soundcloud";
   const base: Track = {
     // Stable composite id: catalog identity + playback source.
-    id: `spc_${catalog.spotifyId}_${cand.provider}_${cand.sourceId}`,
+    id: `cat_${catalog.provider}_${catalog.catalogId}_${cand.provider}_${cand.sourceId}`,
     title: catalog.title,
     artist: catalog.artist,
     album: catalog.album || "",
@@ -127,8 +128,8 @@ export function buildPlayableTrack(
     audioUrl: "",
     previewUrl: "",
     source: isSc ? "soundcloud" : "audius",
-    catalogProvider: "spotify",
-    spotifyId: catalog.spotifyId,
+    catalogProvider: catalog.provider,
+    catalogId: catalog.catalogId,
     playbackProvider: cand.provider,
     playbackId: cand.sourceId,
     _resolveConfidence: cand.confidence,
@@ -152,7 +153,7 @@ export async function resolveCatalogTrack(
 ): Promise<ResolveOutcome> {
   const prefer = getUserSourcePreference();
 
-  const cacheKey = `${catalog.spotifyId}:${prefer}:${opts?.force?.sourceId || ""}`;
+  const cacheKey = `${catalog.provider}:${catalog.catalogId}:${prefer}:${opts?.force?.sourceId || ""}`;
   const cachedEntry = !opts?.force ? localCache.get(cacheKey) : null;
   if (cachedEntry && Date.now() - cachedEntry.at < LOCAL_TTL) {
     return {
@@ -170,10 +171,9 @@ export async function resolveCatalogTrack(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        catalogProvider: "spotify",
-        spotifyId: catalog.spotifyId,
+        catalogProvider: catalog.provider,
         track: {
-          spotifyId: catalog.spotifyId,
+          catalogId: catalog.catalogId,
           title: catalog.title,
           artist: catalog.artist,
           album: catalog.album,
@@ -217,7 +217,8 @@ export async function resolveCatalogTrack(
  * Uses the local cache when warm; server match cache makes this cheap.
  */
 export async function fetchAlternatives(
-  spotifyId: string,
+  provider: "spotify" | "deezer",
+  catalogId: string,
   catalog: { title: string; artist: string; album?: string; durationSec: number },
 ): Promise<ResolveCandidate[]> {
   try {
@@ -225,10 +226,9 @@ export async function fetchAlternatives(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        catalogProvider: "spotify",
-        spotifyId,
+        catalogProvider: provider,
         track: {
-          spotifyId,
+          catalogId,
           title: catalog.title,
           artist: catalog.artist,
           album: catalog.album,
@@ -258,7 +258,7 @@ export function clearLocalResolveCache(): void {
  */
 export function catalogToTrack(dto: CatalogTrackDTO): Track {
   return {
-    id: `sp_${dto.spotifyId}`,
+    id: `${dto.provider === "deezer" ? "dz" : "sp"}_${dto.catalogId}`,
     title: dto.title,
     artist: dto.artist,
     album: dto.album || "",
@@ -267,9 +267,12 @@ export function catalogToTrack(dto: CatalogTrackDTO): Track {
     genre: "",
     audioUrl: "",
     previewUrl: "",
+    // Unresolved catalog track: the engine resolves it at play time.
+    // source "spotify" is the historical lazy-resolve marker for ANY
+    // catalog provider — attribution lives in catalogProvider/catalogId.
     source: "spotify",
-    catalogProvider: "spotify",
-    spotifyId: dto.spotifyId,
-    spotifyArtistId: dto.artistId,
+    catalogProvider: dto.provider,
+    catalogId: dto.catalogId,
+    catalogArtistId: dto.artistId,
   };
 }

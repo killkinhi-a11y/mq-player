@@ -137,7 +137,7 @@ const SourceSheetBase = function SourceSheet() {
 
         {mode === "low" && (
           <div style={{ padding: "0 20px 8px", fontSize: 12.5, opacity: 0.6, lineHeight: 1.5 }}>
-            Каталог: <ProviderBadge provider="spotify" />. Ни один аудио-источник не совпал
+            Каталог: <ProviderBadge provider={(catalog ?? { provider: "spotify" }).provider === "deezer" ? "deezer" : "spotify"} />. Ни один аудио-источник не совпал
             уверенно — выберите вариант вручную, чтобы не слушать неправильный трек.
           </div>
         )}
@@ -228,7 +228,11 @@ const SourceSheetBase = function SourceSheet() {
             }}
           >
             <a
-              href={`https://open.spotify.com/track/${catalog.spotifyId}`}
+              href={
+                catalog.provider === "deezer"
+                  ? `https://www.deezer.com/track/${catalog.catalogId}`
+                  : `https://open.spotify.com/track/${catalog.catalogId}`
+              }
               target="_blank"
               rel="noopener noreferrer"
               style={{

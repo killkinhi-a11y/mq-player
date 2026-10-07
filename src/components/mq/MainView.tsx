@@ -430,13 +430,14 @@ function MainView() {
 
   // ── Artist detail (early return AFTER all hooks — see note above) ──
   if (selectedArtist) {
-    // V2: Spotify-linked artist → full catalog artist page (top tracks,
+    // V2: catalog-linked artist → full catalog artist page (top tracks,
     // albums, singles, EPs, appears-on, related). SoundCloud artists keep
     // the existing ArtistDetailView — untouched path.
-    if (selectedArtist.spotifyArtistId) {
+    if (selectedArtist.catalogArtistId) {
       return (
         <SpotifyArtistView
-          spotifyArtistId={selectedArtist.spotifyArtistId}
+          catalogArtistId={selectedArtist.catalogArtistId}
+          catalogProvider={selectedArtist.catalogProvider === "deezer" ? "deezer" : "spotify"}
           artistName={selectedArtist.name}
           onBack={() => setSelectedArtist(null)}
           compactMode={compactMode}

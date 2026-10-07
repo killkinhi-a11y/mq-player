@@ -686,7 +686,7 @@ export default function FullTrackView() {
               {currentTrack.versionTag}
             </span>
           )}
-          {currentTrack.spotifyId && (
+          {currentTrack.catalogId && (
             <button
               onClick={() => useAppStore.getState().openSourceSwitcher()}
               className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium hover:opacity-80 transition-opacity"

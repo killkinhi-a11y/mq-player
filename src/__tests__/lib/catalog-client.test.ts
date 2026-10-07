@@ -16,8 +16,9 @@ import {
 import type { CatalogTrackDTO } from "@/lib/spotify/types";
 
 const catalog: CatalogTrackDTO = {
+  provider: "spotify",
   id: "sp_6g0damosSHTZ5j2jO9z7yn",
-  spotifyId: "6g0damosSHTZ5j2jO9z7yn",
+  catalogId: "6g0damosSHTZ5j2jO9z7yn",
   title: "Goosebumps",
   artist: "Travis Scott",
   artistId: "0Y5tJS1cIPuFqR7EEWRZ0X",
@@ -57,8 +58,8 @@ describe("catalogToTrack", () => {
     expect(t.id).toBe("sp_6g0damosSHTZ5j2jO9z7yn");
     expect(t.source).toBe("spotify");
     expect(t.catalogProvider).toBe("spotify");
-    expect(t.spotifyId).toBe(catalog.spotifyId);
-    expect(t.spotifyArtistId).toBe(catalog.artistId);
+    expect(t.catalogId).toBe(catalog.catalogId);
+    expect(t.catalogArtistId).toBe(catalog.artistId);
     expect(t.playbackProvider).toBeUndefined(); // not resolved yet
     expect(t.title).toBe("Goosebumps");
     expect(t.duration).toBe(226);
@@ -76,13 +77,13 @@ describe("buildPlayableTrack", () => {
     expect(t.playbackProvider).toBe("soundcloud");
     expect(t.playbackId).toBe("271666988");
     expect(t.catalogProvider).toBe("spotify");
-    expect(t.spotifyId).toBe(catalog.spotifyId);
+    expect(t.catalogId).toBe(catalog.catalogId);
     expect(t._resolveConfidence).toBeCloseTo(0.94);
     // Title/artist/artwork come from the CATALOG (Spotify), not the upload
     expect(t.title).toBe("Goosebumps");
     expect(t.cover).toContain("i.scdn.co");
     // Stable composite id → same resolve result = same id (resume works)
-    expect(t.id).toBe(`spc_${catalog.spotifyId}_soundcloud_271666988`);
+    expect(t.id).toBe(`cat_spotify_${catalog.catalogId}_soundcloud_271666988`);
   });
 
   it("Audius candidate → playable audius track", () => {
@@ -91,7 +92,7 @@ describe("buildPlayableTrack", () => {
     expect(t.scTrackId).toBeUndefined();
     expect(t.playbackProvider).toBe("audius");
     expect(t.playbackId).toBe("Dp6l7v");
-    expect(t.id).toBe(`spc_${catalog.spotifyId}_audius_Dp6l7v`);
+    expect(t.id).toBe(`cat_spotify_${catalog.catalogId}_audius_Dp6l7v`);
   });
 
   it("preview-only candidate carries the SNIP policy", () => {
@@ -172,7 +173,8 @@ describe("resolveCatalogTrack — failure honesty", () => {
     // dynamic import keeps the module-level fetch reference fresh per test
     const { resolveCatalogTrack } = await import("@/lib/playback/client");
     return resolveCatalogTrack({
-      spotifyId: catalog.spotifyId,
+      provider: catalog.provider,
+      catalogId: catalog.catalogId,
       title: catalog.title,
       artist: catalog.artist,
       album: catalog.album,

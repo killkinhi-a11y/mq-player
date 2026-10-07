@@ -775,7 +775,7 @@ function FullTrackViewMobileInner() {
                   {currentTrack.versionTag}
                 </span>
               )}
-              {currentTrack.spotifyId && (
+              {currentTrack.catalogId && (
                 <button
                   onClick={() => useAppStore.getState().openSourceSwitcher()}
                   aria-label="Сменить источник воспроизведения"

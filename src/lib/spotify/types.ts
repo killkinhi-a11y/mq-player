@@ -87,10 +87,15 @@ export interface SpotifyPaged<T> {
 
 /* ── Normalized MQ shapes (what the API routes return) ─────────────── */
 
+/** Which catalog provider supplied the metadata. */
+export type CatalogProviderId = "spotify" | "deezer";
+
 /** Catalog track — metadata identity, playable via PlaybackResolver. */
 export interface CatalogTrackDTO {
-  id: string; // "sp_<spotifyId>"
-  spotifyId: string;
+  id: string; // "sp_<id>" | "dz_<id>"
+  provider: CatalogProviderId;
+  /** Provider-native track id (match-cache key, deep links). */
+  catalogId: string;
   title: string;
   artist: string;
   artistId?: string;
@@ -102,24 +107,28 @@ export interface CatalogTrackDTO {
   explicit: boolean;
   popularity: number;
   previewUrl: string | null;
-  spotifyUrl?: string;
+  /** Provider track page (open externally). */
+  externalUrl?: string;
   releaseDate?: string;
 }
 
 export interface CatalogArtistDTO {
-  id: string; // "spa_<spotifyId>"
-  spotifyId: string;
+  id: string; // "spa_<id>" | "dza_<id>"
+  provider: CatalogProviderId;
+  catalogId: string;
   name: string;
   image?: string;
   followers?: number;
   genres: string[];
   popularity?: number;
-  spotifyUrl?: string;
+  trackCount?: number;
+  externalUrl?: string;
 }
 
 export interface CatalogAlbumDTO {
-  id: string; // "spl_<spotifyId>"
-  spotifyId: string;
+  id: string; // "spl_<id>" | "dzl_<id>"
+  provider: CatalogProviderId;
+  catalogId: string;
   name: string;
   artist: string;
   artistId?: string;
@@ -129,17 +138,18 @@ export interface CatalogAlbumDTO {
   albumType: string;
   totalTracks: number;
   totalDurationSec: number;
-  spotifyUrl?: string;
+  externalUrl?: string;
   label?: string;
 }
 
 export interface CatalogPlaylistDTO {
-  id: string; // "spp_<spotifyId>"
-  spotifyId: string;
+  id: string; // "spp_<id>"
+  provider: CatalogProviderId;
+  catalogId: string;
   name: string;
   description: string;
   image?: string;
   owner?: string;
   trackCount: number;
-  spotifyUrl?: string;
+  externalUrl?: string;
 }

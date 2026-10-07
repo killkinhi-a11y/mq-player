@@ -16,7 +16,8 @@ import type { Track } from "@/lib/musicApi";
 
 function dto(title: string, artist: string): CatalogTrackDTO {
   return {
-    id: `sp_${title.replace(/\W/g, "")}`, spotifyId: title.replace(/\W/g, ""),
+    provider: "deezer",
+    id: `dz_${title.replace(/\W/g, "")}`, catalogId: title.replace(/\W/g, ""),
     title, artist,
     album: "Album", albumImage: "", durationSec: 200,
     explicit: false, popularity: 50, previewUrl: null,
@@ -98,8 +99,8 @@ describe("duplicate merge (search V2)", () => {
 
   it("merged catalog rows carry catalog attribution for badges", () => {
     const [row] = mergeSearchResults([dto("Goosebumps", "Travis Scott")], []);
-    expect(row.catalogProvider).toBe("spotify");
-    expect(row.spotifyId).toBeTruthy();
+    expect(row.catalogProvider).toBe("deezer");
+    expect(row.catalogId).toBeTruthy();
     expect(row.playbackProvider).toBeUndefined(); // unresolved until played
     expect(catalogToTrack(dto("Goosebumps", "Travis Scott")).id).toBe(row.id);
   });

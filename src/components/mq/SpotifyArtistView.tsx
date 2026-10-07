@@ -35,6 +35,7 @@ import type {
    ══════════════════════════════════════════════════════════════════════════ */
 
 interface ArtistPageData {
+  provider: "spotify" | "deezer";
   artist: CatalogArtistDTO | null;
   topTracks: CatalogTrackDTO[];
   albums: CatalogAlbumDTO[];
@@ -45,7 +46,7 @@ interface ArtistPageData {
 }
 
 const EMPTY: ArtistPageData = {
-  artist: null, topTracks: [], albums: [], singles: [], eps: [], appearsOn: [], related: [],
+  provider: "spotify", artist: null, topTracks: [], albums: [], singles: [], eps: [], appearsOn: [], related: [],
 };
 
 const FALLBACK_COLORS: DominantColors = {
@@ -114,7 +115,7 @@ const CatalogTrackRow = memo(function CatalogTrackRow({
           </span>
           <span className="flex items-center gap-1.5 mt-0.5 min-w-0">
             <span className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</span>
-            <ProviderBadge provider="spotify" />
+            <ProviderBadge provider={track.catalogProvider === "deezer" ? "deezer" : "spotify"} />
           </span>
         </span>
         <span className="mq-t-num text-xs shrink-0" style={{ color: "var(--mq-text-muted)" }}>
@@ -160,7 +161,7 @@ function ReleaseTile({ album, index, animationsEnabled, onOpen }: {
       transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.12) }}
       onClick={() => onOpen(album)}
       className="text-left group"
-      data-mq-artist-release={album.spotifyId}
+      data-mq-artist-release={album.catalogId}
     >
       <span className="block aspect-square rounded-[var(--mq-r-card)] overflow-hidden mb-2 mq-art" style={{ backgroundColor: "var(--mq-surface-2)", boxShadow: "var(--mq-mat-2-shadow)" }}>
         {album.image ? (
@@ -180,14 +181,15 @@ function ReleaseTile({ album, index, animationsEnabled, onOpen }: {
 /* ── Main view ─────────────────────────────────────────────────────── */
 
 interface Props {
-  spotifyArtistId: string;
+  catalogArtistId: string;
+  catalogProvider: "spotify" | "deezer";
   artistName: string;
   onBack: () => void;
   compactMode: boolean;
   animationsEnabled: boolean;
 }
 
-function SpotifyArtistViewBase({ spotifyArtistId, artistName, onBack, animationsEnabled }: Props) {
+function SpotifyArtistViewBase({ catalogArtistId, catalogProvider, artistName, onBack, animationsEnabled }: Props) {
   const playTrack = useAppStore((s) => s.playTrack);
   const currentTrack = useAppStore((s) => s.currentTrack);
   const isPlaying = useAppStore((s) => s.isPlaying);
@@ -214,15 +216,19 @@ function SpotifyArtistViewBase({ spotifyArtistId, artistName, onBack, animations
     setTimeout(() => { if (!cancelled) { setState("loading"); setData(EMPTY); } }, 0);
     (async () => {
       try {
-        const res = await fetch(`/api/spotify/artist/${spotifyArtistId}`, { signal: ctrl.signal });
+        const res = await fetch(
+          `/api/catalog/artist/${catalogArtistId}?p=${catalogProvider}`,
+          { signal: ctrl.signal },
+        );
         if (!res.ok) throw new Error("http");
-        const d = (await res.json()) as { configured: boolean; unavailable?: boolean } & ArtistPageData;
+        const d = (await res.json()) as { provider?: string } & ArtistPageData;
         if (cancelled) return;
-        if (!d.configured || d.unavailable || !d.artist) {
+        if (!d.artist) {
           setState("unavailable");
           return;
         }
         setData({
+          provider: catalogProvider,
           artist: d.artist,
           topTracks: d.topTracks || [],
           albums: d.albums || [],
@@ -237,7 +243,7 @@ function SpotifyArtistViewBase({ spotifyArtistId, artistName, onBack, animations
       }
     })();
     return () => { cancelled = true; ctrl.abort(); };
-  }, [spotifyArtistId]);
+  }, [catalogArtistId, catalogProvider]);
 
   /* Hero gradient from the real artwork */
   useEffect(() => {
@@ -253,7 +259,7 @@ function SpotifyArtistViewBase({ spotifyArtistId, artistName, onBack, animations
     [data.topTracks],
   );
 
-  const heroPlaying = !!currentTrack && topTrackQueue.some((t) => t.id === currentTrack.id || currentTrack.spotifyId === t.spotifyId);
+  const heroPlaying = !!currentTrack && topTrackQueue.some((t) => t.id === currentTrack.id || (currentTrack.catalogId && t.catalogId === currentTrack.catalogId));
 
   const isFav = favoriteArtists.some((a) => a.username === (data.artist?.name || artistName));
 
@@ -326,7 +332,7 @@ function SpotifyArtistViewBase({ spotifyArtistId, artistName, onBack, animations
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1.5">
-            <ProviderBadge provider="spotify" title="Каталог: Spotify" />
+            <ProviderBadge provider={catalogProvider === "deezer" ? "deezer" : "spotify"} title={`Каталог: ${catalogProvider === "deezer" ? "Deezer" : "Spotify"}`} />
             <BadgeCheck className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
             <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>Исполнитель</span>
           </div>
@@ -404,7 +410,7 @@ function SpotifyArtistViewBase({ spotifyArtistId, artistName, onBack, animations
   );
 
   return (
-    <div className="max-w-6xl mx-auto px-3 sm:px-5 pb-10" data-mq-spotify-artist={spotifyArtistId}>
+    <div className="max-w-6xl mx-auto px-3 sm:px-5 pb-10" data-mq-spotify-artist={catalogArtistId}>
       {/* Back */}
       <button
         onClick={onBack}
@@ -444,9 +450,9 @@ function SpotifyArtistViewBase({ spotifyArtistId, artistName, onBack, animations
       {state === "unavailable" && (
         <div className="mq-empty">
           <Music2 className="w-7 h-7" style={{ color: "var(--mq-text-muted)" }} />
-          <p className="mq-empty-title">Каталог Spotify недоступен</p>
+          <p className="mq-empty-title">Страница исполнителя недоступна</p>
           <p className="mq-empty-hint">
-            Не удалось загрузить страницу исполнителя. Проверьте подключение или
+            Не удалось загрузить данные каталога. Проверьте подключение или
             попробуйте позже — поиск SoundCloud по-прежнему работает.
           </p>
         </div>
@@ -486,7 +492,7 @@ function SpotifyArtistViewBase({ spotifyArtistId, artistName, onBack, animations
               {sectionHead("Альбомы", data.albums.length)}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 {data.albums.map((al, i) => (
-                  <ReleaseTile key={al.spotifyId} album={al} index={i} animationsEnabled={animationsEnabled} onOpen={openSpotifyAlbum} />
+                  <ReleaseTile key={al.catalogId} album={al} index={i} animationsEnabled={animationsEnabled} onOpen={openSpotifyAlbum} />
                 ))}
               </div>
             </section>
@@ -498,7 +504,7 @@ function SpotifyArtistViewBase({ spotifyArtistId, artistName, onBack, animations
               {sectionHead("Синглы и EP", data.singles.length + data.eps.length)}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 {[...data.eps, ...data.singles].map((al, i) => (
-                  <ReleaseTile key={al.spotifyId} album={al} index={i} animationsEnabled={animationsEnabled} onOpen={openSpotifyAlbum} />
+                  <ReleaseTile key={al.catalogId} album={al} index={i} animationsEnabled={animationsEnabled} onOpen={openSpotifyAlbum} />
                 ))}
               </div>
             </section>
@@ -510,7 +516,7 @@ function SpotifyArtistViewBase({ spotifyArtistId, artistName, onBack, animations
               {sectionHead("Участвует", data.appearsOn.length)}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 {data.appearsOn.map((al, i) => (
-                  <ReleaseTile key={al.spotifyId} album={al} index={i} animationsEnabled={animationsEnabled} onOpen={openSpotifyAlbum} />
+                  <ReleaseTile key={al.catalogId} album={al} index={i} animationsEnabled={animationsEnabled} onOpen={openSpotifyAlbum} />
                 ))}
               </div>
             </section>
@@ -523,14 +529,14 @@ function SpotifyArtistViewBase({ spotifyArtistId, artistName, onBack, animations
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 {data.related.map((ra, i) => (
                   <motion.button
-                    key={ra.spotifyId}
+                    key={ra.catalogId}
                     initial={animationsEnabled ? { opacity: 0, y: 8 } : undefined}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, amount: 0.2 }}
                     transition={{ duration: 0.2, delay: Math.min(i * 0.02, 0.12) }}
-                    onClick={() => setSelectedArtist({ name: ra.name, avatar: ra.image, spotifyArtistId: ra.spotifyId })}
+                    onClick={() => setSelectedArtist({ name: ra.name, avatar: ra.image, catalogArtistId: ra.catalogId, catalogProvider: ra.provider })}
                     className="text-left group"
-                    data-mq-related-artist={ra.spotifyId}
+                    data-mq-related-artist={ra.catalogId}
                   >
                     <span className="block aspect-square rounded-full overflow-hidden mb-2 mq-art" style={{ backgroundColor: "var(--mq-surface-2)" }}>
                       {ra.image ? (

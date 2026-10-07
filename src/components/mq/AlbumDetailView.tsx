@@ -63,14 +63,16 @@ function AlbumDetailViewBase({ album, onBack, animationsEnabled }: Props) {
     setTimeout(() => { if (!cancelled) { setState("loading"); setDetail(null); } }, 0);
     (async () => {
       try {
-        const res = await fetch(`/api/spotify/album/${album.spotifyId}`, { signal: ctrl.signal });
+        const res = await fetch(
+          `/api/catalog/album/${album.catalogId}?p=${album.provider === "deezer" ? "deezer" : "spotify"}`,
+          { signal: ctrl.signal },
+        );
         if (!res.ok) throw new Error("http");
         const d = (await res.json()) as {
-          configured: boolean; unavailable?: boolean;
           album: CatalogAlbumDTO | null; tracks: CatalogTrackDTO[];
         };
         if (cancelled) return;
-        if (!d.configured || d.unavailable || !d.album) {
+        if (!d.album) {
           setState("unavailable");
           return;
         }
@@ -81,7 +83,7 @@ function AlbumDetailViewBase({ album, onBack, animationsEnabled }: Props) {
       }
     })();
     return () => { cancelled = true; ctrl.abort(); };
-  }, [album.spotifyId]);
+  }, [album.catalogId, album.provider]);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,7 +98,7 @@ function AlbumDetailViewBase({ album, onBack, animationsEnabled }: Props) {
     [detail?.tracks],
   );
 
-  const heroPlaying = !!currentTrack && albumTracks.some((t) => t.id === currentTrack.id || currentTrack.spotifyId === t.spotifyId);
+  const heroPlaying = !!currentTrack && albumTracks.some((t) => t.id === currentTrack.id || (currentTrack.catalogId && t.catalogId === currentTrack.catalogId));
 
   const playAlbum = useCallback(() => {
     if (albumTracks.length === 0) return;
@@ -125,7 +127,7 @@ function AlbumDetailViewBase({ album, onBack, animationsEnabled }: Props) {
   const totalDuration = detail?.album.totalDurationSec || 0;
 
   return (
-    <div className="max-w-5xl mx-auto px-3 sm:px-5 pb-10" data-mq-spotify-album={album.spotifyId}>
+    <div className="max-w-5xl mx-auto px-3 sm:px-5 pb-10" data-mq-spotify-album={album.catalogId}>
       <button
         onClick={onBack}
         className="inline-flex items-center gap-1.5 text-sm font-medium mt-3 mb-4 hover:opacity-80 transition-opacity"
@@ -193,7 +195,10 @@ function AlbumDetailViewBase({ album, onBack, animationsEnabled }: Props) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1.5">
-                  <ProviderBadge provider="spotify" title="Каталог: Spotify" />
+                  <ProviderBadge
+                    provider={shown.provider === "deezer" ? "deezer" : "spotify"}
+                    title={`Каталог: ${shown.provider === "deezer" ? "Deezer" : "Spotify"}`}
+                  />
                   <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>Альбом</span>
                 </div>
                 <h1
@@ -205,8 +210,12 @@ function AlbumDetailViewBase({ album, onBack, animationsEnabled }: Props) {
                 <div className={`flex flex-wrap ${isMobile ? "justify-center" : ""} items-center gap-x-2 gap-y-1 mt-2.5 text-sm`}>
                   <button
                     onClick={() => {
-                      const artistId = (detail?.tracks || [])[0]?.artistId;
-                      setSelectedArtist({ name: shown.artist, spotifyArtistId: artistId });
+                      const t0 = (detail?.tracks || [])[0];
+                      setSelectedArtist({
+                        name: shown.artist,
+                        catalogArtistId: t0?.artistId,
+                        catalogProvider: shown.provider === "deezer" ? "deezer" : "spotify",
+                      });
                     }}
                     className="font-semibold hover:underline"
                     style={{ color: "var(--mq-text)" }}
@@ -245,14 +254,14 @@ function AlbumDetailViewBase({ album, onBack, animationsEnabled }: Props) {
                   >
                     <ListPlus className="w-4 h-4" />
                   </button>
-                  {shown.spotifyUrl && (
+                  {shown.externalUrl && (
                     <a
-                      href={shown.spotifyUrl}
+                      href={shown.externalUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-transform active:scale-[0.97]"
                       style={{ background: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)", color: "var(--mq-text)" }}
-                      aria-label="Открыть в Spotify"
+                      aria-label="Открыть у провайдера каталога"
                     >
                       <ExternalLink className="w-4 h-4" />
                     </a>
@@ -364,7 +373,7 @@ const AlbumTrackList = memo(function AlbumTrackList({
                 <Heart className="w-4 h-4" fill={likedTrackIds.includes(track.id) ? "currentColor" : "none"} />
               </button>
               <span className="w-14 hidden sm:flex items-center shrink-0">
-                <ProviderBadge provider="spotify" />
+                <ProviderBadge provider={track.catalogProvider === "deezer" ? "deezer" : "spotify"} />
               </span>
               <span className="mq-t-num text-xs w-14 text-right shrink-0" style={{ color: "var(--mq-text-muted)" }}>
                 {track.duration > 0 ? formatDuration(track.duration) : "—"}

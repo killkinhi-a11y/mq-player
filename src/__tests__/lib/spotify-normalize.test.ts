@@ -40,8 +40,9 @@ const spTrack: SpotifyTrack = {
 describe("normalizeTrack", () => {
   it("maps a Spotify track to the catalog DTO", () => {
     const dto = normalizeTrack(spTrack);
+    expect(dto.provider).toBe("spotify");
     expect(dto.id).toBe("sp_6g0damosSHTZ5j2jO9z7yn");
-    expect(dto.spotifyId).toBe("6g0damosSHTZ5j2jO9z7yn");
+    expect(dto.catalogId).toBe("6g0damosSHTZ5j2jO9z7yn");
     expect(dto.title).toBe("Goosebumps");
     expect(dto.artist).toBe("Travis Scott");
     expect(dto.album).toBe("Birds in the Trap Sing McKnight");
@@ -75,10 +76,11 @@ describe("normalizeArtist", () => {
     };
     const dto = normalizeArtist(a);
     expect(dto.id).toBe("spa_0Y5tJS1cIPuFqR7EEWRZ0X");
+    expect(dto.provider).toBe("spotify");
     expect(dto.followers).toBe(32_000_000);
     expect(dto.genres).toEqual(["rap", "trap"]);
     expect(dto.image).toContain("i.scdn.co");
-    expect(dto.spotifyUrl).toContain("open.spotify.com/artist/");
+    expect(dto.externalUrl).toContain("open.spotify.com/artist/");
   });
 });
 
@@ -97,6 +99,7 @@ describe("normalizeAlbum", () => {
     };
     const dto = normalizeAlbum(al);
     expect(dto.id).toBe("spl_3g4h5i");
+    expect(dto.provider).toBe("spotify");
     expect(dto.year).toBe("2023");
     expect(dto.albumType).toBe("album");
     expect(dto.totalTracks).toBe(19);

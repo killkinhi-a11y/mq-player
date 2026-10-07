@@ -129,8 +129,9 @@ export let lastDiag = "idle";
 export function normalizeTrack(t: SpotifyTrack): CatalogTrackDTO {
   const album = t.album;
   return {
+    provider: "spotify",
     id: `sp_${t.id}`,
-    spotifyId: t.id,
+    catalogId: t.id,
     title: t.name || "Unknown",
     artist: (t.artists || []).map((a) => a.name).join(", ") || "Unknown Artist",
     artistId: t.artists?.[0]?.id,
@@ -142,29 +143,31 @@ export function normalizeTrack(t: SpotifyTrack): CatalogTrackDTO {
     explicit: !!t.explicit,
     popularity: t.popularity ?? 0,
     previewUrl: t.preview_url || null,
-    spotifyUrl: t.external_urls?.spotify,
+    externalUrl: t.external_urls?.spotify,
     releaseDate: album?.release_date,
   };
 }
 
 export function normalizeArtist(a: SpotifyArtist): CatalogArtistDTO {
   return {
+    provider: "spotify",
     id: `spa_${a.id}`,
-    spotifyId: a.id,
+    catalogId: a.id,
     name: a.name || "Unknown Artist",
     image: a.images?.[0]?.url || "",
     followers: a.followers?.total,
     genres: a.genres || [],
     popularity: a.popularity,
-    spotifyUrl: `https://open.spotify.com/artist/${a.id}`,
+    externalUrl: `https://open.spotify.com/artist/${a.id}`,
   };
 }
 
 export function normalizeAlbum(al: SpotifySimplifiedAlbum): CatalogAlbumDTO {
   const year = (al.release_date || "").slice(0, 4);
   return {
+    provider: "spotify",
     id: `spl_${al.id}`,
-    spotifyId: al.id,
+    catalogId: al.id,
     name: al.name || "Unknown Album",
     artist: (al.artists || []).map((a) => a.name).join(", ") || "Unknown Artist",
     artistId: al.artists?.[0]?.id,
@@ -174,21 +177,22 @@ export function normalizeAlbum(al: SpotifySimplifiedAlbum): CatalogAlbumDTO {
     albumType: al.album_type || "album",
     totalTracks: al.total_tracks ?? 0,
     totalDurationSec: 0, // filled by album details when tracks are present
-    spotifyUrl: `https://open.spotify.com/album/${al.id}`,
+    externalUrl: `https://open.spotify.com/album/${al.id}`,
   };
 }
 
 function normalizePlaylist(p: SpotifyPlaylistBase): CatalogPlaylistDTO {
   const img = Array.isArray(p.images) ? p.images[0] : undefined;
   return {
+    provider: "spotify",
     id: `spp_${p.id}`,
-    spotifyId: p.id,
+    catalogId: p.id,
     name: p.name || "Playlist",
     description: p.description || "",
     image: img?.url || "",
     owner: p.owner?.display_name || p.owner?.id,
     trackCount: p.tracks?.total ?? 0,
-    spotifyUrl: p.external_urls?.spotify || `https://open.spotify.com/playlist/${p.id}`,
+    externalUrl: p.external_urls?.spotify || `https://open.spotify.com/playlist/${p.id}`,
   };
 }
 

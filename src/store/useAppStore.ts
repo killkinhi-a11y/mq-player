@@ -509,8 +509,8 @@ interface AppState {
   selectedGroupId: string | null;
 
   // Artist detail view (shared across views)
-  selectedArtist: { name: string; avatar?: string; followers?: number; genre?: string; trackCount?: number; spotifyArtistId?: string } | null;
-  setSelectedArtist: (artist: { name: string; avatar?: string; followers?: number; genre?: string; trackCount?: number; spotifyArtistId?: string } | null) => void;
+  selectedArtist: { name: string; avatar?: string; followers?: number; genre?: string; trackCount?: number; catalogArtistId?: string; catalogProvider?: "spotify" | "deezer" } | null;
+  setSelectedArtist: (artist: { name: string; avatar?: string; followers?: number; genre?: string; trackCount?: number; catalogArtistId?: string; catalogProvider?: "spotify" | "deezer" } | null) => void;
 
   /* ── V2 multi-provider engine: catalog → playback ── */
 
@@ -813,7 +813,7 @@ const initialState = {
   favoriteArtists: [] as FavoriteArtist[],
   onboardingComplete: false as boolean,
   selectedGroupId: null as string | null,
-  selectedArtist: null as { name: string; avatar?: string; followers?: number; genre?: string; trackCount?: number; spotifyArtistId?: string } | null,
+  selectedArtist: null as { name: string; avatar?: string; followers?: number; genre?: string; trackCount?: number; catalogArtistId?: string; catalogProvider?: "spotify" | "deezer" } | null,
 
   // V2 multi-provider engine
   catalogResolving: false,
@@ -2402,11 +2402,12 @@ export const useAppStore = create<AppState>()(
       switchPlaybackSource: (candidate) => {
         const state = get();
         const cur = state.currentTrack;
-        if (!cur || !cur.spotifyId) return;
+        if (!cur || !cur.catalogId || !cur.catalogProvider) return;
         // Preserve position across the source switch (02:31 → 02:30).
         const position = state.progress > 1 ? state.progress : 0;
         const catalog: CatalogTrackInput = {
-          spotifyId: cur.spotifyId,
+          provider: cur.catalogProvider,
+          catalogId: cur.catalogId,
           title: cur.title,
           artist: cur.artist,
           album: cur.album || undefined,
@@ -2438,13 +2439,13 @@ export const useAppStore = create<AppState>()(
         if (!cur) return;
         // Same-source native tracks (plain SoundCloud search result, local file)
         // have no catalog identity to re-resolve — only catalog tracks can switch.
-        if (!cur.spotifyId) {
+        if (!cur.catalogId || !cur.catalogProvider) {
           toast({ title: "Смена источника недоступна", description: "Трек воспроизводится из своего источника" });
           return;
         }
         set({ sourceSwitcher: { alternatives: [], currentId: cur.playbackId ? `${cur.playbackProvider}:${cur.playbackId}` : null } });
         const { fetchAlternatives } = await import("@/lib/playback/client");
-        const alternatives = await fetchAlternatives(cur.spotifyId, {
+        const alternatives = await fetchAlternatives(cur.catalogProvider, cur.catalogId, {
           title: cur.title,
           artist: cur.artist,
           album: cur.album || undefined,

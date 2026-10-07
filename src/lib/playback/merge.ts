@@ -19,7 +19,8 @@ import { catalogToTrack } from "@/lib/playback/client";
 import { normalizeText, tokenSimilarity, detectVersion } from "@/lib/playback/versions";
 
 export interface CatalogLite {
-  spotifyId: string;
+  provider: "spotify" | "deezer";
+  catalogId: string;
   title: string;
   artist: string;
 }

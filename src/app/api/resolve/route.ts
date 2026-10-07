@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { searchSCTracks } from "@/lib/soundcloud";
 import { searchAudiusTracks } from "@/lib/audius";
 import { spotifyTrack } from "@/lib/spotify/catalog";
+import { deezerTrack } from "@/lib/deezer/catalog";
 import {
   rankCandidates,
   getCachedMatch,
@@ -93,10 +94,10 @@ function audiusCandidate(t: {
 /* ── Handler ───────────────────────────────────────────────────────── */
 
 interface ResolveBody {
-  catalogProvider?: string;
-  spotifyId?: string;
+  /** Which catalog the track comes from — drives the server-side fetch. */
+  catalogProvider?: "spotify" | "deezer";
   track?: {
-    spotifyId?: string;
+    catalogId?: string;
     title?: string;
     artist?: string;
     album?: string;
@@ -146,37 +147,50 @@ async function resolveCore(body: ResolveBody) {
     });
   }
 
-  // ── Build the catalog track (server fetch by id, or client DTO) ──
+  // ── Build the catalog track (client DTO; server fetch by id when thin) ──
   let catalog: CatalogTrack | null = null;
 
-  if (body.spotifyId) {
-    const data = await spotifyTrack(body.spotifyId.replace(/^sp_/, ""));
-    if (data?.track) {
-      catalog = {
-        catalogId: data.track.spotifyId,
-        title: data.track.title,
-        artist: data.track.artist,
-        album: data.track.album,
-        durationSec: data.track.durationSec,
-        isrc: data.track.isrc,
-      };
-    }
-  }
-
-  if (!catalog && body.track?.title && body.track.artist) {
+  if (body.track?.title && body.track.artist) {
     catalog = {
-      catalogId: body.track.spotifyId || body.track.title,
+      catalogId: body.track.catalogId || body.track.title,
       title: body.track.title,
       artist: body.track.artist,
       album: body.track.album,
       durationSec: body.track.durationSec || 0,
       isrc: body.track.isrc,
     };
+  } else if (body.track?.catalogId) {
+    // Thin client DTO (id only) — hydrate from the catalog provider.
+    if (catalogProvider === "deezer") {
+      const data = await deezerTrack(body.track.catalogId.replace(/^dz_/, ""));
+      if (data?.track) {
+        catalog = {
+          catalogId: data.track.catalogId,
+          title: data.track.title,
+          artist: data.track.artist,
+          album: data.track.album,
+          durationSec: data.track.durationSec,
+          isrc: data.track.isrc,
+        };
+      }
+    } else {
+      const data = await spotifyTrack(body.track.catalogId.replace(/^sp_/, ""));
+      if (data?.track) {
+        catalog = {
+          catalogId: data.track.catalogId,
+          title: data.track.title,
+          artist: data.track.artist,
+          album: data.track.album,
+          durationSec: data.track.durationSec,
+          isrc: data.track.isrc,
+        };
+      }
+    }
   }
 
   if (!catalog) {
     return NextResponse.json(
-      { error: "Нужен spotifyId или track { title, artist }" },
+      { error: "Нужен track { title, artist } или track.catalogId" },
       { status: 400 },
     );
   }
@@ -253,17 +267,24 @@ async function resolveCore(body: ResolveBody) {
 
 export const POST = withRateLimit(RATE_LIMITS.search, postHandler);
 
-/** GET /api/resolve?spotifyId=…&prefer=… — convenience for smoke tests / curl QA. */
+/** GET /api/resolve?catalogId=…&provider=…&prefer=…&title=&artist= — smoke tests / curl QA. */
 async function getHandler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const spotifyId = searchParams.get("spotifyId");
+  const provider = searchParams.get("provider") === "deezer" ? "deezer" : "spotify";
+  const catalogId = searchParams.get("catalogId");
+  const title = searchParams.get("title");
+  const artist = searchParams.get("artist");
   const prefer = searchParams.get("prefer");
-  if (!spotifyId) {
-    return NextResponse.json({ error: "spotifyId обязателен" }, { status: 400 });
+  if (!catalogId) {
+    return NextResponse.json({ error: "catalogId обязателен" }, { status: 400 });
   }
   return resolveCore({
-    catalogProvider: "spotify",
-    spotifyId,
+    catalogProvider: provider,
+    track: {
+      catalogId,
+      title: title || undefined,
+      artist: artist || undefined,
+    },
     prefer: prefer === "soundcloud" || prefer === "audius" ? prefer : undefined,
   });
 }
