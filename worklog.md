@@ -9232,3 +9232,55 @@ Stage Summary:
   solid; glass stays on floating/interactive layer only.
 - Theme = environment verified across 4 themes (normal + wave + search).
 - 1176/1176 tests, tsc clean, eslint parity, build green.
+
+---
+Task ID: final-design-completion-v2 (cont.) — GLASS RENDER FIX + PROD E2E
+Agent: main (Super Z)
+Task: Production E2E of the V2 pass surfaced a REAL render bug in the whole Liquid Glass system; fixed, redeployed, re-verified.
+
+Work Log:
+- PROD E2E (mq-build-bed2dcf4) exposed it: .mq-platinum-btn computed
+  backgroundColor rgba(0,0,0,0) + backgroundImage none — the new primary
+  buttons rendered as ghost outlines. Deeper probe: .mq-glass2-nav AND
+  .mq-menu-surface had the SAME transparent/none values — the ENTIRE
+  tonal glass stack (sheen + veil + theme tint) had silently never
+  rendered since the v2.5 overhaul.
+- ROOT CAUSE: multi-layer `background:` shorthand with bare COLOR layers
+  (var(--mq-g2-veil) / var(--mq-g2-tint) / color-mix(...)) — per CSS
+  Backgrounds spec only the FINAL layer may carry a color, so after var
+  substitution every browser invalidates the whole declaration at
+  computed-value time. The glass survived visually on the INLINE backdrop
+  blur + edge + shadow alone (which is why VLM kept calling it glass).
+- FIX (RENDER CONTRACT, pipeline- and runtime-safe): background-color =
+  the veil; the theme tint + body tone + sheen ride on background-image
+  as flat linear-gradient(c, c) overlays (image layers are valid in every
+  position). Applied to: .mq-platinum-btn, .mq-play-overlay,
+  .mq-menu-surface, .mq-sidebar, .mq-glass2 + -nav/-player/-dock/-menu/
+  -active roles. Mobile classic seek fill → solid cold-light token.
+- REGRESSION GUARD: design-completion.test.ts now sweeps both CSS files
+  for any `background:` shorthand ending in a bare color layer after a
+  comma — the invalid pattern can never come back.
+- Gates: 1177/1177 tests, tsc src clean, eslint 0 new, build green.
+- LOCAL RE-VERIFY (rendered glass): nav/btn/menu computed = veil
+  rgba(4,7,14,.2)/(6,9,16,.52)/(6,9,16,.42) + sheen/tint image layers;
+  VLM: after-query EDITORIAL-PREMIUM with the play button explicitly
+  "flat dark translucent glass with light hairline edge"; 8-tab grid
+  UNIFIED — floating surfaces confirmed "refined dark translucent glass
+  with subtle fill, not ghosts, not opaque slabs".
+- DEPLOY: 494bcca4 → mq-build-494bcca4 live.
+- PROD E2E (mq-build-494bcca4): DESKTOP — search featured 1, genre tiles
+  1, topResult 1, recentRows 1, btn background = the real multi-layer
+  glass image stack (computed), progress SOLID (not gradient), sticky
+  strip glass (86% + blur 14px), Sakura switch → pool rgb(184,160,172) +
+  search ambient follows, overflowX 0, console = demo noise only.
+  MOBILE 390 — featured 1, topResult 1, overflowX 0, console clean.
+  VLM PROD: search before DISCOVERY-STATE, Sakura search
+  SEARCH-THEME-AWARE, mobile before MOBILE-COMPOSED, after-query
+  EDITORIAL-PREMIUM.
+
+Stage Summary:
+- Production = mq-build-494bcca4. The Liquid Glass material now ACTUALLY
+  renders its tonal stack for the first time since v2.5 (veil + theme
+  tint + sheen over inline blur) — menus, nav, player surfaces, sidebar
+  and all primary controls read as real glass; the regression test pins
+  the safe pattern. All V2 search states + themes verified live.

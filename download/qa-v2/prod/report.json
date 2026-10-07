@@ -1,0 +1,14 @@
+{
+  "probes": {
+    "mSearchFeatured": 1,
+    "mTopResult": 1,
+    "mOverflowX": 0,
+    "mChipHaloHit": "no-chip"
+  },
+  "consoleErrors": [
+    "Loading the script 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad' violates the following Content Security Policy directive: \"scr",
+    "Loading the script 'https://telegram.org/js/telegram-widget.js?22' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' ",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 400 ()"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "probes": {
+    "obsidian-switched": true,
+    "obsidian-wave": true,
+    "obsidian-pool": "rgb(154, 163, 178)",
+    "borealis-switched": true,
+    "borealis-wave": true,
+    "borealis-pool": "rgb(143, 184, 168)",
+    "sakura-switched": true,
+    "sakura-wave": true,
+    "sakura-pool": "rgb(184, 160, 172)",
+    "daylight-switched": true,
+    "daylight-wave": true,
+    "daylight-pool": "rgb(223, 230, 242)",
+    "ambientCheck": {
+      "pool": "rgb(223, 230, 242)",
+      "glass": "rgb(255, 255, 255)"
+    }
+  }
+}

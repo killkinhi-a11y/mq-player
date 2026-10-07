@@ -1,0 +1,21 @@
+{
+  "shots": {},
+  "consoleErrors": [
+    "Loading the script 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-e",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Loading the script 'https://telegram.org/js/telegram-widget.js?22' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-el",
+    "Failed to load resource: the server responded with a status of 400 ()",
+    "Failed to load resource: the server responded with a status of 503 ()",
+    "Loading the script 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-e",
+    "Loading the script 'https://telegram.org/js/telegram-widget.js?22' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'unsafe-eval'\". Note that 'script-src-el",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 400 ()",
+    "Failed to load resource: the server responded with a status of 503 ()"
+  ],
+  "probes": {
+    "searchNav": true,
+    "buildId": "unknown",
+    "dOverflowX": 0,
+    "mOverflowX": 0
+  }
+}

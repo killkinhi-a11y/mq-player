@@ -1,0 +1,20 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2, userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1" });
+const page = await ctx.newPage();
+await page.goto("https://mq1.vercel.app", { waitUntil: "domcontentloaded", timeout: 60000 });
+await page.waitForTimeout(3000);
+const bodyText = await page.evaluate(() => document.body.innerText.slice(0, 600));
+console.log("BODY:", bodyText.replace(/\n/g, " | "));
+const demo = page.locator("text=Демо-режим").first();
+console.log("demo visible:", await demo.isVisible().catch(() => false));
+if (await demo.isVisible().catch(() => false)) { await demo.click(); await page.waitForTimeout(3000); }
+console.log("AFTER BODY:", (await page.evaluate(() => document.body.innerText.slice(0, 400))).replace(/\n/g, " | "));
+const searchBtn = page.locator('button[aria-label="Поиск"]').last();
+console.log("searchBtn count:", await page.locator('button[aria-label="Поиск"]').count());
+await searchBtn.click({ timeout: 8000, force: true }).catch(e => console.log("click err", e.message.slice(0, 100)));
+await page.waitForTimeout(2000);
+console.log("input count:", await page.locator("[data-search-input]").count());
+console.log("VIEW BODY:", (await page.evaluate(() => document.body.innerText.slice(0, 500))).replace(/\n/g, " | "));
+await page.screenshot({ path: "/tmp/probe-mobile.png" });
+await browser.close();
