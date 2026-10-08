@@ -164,11 +164,20 @@ export function isAudiusTrack(trackId: string): boolean {
 }
 
 /**
- * Find an Audius alternative for a SoundCloud track that only has a preview.
- * Searches Audius by artist + title and returns the stream URL if found.
- * Returns null if no match found.
+ * Find an Audius FULL-LENGTH alternative for a track whose primary source is
+ * preview-only (SoundCloud SNIP). Free Mode (TZ §9/§10): candidates are
+ * scored with the V3 §5 signals (title/artist/duration) and must pass
+ * full-length validation — a loose title-contains match is no longer enough,
+ * and nothing below the autoplay confidence bar is accepted.
+ *
+ * Returns null when no confident full-length match exists → the caller must
+ * REJECT the track honestly (Free Mode §2) instead of playing a 30s clip.
  */
-export async function findAudiusAlternative(artist: string, title: string): Promise<string | null> {
+export async function findAudiusAlternative(
+  artist: string,
+  title: string,
+  catalogDurationSec?: number,
+): Promise<{ id: string; url: string; confidence: number } | null> {
   const host = await getAudiusHost();
   if (!host) return null;
 
@@ -183,7 +192,7 @@ export async function findAudiusAlternative(artist: string, title: string): Prom
   const query = `${artist} ${cleanTitle}`;
 
   try {
-    const searchUrl = `${host}/v1/tracks/search?query=${encodeURIComponent(query)}&limit=5&app_name=MQPlayer`;
+    const searchUrl = `${host}/v1/tracks/search?query=${encodeURIComponent(query)}&limit=8&app_name=MQPlayer`;
     const res = await fetch(searchUrl, {
       signal: AbortSignal.timeout(5000),
       headers: { Accept: "application/json" },
@@ -193,32 +202,63 @@ export async function findAudiusAlternative(artist: string, title: string): Prom
     const tracks: any[] = data.data || [];
     if (tracks.length === 0) return null;
 
-    // Find best match — compare title and artist loosely
-    const lowerTitle = cleanTitle.toLowerCase();
-    const lowerArtist = artist.toLowerCase();
+    const { normalizeText, tokenSimilarity, exactTitle, detectVersion } =
+      await import("@/lib/playback/versions");
+    const { validateFullLength, isNormalPlayable } = await import("@/lib/playback/fullLength");
+    const { VERSION_PENALTIES } = await import("@/lib/playback/resolver");
+
+    const catTitle = normalizeText(cleanTitle);
+    const catArtist = normalizeText(artist);
+    const catVersion = detectVersion(title);
+
+    let best: { id: string; url: string; confidence: number } | null = null;
+    let bestScore = -Infinity;
 
     for (const t of tracks) {
-      const tTitle = (t.title || "").toLowerCase();
-      const tArtist = (t.user?.name || t.user?.handle || "").toLowerCase();
+      const tTitle = t.title || "";
+      const tArtist = t.user?.name || t.user?.handle || "";
+      const tDur = t.duration || 0;
 
-      // Check if title and artist match loosely
-      const titleMatch =
-        tTitle.includes(lowerTitle) ||
-        lowerTitle.includes(tTitle) ||
-        tTitle.split(" ").some((w: string) => w.length > 3 && lowerTitle.includes(w));
-      const artistMatch =
-        tArtist.includes(lowerArtist) ||
-        lowerArtist.includes(tArtist) ||
-        tArtist.split(" ").some((w: string) => w.length > 3 && lowerArtist.includes(w));
+      // §5 signals: title / artist / duration
+      let score = 0;
+      if (exactTitle(catTitle, tTitle)) score += 40;
+      else {
+        const ts = tokenSimilarity(catTitle, normalizeText(tTitle));
+        score += ts >= 0.75 ? 32 : ts >= 0.5 ? 22 : 0;
+      }
+      if (exactTitle(catArtist, tArtist)) score += 40;
+      else {
+        const as = tokenSimilarity(catArtist, normalizeText(tArtist));
+        score += as >= 0.75 ? 30 : as >= 0.5 ? 20 : 0;
+      }
+      if (catalogDurationSec && tDur) {
+        const delta = Math.abs(catalogDurationSec - tDur);
+        score += delta <= 5 ? 20 : delta <= 10 ? 10 : 0;
+      }
 
-      if (titleMatch && artistMatch) {
-        // Found a match — return the stream URL
-        const streamUrl = `${host}/v1/tracks/${t.id}/stream?app_name=MQPlayer`;
-        return streamUrl;
+      // Version penalties (candidate is a remix/cover while catalog is not)
+      const candVersion = detectVersion(tTitle);
+      if (candVersion.version !== "original" && candVersion.version !== catVersion.version) {
+        score += VERSION_PENALTIES[candVersion.version] || 0;
+      }
+
+      // §6 full-length validation — previews NEVER pass
+      if (!isNormalPlayable({ durationSec: catalogDurationSec || 0 }, { durationSec: tDur, isPreview: false })) {
+        continue;
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        best = {
+          id: `audius_${t.id}`,
+          url: `${host}/v1/tracks/${t.id}/stream?app_name=MQPlayer`,
+          confidence: Math.max(0, Math.min(1, score / 100)),
+        };
       }
     }
 
-    // No match found — return null, let caller fall back to SNIP preview
+    // §9: below the autoplay bar (0.60 raw) → do NOT silently switch sources.
+    if (best && best.confidence >= 0.6) return best;
     return null;
   } catch {
     return null;

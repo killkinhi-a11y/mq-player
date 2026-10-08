@@ -2453,35 +2453,63 @@ export function useAudioEngine(params: UseAudioEngineParams) {
           if (cancelled) return;
 
           // ── Preview-only track? Try Audius as fallback for full stream ──
-          if (stream && stream.isPreview && trackData.title && trackData.artist) {
+          // Free Mode §2: a ~30s SNIP is NEVER acceptable normal playback.
+          // If no confident full-length Audius alternative exists, the track
+          // is honestly REJECTED (play error + skip) instead of playing the
+          // preview clip — the old code fell through and streamed the 30s
+          // preview from cf-preview-media (verified live on prod 2026-10-08).
+          if (stream && stream.isPreview) {
             console.log("[Player] Track is preview-only (SNIP), trying Audius fallback...");
-            try {
-              const audiusUrl = await findAudiusAlternative(trackData.artist, trackData.title);
-              if (cancelled) return;
-              if (audiusUrl) {
-                console.log("[Player] Audius alternative found — using full stream");
-                // WASM path first (Audius progressive mp3)
-                if (await tryWasmLoad(audiusUrl, trackData, { isHls: false, isEncrypted: false })) return;
-                audioEl.crossOrigin = "anonymous";
-                audioEl.src = audiusUrl;
-                audioEl.volume = Math.pow(useAppStore.getState().volume / 100, 2);
-                audioEl.load();
-                resumeAudioContext();
-                if (canCrossfade) {
-                  crossfadeRef.current = true;
-                  if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
-                  crossfadeTo(audioEl);
-                } else {
-                  cancelCrossfade();
-                  if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
-                }
-                prevTrackIdForCrossfade.current = trackData.id;
-                setIsLoadingTrack(false);
-                return;
+            let audiusAlt: { id: string; url: string; confidence: number } | null = null;
+            if (trackData.title && trackData.artist) {
+              try {
+                audiusAlt = await findAudiusAlternative(
+                  trackData.artist,
+                  trackData.title,
+                  trackData.duration,
+                );
+              } catch (e) {
+                console.warn("[Player] Audius fallback failed:", e);
               }
-            } catch (e) {
-              console.warn("[Player] Audius fallback failed:", e);
             }
+            if (cancelled) return;
+            if (audiusAlt) {
+              console.log("[Player] Audius alternative found — using full stream (confidence " +
+                audiusAlt.confidence.toFixed(2) + ")");
+              // WASM path first (Audius progressive mp3)
+              if (await tryWasmLoad(audiusAlt.url, trackData, { isHls: false, isEncrypted: false })) return;
+              audioEl.crossOrigin = "anonymous";
+              audioEl.src = audiusAlt.url;
+              audioEl.volume = Math.pow(useAppStore.getState().volume / 100, 2);
+              audioEl.load();
+              resumeAudioContext();
+              if (canCrossfade) {
+                crossfadeRef.current = true;
+                if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
+                crossfadeTo(audioEl);
+              } else {
+                cancelCrossfade();
+                if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
+              }
+              prevTrackIdForCrossfade.current = trackData.id;
+              setIsLoadingTrack(false);
+              return;
+            }
+            // No full-length alternative anywhere → honest rejection (§2).
+            console.warn("[Player] Preview-only and no full-length source — rejecting track");
+            setPlayError(true);
+            setIsLoadingTrack(false);
+            try {
+              toast({
+                title: "Полный трек недоступен",
+                description: `${trackData.artist} — ${trackData.title}`,
+              });
+            } catch {}
+            const _snipId = useAppStore.getState().currentTrack?.id;
+            setTimeout(() => {
+              if (useAppStore.getState().currentTrack?.id === _snipId) nextTrackRef.current();
+            }, 1500);
+            return;
           }
 
           if (stream && stream.url) {
