@@ -9527,3 +9527,56 @@ Stage Summary:
   всех плеев, smart queue, TT*-метрики, dedup/abort/prefetch.
 - Owner-pending (без изменений с V2): Spotify Premium E2E (redirect URI +
   Premium аккаунт) — протокол в v2 PRODUCTION-REPORT сохраняет силу.
+---
+Task ID: free-mode-final
+Agent: main (Super Z)
+Task: Free Mode — research, integration with deployed V3, live-found §2 holes fixed, production deploys, final report
+
+Work Log:
+- DISCOVERY: remote main already carried finished V2+V3 waves (multi-provider
+  engine, PlaybackResolver §5 scoring, PlaybackClock, wave redesign, skip
+  intelligence; 1381 tests; prod mq-build-41c384b1). Local session had built
+  a PARALLEL freeMode/ implementation on a stale base — kept on branch
+  free-mode-local-backup; main reset to origin/main, only research artifacts
+  + non-duplicating fixes ported.
+- Research delivered: download/free-mode/RESEARCH-REPORT.md (23 projects,
+  Spotube C&D + team-spotube revival, SpotiFLAC matching reference, provider
+  verdicts SC→Audius→MQ/local, license matrix, YT-extraction rejected §41).
+- LIVE-FOUND PROD BUG #1 (mq-build-41c384b1): SNIP preview PLAYED as normal
+  playback (cf-preview-media stream, 'Pianoforte' 0:29 cut) when Audius
+  fallback missed. FIX (5ab862d9): engine honest rejection + findAudiusAlternative
+  rescored with V3 §5 primitives (threshold 0.60, isNormalPlayable gate);
+  +4 regression tests (fetch-stubbed). Verified live on mq-build-5ab862d9:
+  'Preview-only and no full-length source — rejecting track' fired, queue
+  advanced to real full track.
+- LIVE-FOUND PROD BUG #2 (mq-build-5ab862d9): 45s SNIP fragments passed
+  validation (45/206=0.22 under 0.28 ratio window). FIX (bc125339):
+  validateFullLength rule 2b — candidate <60s vs catalog >=90s = hard
+  fragment REJECT; pinned test updated to new §2 semantics + 2 boundary
+  cases; genuine short songs still pass.
+- LIVE-FOUND PROD BUG #3 (mq-build-bc125339): 'rejection storm' — search
+  queue full of SNIP rows each honestly rejected (position stuck 0:00,
+  toasts). FIX (7cd9721d): §2 at the source — SNIP tracks filtered from
+  searchSCTracks results (no Play button at all); BLOCK filter + engine
+  guard remain defense-in-depth.
+- Final prod verification on mq-build-7cd9721d: free-upload track plays
+  full-length continuously (Oxyy 'Never Gonna Give You Up' 0:13→0:43 of
+  4:16, advancing); all-label-SNIP catalog honestly rejected+skipped; no
+  Spotify login anywhere; honest Deezer badge. Screenshots: PROD-final-
+  fulltrack-7cd9721d-1440x900.png, PROD-fulltrack-playing-1440x900.png.
+- Full Track Proof §33 session evidence: SC 183+s continuous, Audius 135+s
+  continuous (local prod-build of session code); V3 PHASE 37: 139+s on prod.
+- Gates final: 1387/1387 tests (+6), tsc 0 src, eslint 0 errors, secrets
+  scan clean. Local next build OOM-killed at page-data (4GB container,
+  118 pages) — infra limit; authoritative §39 build on Vercel (4 deploys
+  this session: 5ab862d9 → bc125339 → 7cd9721d live-verified each).
+- FREE-MODE-REPORT.md written (acceptance matrix §43, honest limitations,
+  artifacts, commits).
+
+Stage Summary:
+- Production: mq1.vercel.app @ mq-build-7cd9721d — Free Mode complete:
+  search → FULL track → MQ Wave, no login/Premium/preview, honest badges,
+  three-layer §2 protection (search filter + resolver validation + engine
+  guard), scored Audius fallback.
+- Known honest limitation: label catalogs present on SC only as SNIP and
+  absent on Audius = honestly unavailable (toast + skip), by design §2.
