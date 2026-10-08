@@ -131,6 +131,14 @@ export function validateFullLength(
     return { isFullLength: false, reason: "short-duration" };
   }
 
+  // 2b. Hard fragment — SoundCloud also serves 45s/60s SNIP cuts. A
+  // sub-minute candidate for a 90s+ catalog song is never the full track
+  // (live case 2026-10-08: 45s "Pianoforte" clip vs 3:26 catalog slipped
+  // under the ratio window at 0.22).
+  if (cand > 0 && cand < 60 && cat >= 90) {
+    return { isFullLength: false, reason: "short-duration" };
+  }
+
   // 3. SNIP ratio — catalog expects >=60s but candidate is a ~⅓ cut.
   if (cand > 0 && cat >= SNIP_CATALOG_MIN) {
     const ratio = cand / cat;

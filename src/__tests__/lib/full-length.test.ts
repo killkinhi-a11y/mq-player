@@ -55,10 +55,22 @@ describe("validateFullLength", () => {
     expect(v.isFullLength).toBe(true);
   });
 
-  it("boundary: 36s against 226s catalog = ratio 0.159 → outside SNIP window → full", () => {
-    // 36s > PREVIEW_DURATION_SEC and ratio below 0.28 → treated as full
-    // (weird but not provably a cut; stream-stage duration check still guards)
+  it("boundary: 36s against 226s catalog → REJECTED as a hard fragment (Free Mode §2)", () => {
+    // 2026-10-08 live prod case: SC serves 45s/60s SNIP cuts that slipped
+    // under the 0.28 ratio window (45/206 = 0.22). Rule 2b: any sub-minute
+    // candidate for a 90s+ catalog song is never the full track.
     const v = validateFullLength(CATALOG_3_46, { durationSec: 36, isPreview: false });
+    expect(v.isFullLength).toBe(false);
+    expect(v.reason).toBe("short-duration");
+  });
+
+  it("genuinely short song: 45s candidate with 45s catalog → full (not a fragment)", () => {
+    const v = validateFullLength({ durationSec: 45 }, { durationSec: 45, isPreview: false });
+    expect(v.isFullLength).toBe(true);
+  });
+
+  it("58s interlude against 62s catalog → full (catalog itself is short)", () => {
+    const v = validateFullLength({ durationSec: 62 }, { durationSec: 58, isPreview: false });
     expect(v.isFullLength).toBe(true);
   });
 });
