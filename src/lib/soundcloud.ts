@@ -557,6 +557,12 @@ export async function searchSCTracks(
           const policy = (t.policy as string) || "";
           // Filter out completely blocked tracks — they have no playable media
           if (policy === "BLOCK") return false;
+          // Free Mode §2: SNIP (preview-only, ~30-45s cuts) tracks never get
+          // a Play button — drop them from search results entirely instead
+          // of surfacing rows that can only be honestly rejected at play
+          // time (the "rejection storm" when a queue is full of SNIP rows,
+          // verified live on prod 2026-10-08).
+          if (policy === "SNIP") return false;
           // Filter out non-music content (DJ sets, podcasts, audiobooks, bibles, etc.)
           const title = (t.title as string) || "";
           const genre = (t.genre as string) || "";
