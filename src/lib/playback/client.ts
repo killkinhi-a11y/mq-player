@@ -17,6 +17,7 @@
 
 import type { Track } from "@/lib/musicApi";
 import type { CatalogTrackDTO } from "@/lib/spotify/types";
+import { dedupe } from "@/lib/net/requestRegistry";
 
 /* ── Types (mirror server /api/resolve contract) ───────────────────── */
 
@@ -41,6 +42,9 @@ export interface ResolveCandidate {
   durationSec: number;
   artwork?: string;
   isPreview?: boolean;
+  /** V3 §6 — full-length verdict; previews never auto-play. */
+  isFullLength?: boolean;
+  fullLengthReason?: "ok" | "provider-flagged-preview" | "short-duration" | "snip-ratio";
   confidence: number;
   score: number;
   version?: string;
@@ -140,16 +144,25 @@ export function buildPlayableTrack(
     base.scIsFull = !cand.isPreview;
     base.scStreamPolicy = cand.isPreview ? "SNIP" : "ALLOW";
   }
+  // V3 §6 — carry the full-length verdict onto the playable track so UI,
+  // queue and history can trust it (honest «превью» disclosure if forced).
+  if (cand.isFullLength === false) {
+    base.scIsFull = false;
+    base.scStreamPolicy = "SNIP";
+  }
   return base;
 }
 
 /**
- * Resolve a Spotify catalog track to a playable source.
+ * Resolve a catalog track to a playable source.
  * Never throws — all failures become honest `failed: true`.
+ *
+ * V3 §2/§23: identical concurrent resolves SHARE one in-flight request
+ * (dedupe); `signal` lets the engine abort stale resolves on rapid A→B→C.
  */
 export async function resolveCatalogTrack(
   catalog: CatalogTrackInput,
-  opts?: { force?: { provider: "soundcloud" | "audius"; sourceId: string } },
+  opts?: { force?: { provider: "soundcloud" | "audius"; sourceId: string }; signal?: AbortSignal | null },
 ): Promise<ResolveOutcome> {
   const prefer = getUserSourcePreference();
 
@@ -165,30 +178,48 @@ export async function resolveCatalogTrack(
     };
   }
 
-  let data: ResolveResponse | null = null;
-  try {
-    const res = await fetch("/api/resolve", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        catalogProvider: catalog.provider,
-        track: {
-          catalogId: catalog.catalogId,
-          title: catalog.title,
-          artist: catalog.artist,
-          album: catalog.album,
-          durationSec: catalog.durationSec,
-          isrc: catalog.isrc,
-        },
-        prefer: prefer !== "auto" ? prefer : undefined,
-        force: opts?.force,
-      }),
-      signal: AbortSignal.timeout(25000),
-    });
-    if (res.ok) data = (await res.json()) as ResolveResponse;
-  } catch {
-    data = null;
-  }
+  // V3 §23 — in-flight dedup: two callers resolving the same catalog track
+  // (e.g. engine load + queue prefetch) fire ONE network request.
+  const data = await dedupe(
+    `resolve:${cacheKey}`,
+    async (signal) => {
+      const composed = opts?.signal && signal
+        ? (() => {
+            // Combine caller signal + dedup signal — either aborts.
+            const c = new AbortController();
+            const onAbort = () => c.abort();
+            opts.signal!.addEventListener("abort", onAbort, { once: true });
+            signal.addEventListener("abort", onAbort, { once: true });
+            return c.signal;
+          })()
+        : (opts?.signal || signal || undefined);
+      try {
+        const res = await fetch("/api/resolve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            catalogProvider: catalog.provider,
+            track: {
+              catalogId: catalog.catalogId,
+              title: catalog.title,
+              artist: catalog.artist,
+              album: catalog.album,
+              durationSec: catalog.durationSec,
+              isrc: catalog.isrc,
+            },
+            prefer: prefer !== "auto" ? prefer : undefined,
+            force: opts?.force,
+          }),
+          signal: composed ?? AbortSignal.timeout(25000),
+        });
+        if (!res.ok) return null;
+        return (await res.json()) as ResolveResponse;
+      } catch {
+        return null;
+      }
+    },
+    { ttl: 0 },
+  );
 
   if (!data) {
     return { track: null, alternatives: [], lowConfidence: false, failed: true, catalog };

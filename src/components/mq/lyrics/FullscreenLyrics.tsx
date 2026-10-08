@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Focus, Maximize2, Type, Play, Pause, SkipBack, SkipForward } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-import { currentPlaybackPosition } from "@/lib/wasm-audio";
+import { subscribeClock } from "@/lib/playback/clock";
 import { formatDuration } from "@/lib/musicApi";
 import type { LyricLine } from "@/lib/lyrics/types";
 import { LiquidLyrics } from "@/components/mq/LiquidLyrics";
@@ -37,22 +37,20 @@ export interface FullscreenLyricsProps {
 
 function useLiveTime(active: boolean) {
   const [time, setTime] = useState(0);
-  const rafRef = useRef(0);
   useEffect(() => {
     if (!active) return;
     let latched = -1;
-    const tick = () => {
-      rafRef.current = requestAnimationFrame(tick);
+    // V3 §13/§19 — rides the unified PlaybackClock (throttled to ~10 Hz —
+    // the live time label needs seconds, not frames).
+    const unsub = subscribeClock((pos) => {
       if (document.hidden) return;
-      const pos = currentPlaybackPosition();
       const sec = Math.floor(pos);
       if (sec !== latched) {
         latched = sec;
         setTime(sec);
       }
-    };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
+    }, { throttleMs: 100 });
+    return unsub;
   }, [active]);
   return time;
 }

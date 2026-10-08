@@ -18,7 +18,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { AudioWaveform, X, ChevronDown } from "lucide-react";
-import { getWasmDiagnostics, isWasmActive, type WasmAudioDiagnostics } from "@/lib/wasm-audio";
+import { getWasmDiagnostics, isWasmActive, currentPlaybackPosition, getActiveWasmBackend, type WasmAudioDiagnostics } from "@/lib/wasm-audio";
+import { pbMetrics } from "@/lib/playbackTimeline";
+import { requestRegistryStats } from "@/lib/net/requestRegistry";
+import { prefetchState } from "@/lib/playback/prefetch";
+import { clockStats } from "@/lib/playback/clock";
+import { useAppStore } from "@/store/useAppStore";
 
 function debugEnabled(): boolean {
   // Strict dev-only: production builds never render this panel — the
@@ -54,9 +59,20 @@ export default function AudioDebugPanel() {
   // so a reload/param re-enables it — no persisted state mutated by the X).
   const [dismissed, setDismissed] = useState(false);
   const [d, setD] = useState<WasmAudioDiagnostics>(() => getWasmDiagnostics());
+  // V3 §29 diagnostics: TT* metrics + request registry + prefetch + clock.
+  const [tt, setTt] = useState(() => pbMetrics());
+  const [reg, setReg] = useState(() => requestRegistryStats());
+  const [pf, setPf] = useState(() => prefetchState());
+  const [ck, setCk] = useState(() => clockStats());
 
   useEffect(() => {
-    const t = setInterval(() => setD({ ...getWasmDiagnostics() }), 500);
+    const t = setInterval(() => {
+      setD({ ...getWasmDiagnostics() });
+      setTt(pbMetrics());
+      setReg(requestRegistryStats());
+      setPf(prefetchState());
+      setCk(clockStats());
+    }, 500);
     return () => clearInterval(t);
   }, []);
 
@@ -119,6 +135,44 @@ export default function AudioDebugPanel() {
           <Row label="DSP avg/block" value={d.avgProcessNs ? `${(d.avgProcessNs / 1000).toFixed(1)} µs` : "—"} />
           <Row label="DSP max/block" value={d.maxProcessNs ? `${(d.maxProcessNs / 1000).toFixed(1)} µs` : "—"} />
           <Row label="Last error" value={d.lastError ?? "none"} warn={!!d.lastError} />
+          {/* ── V3 §29: player metrics + diagnostics ── */}
+          <div className="mq-t-badge mt-1.5 mb-0.5" style={{ color: "var(--mq-accent, #e03131)" }}>V3 · PLAYER METRICS</div>
+          {(() => {
+            const st = useAppStore.getState();
+            const t = st.currentTrack;
+            return (
+              <>
+                <Row label="Current track" value={t ? `${t.title.slice(0, 26)} · ${t.artist.slice(0, 16)}` : "—"} />
+                <Row label="Provider" value={`${t?.catalogProvider ?? t?.source ?? "—"} → ${t?.playbackProvider ?? (t?.scTrackId ? "soundcloud" : "—")}`} />
+                <Row label="Match confidence" value={t?._resolveConfidence != null ? `${Math.round((t._resolveConfidence as number) * 100)}%` : "—"} />
+                <Row label="Full-length" value={t?.scStreamPolicy ? (t.scStreamPolicy === "ALLOW" ? "yes" : "PREVIEW (SNIP)") : "—"} warn={t?.scStreamPolicy === "SNIP"} ok={t?.scStreamPolicy === "ALLOW"} />
+                <Row label="Current time" value={`${currentPlaybackPosition().toFixed(1)}s / ${(st.duration || 0).toFixed(0)}s`} />
+                <Row label="Buffer" value={(() => {
+                  try {
+                    const b = getActiveWasmBackend() as unknown as { stats?: { bufferedFrames?: number }; ctx?: { sampleRate?: number } } | null;
+                    if (b?.stats?.bufferedFrames != null && b.ctx?.sampleRate) return `${(b.stats.bufferedFrames / b.ctx.sampleRate).toFixed(1)}s (wasm)`;
+                  } catch {}
+                  return `${d.bufferLevel ? Math.round(d.bufferLevel) + " frames" : "—"}`;
+                })()} />
+              </>
+            );
+          })()}
+          <Row label="TTPlayIntent" value={tt.TTPlayIntentMs != null ? `${tt.TTPlayIntentMs} ms` : "—"} />
+          <Row label="TTSourceResolve" value={tt.TTSourceResolveMs != null ? `${tt.TTSourceResolveMs} ms` : "—"} warn={(tt.TTSourceResolveMs ?? 0) > 2500} />
+          <Row label="TTFirstAudio" value={tt.TTFirstAudioMs != null ? `${tt.TTFirstAudioMs} ms` : "—"} warn={(tt.TTFirstAudioMs ?? 0) > 4000} />
+          <Row label="TTReady" value={tt.TTReadyMs != null ? `${tt.TTReadyMs} ms` : "—"} />
+          <Row label="TTPlaybackStart" value={tt.TTPlaybackStartMs != null ? `${tt.TTPlaybackStartMs} ms` : "—"} ok={(tt.TTPlaybackStartMs ?? 9999) < 2000} warn={(tt.TTPlaybackStartMs ?? 0) > 5000} />
+          <div className="mq-t-badge mt-1.5 mb-0.5" style={{ color: "var(--mq-accent, #e03131)" }}>V3 · REQUESTS / PREFETCH / CLOCK</div>
+          <Row label="Requests in-flight" value={String(reg.inflight)} warn={reg.inflight > 6} ok={reg.inflight <= 3} />
+          <Row label="Dedup hits" value={String(reg.dedupHits)} ok={reg.dedupHits > 0} />
+          <Row label="Cache hits" value={String(reg.cacheHits)} ok={reg.cacheHits > 0} />
+          <Row label="Aborted (stale)" value={String(reg.aborted)} ok={reg.aborted >= 0} />
+          <Row label="Prefetch active" value={`${pf.active} · hits ${pf.hits} / miss ${pf.misses}`} ok={pf.hits > 0} />
+          <Row label="PlaybackClock" value={`${ck.subscribers} surfaces · ${ck.running ? "running" : "idle"}`} ok={ck.subscribers > 0} warn={ck.subscribers === 0} />
+          <Row label="Skip events" value={String(useAppStore.getState().listeningEvents?.length ?? 0)} />
+          <div className="mq-t-badge mt-1" style={{ color: "var(--mq-text-muted, #777)" }}>
+            window.__mqTimeline.report() / .metrics()
+          </div>
           <div className="mq-t-badge mt-1" style={{ color: "var(--mq-text-muted, #777)" }}>
             window.__mqWasmAudio
           </div>

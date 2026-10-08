@@ -6,6 +6,7 @@ import type { CatalogTrackInput, ResolveCandidate } from "@/lib/playback/client"
 import { buildPlayableTrack } from "@/lib/playback/client";
 import type { CatalogAlbumDTO } from "@/lib/spotify/types";
 import { extractTasteProfile } from "@/lib/tasteProfile";
+import { appendSkipEvent, buildSkipEvent, loadSkipEvents, buildSkipProfile, skipScoreAdjustment, type SkipEventV3, type SkipProfile } from "@/lib/listening/skipIntelligence";
 import { themes, applyThemeToDOM } from "@/lib/themes";
 import { pbStart } from "@/lib/playbackTimeline";
 import { resetPollingSuspension, canPollProtected } from "@/lib/authGate";
@@ -656,6 +657,21 @@ interface AppState {
   // Smart Shuffle actions
   toggleSmartShuffle: () => void;
 
+  // ── V3 §24-27: Skip Intelligence + Smart Queue ──
+  /** Ring buffer of §24 listening events (skip/complete/replay/favorite). */
+  listeningEvents: SkipEventV3[];
+  /** Derived §26 profile — recomputed lazily on event append. */
+  skipProfile: SkipProfile;
+  /** Record a §24 event (ALL plays — not just wave sessions). */
+  recordListeningEvent: (kind: SkipEventV3["kind"], playedSeconds?: number) => void;
+  /** User-initiated transition (Next/Prev/new play) — honest skip signal. */
+  recordSkipFromTransition: () => void;
+  /** §27: refill the queue at its end with taste-aware continuation. */
+  refillQueueSmart: () => Promise<void>;
+  /** §27: smart queue autoplay at queue end (persisted). */
+  smartQueueAutoplay: boolean;
+  toggleSmartQueueAutoplay: () => void;
+
   // Feedback actions
   recordSkip: (trackId: string, progressAtSkip?: number) => void;
   recordComplete: (trackId: string, listenTime: number) => void;
@@ -887,6 +903,10 @@ const initialState = {
 
   // Smart Shuffle
   smartShuffle: true,
+  // ── V3 §24-27: Skip Intelligence state ──
+  listeningEvents: [],
+  skipProfile: { artists: {}, genres: {}, styles: {}, tracks: {} },
+  smartQueueAutoplay: true,
 
   // Feedback signals
   trackFeedback: {} as Record<string, { skips: number; completes: number; listenTime: number; totalListenTime: number; lastPlayedAt: number; skipPositions: number[] }>,
@@ -1337,6 +1357,29 @@ export const useAppStore = create<AppState>()(
         // cause currentTrack to flip back and forth.
         if (state._playLock && state.currentTrack?.id === track.id) return;
 
+        // V3 §24: switching away from a mid-play track IS a skip signal —
+        // record it for the track being left (unless near completion).
+        if (
+          state.currentTrack &&
+          state.currentTrack.id !== track.id &&
+          state.isPlaying &&
+          state.progress > 1
+        ) {
+          const dur = state.duration || state.currentTrack.duration || 0;
+          if (!(dur > 0 && state.progress / dur >= 0.9)) {
+            try { get().recordListeningEvent("skip", state.progress); } catch {}
+          }
+        }
+        // V3 §25: replay — the same track restarted right after finishing.
+        if (
+          state.currentTrack?.id === track.id &&
+          !state.isPlaying &&
+          state.duration > 0 &&
+          state.progress >= state.duration * 0.99
+        ) {
+          try { get().recordListeningEvent("replay", 0); } catch {}
+        }
+
         // T0 — real load attempt begins (instrumentation, see playbackTimeline)
         pbStart(track.id, track.title || track.id);
 
@@ -1401,6 +1444,9 @@ export const useAppStore = create<AppState>()(
       setDuration: (duration) => set({ duration }),
 
       nextTrack: () => {
+        // V3 §24: user-initiated Next — record the skip signal for the track
+        // being left (honest: only when mid-track, not near completion).
+        try { get().recordSkipFromTransition(); } catch {}
         const { queue, queueIndex, shuffle, repeat, upNext, currentTrack, smartShuffle, radioMode, brokenTrackIds } = get();
 
         // ── UpNext priority: play from upNext first (FIFO) ──
@@ -1721,6 +1767,14 @@ export const useAppStore = create<AppState>()(
               // and we bail out without changing currentTrack.
               nextIdx = -1;
             } else {
+              // V3 §27: smart queue — taste-aware continuation at queue end.
+              // STOP now (honest, same as before) and fire the async refill;
+              // when fresh tracks land, refillQueueSmart auto-advances and
+              // resumes. If the refill cannot seed (no sc id / network) the
+              // stop is final — never a frozen "playing" state.
+              if (get().smartQueueAutoplay) {
+                try { void get().refillQueueSmart(); } catch {}
+              }
               set({ isPlaying: false });
               getAudioElement()?.pause();
               return;
@@ -1750,6 +1804,12 @@ export const useAppStore = create<AppState>()(
       },
 
       prevTrack: () => {
+        // V3 §24: user-initiated Prev — mid-track restart is NOT a skip;
+        // only an actual jump to the previous track carries the signal.
+        const pre = get();
+        if (!(pre.progress > 3)) {
+          try { get().recordSkipFromTransition(); } catch {}
+        }
         const { queue, queueIndex, progress } = get();
         if (progress > 3) {
           const audio = getAudioElement();
@@ -1921,8 +1981,9 @@ export const useAppStore = create<AppState>()(
       setShortcutsHelpOpen: (open) => set({ shortcutsHelpOpen: open }),
 
       toggleLike: (trackId, trackData) => {
-        const { likedTrackIds, dislikedTrackIds, likedTracksData } = get();
-        if (likedTrackIds.includes(trackId)) {
+        const { likedTrackIds, dislikedTrackIds, likedTracksData, currentTrack } = get();
+        const wasLiked = likedTrackIds.includes(trackId);
+        if (wasLiked) {
           set({
             likedTrackIds: likedTrackIds.filter((id) => id !== trackId),
             likedTracksData: likedTracksData.filter((t) => t.id !== trackId),
@@ -1935,6 +1996,17 @@ export const useAppStore = create<AppState>()(
               ? [...likedTracksData.filter((t) => t.id !== trackId), trackData]
               : likedTracksData,
           });
+        }
+        // V3 §25: favorite = very strong positive / unfavorite = negative —
+        // recorded for ALL plays (not just wave sessions).
+        if (currentTrack?.id === trackId) {
+          try { get().recordListeningEvent(wasLiked ? "unfavorite" : "favorite"); } catch {}
+        } else if (trackData) {
+          try {
+            const event = buildSkipEvent({ track: trackData, playedSeconds: 0, duration: trackData.duration || 0, kind: wasLiked ? "unfavorite" : "favorite" });
+            const events = appendSkipEvent(event);
+            set({ listeningEvents: events, skipProfile: buildSkipProfile(events) });
+          } catch {}
         }
         // Debounced sync to server
         get().scheduleSyncToServer();
@@ -2831,6 +2903,137 @@ export const useAppStore = create<AppState>()(
       // ── Smart Shuffle actions ──
       toggleSmartShuffle: () => set((s) => ({ smartShuffle: !s.smartShuffle })),
 
+      // ── V3 §24: listening events for ALL plays (not just wave sessions) ──
+      recordListeningEvent: (kind, playedSeconds) => {
+        const st = get();
+        const t = st.currentTrack;
+        if (!t) return;
+        const played = typeof playedSeconds === "number"
+          ? playedSeconds
+          : st.progress || 0;
+        // §25: honest signal floors — <1s taps are noise, not taste.
+        if (kind === "skip" && played < 1) return;
+        const event = buildSkipEvent({
+          track: t,
+          playedSeconds: played,
+          duration: st.duration || t.duration || 0,
+          kind,
+        });
+        const events = appendSkipEvent(event);
+        set({ listeningEvents: events, skipProfile: buildSkipProfile(events) });
+      },
+
+      // ── V3 §24: user-initiated Next/Prev/new-track — the skip signal ──
+      recordSkipFromTransition: () => {
+        const st = get();
+        const t = st.currentTrack;
+        if (!t || !st.isPlaying) return;
+        const dur = st.duration || t.duration || 0;
+        const pos = st.progress || 0;
+        // Near-natural completion (≥90%): the engine records `complete`
+        // separately — double-counting a skip here would poison the profile.
+        if (dur > 0 && pos / dur >= 0.9) return;
+        if (pos < 1) return; // instant tap-through — no measurable signal
+        get().recordListeningEvent("skip", pos);
+      },
+
+      // ── V3 §27: smart queue — taste-aware continuation at queue end ──
+      refillQueueSmart: async () => {
+        const st = get();
+        const currentT = st.currentTrack;
+        if (!currentT) return;
+        // Seed: the current track when it has an SC id, else the most
+        // recent history entry that does (radio seeds on soundcloud ids).
+        const seed = currentT.scTrackId
+          ? currentT
+          : [...(Array.isArray(st.history) ? st.history : [])].map((h) => h.track).find((t) => t?.scTrackId);
+        if (!seed?.scTrackId) return; // no seed — honest stop (e.g. Spotify Official session)
+
+        const params = new URLSearchParams({ scTrackId: String(seed.scTrackId) });
+        const playedScIds = [
+          ...st.history.map((h) => h.track.scTrackId).filter((id): id is number => !!id),
+          ...st.queue.map((t) => t.scTrackId).filter((id): id is number => !!id),
+        ];
+        const uniquePlayed = [...new Set(playedScIds)].slice(0, 80).join(",");
+        if (uniquePlayed) params.set("historyScIds", uniquePlayed);
+
+        // §26: skip signals from the NEW event model (decayed, channelled).
+        const profile = st.skipProfile;
+        const skippedArtists = Object.entries(profile.artists)
+          .filter(([, v]) => v < -0.25).map(([a]) => a).slice(0, 8);
+        if (skippedArtists.length) params.set("skippedArtists", skippedArtists.join(","));
+        const skippedGenres = Object.entries(profile.genres)
+          .filter(([, v]) => v < -0.25).map(([g]) => g).slice(0, 5);
+        if (skippedGenres.length) params.set("skippedGenres", skippedGenres.join(","));
+        const likedArtists = Object.entries(profile.artists)
+          .filter(([, v]) => v > 0.2).map(([a]) => a).slice(0, 5);
+        if (likedArtists.length) params.set("likedArtists", likedArtists.join(","));
+        const likedGenres = Object.entries(profile.genres)
+          .filter(([, v]) => v > 0.2).map(([g]) => g).slice(0, 5);
+        if (likedGenres.length) params.set("likedGenres", likedGenres.join(","));
+
+        try {
+          const res = await fetch(`/api/music/radio?${params}`);
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!data?.tracks?.length) return;
+          const state = get();
+          const safeQueue = Array.isArray(state.queue) ? state.queue : [];
+          const existingIds = new Set(safeQueue.map((t) => t.id));
+          const dislikedIdsSet = new Set(state.dislikedTrackIds);
+          const dislikedArtistsSet = new Set(state.dislikedTracksData.map((t) => (t.artist || "").toLowerCase().trim()).filter(Boolean));
+
+          // Recent-artist frequency map (queue + history) for diversity.
+          const recentArtists = new Map<string, number>();
+          for (const t of safeQueue) {
+            const a = (t.artist || "").toLowerCase().trim();
+            if (a) recentArtists.set(a, (recentArtists.get(a) || 0) + 1);
+          }
+          for (const h of (Array.isArray(state.history) ? state.history : []).slice(0, 20)) {
+            const a = (h.track.artist || "").toLowerCase().trim();
+            if (a) recentArtists.set(a, (recentArtists.get(a) || 0) + 1);
+          }
+
+          // §27 ranking: radio candidates × skip-profile adjustment
+          // (familiarity + discovery + diversity). A/B/C skipped → a
+          // near-identical D ranks LOW even if the radio offered it.
+          const ranked = (data.tracks as Track[])
+            .filter((t) => t && !existingIds.has(t.id) && !dislikedIdsSet.has(t.id)
+              && !(t.artist && dislikedArtistsSet.has(t.artist.toLowerCase().trim())))
+            .map((t) => {
+              const a = (t.artist || "").toLowerCase().trim();
+              const diversityPenalty = a ? Math.min(6, (recentArtists.get(a) || 0) * 2) : 0;
+              const adj = skipScoreAdjustment(t, profile, { discovery: 0.35 });
+              return { t, score: adj - diversityPenalty + Math.random() * 0.5 };
+            })
+            .sort((x, y) => y.score - x.score)
+            .slice(0, 12)
+            .map((x) => x.t);
+
+          if (ranked.length === 0) return;
+          const after = get();
+          const nextQueue = [...(Array.isArray(after.queue) ? after.queue : []), ...ranked];
+          // Auto-resume: if we stopped at the queue end, advance into the fresh tail.
+          const atEnd = after.queueIndex >= after.queue.length - 1 && !after.isPlaying;
+          set({ queue: nextQueue });
+          if (atEnd) {
+            const first = nextQueue[after.queueIndex + 1];
+            if (first) {
+              set({
+                currentTrack: first,
+                queueIndex: after.queueIndex + 1,
+                progress: 0,
+                duration: first.duration,
+                isPlaying: true,
+              });
+              get().addToHistory(first);
+            }
+          }
+        } catch { /* honest stop — network unavailable */ }
+      },
+
+      toggleSmartQueueAutoplay: () => set((s) => ({ smartQueueAutoplay: !s.smartQueueAutoplay })),
+
       // ── Feedback actions ──
       recordSkip: (trackId: string, progressAtSkip?: number) => {
         set((s) => {
@@ -2861,6 +3064,11 @@ export const useAppStore = create<AppState>()(
         // MQ Wave (§11): emit a normalized wave event when a wave session is
         // active — real-time session-taste reaction to skips.
         const st = get();
+        // V3 §24: the same skip flows into the GLOBAL event log — skip
+        // intelligence works for ALL plays, not just wave sessions.
+        if (st.currentTrack?.id === trackId && typeof progressAtSkip === "number" && progressAtSkip >= 1) {
+          try { get().recordListeningEvent("skip", progressAtSkip); } catch {}
+        }
         if (st.waveSession) {
           const trackData = st.currentTrack?.id === trackId ? st.currentTrack : undefined;
           st.pushWaveEvent({
@@ -2917,6 +3125,10 @@ export const useAppStore = create<AppState>()(
 
         // MQ Wave (§11): emit play_completed into the wave session log.
         const stW = get();
+        // V3 §24: completion is a GLOBAL positive event (§25: +0.5).
+        if (stW.currentTrack?.id === trackId) {
+          try { get().recordListeningEvent("complete", listenTime); } catch {}
+        }
         if (stW.waveSession) {
           const trackData = stW.currentTrack?.id === trackId ? stW.currentTrack : undefined;
           stW.pushWaveEvent({
@@ -3431,6 +3643,10 @@ export const useAppStore = create<AppState>()(
           spatialAudioEnabled, spatialMood, spatialAutoDetect,
           radioMode, radioSeedTrack, radioSkipCount,
           smartShuffle, sessionStartTime,
+          // V3 §24: skip events live in their OWN localStorage ring buffer
+          // (mq:v3:listeningEvents) — persisting them here too would double
+          // the storage; the profile is derived and recomputed on load.
+          listeningEvents, skipProfile,
           listenSession, abRepeat,
           publicPlaylists, recommendedPlaylists,
           _authGeneration,
@@ -3673,6 +3889,18 @@ export const useAppStore = create<AppState>()(
             return;
           }
           if (!state) return;
+
+          // V3 §24: rehydrate the skip-intelligence event log + derived
+          // profile from their dedicated localStorage ring buffer.
+          try {
+            const events = loadSkipEvents();
+            if (events.length > 0) {
+              useAppStore.setState({
+                listeningEvents: events,
+                skipProfile: buildSkipProfile(events),
+              });
+            }
+          } catch { /* events are optional — never block rehydration */ }
 
           // Clear demo auth on rehydration — user must explicitly enter demo mode each session.
           // IMPORTANT: batch ALL state changes (including _hasHydrated) in ONE setState call.

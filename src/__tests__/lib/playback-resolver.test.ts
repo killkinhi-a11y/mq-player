@@ -171,9 +171,59 @@ describe("PlaybackResolver — scoring components", () => {
     expect(m.breakdown.album).toBe(10);
   });
 
-  it("preview-only (SNIP) tracks get a −25 penalty", () => {
+  it("V3 §3/§6: preview-only (SNIP) candidates are REJECTED from auto-play (not just penalized)", () => {
     const m = scoreCandidate(GOOSEBUMPS, cand({ title: "Goosebumps", sourceId: "f", isPreview: true }));
-    expect(m.breakdown.previewPenalty).toBe(-25);
+    expect(m.isFullLength).toBe(false);
+    expect(m.fullLengthReason).toBe("provider-flagged-preview");
+    // High score alone must NOT put a preview into `best`:
+    const res = rankCandidates(GOOSEBUMPS, [
+      cand({ title: "Goosebumps", sourceId: "f", isPreview: true, durationSec: 226 }),
+      cand({ title: "Goosebumps", sourceId: "ok", durationSec: 225, isrc: undefined }),
+    ]);
+    expect(res.best?.sourceId).toBe("ok");
+    expect(res.alternatives.some((a) => a.sourceId === "f" && a.isFullLength === false)).toBe(true);
+  });
+
+  it("V3 §6: a ~30s candidate against a normal-length catalog is short-duration preview", () => {
+    const m = scoreCandidate(GOOSEBUMPS, cand({ title: "Goosebumps", sourceId: "snip", durationSec: 30 }));
+    expect(m.isFullLength).toBe(false);
+    expect(m.fullLengthReason).toBe("short-duration");
+  });
+
+  it("V3 §6: SNIP ratio — candidate is ~1/3 of a >=60s catalog duration", () => {
+    const m = scoreCandidate(GOOSEBUMPS, cand({ title: "Goosebumps", sourceId: "third", durationSec: 80 }));
+    expect(m.isFullLength).toBe(false);
+    expect(m.fullLengthReason).toBe("snip-ratio");
+  });
+
+  it("V3 §6: only previews available → best=null, lowConfidence (honest no-play)", () => {
+    const res = rankCandidates(GOOSEBUMPS, [
+      cand({ title: "Goosebumps", sourceId: "only1", isPreview: true }),
+      cand({ title: "Goosebumps", sourceId: "only2", durationSec: 30 }),
+    ]);
+    expect(res.best).toBeNull();
+    expect(res.lowConfidence).toBe(true);
+  });
+
+  it("V3 §5: mandated version penalties (live −60, remix −50, acoustic −50, radio_edit −30, slowed/reverb/sped_up −70)", () => {
+    expect(VERSION_PENALTIES.live).toBe(-60);
+    expect(VERSION_PENALTIES.remix).toBe(-50);
+    expect(VERSION_PENALTIES.acoustic).toBe(-50);
+    expect(VERSION_PENALTIES.radio_edit).toBe(-30);
+    expect(VERSION_PENALTIES.slowed).toBe(-70);
+    expect(VERSION_PENALTIES.reverb).toBe(-70);
+    expect(VERSION_PENALTIES.sped_up).toBe(-70);
+    expect(VERSION_PENALTIES.karaoke).toBe(-100);
+    expect(VERSION_PENALTIES.cover).toBe(-100);
+    expect(VERSION_PENALTIES.ai_cover).toBe(-100);
+    expect(VERSION_PENALTIES.reaction).toBe(-100);
+  });
+
+  it("V3 §5: AI cover / reaction markers are detected as hard-reject versions", () => {
+    const ai = scoreCandidate(GOOSEBUMPS, cand({ title: "Goosebumps (AI Cover)", sourceId: "ai" }));
+    expect(ai.version).toBe("ai_cover");
+    const reaction = scoreCandidate(GOOSEBUMPS, cand({ title: "Goosebumps | Reaction", sourceId: "r" }));
+    expect(reaction.version).toBe("reaction");
   });
 
   it("catalog wants a LIVE version → live candidate NOT penalized", () => {

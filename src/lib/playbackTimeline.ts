@@ -261,4 +261,56 @@ if (typeof window !== "undefined") {
     pbPrint(e);
   });
   gl.reset = () => { gl.entries = []; gl.currentId = -1; gl.seq = 0; };
+  gl.metrics = () => pbMetrics();
+}
+
+/* ── V3 §29: named TT* metrics + diagnostics aggregation ───────────── */
+
+export interface TtMetrics {
+  /** Click/Play intent → engine picked the track. */
+  TTPlayIntentMs: number | null;
+  /** Play intent → playback source resolved (resolver done). */
+  TTSourceResolveMs: number | null;
+  /** Play intent → first audio byte/manifest. */
+  TTFirstAudioMs: number | null;
+  /** Play intent → decoder ready. */
+  TTReadyMs: number | null;
+  /** Play intent → audible playback started. */
+  TTPlaybackStartMs: number | null;
+  trackId: string | null;
+  title: string | null;
+  failed: string | null;
+}
+
+/**
+ * Derive the §29 TT* metrics from the LAST timeline entry.
+ * Names map: TTPlayIntent=T0→T1, TTSourceResolve=T0→T4 (resolver),
+ * TTFirstAudio=T0→T6, TTReady=T0→T8, TTPlaybackStart=T0→T11.
+ */
+export function pbMetrics(): TtMetrics {
+  const gl = g();
+  const e = gl.entries[gl.entries.length - 1] as PbEntry | undefined;
+  if (!e) {
+    return {
+      TTPlayIntentMs: null, TTSourceResolveMs: null, TTFirstAudioMs: null,
+      TTReadyMs: null, TTPlaybackStartMs: null, trackId: null, title: null, failed: null,
+    };
+  }
+  const at = (stage: string): number | null => {
+    const m = e.marks.find((x) => x.stage === stage);
+    return m ? Math.round(m.t - e.t0) : null;
+  };
+  // TTSourceResolve: the resolver-done mark ("T4-url-resolved" carries the
+  // resolver detail in `detail` as "resolver:<provider>:<confidence>").
+  const resolveMark = e.marks.find((x) => x.stage === "T4-url-resolved" && (x.detail || "").startsWith("resolver:"));
+  return {
+    TTPlayIntentMs: at("T1-track-selected"),
+    TTSourceResolveMs: resolveMark ? Math.round(resolveMark.t - e.t0) : at("T4-url-resolved"),
+    TTFirstAudioMs: at("T6-first-byte"),
+    TTReadyMs: at("T8-decoder-ready"),
+    TTPlaybackStartMs: at("T11-playback-start"),
+    trackId: e.trackId,
+    title: e.title,
+    failed: e.failed || null,
+  };
 }

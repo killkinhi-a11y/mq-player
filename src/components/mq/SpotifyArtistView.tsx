@@ -325,7 +325,7 @@ function SpotifyArtistViewBase({ catalogArtistId, catalogProvider, artistName, o
           style={{ boxShadow: `0 18px 48px ${heroColors.rgb.r},${heroColors.rgb.g},${heroColors.rgb.b}33`, backgroundColor: "var(--mq-surface-2)" }}
         >
           {data.artist?.image ? (
-            <img src={data.artist.image} alt={data.artist.name} className="w-full h-full object-cover" draggable={false} />
+            <img src={data.artist.image} alt={data.artist.name} className="w-full h-full object-cover" draggable={false} loading="eager" fetchPriority="high" decoding="async" />
           ) : (
             <span className="w-full h-full grid place-items-center"><Users className="w-10 h-10" style={{ color: "var(--mq-text-muted)" }} /></span>
           )}

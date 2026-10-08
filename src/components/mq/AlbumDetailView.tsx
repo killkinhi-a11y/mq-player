@@ -188,7 +188,7 @@ function AlbumDetailViewBase({ album, onBack, animationsEnabled }: Props) {
                 style={{ boxShadow: "0 18px 48px rgba(0,0,0,0.45)", backgroundColor: "var(--mq-surface-2)" }}
               >
                 {shown.image ? (
-                  <img src={shown.image} alt={shown.name} className="w-full h-full object-cover" draggable={false} />
+                  <img src={shown.image} alt={shown.name} className="w-full h-full object-cover" draggable={false} loading="eager" fetchPriority="high" decoding="async" />
                 ) : (
                   <span className="w-full h-full grid place-items-center"><Disc3 className="w-10 h-10" style={{ color: "var(--mq-text-muted)" }} /></span>
                 )}

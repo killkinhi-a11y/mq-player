@@ -203,8 +203,9 @@ async function resolveCore(body: ResolveBody) {
     let best = cached.best;
     let alternatives = cached.result.alternatives;
     if (body.prefer && alternatives.length > 0) {
+      // V3 §6: preference never forces a PREVIEW or a low-confidence match.
       const preferred = alternatives.find(
-        (a) => a.provider === body.prefer && a.confidence >= AUTO_PLAY_THRESHOLD,
+        (a) => a.provider === body.prefer && a.confidence >= AUTO_PLAY_THRESHOLD && a.isFullLength,
       );
       if (preferred) {
         best = preferred;
@@ -243,8 +244,9 @@ async function resolveCore(body: ResolveBody) {
   let best = result.best;
   let alternatives = result.alternatives;
   if (body.prefer && alternatives.length > 0) {
+    // V3 §6: preference never forces a PREVIEW or a low-confidence match.
     const preferred = alternatives.find(
-      (a) => a.provider === body.prefer && a.confidence >= AUTO_PLAY_THRESHOLD,
+      (a) => a.provider === body.prefer && a.confidence >= AUTO_PLAY_THRESHOLD && a.isFullLength,
     );
     if (preferred && preferred !== best) {
       best = preferred;

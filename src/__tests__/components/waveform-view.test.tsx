@@ -147,7 +147,11 @@ describe("WaveformView — interactions", () => {
       canvas.dispatchEvent(new PointerEvent("pointerup", { clientX: 140, bubbles: true }));
     });
     expect(seekCalls).toHaveLength(1); // committed once — no seek spam
-    expect(seekCalls[0]).toBeCloseTo((140 / 200) * 180, 6);
+    // V3 precise mapping: the pointer maps over the VISIBLE BAR FIELD
+    // (centered usable width), not the raw canvas width. For a 200px canvas:
+    // barW=2, gap=2 → 50 bars, usableW=198, x0=1 → x=140 lands at
+    // (140-1)/198 * 180s.
+    expect(seekCalls[0]).toBeCloseTo(((140 - 1) / 198) * 180, 6);
   });
 
   it("keyboard: arrows seek ±5s, Home/End jump (slider semantics)", async () => {

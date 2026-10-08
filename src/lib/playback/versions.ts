@@ -26,6 +26,8 @@ export type TrackVersion =
   | "sped_up"
   | "karaoke"
   | "cover"
+  | "ai_cover"
+  | "reaction"
   | "edit";
 
 export interface VersionInfo {
@@ -42,6 +44,17 @@ const MARKERS: ReadonlyArray<{ version: TrackVersion; patterns: RegExp[] }> = [
   {
     version: "karaoke",
     patterns: [/\bkaraoke\b/i, /\bkareoke\b/i, /\binstrumental karaoke\b/i, /\bno vocals\b/i, /\bsingalong\b/i],
+  },
+  {
+    // V3 §5: AI-generated covers are a hard reject (-100) — synthetic voices
+    // masquerading as the artist. Markers cover the common spellings.
+    version: "ai_cover",
+    patterns: [/\bai (cover|song|version|vocals|singing)\b/i, /\bcover ai\b/i, /\bsuno\b/i, /\budio\b/i, /\bripper x\b/i, /\b_AI\b/],
+  },
+  {
+    // V3 §5: reaction videos / commentary — never the music alone (-100).
+    version: "reaction",
+    patterns: [/\breaction\b/i, /\breacts?\b/i, /\bfirst time hearing\b/i, /\blistening to\b.*\bfirst\b/i],
   },
   {
     version: "live",
@@ -123,6 +136,8 @@ export function detectVersion(title: string, album?: string): VersionInfo {
   // e.g. "Slowed + Reverb" → slowed (also matches reverb — same penalty tier).
   const PRIORITY: TrackVersion[] = [
     "karaoke",
+    "ai_cover",
+    "reaction",
     "cover",
     "slowed",
     "reverb",

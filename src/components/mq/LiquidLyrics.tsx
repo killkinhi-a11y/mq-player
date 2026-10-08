@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect, useState, useCallback, useMemo, memo } from "react";
 import { currentPlaybackPosition } from "@/lib/wasm-audio";
+import { subscribeClock, wakeClock } from "@/lib/playback/clock";
 import { useAppStore } from "@/store/useAppStore";
 import { formatDuration } from "@/lib/musicApi";
 import type { LyricLine } from "@/lib/lyrics/types";
@@ -197,16 +198,17 @@ function LiquidLyricsBase({ lines, currentTime, onSeek, duration = 0, variant = 
     return splitWords(lines[afterIdx].text);
   }, [lines, afterIdx]);
 
-  // ── The one rAF loop (mount-lifetime, never resubscribes) ───────────
+  // ── THE unified clock subscription (V3 §13/§19 — no private rAF) ────
+  // The fill/active-line loop rides the shared PlaybackClock: one loop for
+  // Wave + Lyrics + Progress + engine. Ticks arrive while playing, on wake
+  // bursts (seek/resize) and on paused external seeks (clock slow-poll).
   useEffect(() => {
-    let raf = 0;
     let lastWritten = -1;
     let lastStepAt = 0;
     let forceWrite = true;
     let localIdx = idxRef.current;
 
-    const tick = (t: number) => {
-      raf = requestAnimationFrame(tick);
+    const tick = () => {
       if (document.hidden) return;
       const ls = linesRef.current;
       if (!ls.length) return;
@@ -241,6 +243,7 @@ function LiquidLyricsBase({ lines, currentTime, onSeek, duration = 0, variant = 
       let fill = lineFill(ls, idx, pos, durationRef.current) * 100;
       // Organic surface breathing — tiny, mid-fill only, never in
       // reduced-motion mode, never enough to disturb reading.
+      const t = typeof performance !== "undefined" ? performance.now() : Date.now();
       if (!reduceMotionRef.current && fill > 3 && fill < 97) {
         fill += Math.sin(t * 0.0021) * 0.8;
       }
@@ -264,13 +267,15 @@ function LiquidLyricsBase({ lines, currentTime, onSeek, duration = 0, variant = 
       }
     };
 
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    const unsub = subscribeClock(tick, { throttleMs: 0 });
+    wakeClock(); // initial sync on mount
+    return unsub;
   }, []);
 
-  // New lyrics (track change) — loop resyncs on the next frame.
+  // New lyrics (track change) — the clock loop resyncs on the next frame.
   useEffect(() => {
     linesChangedRef.current = true;
+    wakeClock();
   }, [lines]);
 
   // ── Virtualization (very long lyrics only) ──────────────────────────

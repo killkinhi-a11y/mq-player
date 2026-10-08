@@ -15,6 +15,8 @@ import {
 import { replayGain, getDefaultGainForGenre } from "@/lib/replayGain";
 import { getAudiusStream, isAudiusTrack, findAudiusAlternative } from "@/lib/audius";
 import { resolveCatalogTrack } from "@/lib/playback/client";
+import { prefetchNextTrack } from "@/lib/playback/prefetch";
+import { clockSetPlaying, setClockDurationSource, subscribeClock, wakeClock } from "@/lib/playback/clock";
 import { spotifyPlaybackAdapter } from "@/lib/spotify/playbackAdapter";
 import { spotifyAuth } from "@/lib/spotify/auth";
 import { getLocalBlobUrl } from "./SearchView";
@@ -832,6 +834,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   const progressRAFCallbacks = useRef<Set<(currentTime: number, duration: number) => void>>(new Set());
   const rafIdRef = useRef<number>(0);
   const isRAFRunning = useRef(false);
+  const unsubscribeClockRef = useRef<(() => void) | null>(null);
 
   const registerProgressRAF = useCallback((cb: (currentTime: number, duration: number) => void) => {
     progressRAFCallbacks.current.add(cb);
@@ -841,47 +844,22 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   const startProgressRAF = useCallback(() => {
     if (isRAFRunning.current) return;
     isRAFRunning.current = true;
-    const tick = () => {
-      // V2 Spotify Official path: position from the adapter's interpolated
-      // clock (SDK state events ~1 Hz + performance.now extrapolation).
-      // No raw PCM exists on this path — the visual layer is state-driven.
-      if (spotifyPlaybackAdapter.isActive && useAppStore.getState().playbackMode === "spotify") {
-        if (spotifyPlaybackAdapter.isPlaying) {
-          const pos = spotifyPlaybackAdapter.getPositionSec();
-          const dur = spotifyPlaybackAdapter.getDurationSec();
-          if (isFinite(pos) && isFinite(dur) && dur > 0) {
-            progressRAFCallbacks.current.forEach(cb => { try { cb(pos, dur); } catch {} });
-          }
-        }
-      } else {
-        const wasm = wasmBackendRef.current;
-        if (wasm && wasm.active && wasm.ctx) {
-          // WASM path: position from the backend's INTERPOLATED engine clock
-          // (A6) — Rust playhead frames + clamped performance.now extrapolation
-          // between 10 Hz stats. Zero React renders; smooth at display rate.
-          const pos = wasm.positionSec;
-          const dur = wasm.currentDuration;
-          if (isFinite(pos) && isFinite(dur) && dur > 0 && wasm.playing) {
-            progressRAFCallbacks.current.forEach(cb => { try { cb(pos, dur); } catch {} });
-          }
-        } else {
-          const a = getAudioElement();
-          if (a && !a.paused && a.duration && isFinite(a.duration)) {
-            const ct = a.currentTime;
-            const dur = a.duration;
-            progressRAFCallbacks.current.forEach(cb => { try { cb(ct, dur); } catch {} });
-          }
-        }
-      }
-      if (isRAFRunning.current) {
-        rafIdRef.current = requestAnimationFrame(tick);
-      }
-    };
-    rafIdRef.current = requestAnimationFrame(tick);
+    // V3 §13/§19 — the engine's progress callbacks now ride THE unified
+    // PlaybackClock (one rAF for Wave + Lyrics + Progress + engine). The
+    // old private loop is retired; the tick body (3-source position) lives
+    // in the clock via currentPlaybackPosition().
+    unsubscribeClockRef.current = subscribeClock((pos, dur) => {
+      if (!isRAFRunning.current) return;
+      progressRAFCallbacks.current.forEach(cb => { try { cb(pos, dur); } catch {} });
+    }, { throttleMs: 0 });
   }, []);
 
   const stopProgressRAF = useCallback(() => {
     isRAFRunning.current = false;
+    if (unsubscribeClockRef.current) {
+      unsubscribeClockRef.current();
+      unsubscribeClockRef.current = null;
+    }
     if (rafIdRef.current) {
       cancelAnimationFrame(rafIdRef.current);
       rafIdRef.current = 0;
@@ -1860,6 +1838,11 @@ export function useAudioEngine(params: UseAudioEngineParams) {
 
     let cancelled = false;
     const pendingTimeouts: ReturnType<typeof setTimeout>[] = [];
+    // V3 §2/§28 — generation-scoped abort controller: rapid A→B→C→D aborts
+    // the PREVIOUS track's resolver/network work; late results can never
+    // mutate the current state (belt: `cancelled` + generation counter,
+    // braces: network itself stops).
+    const genController = new AbortController();
 
     loadGenerationRef.current++;
     const currentGeneration = loadGenerationRef.current;
@@ -2246,6 +2229,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
 
           // ── PRIORITY STEP 2 — PlaybackResolver (alternative sources) ──
           useAppStore.setState({ catalogResolving: true });
+          const resolveStarted = typeof performance !== "undefined" ? performance.now() : Date.now();
           const outcome = await resolveCatalogTrack({
             provider: currentTrack.catalogProvider === "deezer" ? "deezer" : "spotify",
             catalogId: currentTrack.catalogId,
@@ -2254,8 +2238,15 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             album: currentTrack.album || undefined,
             albumImage: currentTrack.cover || undefined,
             durationSec: currentTrack.duration,
-          });
+          }, { signal: genController.signal });
+          // V3 §28: only the FRESHEST generation may touch the resolving flag
+          // and the store — an aborted stale resolve must not clear the flag
+          // of the newer one that is still in flight.
+          if (loadGenerationRef.current !== currentGeneration) return;
           useAppStore.setState({ catalogResolving: false });
+          if (typeof performance !== "undefined") {
+            try { performance.mark?.(`mq-resolve-done:${currentTrack.id}:${Math.round(performance.now() - resolveStarted)}`); } catch {}
+          }
           if (cancelled) return;
 
           if (outcome.track) {
@@ -2867,7 +2858,13 @@ export function useAudioEngine(params: UseAudioEngineParams) {
 
     loadTrack();
 
-    return () => { cancelled = true; pendingTimeouts.forEach(t => clearTimeout(t)); };
+    return () => {
+      cancelled = true;
+      pendingTimeouts.forEach(t => clearTimeout(t));
+      // V3 §2/§28 — abort this generation's in-flight resolver work so a
+      // stale request can neither finish nor overwrite newer state.
+      try { genController.abort(); } catch {}
+    };
   }, [currentTrack?.id, spotifyRetryTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Playback rate effect ──
@@ -2875,6 +2872,26 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     if (!currentTrack?.id) return;
     setAudioPlaybackRate(playbackRate);
   }, [currentTrack?.id, playbackRate]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── V3 §12: next-track preparation (catalog resolve + artwork + lyrics probe) ──
+  // Runs 4s into playback of the CURRENT track: the resolver match for the
+  // NEXT queue entry lands warm in the client cache, so A→B starts without
+  // the resolve round-trip. Never downloads audio; budgeted + deduplicated
+  // inside playback/prefetch. Fires on ANY successful play state (element,
+  // WASM, Spotify Official) because it only watches the store.
+  useEffect(() => {
+    if (!currentTrack?.id || !isPlaying) return;
+    const t = setTimeout(() => {
+      try {
+        const st = useAppStore.getState();
+        const next = typeof st.peekNextTrack === "function"
+          ? st.peekNextTrack()
+          : st.queue?.[st.queueIndex + 1] ?? null;
+        if (next && next.id !== currentTrack.id) prefetchNextTrack(next);
+      } catch { /* best-effort */ }
+    }, 4000);
+    return () => clearTimeout(t);
+  }, [currentTrack?.id, isPlaying]);
 
   // ── handlePrevTrack callback ──
   const handlePrevTrack = useCallback(() => {
@@ -3003,8 +3020,21 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     } else {
       stopProgressRAF();
     }
-    return () => stopProgressRAF();
+    // V3 §13 — the unified PlaybackClock mirrors the transport state so
+    // Wave/Lyrics/Progress all share ONE loop that runs only while playing
+    // (+ short wake bursts on seek/resize while paused).
+    clockSetPlaying(isPlaying && !isLoadingTrack);
+    return () => {
+      stopProgressRAF();
+      clockSetPlaying(false);
+    };
   }, [isPlaying, isLoadingTrack, startProgressRAF, stopProgressRAF]);
+
+  // V3 §13 — clock duration source: the store's live-corrected duration.
+  useEffect(() => {
+    setClockDurationSource(() => useAppStore.getState().duration);
+    return () => setClockDurationSource(() => 0);
+  }, []);
 
   // ── Volume effect ──
   // Re-apply volume whenever volume changes OR track changes (audio element resets to 1.0 on new src)

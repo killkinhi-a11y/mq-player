@@ -11,7 +11,7 @@ export interface DominantColors {
   rgb: { r: number; g: number; b: number }; // primary as RGB
 }
 
-const DEFAULT_COLORS: DominantColors = {
+export const DEFAULT_COLORS: DominantColors = {
   primary: "#e03131",
   secondary: "#1a1a2e",
   muted: "#2d2d3d",

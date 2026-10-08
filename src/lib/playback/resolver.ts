@@ -16,27 +16,35 @@
  * Candidates below the confidence threshold are rejected — playing the
  * wrong track is worse than playing nothing.
  *
- * SCORING (0…100 raw, normalized to 0…1 confidence):
+ * SCORING (V3 §5 — user-mandated weights, 0…100 raw → 0…1 confidence):
  *   ISRC exact match.................... +100  (guaranteed identity)
  *   Exact normalized title.............. +40
  *   Exact normalized artist............. +40
  *   Duration within 3s.................. +20   (2s..5s: +12; ≤8s: +6)
  *   Album name match.................... +10
- *   Version mismatch penalties:
- *     karaoke / cover................... −100  (never auto-pick)
- *     slowed / reverb / sped up........ −60
- *     live.............................. −50
- *     remix / instrumental.............. −40
- *     acoustic.......................... −30
- *     radio edit / edit / extended...... −15
- *     remaster.......................... −10
- *   Candidate is preview-only (SNIP).... −25   (still playable, flagged)
+ *   Version MATCHES catalog non-original. +10  (user asked Live → Live ✓)
+ *   Version mismatch penalties (V3 §5 — MANDATED):
+ *     karaoke / cover / AI cover /
+ *     reaction......................... −100  (never auto-pick)
+ *     slowed / reverb / sped up........ −70
+ *     live.............................. −60
+ *     remix / instrumental.............. −50
+ *     acoustic.......................... −50
+ *     radio edit........................ −30
+ *     remaster / extended / edit....... −15
+ *
+ * FULL-LENGTH RULE (V3 §3/§6 — ABSOLUTE):
+ *   Preview-only candidates (SNIP / ~30s / teaser) are REJECTED from the
+ *   auto-play `best`. They remain in `alternatives` with isFullLength:false
+ *   for the source sheet's honest «превью» disclosure, but the normal Play
+ *   path can never select them. A preview is NOT a playback provider.
  *
  * CONFIDENCE = clamp(score / 100, 0, 1). AUTO-PLAY threshold: 0.60.
  * Alternatives are always returned so the UI can offer source choice.
  */
 
 import { detectVersion, exactTitle, normalizeText, tokenSimilarity, type TrackVersion } from "./versions";
+import { validateFullLength, type FullLengthVerdict } from "./fullLength";
 
 /* ── Types ─────────────────────────────────────────────────────────── */
 
@@ -88,14 +96,18 @@ export interface PlaybackCandidate {
 export interface ScoredCandidate extends PlaybackCandidate {
   score: number;
   confidence: number;
+  /** V3 §6: full-length validation verdict — previews never auto-play. */
+  isFullLength: boolean;
+  /** Machine reason of the verdict (ok / provider-flagged-preview / …). */
+  fullLengthReason: FullLengthVerdict["reason"];
   breakdown: {
     isrc: number;
     title: number;
     artist: number;
     duration: number;
     album: number;
+    versionBonus: number;
     versionPenalty: number;
-    previewPenalty: number;
   };
   version: TrackVersion;
 }
@@ -122,23 +134,28 @@ export const WEIGHTS = {
   album: 10,
 } as const;
 
-/** Version mismatch penalties (catalog expects ORIGINAL, candidate is not). */
+/** Version mismatch penalties (V3 §5 — user-mandated values). */
 export const VERSION_PENALTIES: Record<TrackVersion, number> = {
   karaoke: -100,
   cover: -100,
-  slowed: -60,
-  reverb: -60,
-  sped_up: -60,
-  live: -50,
-  remix: -40,
-  instrumental: -40,
-  acoustic: -30,
-  radio_edit: -15,
+  ai_cover: -100,
+  reaction: -100,
+  slowed: -70,
+  reverb: -70,
+  sped_up: -70,
+  live: -60,
+  remix: -50,
+  instrumental: -50,
+  acoustic: -50,
+  radio_edit: -30,
   edit: -15,
   extended: -15,
-  remaster: -10,
+  remaster: -15,
   original: 0,
 };
+
+/** V3 §5: bonus when the candidate MATCHES a non-original catalog version. */
+export const VERSION_MATCH_BONUS = 10;
 
 /** Candidates must clear this confidence to be auto-played. */
 export const AUTO_PLAY_THRESHOLD = 0.6;
@@ -154,8 +171,8 @@ export function scoreCandidate(catalog: CatalogTrack, candidate: PlaybackCandida
     artist: 0,
     duration: 0,
     album: 0,
+    versionBonus: 0,
     versionPenalty: 0,
-    previewPenalty: 0,
   };
 
   // ISRC — strongest possible identity signal.
@@ -204,24 +221,26 @@ export function scoreCandidate(catalog: CatalogTrack, candidate: PlaybackCandida
     breakdown.album = WEIGHTS.album;
   }
 
-  // Version penalty — only applied when the CATALOG track is the original.
-  // (If the user explicitly opened a "Live" version from the catalog, a live
-  // candidate is CORRECT and must not be punished.)
+  // Version scoring — V3 §5. When the CATALOG track is the ORIGINAL, an
+  // alternate-version candidate gets the mandated penalty. When the catalog
+  // track IS a specific alternate (user opened a "Live" version from the
+  // catalog), a MATCHING candidate earns +10 and a mismatch gets −15.
   const catalogVersion = catalog.version ?? detectVersion(catalog.title, catalog.album).version;
   const candVersion = detectVersion(candidate.title, candidate.album).version;
   if (catalogVersion === "original" && candVersion !== "original") {
     breakdown.versionPenalty = VERSION_PENALTIES[candVersion];
-  } else if (catalogVersion !== "original" && candVersion !== catalogVersion) {
-    // catalog wants a specific alternate version; a different alternate
-    // (or an original) is a weaker signal but not fatal.
-    breakdown.versionPenalty = -15;
+  } else if (catalogVersion !== "original") {
+    breakdown.versionBonus = candVersion === catalogVersion ? VERSION_MATCH_BONUS : 0;
+    if (candVersion !== catalogVersion) breakdown.versionPenalty = -15;
   }
 
-  // Preview-only penalty — playable but degraded; prefer full streams.
-  if (candidate.isPreview) breakdown.previewPenalty = -25;
+  // V3 §3/§6 — FULL-LENGTH VALIDATION. A preview is not a playback source:
+  // it can never be the auto-played `best` (see rankCandidates). It stays
+  // in alternatives with an honest verdict for the source sheet.
+  const verdict = validateFullLength(catalog, candidate);
 
   let score = breakdown.isrc + breakdown.title + breakdown.artist + breakdown.duration + breakdown.album;
-  score += breakdown.versionPenalty + breakdown.previewPenalty;
+  score += breakdown.versionBonus + breakdown.versionPenalty;
 
   // Popularity tiebreaker (0…4 pts) — among equal scores, the more-played
   // upload is likelier the canonical one. Never decisive on its own.
@@ -234,6 +253,8 @@ export function scoreCandidate(catalog: CatalogTrack, candidate: PlaybackCandida
     ...candidate,
     score: Math.round(score),
     confidence: Math.max(0, Math.min(1, score / 100)),
+    isFullLength: verdict.isFullLength,
+    fullLengthReason: verdict.reason,
     breakdown,
     version: candVersion,
   };
@@ -241,7 +262,9 @@ export function scoreCandidate(catalog: CatalogTrack, candidate: PlaybackCandida
 
 /**
  * Rank candidates against a catalog track.
- * Returns best (if ≥ threshold) + alternatives.
+ * V3 §6: `best` is chosen ONLY among FULL-LENGTH candidates above the
+ * threshold — previews are structurally excluded from auto-play.
+ * Returns best + alternatives (previews included, flagged, for the sheet).
  */
 export function rankCandidates(catalog: CatalogTrack, candidates: PlaybackCandidate[]): ResolveResult {
   const scored = candidates
@@ -253,12 +276,14 @@ export function rankCandidates(catalog: CatalogTrack, candidates: PlaybackCandid
     return { best: null, alternatives: [], confidence: 0, lowConfidence: false };
   }
 
-  const best = scored[0];
-  const ok = best.confidence >= AUTO_PLAY_THRESHOLD;
+  // Full-length candidates only — the normal play path never picks a preview.
+  const fullLength = scored.filter((c) => c.isFullLength);
+  const best = fullLength[0];
+  const ok = !!best && best.confidence >= AUTO_PLAY_THRESHOLD;
   return {
     best: ok ? best : null,
     alternatives: scored,
-    confidence: best.confidence,
+    confidence: best ? best.confidence : scored[0].confidence,
     lowConfidence: !ok,
   };
 }

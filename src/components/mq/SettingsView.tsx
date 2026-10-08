@@ -10,7 +10,7 @@ import {
   Volume2, Moon, Type, Minimize2, Sparkles, Zap,
   RefreshCw, Cloud, Trash2, LogOut, Download, Upload,
   Smartphone, Monitor, Apple, Info, ChevronRight, ChevronDown, X, Check, Loader2, Music2,
-  AlertTriangle, Sliders, Gauge, Terminal, Cpu, Keyboard as KeyboardIcon, Mic2, AudioWaveform,
+  AlertTriangle, Sliders, Gauge, Terminal, Cpu, Keyboard as KeyboardIcon, Mic2, AudioWaveform, Radio,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import VolumeSlider from "@/components/ui/volume-slider";
@@ -407,6 +407,9 @@ export default function SettingsView() {
   const eqPreset = useAppStore((s) => s.eqPreset);
   const crossfadeEnabled = useAppStore((s) => s.crossfadeEnabled);
   const setCrossfadeEnabled = useAppStore((s) => s.setCrossfadeEnabled);
+  // V3 §27: smart queue toggle
+  const smartQueueAutoplay = useAppStore((s) => s.smartQueueAutoplay);
+  const toggleSmartQueueAutoplay = useAppStore((s) => s.toggleSmartQueueAutoplay);
   const crossfadeDuration = useAppStore((s) => s.crossfadeDuration);
   const setCrossfadeDuration = useAppStore((s) => s.setCrossfadeDuration);
   const gaplessEnabled = useAppStore((s) => s.gaplessEnabled);
@@ -1154,6 +1157,14 @@ export default function SettingsView() {
 
             <Card>
               <CardTitle icon={RefreshCw} title="Переходы" />
+              {/* V3 §27: smart queue — продолжение очереди по вкусу (skip-сигналы) */}
+              <SettingToggle
+                icon={Radio}
+                label="Умное продолжение очереди"
+                subtitle="Когда очередь заканчивается — подбираем треки с учётом пропусков и вкуса"
+                value={smartQueueAutoplay}
+                onCheckedChange={() => toggleSmartQueueAutoplay()}
+              />
               <SettingToggle icon={RefreshCw} label="Crossfade" subtitle="Плавный переход" value={crossfadeEnabled} onCheckedChange={setCrossfadeEnabled} />
               {crossfadeEnabled && (
                 <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
