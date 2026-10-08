@@ -9410,3 +9410,46 @@ Stage Summary:
   register https://mq1.vercel.app/spotify/callback (+ localhost variant) in
   the Spotify Developer Dashboard of the existing MQ app, and connect a
   Premium account via Settings→Звук→Источник музыки. PKCE needs NO secret.
+
+---
+Task ID: v2-spotify-official-qa
+Agent: main (Super Z)
+Task: Production QA for the Spotify Official Playback deploy (mq-build-3da014de)
++ final honest report.
+
+Work Log:
+- Deploy verified live: version.json → buildId mq-build-3da014de (v88), commit
+  3da014de. /api/spotify/config returns the public Client ID + pkce:true
+  (secret never exposed — bundle secret-scan clean).
+- Headless production QA (agent-browser, session v2qa, screenshots in
+  download/qa-v2-spotify/):
+  * App loads (demo mode); one ChunkLoadError right after the deploy swap
+    (stale HTML → removed chunk — hard reload fixed; not a code defect).
+  * Settings → Звук → Источник музыки → Spotify card: data-mq-spotify-card="off",
+    «Подключить Spotify» + PKCE/Premium honest copy (02-settings-source.png).
+  * Library → Spotify tab renders the honest connect state (03).
+  * Search 'weeknd': 83 results, provider badges live, /api/catalog/search 200
+    (server catalog returns Deezer for anonymous sessions — known
+    client-credentials unavailability; PKCE-connected users bypass it).
+  * PLAYBACK CHAIN LIVE: Blinding Lights → «Deezer → SoundCloud» badge, position
+    0:04→0:25 (SNIP 30s) → auto-advance → Starboy FULL 3:51 playing (position
+    ticking) — resolver + queue + attribution all green post-merge.
+  * /spotify/callback page renders honest error state without ?code.
+  * PKCE FLOW LIVE: «Подключить Spotify» → accounts.spotify.com/authorize with
+    ALL scopes, S256 code_challenge, redirect_uri=https://mq1.vercel.app/
+    spotify/callback (06-spotify-oauth-redirect.png). Spotify showed the login
+    page (request accepted).
+  * Autoplay probe in the headless env: PLAY-OK (no policy blocker).
+  * Page errors after reload: 0.
+- Final gates re-confirmed post-merge: 1306/1306 tests, tsc src/ 0, build PASS.
+- Wrote download/v2-research/PRODUCTION-REPORT.md — honest §29 matrix:
+  OAuth/PKCE PASS (live), engine/QA PASS, resolver PASS, Vercel PASS;
+  Premium-dependent live checks (>30s/>90s full track, seek via SDK) marked
+  PENDING OWNER with the exact 5-step owner protocol (Dashboard redirect URI
+  registration, User Management allowlist, Premium connect, 90s test).
+
+Stage Summary:
+- Production runs the merged V2: Spotify Official Playback has TOP priority;
+  Deezer→SoundCloud survives only as the honest anonymous/Free fallback.
+- Remaining owner action: register the redirect URI + connect a Premium
+  account, then run the 90-second full-track protocol (steps in the report).
