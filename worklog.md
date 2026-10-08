@@ -9453,3 +9453,77 @@ Stage Summary:
   Deezer→SoundCloud survives only as the honest anonymous/Free fallback.
 - Remaining owner action: register the redirect URI + connect a Premium
   account, then run the 90-second full-track protocol (steps in the report).
+
+---
+Task ID: v3-premium-service
+Agent: main (Super Z)
+Task: V3 концепция — довести MQ до полноценного premium music service
+(research → 42 фазы → preview → production → verified).
+
+Work Log:
+- RESEARCH §4-5: 20 GitHub проектов исследованы живьём (API+README+LICENSE)
+  → download/v3-research/RESEARCH-REPORT.md (таблица + 9 ответов, лицензии
+  проверены: GPL/AGPL/PolyForm/NoLicense — код не берём; BSD/MIT/Apache/
+  EUPL — паттерны). Подтверждён паттерн индустрии: catalog≠playback
+  (Spotube/Rheoson/Nuclear), Spotify SDK = опция для Premium (Kopuz).
+- PHASE 0: BASELINE-REPORT.md (1306/1306, build PASS, lint 55 pre-existing).
+- PHASE 1: ARCHITECTURE-AUDIT.md — 12 проблем (P1 preview в auto-play,
+  P2 нет dedup, P3 resolver не generation-aware, P4 6 таймеров, P5 wave
+  состояния, P6 prefetch только SC, P8 skip только фракциями…).
+- PHASE 2: lib/net/requestRegistry.ts — generations + abort + dedup +
+  TTL + SWR (+29 тестов). Engine: generation-scoped AbortController.
+- PHASE 4-6: lib/playback/fullLength.ts — capability-контракт (§4) +
+  preview REJECT (§3/§6: isPreview | ≤35s | snip-ratio 28-45% от ≥60s
+  каталога). resolver.ts: §5 веса (live −60, remix −50, slowed/reverb/
+  sped −70, acoustic −50, radio_edit −30, ai_cover/reaction −100,
+  version-match +10), best только из fullLength. client.ts: dedup +
+  isFullLength в DTO. /api/resolve: prefer не форсирует preview.
+- PHASE 12: lib/playback/prefetch.ts — каталог-resolve + artwork +
+  lyrics probe следующего трека (budget 2, dedup, без аудио) + wiring
+  в движок.
+- PHASE 13: lib/playback/clock.ts — ЕДИНЫЙ PlaybackClock (1 rAF; wake на
+  seek/resize; slow-poll 250ms на паузе). Мигрированы: engine registry,
+  WaveformView, LiquidLyrics, FullscreenLyrics. Прогресс-бар — на
+  подписке/hover-throttle.
+- PHASE 14-19: Wave ПОЛНАЯ переработка — lib/wave/render.ts (чистые
+  функции: 8 §16 состояний, геометрия, artwork-палитра, buffer) +
+  WaveformView (двухслойный offscreen-кэш баров: O(1)-композит на кадр,
+  градиент played из обложки, buffer-strip, playhead+glow, точный
+  bar-field seek, keyboard slider сохранён).
+- PHASE 24-27: lib/listening/skipIntelligence.ts — §24 event model (все
+  поля), §25 seconds-weights + 14d decay, канальный профиль §26 (style-
+  skip не карает артиста), skipScoreAdjustment §27. Store: события для
+  ВСЕХ плеев (playTrack/next/prev/like/replay/complete), refillQueueSmart
+  (конец очереди → radio-кандидаты × skip-профиль − diversity → авто-
+  продолжение), тумблер в Настройках, рехидрация из localStorage.
+- PHASE 29: playbackTimeline pbMetrics (TTPlayIntent/TTSourceResolve/
+  TTFirstAudio/TTReady/TTPlaybackStart) + AudioDebugPanel V3-секция
+  (track/provider/confidence/full-length/time/buffer/requests/dedup/
+  aborts/prefetch/clock/skip-events).
+- PHASE 30: v3-test-matrix.test.ts — A→B→C→D D WINS (store + generation
+  guards + late-resolver drop + abort), dedup, prefetch, wave states,
+  clock, skip-flow через реальный store, versions.
+- PHASE 31-33: headless QA (6 скриптов scripts/v3-qa-*.sh) на локальном
+  prod-build + VLM-анализ скриншотов (VLM-фидбек: unplayed contrast
+  поднят).
+- PHASE 34: gates — 1381/1381 (80 файлов), tsc 0, lint 0 новых, build PASS.
+- PHASE 35: ветка v3-preview → Vercel Preview build SUCCESS → QA на
+  preview URL (search 97, Deezer catalog live, resolver fullLength=true,
+  LRCLib synced lyrics, wave buffering live, mobile, 0 ошибок).
+- PHASE 36: main push → production mq-build-2c7e1aab (v90).
+- PHASE 37: production smoke 16 шагов — ГЛАВНОЕ: §21 full-track proof
+  139+ секунд непрерывно (Blinding Lights (Acoustic) Victoria Voss,
+  честный бейдж Deezer→SoundCloud, 4:01). Skip-события пишутся на проде.
+- PHASE 38: security audit — client bundle CLEAN (0 секретов, только
+  публичные Spotify URLs; PKCE без secret).
+- PHASE 39-42: PERFORMANCE-REPORT.md, WAVE-REPORT.md, SKIP-INTELLIGENCE.md,
+  PRODUCTION-REPORT.md.
+
+Stage Summary:
+- Production: mq1.vercel.app @ mq-build-2c7e1aab (v90), деплой через
+  существующий Vercel проект, домен не менялся, preview прошёл до прода.
+- V3 = эволюция V2 (ничего из работающего не удалено): preview-REJECT в
+  resolver, единый PlaybackClock, переработанный Wave, skip-интеллект для
+  всех плеев, smart queue, TT*-метрики, dedup/abort/prefetch.
+- Owner-pending (без изменений с V2): Spotify Premium E2E (redirect URI +
+  Premium аккаунт) — протокол в v2 PRODUCTION-REPORT сохраняет силу.
