@@ -142,11 +142,13 @@ export function buildWaveColors(p: PaletteInput): WaveColors {
   return {
     playedHi: accentCss,
     playedLo: mix(accent, deep, 0.55),
-    quiet: mix(accent, deep, 0.82), // barely-there unplayed body
-    buffered: mix(accent, deep, 0.66), // slightly brighter than quiet
-    placeholder: mix(accent, deep, 0.9),
+    // §15 QA (VLM feedback): the unplayed field must READ as a waveform,
+    // not a flat dark track — keep artwork hue but lift the lightness.
+    quiet: mix(accent, deep, 0.64),
+    buffered: mix(accent, deep, 0.5), // clearly brighter than quiet
+    placeholder: mix(accent, deep, 0.78),
     playhead: accentCss,
-    track: mix(accent, deep, 0.75),
+    track: mix(accent, deep, 0.6),
   };
 }
 
