@@ -16,15 +16,18 @@ import {
   SPOTIFY_TOKEN_URL,
   codeChallengeFromVerifier,
   generateCodeVerifier,
+  generateOAuthState,
   getStoredAccess,
   getStoredClientId,
   getStoredProduct,
   getStoredRefresh,
   spotifyRedirectUri,
+  storeOAuthState,
   storeProduct,
   storeTokens,
   storeVerifier,
   storedAccessIsValid,
+  takeOAuthState,
   takeVerifier,
   setStoredClientId,
   clearAllSpotifyStorage,
@@ -92,13 +95,15 @@ class SpotifyAuthManager {
 
   // ── OAuth ──────────────────────────────────────────────────────────────
 
-  /** Begin the OAuth redirect (PKCE S256). Caller: user gesture. */
+  /** Begin the OAuth redirect (PKCE S256 + single-use state). Caller: user gesture. */
   async beginLogin(): Promise<void> {
     const clientId = (await this.loadConfig()) || getStoredClientId();
     if (!clientId) throw new Error("SPOTIFY_NOT_CONFIGURED");
 
     const verifier = generateCodeVerifier(64);
     storeVerifier(verifier);
+    const state = generateOAuthState();
+    storeOAuthState(state);
     const challenge = await codeChallengeFromVerifier(verifier);
 
     const params = new URLSearchParams({
@@ -106,17 +111,25 @@ class SpotifyAuthManager {
       response_type: "code",
       redirect_uri: spotifyRedirectUri(),
       scope: SPOTIFY_SCOPES,
+      state,
       code_challenge_method: "S256",
       code_challenge: challenge,
     });
     window.location.href = `${SPOTIFY_AUTHORIZE_URL}?${params.toString()}`;
   }
 
-  /** Exchange ?code= for tokens (called by /spotify/callback page). */
-  async handleCallback(code: string): Promise<{ ok: boolean; error?: string }> {
+  /** Exchange ?code= for tokens (called by /spotify/callback page).
+   *  `state` from the redirect is validated against the single-use stored
+   *  value — a mismatch (or missing) state is rejected BEFORE any token
+   *  exchange is attempted. */
+  async handleCallback(code: string, state?: string | null): Promise<{ ok: boolean; error?: string }> {
     const clientId = this.getClientId();
+    const expectedState = takeOAuthState();
     const verifier = takeVerifier();
     if (!clientId || !verifier) return { ok: false, error: "PKCE_STATE_LOST" };
+    if (!state || !expectedState || state !== expectedState) {
+      return { ok: false, error: "OAUTH_STATE_MISMATCH" };
+    }
 
     const body = new URLSearchParams({
       client_id: clientId,

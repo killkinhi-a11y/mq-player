@@ -437,3 +437,90 @@ describe("lifecycle", () => {
     expect(await spotifyPlaybackAdapter.isOfficialAvailable()).toBe(true);
   });
 });
+
+/* ── Official-playback spec (2026-10-09): §3 lifecycle extras + §11 rapid
+ * switching. These pin the serialization guarantee: rapid A→B play commands
+ * never leave a STALE command's error state blocking the fresh choice. ── */
+
+describe("official-playback spec §3/§11", () => {
+  it("activate() routes to SDK activateElement (autoplay unlock)", async () => {
+    await installSdkMock();
+    await spotifyPlaybackAdapter.connect();
+    const player = MockSdkPlayer.instances[0];
+    const ok = await spotifyPlaybackAdapter.activate();
+    expect(ok).toBe(true);
+    expect(player.calls).toContain("activateElement");
+  });
+
+  it("destroy() drops every listener — the singleton stops emitting", async () => {
+    await installSdkMock();
+    await spotifyPlaybackAdapter.connect();
+    const seen: any[] = [];
+    const off = spotifyPlaybackAdapter.onState((s) => seen.push(s));
+    spotifyPlaybackAdapter.destroy();
+    expect(spotifyPlaybackAdapter.isActive).toBe(false);
+    MockSdkPlayer.instances[0].emit("player_state_changed", stateAt(5, false));
+    expect(seen).toHaveLength(0);
+    // Listener set cleared — unsubscribing the dead handle is a no-op.
+    expect(() => off()).not.toThrow();
+  });
+
+  it("transferPlaybackHere() issues PUT /me/player with OUR device_id", async () => {
+    await installSdkMock();
+    await spotifyPlaybackAdapter.connect();
+    fetchMock.mockResolvedValueOnce(playResponse(204));
+    const ok = await spotifyPlaybackAdapter.transferPlaybackHere({ play: true });
+    expect(ok).toBe(true);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://api.spotify.com/v1/me/player");
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body)).toEqual({ device_ids: ["device-1"], play: true });
+  });
+
+  it("subscribeToPlayerState is the §3 alias of onState", async () => {
+    await installSdkMock();
+    await spotifyPlaybackAdapter.connect();
+    const seen: any[] = [];
+    const off = spotifyPlaybackAdapter.subscribeToPlayerState((s) => seen.push(s));
+    MockSdkPlayer.instances[0].emit("player_state_changed", stateAt(1, false));
+    expect(seen).toHaveLength(1);
+    off();
+  });
+
+  it("rapid A→B: the superseded command reports false WITHOUT poisoning the session", async () => {
+    await installSdkMock();
+    await spotifyPlaybackAdapter.connect();
+
+    let resolveA!: (r: Response) => void;
+    const gateA = new Promise<Response>((r) => { resolveA = r; });
+    // A's PUT hangs until we resolve it manually.
+    fetchMock.mockImplementationOnce(() => gateA);
+    fetchMock.mockResolvedValueOnce(playResponse(202)); // B's PUT succeeds
+
+    const playA = spotifyPlaybackAdapter.play("spotify:track:a");
+    const playB = spotifyPlaybackAdapter.play("spotify:track:b");
+    // B already superseded A before A's response arrived.
+    resolveA(playResponse(403)); // a hostile stale 403 for A
+    expect(await playA).toBe(false); // superseded — honest false…
+    expect(await playB).toBe(true); // …and B owns the device.
+
+    // CRITICAL (§11): A's stale 403 must NOT have downgraded the session —
+    // the adapter stays available for the user's actual (latest) choice.
+    expect(await spotifyPlaybackAdapter.isOfficialAvailable()).toBe(true);
+    // The last PUT the API received is B's command.
+    const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+    expect(JSON.parse(lastCall[1].body).uris).toEqual(["spotify:track:b"]);
+  });
+
+  it("play() surfaces 401 as an auth error (expired session → Reconnect path)", async () => {
+    await installSdkMock();
+    await spotifyPlaybackAdapter.connect();
+    fetchMock.mockResolvedValueOnce(playResponse(401));
+    const errors: any[] = [];
+    const off = spotifyPlaybackAdapter.onError((e) => errors.push(e));
+    const ok = await spotifyPlaybackAdapter.play("spotify:track:x");
+    expect(ok).toBe(false);
+    expect(errors[0]?.kind).toBe("auth");
+    off();
+  });
+});

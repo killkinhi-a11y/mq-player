@@ -102,6 +102,7 @@ const PlayerBar = dynamic(() => import("@/components/mq/PlayerBar"), { ssr: fals
 const ShareSheet = dynamic(() => import("@/components/mq/ShareSheet").then((m) => m.ShareSheet), { ssr: false });
 // V2 multi-provider engine: low-confidence match chooser + manual source switch
 const SourceSheet = dynamic(() => import("@/components/mq/SourceSheet").then((m) => m.SourceSheet), { ssr: false });
+const SpotifyGateSheet = dynamic(() => import("@/components/mq/SpotifyGateSheet").then((m) => m.SpotifyGateSheet), { ssr: false });
 // v8 Full Player Themes: one dispatcher — Classic (FullTrackView desktop /
 // FullTrackViewMobile mobile) or new SpatialFullPlayer, per the persisted
 // «Вид полного плеера» setting (default classic — no change for existing
@@ -923,6 +924,7 @@ export default function AppShell() {
       <GlobalShareSheet />
       {/* V2: catalog→playback source chooser (low-confidence + manual switch) */}
       <Suspense fallback={null}><SourceSheet /></Suspense>
+      <Suspense fallback={null}><SpotifyGateSheet /></Suspense>
       <Suspense fallback={null}><EqualizerView show={isEqOpen} onClose={() => setEqOpen(false)} /></Suspense>
       <Suspense fallback={null}><KeyboardShortcutsHelp /></Suspense>
       <Suspense fallback={null}>{showNav && <CommandPalette />}</Suspense>

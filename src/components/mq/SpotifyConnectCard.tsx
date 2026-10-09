@@ -8,13 +8,13 @@ import { spotifyAuth } from "@/lib/spotify/auth";
 /**
  * SpotifyConnectCard — V2 §9/§15/§18 settings surface.
  *
- * Honest states only:
+ * Honest states only (no substitution promises):
  *  - not configured (no server Client ID) → setup hint
  *  - not connected → connect button (PKCE, official Spotify page)
- *  - connected + Premium → «Официальное воспроизведение активно»
- *  - connected + Free → catalog/library available, playback auto-falls back
- *    to the alternative resolver
- *  - browser unsupported (Safari/mobile) → honest note
+ *  - connected + Premium + supported browser → «Spotify connected · официальное воспроизведение активно»
+ *  - connected + Free → catalog/library available; full Spotify playback
+ *    requires Premium (Developer Policy §IV) — tracks honestly stop at the gate
+ *  - browser unsupported (Safari/mobile) → honest note; no auto-substitution
  */
 export function SpotifyConnectCard() {
   const { connect, disconnect } = useSpotifySession();
@@ -99,9 +99,9 @@ export function SpotifyConnectCard() {
           <p className="text-[11px] leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
             {premium
               ? playbackSupported
-                ? "Официальное воспроизведение включено: треки Spotify играют полностью (Web Playback SDK), приоритет выше альтернативных источников."
-                : "Premium активен, но этот браузер не поддерживает Web Playback SDK (нужен десктопный Chrome / Edge / Firefox). Треки Spotify будут автоматически играть через SoundCloud/Audius."
-              : "Каталог и библиотека Spotify доступны. Полное воспроизведение требует Premium — без него треки автоматически играют через SoundCloud/Audius."}
+                ? "Spotify connected. Официальное воспроизведение включено: треки Spotify играют полностью через Web Playback SDK. Никаких превью и подмен источников."
+                : "Spotify connected (Premium), но этот браузер не поддерживает Web Playback SDK — нужен десктопный Chrome / Edge / Firefox. Треки Spotify будут останавливаться с честным объяснением, без подмены другим источником."
+              : "Spotify connected. Каталог и библиотека доступны. Полное воспроизведение Spotify-треков требует Premium (ограничение Spotify Developer Policy) — без него трек честно не запустится вместо подмены. "}
           </p>
 
           <button

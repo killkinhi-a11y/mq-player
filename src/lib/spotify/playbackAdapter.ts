@@ -94,6 +94,9 @@ class SpotifyPlaybackAdapter {
    *  official playback until the next connect (honest, prevents loops). */
   private sessionDisabled = false;
   private endedFiredFor: string | null = null;
+  /** Monotonic play-command sequence — rapid A→B→C: only the LAST user
+   *  choice may own the device (PHASE 11: no parallel play commands). */
+  private playSeq = 0;
 
   // ── Availability (§16 priority gate) ───────────────────────────────────
 
@@ -255,6 +258,52 @@ class SpotifyPlaybackAdapter {
     this.disconnect();
   }
 
+  /** Public §3 lifecycle extras. activate(): unlock the audio pipeline after
+   *  a browser autoplay policy block (wraps SDK activateElement — the same
+   *  path the autoplay_failed listener uses internally). */
+  async activate(): Promise<boolean> {
+    try {
+      await this.player?.activateElement();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** destroy(): full teardown — SDK disconnect + every listener dropped.
+   *  The singleton stays reusable (connect() boots a fresh device). */
+  destroy(): void {
+    this.disconnect();
+    this.stateListeners.clear();
+    this.errorListeners.clear();
+    this.endedListeners.clear();
+    this.readyListeners.clear();
+    this.sessionDisabled = false;
+    this.lastError = null;
+    this.endedFiredFor = null;
+  }
+
+  /** Transfer the user's active playback to THIS browser's Connect device
+   *  (official `PUT /me/player` with device_ids). Used when the session
+   *  reports another device owns playback. */
+  async transferPlaybackHere(opts: { play?: boolean } = {}): Promise<boolean> {
+    if (!(await this.connect()) || !this.deviceId) return false;
+    try {
+      const res = await this.api("/me/player", {
+        method: "PUT",
+        body: JSON.stringify({ device_ids: [this.deviceId], play: !!opts.play }),
+      });
+      return res.status === 202 || res.status === 204;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Explicit §3 alias for onState (SDK player_state_changed subscription). */
+  subscribeToPlayerState(fn: StateListener): () => void {
+    return this.onState(fn);
+  }
+
   // ── Web API helper ─────────────────────────────────────────────────────
 
   private async api(path: string, options: RequestInit = {}): Promise<Response> {
@@ -272,11 +321,15 @@ class SpotifyPlaybackAdapter {
 
   // ── §13 control surface ────────────────────────────────────────────────
 
-  /** Start a full track on THIS browser's Connect device. */
+  /** Start a full track on THIS browser's Connect device.
+   *  Serialized: each call bumps playSeq — a superseded command (the user
+   *  picked another track meanwhile) reports `false` WITHOUT touching the
+   *  session error state, so a stale 4xx can never block the fresh choice. */
   async play(
     uri: string,
     opts: { positionSec?: number; volumePercent?: number } = {},
   ): Promise<boolean> {
+    const seq = ++this.playSeq;
     if (!(await this.connect())) return false;
     if (!this.deviceId) return false;
 
@@ -296,6 +349,8 @@ class SpotifyPlaybackAdapter {
         method: "PUT",
         body: JSON.stringify(body),
       });
+      // A newer play() superseded this command — its result owns the device.
+      if (seq !== this.playSeq) return false;
       if (res.status === 202 || res.status === 204) return true;
       if (res.status === 404) {
         // Device not found (went offline) — one reconnect attempt.
@@ -305,6 +360,7 @@ class SpotifyPlaybackAdapter {
           method: "PUT",
           body: JSON.stringify(body),
         });
+        if (seq !== this.playSeq) return false;
         return retry.status === 202 || retry.status === 204;
       }
       if (res.status === 403) {
@@ -313,8 +369,14 @@ class SpotifyPlaybackAdapter {
         this.emitError("account", "Spotify: воспроизведение недоступно для этого аккаунта");
         return false;
       }
+      if (res.status === 401) {
+        this.emitError("auth", "Spotify: сессия истекла — переподключите аккаунт");
+        return false;
+      }
+      this.emitError("playback", `Spotify: API вернул ${res.status}`);
       return false;
     } catch (e) {
+      if (seq !== this.playSeq) return false;
       this.emitError("network", `Spotify: сеть (${e instanceof Error ? e.message : "?"})`);
       return false;
     }

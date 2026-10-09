@@ -17,6 +17,7 @@ const LS = {
   refresh: "mq_spotify_refresh_token",
   expires: "mq_spotify_token_expires",
   verifier: "mq_spotify_code_verifier",
+  state: "mq_spotify_oauth_state",
   product: "mq_spotify_product",
 } as const;
 
@@ -61,6 +62,13 @@ export function base64UrlEncode(bytes: Uint8Array): string {
   let bin = "";
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
   return btoa(bin).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+/** Random OAuth state (cryptographic, 128 bits base64url). Paired with
+ *  the verifier as CSRF defense-in-depth per the official PKCE guide. */
+export function generateOAuthState(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return base64UrlEncode(bytes);
 }
 
 // ── Redirect URI ──────────────────────────────────────────────────────────
@@ -149,6 +157,23 @@ export function takeVerifier(): string | null {
     const v = localStorage.getItem(LS.verifier);
     localStorage.removeItem(LS.verifier);
     return v;
+  } catch {
+    return null;
+  }
+}
+
+export function storeOAuthState(state: string): void {
+  try {
+    localStorage.setItem(LS.state, state);
+  } catch {}
+}
+
+/** Read + drop the stored OAuth state (single-use). */
+export function takeOAuthState(): string | null {
+  try {
+    const s = localStorage.getItem(LS.state);
+    localStorage.removeItem(LS.state);
+    return s;
   } catch {
     return null;
   }

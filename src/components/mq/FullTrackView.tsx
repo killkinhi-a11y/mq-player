@@ -34,7 +34,7 @@ import ContextMenu from "./ContextMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
 // V2 multi-provider: catalog → playback attribution + source switch
 import { ProviderChain, trackAttribution, SpotifyOfficialBadge } from "./ui/ProviderBadge";
-import { ArrowLeftRight } from "lucide-react";
+import { ArrowLeftRight, ExternalLink } from "lucide-react";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — full-screen premium player
@@ -691,6 +691,29 @@ export default function FullTrackView() {
             <span className="mq-t-meta-2 px-1.5 py-0.5 rounded-md" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
               {currentTrack.versionTag}
             </span>
+          )}
+          {/* Developer Policy §II attribution: Spotify metadata is always
+              accompanied by a link back to the content on the Spotify Service. */}
+          {(currentTrack.spotifyTrackId || currentTrack.spotifyUri) && (
+            <a
+              href={
+                currentTrack.spotifyUri?.startsWith("spotify:track:")
+                  ? `https://open.spotify.com/track/${currentTrack.spotifyUri.split(":").pop()}`
+                  : currentTrack.spotifyUri?.startsWith("spotify:")
+                    ? `https://open.spotify.com/${currentTrack.spotifyUri.split(":").slice(1).join("/")}`
+                    : `https://open.spotify.com/track/${currentTrack.spotifyTrackId}`
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium hover:opacity-80 transition-opacity"
+              style={{ background: "color-mix(in srgb, #1db954 10%, transparent)", border: "1px solid color-mix(in srgb, #1db954 25%, transparent)", color: "#1db954" }}
+              aria-label="Открыть трек в Spotify"
+              title="Открыть трек в Spotify"
+              data-mq-open-in-spotify
+            >
+              <ExternalLink className="w-3 h-3" />
+              Spotify
+            </a>
           )}
           {currentTrack.catalogId && (
             <button

@@ -25,6 +25,7 @@ export default function SpotifyCallbackPage() {
     (async () => {
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
+      const state = params.get("state");
       const error = params.get("error");
 
       // Clean the URL immediately (tokens/code must not linger in history).
@@ -45,10 +46,14 @@ export default function SpotifyCallbackPage() {
         return;
       }
 
-      const result = await spotifyAuth.handleCallback(code);
+      const result = await spotifyAuth.handleCallback(code, state);
       if (!result.ok) {
         setState("error");
-        setErrorMsg(`Ошибка авторизации: ${result.error || "неизвестно"}`);
+        setErrorMsg(
+          result.error === "OAUTH_STATE_MISMATCH"
+            ? "Проверка состояния не пройдена (возможен устаревший редирект) — попробуйте подключиться заново"
+            : `Ошибка авторизации: ${result.error || "неизвестно"}`,
+        );
         return;
       }
 

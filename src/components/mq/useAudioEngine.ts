@@ -19,6 +19,7 @@ import { prefetchNextTrack } from "@/lib/playback/prefetch";
 import { clockSetPlaying, setClockDurationSource, subscribeClock, wakeClock } from "@/lib/playback/clock";
 import { spotifyPlaybackAdapter } from "@/lib/spotify/playbackAdapter";
 import { spotifyAuth } from "@/lib/spotify/auth";
+import { decideSpotifyPlayback, isSpotifyOfficialTrack } from "@/lib/spotify/gate";
 import { getLocalBlobUrl } from "./SearchView";
 import { toast } from "@/hooks/use-toast";
 import { updateMyListeningStatus } from "@/hooks/useFriendsListening";
@@ -996,12 +997,14 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   const isPlayingRef = useRef(isPlaying);
 
   // ── V2 Spotify Official Playback state ──
-  // Forced-alternative marker: after a hard SDK/DRM failure mid-track, the
-  // same track is re-loaded through the alternative resolver (no retry loop).
-  const forceSpotifyFallbackRef = useRef<string | null>(null);
-  // Position continuity when playback switches sources for the SAME track.
+  // OFFICIAL-ONLY CONTRACT (spec 2026-10-09): a Spotify track NEVER falls
+  // back to the SoundCloud/Audius resolver. Failures open the honest
+  // SpotifyGate (Retry / Reconnect); the resume ref keeps the position for
+  // an official-path retry of the SAME track URI.
   const spotifyResumePositionRef = useRef<{ id: string; positionSec: number } | null>(null);
-  const [spotifyRetryTick, setSpotifyRetryTick] = useState(0);
+  // Store-driven retry nonce (retrySpotifyPlayback action) + legacy tick.
+  const spotifyRetryNonce = useAppStore((s) => s.spotifyRetryNonce);
+  const [spotifyRetryTick] = useState(0);
 
   useEffect(() => { prevTrackRef.current = prevTrack; }, [prevTrack]);
   useEffect(() => { nextTrackRef.current = nextTrack; }, [nextTrack]);
@@ -1013,12 +1016,22 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   // ── V2 Spotify adapter events → engine/store bridge ──
   // One subscription for the hook's lifetime: state (duration/playbackState),
   // end-of-track (SDK holds one track — MQ's queue advances), errors
-  // (mid-play DRM/license failures → honest fallback to the alternative).
+  // (mid-play DRM/license failures → honest SpotifyGate with Retry/Reconnect;
+  // NO alternative-source substitution — spec §8).
   useEffect(() => {
     const offState = spotifyPlaybackAdapter.onState((snap) => {
       if (!spotifyPlaybackAdapter.isActive) return;
       const st = useAppStore.getState();
       if (st.playbackMode !== "spotify") return;
+      // Stale-state guard (rapid A→B): a state event for the PREVIOUS track
+      // must not overwrite the new track's duration/position UI.
+      if (
+        snap.trackUri &&
+        st.currentTrack?.spotifyUri &&
+        snap.trackUri !== st.currentTrack.spotifyUri
+      ) {
+        return;
+      }
       if (snap.durationSec && isFinite(snap.durationSec) && snap.durationSec > 0) {
         if (Math.abs(st.duration - snap.durationSec) > 0.5) setDurationRef.current(snap.durationSec);
       }
@@ -1041,20 +1054,23 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       if (st.playbackMode !== "spotify" || !st.currentTrack) return;
       if (st.currentTrack.source !== "spotify" || !st.currentTrack.spotifyUri) return;
       // Only mid-play failures land here (load failures return through
-      // loadTrack). Re-load the same track through the alternative resolver.
+      // loadTrack). OFFICIAL-ONLY CONTRACT: the Spotify track is NEVER
+      // re-routed to the alternative resolver — the honest SpotifyGate
+      // opens with Retry (same URI, same position) and Reconnect options.
       console.warn(`[Player] Spotify mid-play error (${err.kind}): ${err.message}`);
-      try {
-        toast({
-          title: "Spotify: ошибка воспроизведения",
-          description: "Переключаюсь на альтернативный источник",
-        });
-      } catch {}
       spotifyResumePositionRef.current = {
         id: st.currentTrack.id,
         positionSec: spotifyPlaybackAdapter.getPositionSec(),
       };
-      forceSpotifyFallbackRef.current = st.currentTrack.id;
-      setSpotifyRetryTick((t) => t + 1);
+      useAppStore.getState().openSpotifyGate({
+        reason: "sdk_error",
+        trackId: st.currentTrack.id,
+        trackTitle: st.currentTrack.title,
+        trackArtist: st.currentTrack.artist,
+        spotifyUri: st.currentTrack.spotifyUri,
+        errorKind: err.kind,
+        errorMessage: err.message,
+      });
     });
     return () => { offState(); offEnded(); offError(); };
   }, []);
@@ -2132,15 +2148,19 @@ export function useAudioEngine(params: UseAudioEngineParams) {
 
     const loadTrack = async () => {
       try {
-        // V2 Spotify: forced-alternative marker applies to ONE track load —
-        // clear it when a different track starts.
-        if (forceSpotifyFallbackRef.current && forceSpotifyFallbackRef.current !== currentTrack.id) {
-          forceSpotifyFallbackRef.current = null;
-        }
-        // V2 Spotify: leaving official playback (e.g. a SoundCloud track was
-        // queued) — make sure the SDK device is paused so it cannot play
-        // over the element engine.
-        if (currentTrack.source !== "spotify" && useAppStore.getState().playbackMode === "spotify") {
+        // V2 Spotify: leaving official playback — pause the SDK device so it
+        // cannot play over the element engine. The ONLY path that keeps the
+        // SDK alive is the NEXT track itself taking the official path (its
+        // adapter.play replaces the device queue atomically). Note:
+        // Deezer-catalog tracks ALSO carry source:"spotify" — they resolve
+        // through the element engine and MUST pause the SDK (double-audio
+        // guard, audit 2026-10-09).
+        const nextTakesOfficialPath =
+          currentTrack.source === "spotify" &&
+          !!currentTrack.catalogId &&
+          !currentTrack.playbackId &&
+          isSpotifyOfficialTrack(currentTrack);
+        if (useAppStore.getState().playbackMode === "spotify" && !nextTakesOfficialPath) {
           spotifyPlaybackAdapter.pause().catch(() => {});
           useAppStore.getState().setSpotifyFallbackNotice(null);
         }
@@ -2176,45 +2196,103 @@ export function useAudioEngine(params: UseAudioEngineParams) {
         }
         // ── V2 CATALOG TRACK (Spotify metadata, playback not yet resolved) ──
         // Catalog tracks enter the queue as source:"spotify" with no playback
-        // id. The PlaybackResolver matches them to a real audio source
-        // (SoundCloud / Audius); on success the resolved track REPLACES the
-        // catalog track in store.currentTrack + queue and this load effect
-        // re-runs on the new id through the normal source paths.
+        // id. TWO strictly separated paths (spec 2026-10-09 §8):
+        //
+        //  SPOTIFY TRACK (catalogProvider "spotify" + spotifyUri):
+        //    OFFICIAL WEB PLAYBACK SDK ONLY. Never handed to the
+        //    PlaybackResolver, never substituted with a similarly-named
+        //    SoundCloud/Audius upload. Unavailable → honest SpotifyGate
+        //    (Connect / Premium / browser / Retry+Reconnect).
+        //
+        //  DEEZER CATALOG TRACK (anonymous fallback catalog, no spotifyUri):
+        //    its own resolver path as before — a different catalog, never
+        //    claiming to be Spotify content («Deezer → SoundCloud» badge).
         if (currentTrack.source === "spotify" && currentTrack.catalogId && !currentTrack.playbackId) {
-          // ── V2 §16 PRIORITY STEP 1 — Spotify Official Playback FIRST ──
-          // Full tracks via the Web Playback SDK (user PKCE session +
-          // Premium + desktop Chromium/Firefox/Edge). Only when the URI is
-          // present AND official playback is genuinely available; anything
-          // else falls through to the PlaybackResolver (SoundCloud/Audius)
-          // with honest attribution — Deezer catalog tracks never have a
-          // spotifyUri, so they go straight to the resolver.
-          const forcedFallback = forceSpotifyFallbackRef.current === currentTrack.id;
-          if (
-            !forcedFallback &&
-            currentTrack.catalogProvider !== "deezer" &&
-            currentTrack.spotifyUri &&
-            (await spotifyPlaybackAdapter.isOfficialAvailable())
-          ) {
+          const officialOnly = isSpotifyOfficialTrack(currentTrack);
+
+          if (officialOnly) {
+            // ── SPOTIFY OFFICIAL PATH (no substitution, ever) ──
+            const st = useAppStore.getState();
+            // Refresh /me once when the premium flag may be stale (login on
+            // another device) — then decide honestly.
+            let premium = st.spotifyPremium;
+            if (st.spotifyConnected && !premium) {
+              const me = await spotifyAuth.fetchMe();
+              premium = !!me && me.product === "premium";
+            }
+            const decision = decideSpotifyPlayback({
+              isSpotifyTrack: true,
+              connected: st.spotifyConnected,
+              premium,
+              playbackSupported: st.spotifyPlaybackSupported,
+            });
+
+            if (decision.action === "gate") {
+              // Honest stop — the resolver is NEVER called for this track.
+              if (loadGenerationRef.current !== currentGeneration) return;
+              console.log(`[Player] Spotify Official gate: ${decision.reason} — honest stop (no substitution)`);
+              setIsLoadingTrack(false);
+              useAppStore.getState().openSpotifyGate({
+                reason: decision.reason,
+                trackId: currentTrack.id,
+                trackTitle: currentTrack.title,
+                trackArtist: currentTrack.artist,
+                spotifyUri: currentTrack.spotifyUri,
+              });
+              return;
+            }
+
+            // Session-level SDK downgrade (hard DRM/account failure earlier
+            // in THIS session) — honest sdk_error gate instead of a doomed
+            // play attempt. The user can Retry (fresh connect) or Reconnect.
+            if (!(await spotifyPlaybackAdapter.isOfficialAvailable())) {
+              if (loadGenerationRef.current !== currentGeneration) return;
+              const lastErr = spotifyPlaybackAdapter.getLastError();
+              console.log("[Player] Spotify Official session-downgraded — honest sdk_error gate");
+              setIsLoadingTrack(false);
+              useAppStore.getState().openSpotifyGate({
+                reason: "sdk_error",
+                trackId: currentTrack.id,
+                trackTitle: currentTrack.title,
+                trackArtist: currentTrack.artist,
+                spotifyUri: currentTrack.spotifyUri,
+                errorKind: lastErr?.kind || "init",
+                errorMessage: lastErr?.message,
+              });
+              return;
+            }
+
             // The SDK owns the audio device — the element engine must not
             // touch it. Pause any element/WASM audio from a previous track.
             const _pre = getAudioElement();
             _pre.pause();
             const _preInactive = getInactiveAudio();
             if (_preInactive) _preInactive.pause();
-            setPlaybackMode("spotify");
             resetCorsState();
             pbMark("T5-network-start", "spotify-official");
             useAppStore.getState().setSpotifyFallbackNotice(null);
-            const played = await spotifyPlaybackAdapter.play(currentTrack.spotifyUri, {
+            const spotifyUri = currentTrack.spotifyUri!;
+            const resume = spotifyResumePositionRef.current?.id === currentTrack.id
+              ? spotifyResumePositionRef.current.positionSec
+              : undefined;
+            const played = await spotifyPlaybackAdapter.play(spotifyUri, {
               volumePercent: useAppStore.getState().volume,
+              positionSec: resume,
             });
             if (cancelled) return;
+            if (loadGenerationRef.current !== currentGeneration) return;
             if (played) {
+              // CONFIRMED official playback — only now do the mode (and with
+              // it the «Spotify • Official» badge) flip to "spotify". A
+              // failed/superseded attempt leaves the mode untouched, so the
+              // badge can never claim official playback while nothing plays.
+              setPlaybackMode("spotify");
+              spotifyResumePositionRef.current = null;
               // Duration arrives via player_state_changed (events effect);
               // seed optimistically from the catalog metadata.
               const dur = spotifyPlaybackAdapter.getDurationSec() || currentTrack.duration || 0;
               if (dur) setDuration(dur);
-              setProgress(0);
+              setProgress(resume ?? 0);
               setIsLoadingTrack(false);
               setPlayError(false);
               retryCountRef.current = 0;
@@ -2222,12 +2300,29 @@ export function useAudioEngine(params: UseAudioEngineParams) {
               console.log(`[Player] Spotify Official Playback (full track): ${currentTrack.title}`);
               return;
             }
-            console.warn("[Player] Spotify official play() failed — falling back to the PlaybackResolver");
-          } else if (currentTrack.spotifyUri && !forcedFallback) {
-            console.log("[Player] Spotify Official unavailable (not connected / Free / unsupported browser) — PlaybackResolver (SoundCloud/Audius)");
+            // SDK refused the command — honest error gate with Retry/Reconnect.
+            // (A superseded rapid-switch command is NOT an error: a newer
+            // generation already owns the device.)
+            console.warn("[Player] Spotify official play() failed — honest gate (no substitution)");
+            setIsLoadingTrack(false);
+            const lastErr = spotifyPlaybackAdapter.getLastError();
+            spotifyResumePositionRef.current = {
+              id: currentTrack.id,
+              positionSec: spotifyPlaybackAdapter.getPositionSec() || resume || 0,
+            };
+            useAppStore.getState().openSpotifyGate({
+              reason: "sdk_error",
+              trackId: currentTrack.id,
+              trackTitle: currentTrack.title,
+              trackArtist: currentTrack.artist,
+              spotifyUri: currentTrack.spotifyUri,
+              errorKind: lastErr?.kind,
+              errorMessage: lastErr?.message,
+            });
+            return;
           }
 
-          // ── PRIORITY STEP 2 — PlaybackResolver (alternative sources) ──
+          // ── DEEZER CATALOG PATH — PlaybackResolver (its own provider) ──
           useAppStore.setState({ catalogResolving: true });
           const resolveStarted = typeof performance !== "undefined" ? performance.now() : Date.now();
           const outcome = await resolveCatalogTrack({
@@ -2893,7 +2988,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       // stale request can neither finish nor overwrite newer state.
       try { genController.abort(); } catch {}
     };
-  }, [currentTrack?.id, spotifyRetryTick]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentTrack?.id, spotifyRetryTick, spotifyRetryNonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Playback rate effect ──
   useEffect(() => {
@@ -3099,7 +3194,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       } catch {}
     }, 600);
     return () => clearTimeout(t);
-  }, [currentTrack?.id, isLoadingTrack, spotifyRetryTick]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentTrack?.id, isLoadingTrack, spotifyRetryTick, spotifyRetryNonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Spatial audio effect ──
   // Toggles the spatial audio chain (5-band stereo widening) on/off.
