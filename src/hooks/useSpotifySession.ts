@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { spotifyAuth } from "@/lib/spotify/auth";
 import { spotifyPlaybackAdapter, isSpotifyPlaybackBrowserSupported } from "@/lib/spotify/playbackAdapter";
+import { toast } from "@/hooks/use-toast";
 
 /**
  * useSpotifySession — mounts once (AppShell), keeps the store's Spotify
@@ -48,7 +49,21 @@ export function useSpotifySession() {
   }, [sync]);
 
   const connect = useCallback(async () => {
-    await spotifyAuth.beginLogin();
+    try {
+      await spotifyAuth.beginLogin();
+    } catch (e) {
+      // Honest degradation: an unconfigured server (missing public Client
+      // ID — e.g. a Preview deployment without the env var) must TELL the
+      // user instead of leaving a dead connect button.
+      if (e instanceof Error && e.message === "SPOTIFY_NOT_CONFIGURED") {
+        toast({
+          title: "Spotify не настроен",
+          description: "Сервер не вернул публичный Client ID Spotify — проверьте переменные окружения проекта.",
+        });
+        return;
+      }
+      throw e;
+    }
   }, []);
 
   const disconnect = useCallback(() => {
