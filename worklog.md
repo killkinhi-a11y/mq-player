@@ -9580,3 +9580,53 @@ Stage Summary:
   guard), scored Audius fallback.
 - Known honest limitation: label catalogs present on SC only as SNIP and
   absent on Audius = honestly unavailable (toast + skip), by design §2.
+---
+Task ID: spotify-official-final
+Agent: main (Super Z)
+Task: Finish SpotifyGateSheet component tests → full gates → playback audit →
+honesty fixes → preview QA → production deploy → final report.
+
+Work Log:
+- Finished gateSheet.test.tsx: IS_REACT_ACT_ENVIRONMENT (project pattern),
+  async mount() draining effect microtasks inside act, +4 behavior tests
+  (Reconnect resetSession+logout(false)+beginLogin via REAL hook, connect
+  button, Понятно dismiss, backdrop click) → 12/12, ZERO act warnings.
+- Gates: tsc src 0; eslint changed files 0 errors (2 pre-existing
+  set-state-in-effect in FullTrackView proven on HEAD via stdin lint);
+  1430/1430 → after audit fixes 1435/1435 (83 files); local prod build PASS
+  (24.4s, 118/118 pages, OOM not reproduced with capped heap).
+- AUDIT (Task 3): verified state-check-before-exchange, OAuth error paths,
+  SDK single-instance dedup, refresh single-flight, playSeq+generation
+  guards, no-substitution on all failure paths, queue URI persistence
+  (slimTrack keeps spotifyUri), singleton adapter surviving navigation.
+- 3 honesty fixes + double-audio guard: (1) openSpotifyGate → playbackMode
+  idle + SDK pause; (2) mode flips to spotify ONLY on confirmed play
+  success (badge can't claim stopped playback); (3) togglePlay re-attempts
+  the official path for stopped official-only tracks (was dead element
+  resume); (4) leaving spotify mode to a Deezer-catalog track (also
+  source:"spotify") now pauses the SDK. +6 regression tests.
+- Preview (f5f02572, mq1-ltyqfgl7k): app loads 0 errors; card honest
+  unconfigured note; honest SPOTIFY_NOT_CONFIGURED toast added to
+  useSpotifySession.connect (was silent dead click on preview envs);
+  callback page honest error + URL cleanup; free-flow regression playing
+  full track 0:14→0:25/3:21. Preview OAuth not possible (clientId
+  Production-scoped — owner action).
+- Production push (main → mq-build-f5f02572 live in 140s): config OK;
+  OAuth LIVE redirect PASS — accounts.spotify.com rendered the LOGIN page
+  with S256+state+12 scopes+redirect_uri=https://mq1.vercel.app/
+  spotify/callback (login shown ⇒ redirect URI registered, no
+  INVALID_CLIENT); free-flow smoke full track 0:10→0:21/4:16 continuous;
+  SNIP-only tracks honestly rejected (§2); 0 page errors; bundle secret
+  scan clean.
+- Premium E2E: NOT VERIFIED (no Premium account in this env) — 5-step
+  manual owner protocol written into PRODUCTION-REPORT §7.
+- Wrote download/spotify-official/PRODUCTION-REPORT.md (files, all gates,
+  audit matrix, preview+prod QA, restrictions incl. Feb-2026 Dev Mode
+  5-user allowlist + commercial gate, owner actions).
+
+Stage Summary:
+- Production: mq1.vercel.app @ mq-build-f5f02572 — Spotify Official honest
+  no-substitution playback fully wired (gate → PKCE → SDK → badge → retry),
+  preview QA'd before prod, 1435/1435 tests, 0 regressions.
+- Owner-pending: Premium E2E protocol; allowlist; optional preview env var;
+  commercial-use policy gate.
