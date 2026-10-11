@@ -5631,6 +5631,11 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
   transform: scale(1);
 }
 .mq-wave-art-layer img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 /* ══════════════════════════════════════════════════════════════════════
    MQ UI V4 — «Obsidian Prime» refinement layer
    Audit refs (download/ui-v4/UI-AUDIT.md): X1..X7 + DESIGN-SYSTEM.md §1–5.
@@ -5874,6 +5879,7 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
     inset: -6px;
     border-radius: inherit;
   }
+}
 /* Play fab that fades in over artwork on hover / when active.
    Uses the CTA gradient — one accent story across the app. */
 .mq-v4-play-fab {
