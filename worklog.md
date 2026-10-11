@@ -9741,3 +9741,55 @@ Stage Summary:
   one click → full track, no Spotify account ever required.
 - All 9 user requirements PASS (report §9). Remaining owner actions:
   Spotify extended quota (metadata only), optional Jamendo key.
+---
+Task ID: ui-v4
+Agent: main (Super Z)
+Task: MQ FULL PROJECT UI REDESIGN V4 — Obsidian Prime (research → audit → design system → implementation → QA → production)
+
+Work Log:
+- PHASE 0-1 research: 7 open-source players (Feishin, Nuclear, Koel, Harmonoid,
+  Spotube, Music Station, Rheoson) + Spotify/AppleMusic/SoundCloud/YTM patterns
+  → download/ui-v4/UI-RESEARCH.md (pattern digest, no code/assets copied).
+- PHASE 0 audit: 20 BEFORE screenshots (1440x900 + 390x844, demo session),
+  VLM critical audit of home/search/fullplayer/queue/library/mobile/settings,
+  code audit of tokens/themes/typography → UI-AUDIT.md (X1-X8 cross-page
+  issues + per-page findings + invariants).
+- PHASE 1 design system → DESIGN-SYSTEM.md (color discipline, type scale,
+  spacing, components, motion, shell geometry, bans).
+- Implementation (surgical layer, no rewrite): themes.ts default→V4 Obsidian
+  (#0b0b0e/#15151a/quiwer deltas/2-point ambient); globals.css V4 layer
+  (calm focus, CTA gradient, soft-accent, play-fab, chips, EmptyState v2 via
+  .mq-empty CSS uplift); SearchView calm focus + mq-v4-quiet-focus opt-out
+  (fixes X1: global *:focus-visible 2px red outline vs text inputs);
+  NavBar active pill soft-accent; PlayerBar play=V4 CTA; FullTrackView
+  centered composition + kbd chips; QueueView empty CTA; MainView display
+  greeting + no '—' zero badges; EmptyState component V4.
+- Discovered remote main 5 commits ahead (FINAL FREE PLAYBACK 53835547 +
+  spotify-official history + materials-v25/platinum/ambient systems);
+  rebased V4 on top, resolved 7 file conflicts (both systems preserved),
+  repaired 2 truncated CSS junction blocks (brace depth 0).
+- Gates on merged code: tests 1358/1358 PASS (suite grew 565→1358 via
+  free-mode merge), tsc src/ clean, eslint byte-identical to baseline
+  (git stash A/B), build ✓.
+- QA: mobile 360/390/430 overflowX=false; local E2E play/pause/next/queue/
+  fullplayer green; VLM before/after verdicts (home 8/10, fullplayer "clear
+  upgrade", empty state structure ✓, CTA "premium 3D"); pixel-verified calm
+  focus (134→0 alarm pixels).
+- DEPLOY: git push main → Vercel auto-deploy → mq-build-516e728a live on
+  https://mq1.vercel.app (released 2026-10-11T22:47:53Z).
+- PRODUCTION E2E: V4 theme live (--mq-bg rgb(11,11,14)); playback started
+  (trusted Space) and ran CONTINUOUSLY >90s (0:06→1:53→2:25 of 3:05 real
+  SoundCloud full-length track); playback continuity across navigation
+  (home→search→results while playing); queue/fullplayer open+Escape;
+  mobile 390 no overflow, mini-player playing; console 0 JS errors.
+- Reports: UI-QA-REPORT.md + PRODUCTION-REPORT.md (this directory).
+
+Stage Summary:
+- V4 «Obsidian Prime» live in production: premium dark depth, accent
+  discipline, calm focus system, structured empty states, centered full
+  player, CTA play button, display greeting typography.
+- FREE MODE untouched (resolver → SoundCloud/Audius, no gate/login).
+- All gates green; baseline lint/tsc preserved byte-identical; 1358 tests
+  pass; production playback verified >90s continuous.
+- V4.1 candidates documented: continue-listening card polish, search Top
+  Result hero, artist/album compositional passes, Spatial untouched.
