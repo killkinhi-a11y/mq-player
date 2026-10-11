@@ -491,10 +491,23 @@ function MainView() {
       <ScrollReveal direction="up" delay={0}>
         <header className="mb-4 lg:mb-6 flex items-end justify-between gap-4">
           <div className="min-w-0">
+            {/* V4 (X3 + §2): the eyebrow date keeps an airy tracking but
+                gains contrast (meta-2 0.9 + text-muted); the greeting
+                itself climbs to display weight — Home gets a real
+                typographic anchor without eating vertical space. */}
             <p className="mq-t-meta mq-t-meta-2 uppercase tracking-[0.14em] mb-1.5" style={{ color: "var(--mq-text-muted)" }}>
               {currentDate()}
             </p>
-            <h1 className="mq-t-title text-2xl sm:text-3xl lg:text-[2rem] truncate" style={{ color: "var(--mq-text)" }}>
+            <h1
+              className="text-3xl sm:text-[2.25rem] lg:text-[2.6rem] truncate"
+              style={{
+                color: "var(--mq-text)",
+                fontFamily: "var(--mq-font-primary)",
+                fontWeight: 800,
+                letterSpacing: "-0.03em",
+                lineHeight: 1.08,
+              }}
+            >
               {greeting()}
             </h1>
             <p className="mq-t-meta text-xs mt-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
@@ -1656,9 +1669,14 @@ function QuickActionGrid({
         >
           <Icon className="w-4 h-4 shrink-0" style={{ color: accent }} />
           <span className="mq-t-label mq-t-meta-2 leading-none" style={{ color: "var(--mq-text)" }}>{label}</span>
-          <span className="mq-t-num mq-t-meta-2 leading-none" style={{ color: "var(--mq-text-muted)" }}>
-            {count > 0 ? count : "—"}
-          </span>
+          {/* V4 (UI-AUDIT г): zero counts render NOTHING — the old "—"
+              glyph read as a broken/missing value. A count only exists
+              when there is something to count. */}
+          {count > 0 ? (
+            <span className="mq-t-num mq-t-meta-2 leading-none" style={{ color: "var(--mq-text-muted)" }}>
+              {count}
+            </span>
+          ) : null}
         </button>
       ))}
     </div>

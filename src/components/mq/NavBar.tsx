@@ -187,12 +187,18 @@ const NavBar = React.memo(function NavBar() {
               className="group relative flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-[color-mix(in_srgb,var(--mq-text)_55%,transparent)] mq-icon-btn"
               data-active={isActive}
               style={{
-                color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)",
-                ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-text) 8%, transparent)",
-                transition: "color 0.15s ease, background-color 0.15s ease",
+                // V4 accent discipline (DESIGN-SYSTEM §1.3): active tab =
+                // soft accent surface + accent icon/text. Supersedes the
+                // free-mode neutral text-8% lift (kept in git history).
+                color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-accent) 13%, transparent)",
+                ["--mq-rest-bg" as string]: "transparent",
+                boxShadow: isActive ? "inset 0 0 0 1px color-mix(in srgb, var(--mq-accent) 26%, transparent)" : "none",
+                transition: "color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease",
                 fontSize: 13,
-                fontWeight: isActive ? 600 : 500,
+                fontWeight: isActive ? 650 : 500,
                 minHeight: 34,
+                border: "1px solid transparent",
               }}
             >
               <Icon className="w-4 h-4" strokeWidth={isActive ? 2.2 : 1.8} />

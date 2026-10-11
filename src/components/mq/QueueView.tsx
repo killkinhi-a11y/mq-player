@@ -498,12 +498,20 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                 </div>
               )}
 
-              {/* Empty state — quiet editorial */}
+              {/* Empty state — V4 X4: structure + a real CTA, not a bare icon.
+                  The queue is the emptiest surface in a fresh session — the
+                  CTA routes the user straight to Search to fill it. */}
               {!currentTrack && !hasContent && (
                 <div className="mq-empty mq-empty-anim mq-empty-anim mx-4 my-6">
-                  <ListMusic className="w-7 h-7" style={{ color: "var(--mq-text-muted)" }} />
+                  <ListMusic className="w-7 h-7" />
                   <p className="mq-empty-title">Очередь пуста</p>
                   <p className="mq-empty-hint">Найдите трек и добавьте его в очередь, чтобы начать слушать</p>
+                  <button
+                    onClick={() => useAppStore.getState().setView("search")}
+                    className="mq-v4-cta mq-t-btn mt-2 h-10 px-5 rounded-full"
+                  >
+                    Найти музыку
+                  </button>
                 </div>
               )}
             </div>

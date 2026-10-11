@@ -4590,24 +4590,45 @@ html[data-mq-desktop] .mq-card-track {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 40px 24px;
+  gap: 12px;
+  padding: 48px 24px;
   text-align: center;
-  background: color-mix(in srgb, var(--mq-surface-1) 55%, transparent);
-  border: 1px dashed var(--mq-edge);
-  border-radius: var(--mq-r-card);
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 0%, color-mix(in srgb, var(--mq-text) 3%, transparent) 0%, transparent 70%),
+    color-mix(in srgb, var(--mq-surface-1) 55%, transparent);
+  border: 1px solid var(--mq-border-subtle, var(--mq-edge));
+  border-radius: var(--mq-r-card-lg, var(--mq-r-card));
+}
+
+/* V4: first-child icon gets the accent tile treatment (icon-tile + ring).
+   Applies to every .mq-empty across views — one rule, whole-app uplift.
+   (.mq-empty-state = legacy sibling class; direct svg children there get
+   the same tile so old bespoke empty states harmonize with V4 too.) */
+.mq-empty > svg,
+.mq-empty > .mq-empty-state-icon,
+.mq-empty-state > svg {
+  width: 48px;
+  height: 48px;
+  padding: 12px;
+  box-sizing: border-box;
+  border-radius: 16px;
+  color: var(--mq-accent) !important;
+  opacity: 1;
+  background: color-mix(in srgb, var(--mq-accent) 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mq-accent) 22%, transparent);
 }
 
 .mq-empty .mq-empty-title {
   font-family: var(--mq-font-primary);
-  font-size: 19px;
-  font-weight: 700;
+  font-size: 20px;
+  font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--mq-text);
 }
 
 .mq-empty .mq-empty-hint {
   font-size: 13px;
+  font-weight: 500;
   color: var(--mq-text-muted);
   max-width: 42ch;
   line-height: 1.5;
@@ -5610,6 +5631,110 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
   transform: scale(1);
 }
 .mq-wave-art-layer img {
+/* ══════════════════════════════════════════════════════════════════════
+   MQ UI V4 — «Obsidian Prime» refinement layer
+   Audit refs (download/ui-v4/UI-AUDIT.md): X1..X7 + DESIGN-SYSTEM.md §1–5.
+   Scope: tokens discipline, calm focus, typography rhythm, component
+   utilities. Theme-agnostic — everything derives from --mq-* vars, so
+   all 25 themes inherit the behaviour. No layout-property animations.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── V4 X1: calm focus system (replaces the 3px alarm ring) ────────────
+   A thin accent core + a wide quiet halo reads as "focused", not "error".
+   The old .mq-input:focus-within rule above stays for reference but is
+   fully overridden here (later source order, equal specificity). */
+.mq-input:focus-within {
+  /* V4-final: no colored stroke at rest-focus. The surface lifts, a wide
+     whisper-quiet halo breathes behind it, and the leading icon (SearchView)
+     carries the accent. Perceived as focus, never as an error. */
+  border-color: var(--mq-border);
+  box-shadow:
+    0 2px 14px rgba(0, 0, 0, 0.3),
+    0 0 0 4px color-mix(in srgb, var(--mq-accent) 9%, transparent);
+}
+.mq-input:not(:focus-within) {
+  border-color: var(--mq-border);
+  box-shadow: none;
+}
+
+/* ── V4 X2: numerals are tabular everywhere — no mono-class remixes ─── */
+.mq-v4-time {
+  font-family: var(--mq-font-primary);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ── V4 typography rhythm (DESIGN-SYSTEM §2) ─────────────────────────── */
+.mq-t-display {
+  font-size: clamp(28px, 3vw, 38px);
+  letter-spacing: -0.03em;
+}
+.mq-t-section {
+  font-size: 16px;
+}
+.mq-t-meta-2 {
+  opacity: 0.9;
+}
+
+/* ── V4 §1.3: accent discipline utilities ─────────────────────────────── */
+
+/* Primary CTA — the one allowed solid/gradient accent surface.
+   Vertical gradient + inner highlight + accent shadow = "expensive button".
+   Height stays 40/44; never used for surfaces larger than a button. */
+.mq-v4-cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  cursor: pointer;
+  color: var(--mq-text-on-accent, #fff);
+  background-image:
+    linear-gradient(180deg, color-mix(in srgb, var(--mq-accent) 92%, #fff 8%) 0%, var(--mq-accent) 55%, color-mix(in srgb, var(--mq-accent) 82%, #000 18%) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    var(--mq-shadow-accent);
+  transition: box-shadow 200ms var(--mq-spring-smooth),
+              transform 120ms var(--mq-spring-smooth),
+              filter 150ms ease;
+}
+.mq-v4-cta:hover { filter: brightness(1.06); box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), var(--mq-shadow-accent-hover); }
+.mq-v4-cta:active { transform: scale(0.97); }
+.mq-v4-cta:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+.mq-v4-cta:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 0 2px var(--mq-bg),
+    0 0 0 4px color-mix(in srgb, var(--mq-accent) 55%, transparent);
+}
+
+/* Soft accent surface — active rows, chips, selected states.
+   Never a solid accent fill on large areas (V4 ban #1). */
+.mq-v4-soft {
+  background: color-mix(in srgb, var(--mq-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mq-accent) 28%, transparent);
+  color: var(--mq-text);
+}
+
+/* Quiet elevated surface — hover target for cards/rows. */
+.mq-v4-hover-surface {
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 200ms ease, transform 200ms var(--mq-spring-smooth);
+}
+.mq-v4-hover-surface:hover {
+  background: color-mix(in srgb, var(--mq-card) 88%, var(--mq-text) 6%);
+}
+
+/* Artwork container — aspect + cover + soft ring polish (V4 §3). */
+.mq-v4-art {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: var(--mq-radius-lg);
+  background: color-mix(in srgb, var(--mq-text) 6%, transparent);
+}
+.mq-v4-art img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -5749,4 +5874,129 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
     inset: -6px;
     border-radius: inherit;
   }
+/* Play fab that fades in over artwork on hover / when active.
+   Uses the CTA gradient — one accent story across the app. */
+.mq-v4-play-fab {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--mq-radius-full);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--mq-text-on-accent, #fff);
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--mq-accent) 92%, #fff 8%) 0%, var(--mq-accent) 100%);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255,255,255,0.18);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 180ms ease, transform 180ms var(--mq-spring-smooth);
+}
+@media (hover: hover) {
+  .mq-v4-card:hover .mq-v4-play-fab,
+  .mq-v4-play-fab:focus-visible { opacity: 1; transform: translateY(0); }
+}
+@media (hover: none) {
+  .mq-v4-play-fab { opacity: 1; transform: none; width: 34px; height: 34px; }
+}
+
+/* V4 card — unified hover lift for grid cards (artwork cards). */
+.mq-v4-card { transition: transform 220ms var(--mq-spring-smooth), box-shadow 220ms ease; }
+.mq-v4-card:hover { transform: translateY(-3px); }
+.mq-v4-card:hover .mq-v4-art { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
+.mq-v4-card .mq-v4-art { transition: box-shadow 220ms ease, border-radius 220ms var(--mq-spring-smooth); }
+.mq-v4-card:hover .mq-v4-art { border-radius: var(--mq-radius-xl); }
+
+/* ── V4 X4: EmptyState v2 — structure + CTA instead of a bare icon ──── */
+.mq-v4-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--mq-space-3);
+  padding: var(--mq-space-10) var(--mq-space-6);
+  border-radius: var(--mq-radius-xl);
+  border: 1px solid var(--mq-border-subtle);
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 0%, color-mix(in srgb, var(--mq-text) 3%, transparent) 0%, transparent 70%);
+}
+.mq-v4-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  color: var(--mq-accent);
+  background: color-mix(in srgb, var(--mq-accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mq-accent) 22%, transparent);
+}
+.mq-v4-empty-title {
+  font-family: var(--mq-font-primary);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--mq-text);
+}
+.mq-v4-empty-sub {
+  font-family: var(--mq-font-primary);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--mq-text-muted);
+  max-width: 42ch;
+}
+
+/* ── V4 X2 companion: compact time chip used in player surfaces ─────── */
+.mq-v4-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--mq-radius-full);
+  font-family: var(--mq-font-primary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--mq-text-muted);
+  background: color-mix(in srgb, var(--mq-text) 5%, transparent);
+  border: 1px solid var(--mq-border-subtle);
+}
+
+/* ── V4 §5: reduced-motion guard for the V4 layer ───────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .mq-v4-cta, .mq-v4-hover-surface, .mq-v4-card, .mq-v4-card .mq-v4-art,
+  .mq-v4-play-fab { transition: none !important; }
+  .mq-v4-cta:active { transform: none; }
+  .mq-v4-card:hover { transform: none; }
+}
+html.mq-reduce-motion .mq-v4-cta,
+html.mq-reduce-motion .mq-v4-hover-surface,
+html.mq-reduce-motion .mq-v4-card,
+html.mq-reduce-motion .mq-v4-card .mq-v4-art,
+html.mq-reduce-motion .mq-v4-play-fab { transition: none !important; }
+html.mq-reduce-motion .mq-v4-card:hover { transform: none; }
+
+/* ── V4 Queue grip: quiet until the row is grabbed ────────────────────
+   The old always-on 16px GripVertical read as visual noise on every
+   row. Now the handle whispers at rest and wakes on row hover/drag. */
+.mq-v4-grip { opacity: 0.35; transition: opacity 150ms ease, color 150ms ease; }
+.mq-v4-row:hover .mq-v4-grip, .mq-v4-grip:active, .mq-v4-grip:focus-visible { opacity: 1; color: var(--mq-text); }
+@media (hover: none) { .mq-v4-grip { opacity: 0.7; } }
+html.mq-reduce-motion .mq-v4-grip { transition: none !important; }
+
+/* ── V4: quiet focus opt-out for fields with their own focus treatment ──
+   The global *:focus-visible rule (line ~285) draws a 2px accent outline on
+   EVERY focused element — correct a11y default. Text inputs always match
+   :focus-visible (even on mouse click), so the PRIMARY search field wore a
+   hard red outline on top of its own calm lift+halo treatment.
+   .mq-v4-quiet-focus keeps WCAG visibility via the element's OWN focus
+   cues (accent halo ≥3:1 + surface lift + accent icon) and drops the
+   duplicate outline. Opt-in, one element at a time. */
+.mq-v4-quiet-focus:focus-visible {
+  outline: none !important;
 }

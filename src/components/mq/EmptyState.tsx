@@ -72,7 +72,8 @@ export function EmptyState({ type, title, description, action }: EmptyStateProps
   const Icon = config.icon;
 
   // Phase 4B: unified quiet empty state — one pattern app-wide.
-  // Static icon, serif headline, meta hint, one action. No breathing.
+  // V4: accent icon-tile + display headline + hint + CTA (mq-v4-cta).
+  // Icon color is owned by the .mq-empty > svg CSS rule (accent tile).
   return (
     <motion.div
       className="mq-empty mq-empty-anim"
@@ -80,7 +81,7 @@ export function EmptyState({ type, title, description, action }: EmptyStateProps
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <Icon className="w-7 h-7" style={{ color: "var(--mq-text-muted)" }} />
+      <Icon className="w-7 h-7" />
       <h3 className="mq-empty-title">
         {title || config.defaultTitle}
       </h3>
@@ -89,7 +90,10 @@ export function EmptyState({ type, title, description, action }: EmptyStateProps
       </p>
       {action && (
         <button
-          className="mq-btn-neutral mt-2 px-4 py-2 rounded-full text-sm font-semibold"
+          /* V4: the empty-state action is THE primary action on the screen
+             → accent CTA (free-mode's .mq-btn-neutral stays for secondary
+             actions elsewhere in ArtistDetail/Messenger). */
+          className="mq-v4-cta mq-t-btn mt-2 px-5 h-10 rounded-full"
           onClick={action.onClick}
         >
           {action.label}

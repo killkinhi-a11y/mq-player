@@ -370,7 +370,10 @@ export default function PlayerBar() {
                 <motion.button
 
                   onClick={() => { togglePlay(); hapticPlay(); }}
-                  className="mq-platinum-btn w-10 h-10 rounded-full flex items-center justify-center"
+                  /* V4: primary transport action = accent CTA. The free-mode
+                     .mq-platinum-btn (flat liquid glass) stays the material
+                     for secondary/neutral buttons. */
+                  className="w-10 h-10 rounded-full flex items-center justify-center transition-[filter] duration-100 hover:brightness-110 mq-v4-cta"
                   title={isPlaying ? "Пауза" : "Воспроизвести"}
                   aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
                 >

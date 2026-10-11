@@ -73,19 +73,27 @@ export const themes: Record<string, ThemeConfig> = {
   default: {
     id: "default",
     name: "Obsidian",
-    background: "#0e0e0e",
-    card: "#1a1a1a",
-    cardHover: "#252525",
+    // V4 «Obsidian Prime»: premium depth — cool near-black base with a
+    // violet undertone instead of flat grey; quieter hover deltas; a
+    // two-point ambient gradient (accent wash top-left + cool wash right).
+    // Derived surface/border ramps in globals.css pick these up via
+    // color-mix, so the whole elevation ladder shifts coherently.
+    background: "#0b0b0e",
+    card: "#15151a",
+    cardHover: "#1d1d24",
     accent: "#e03131",
-    text: "#f5f5f5",
-    textMuted: "#b8b8b8",
-    border: "#333333",
-    inputBg: "#1a1a1a",
-    playerBg: "#151515",
-    navBg: "#0e0e0eee",
-    gradient: "radial-gradient(ellipse at 20% 50%, rgba(224,49,49,0.08) 0%, transparent 50%)",
-    glowColor: "rgba(224,49,49,0.3)",
+    text: "#f4f4f6",
+    textMuted: "#a3a3ae",
+    border: "#2a2a33",
+    inputBg: "#15151a",
+    playerBg: "#101014",
+    navBg: "#0b0b0eee",
+    gradient:
+      "radial-gradient(ellipse 80% 55% at 12% -8%, rgba(224,49,49,0.075) 0%, transparent 55%), radial-gradient(ellipse 60% 50% at 95% 8%, rgba(122,122,180,0.05) 0%, transparent 50%)",
+    glowColor: "rgba(224,49,49,0.25)",
     // graphite + cold navy — the reference editorial room
+    // (kept from the free-mode atmosphere work; V4 only retuned the core
+    // surface ramp above, the atmosphere layers stay untouched)
     ambient: amb("#9aa3b2", "#44598a", "#2c3a67", "#37416b", "#b9c4dd",
       "#10141f", "#0c1018", "#6d7686", "#e2e8f0", "#8fa3c8", 226, "#05070d"),
   },

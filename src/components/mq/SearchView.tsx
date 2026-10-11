@@ -821,13 +821,19 @@ export default function SearchView() {
                 setShowSuggestions(false);
               }, 200);
             }}
-            className="pl-11 pr-11 h-[48px] lg:h-[46px] text-[15px] mq-t-section font-medium"
+            className="mq-v4-quiet-focus pl-11 pr-11 h-[48px] lg:h-[46px] text-[15px] mq-t-section font-medium"
             style={{
               backgroundColor: "var(--mq-surface-1)",
               borderRadius: "var(--mq-mat-radius, 14px)",
-              border: isFocused ? "1.5px solid color-mix(in srgb, var(--mq-text) 30%, transparent)" : "1px solid var(--mq-edge)",
+              // V4-final calm focus (UI-AUDIT X1): no accent stroke — the
+              // surface lifts with a quiet dark drop + a whisper accent
+              // halo; only the search icon turns accent. Focus ≠ error.
+              // (free-mode sizing/radius tokens kept)
+              border: "1px solid " + (isFocused ? "var(--mq-border)" : "var(--mq-edge)"),
               color: "var(--mq-text)",
-              boxShadow: isFocused ? "0 1px 8px color-mix(in srgb, var(--mq-text) 8%, transparent)" : "none",
+              boxShadow: isFocused
+                ? "0 2px 14px rgba(0,0,0,0.3), 0 0 0 4px color-mix(in srgb, var(--mq-accent) 9%, transparent)"
+                : "none",
               transition: "border-color 0.2s ease, box-shadow 0.2s ease",
               outline: "none",
             }}
@@ -1075,20 +1081,32 @@ export default function SearchView() {
           transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
           className="mq-empty mq-empty-anim mq-empty-anim"
         >
-          <Search className="w-7 h-7" style={{ color: "var(--mq-text-muted)" }} />
+          {/* V4: bare icon — the .mq-empty > svg rule turns it into an
+              accent tile globally (no inline color, CSS owns the look) */}
+          <Search className="w-7 h-7" />
           <p className="mq-empty-title">Ничего не найдено</p>
           <p className="mq-empty-hint">Попробуйте изменить запрос или выбрать другой жанр</p>
-          {/* Quick retry suggestions */}
+          {/* Quick retry suggestions — V4: quiet chips that wake on hover */}
           <div className="flex flex-wrap gap-2 mt-2 justify-center">
             {TRENDING_SEARCHES.slice(0, 4).map((term) => (
               <button
                 key={term}
                 onClick={() => handleTrendingClick(term)}
-                className="px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors duration-150 cursor-pointer"
+                className="px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors duration-150 cursor-pointer"
                 style={{
-                  backgroundColor: "var(--mq-surface-2)",
+                  backgroundColor: "color-mix(in srgb, var(--mq-text) 5%, transparent)",
                   color: "var(--mq-text-muted)",
-                  border: "1px solid var(--mq-edge)",
+                  border: "1px solid var(--mq-border-subtle, var(--mq-edge))",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--mq-accent) 12%, transparent)";
+                  e.currentTarget.style.color = "var(--mq-text)";
+                  e.currentTarget.style.borderColor = "color-mix(in srgb, var(--mq-accent) 30%, transparent)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--mq-text) 5%, transparent)";
+                  e.currentTarget.style.color = "var(--mq-text-muted)";
+                  e.currentTarget.style.borderColor = "var(--mq-border-subtle, var(--mq-edge))";
                 }}
               >
                 {term}

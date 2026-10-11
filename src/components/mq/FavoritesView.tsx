@@ -761,7 +761,9 @@ export default function FavoritesView() {
             </div>
           ) : artists.length === 0 && isSearchActive ? (
             <div className="mq-empty-state mq-empty-anim py-12 px-6">
-              <Search className="w-7 h-7 mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
+              {/* V4: no inline color/opacity — the .mq-empty-state > svg
+                  rule owns the look (accent tile) */}
+              <Search className="w-7 h-7 mb-3" />
               <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
                 Ничего не найдено по запросу &quot;{searchQuery}&quot;
               </p>

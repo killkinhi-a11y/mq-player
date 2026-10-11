@@ -1315,19 +1315,20 @@ export default function FullTrackView() {
   );
   const hintsNode = (
     <>
-      {/* ═══ Keyboard shortcuts hint (desktop, top 3 only) ═══ */}
+      {/* ═══ Keyboard shortcuts (desktop, top 3) — V4: kbd chips with real
+          contrast instead of ghost-gray 11px text (UI-AUDIT FullPlayer-б) ═══ */}
       {!isMobile && (
-        <div className="mt-4 flex items-center gap-3 flex-wrap mq-t-meta-2 opacity-45" style={{ color: "var(--mq-text-muted)" }}>
-          <span className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded font-mono mq-t-meta-2" style={{ backgroundColor: "transparent", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border-hairline)" }}>Space</kbd>
+        <div className="mt-4 flex items-center gap-2.5 flex-wrap mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
+          <span className="flex items-center gap-1.5 mq-v4-chip" style={{ padding: "5px 10px" }}>
+            <kbd className="mq-t-meta-2 font-bold" style={{ color: "var(--mq-text)" }}>Space</kbd>
             play/pause
           </span>
-          <span className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded font-mono mq-t-meta-2" style={{ backgroundColor: "transparent", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border-hairline)" }}>←/→</kbd>
+          <span className="flex items-center gap-1.5 mq-v4-chip" style={{ padding: "5px 10px" }}>
+            <kbd className="mq-t-meta-2 font-bold" style={{ color: "var(--mq-text)" }}>←/→</kbd>
             seek
           </span>
-          <span className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded font-mono mq-t-meta-2" style={{ backgroundColor: "transparent", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border-hairline)" }}>Esc</kbd>
+          <span className="flex items-center gap-1.5 mq-v4-chip" style={{ padding: "5px 10px" }}>
+            <kbd className="mq-t-meta-2 font-bold" style={{ color: "var(--mq-text)" }}>Esc</kbd>
             close
           </span>
         </div>
@@ -1466,7 +1467,10 @@ export default function FullTrackView() {
               </div>
             ) : (
               <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
-                <div className="w-full h-full max-w-[1120px] flex items-center gap-12 xl:gap-16 px-10 xl:px-14 pb-8 pt-2">
+                {/* V4 balance (UI-AUDIT FullPlayer-а): the artwork + info
+                    pair now centers as ONE group — the old flex-1 column
+                    left-shifted the composition and emptied the right third. */}
+                <div className="w-full h-full max-w-[1120px] flex items-center justify-center gap-12 xl:gap-16 px-10 xl:px-14 pb-8 pt-2">
 
                   {/* ═══ LEFT — large artwork ═══ */}
                   <div
@@ -1494,7 +1498,7 @@ export default function FullTrackView() {
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-                    className="flex-1 min-w-0 max-w-[520px] flex flex-col justify-center items-start py-2 overflow-y-auto"
+                    className="w-full max-w-[520px] flex-shrink min-w-0 flex flex-col justify-center items-start py-2 overflow-y-auto"
                     data-scrollable="true"
                   >
                     {trackInfoNode}
