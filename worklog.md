@@ -9705,3 +9705,39 @@ Stage Summary:
   attribution honest: «Каталог: Spotify → Звук: SoundCloud».
 - Ready for commit → push → Vercel production deploy → production E2E
   (catalog-track free flow needs prod env: SPOTIFY_CLIENT_ID/SECRET).
+
+---
+Task ID: free-mode-v11-deploy
+Agent: main (Super Z)
+Task: Deploy free mode + production E2E + final report
+
+Work Log:
+- Commit 53835547 pushed to main 01:15:38 UTC → Vercel production
+  mq-build-53835547 live ~01:17:50 UTC (verified /version.json).
+- PRODUCTION E2E (mq1.vercel.app, headless Chromium):
+  * /api/catalog/search "faded alan walker" → provider "deezer", tracks
+    WITH ISRC (NOG841549010) — honest fallback (Spotify Web API 403:
+    development-mode restriction of app 7d9b7d61…, token ok — owner
+    must request extended quota; playback unaffected).
+  * /api/resolve (deezer 140295501, ISRC) → best conf=1.00 — official
+    SC upload 256119829 "Faded — Alan Walker", full-length.
+  * UI: clicked Play on the CATALOG track → PLAYING free (no login, no
+    gate: spotifyGateVisible=false), attribution chain "Deezer →
+    SoundCloud" on mini AND full player.
+  * Continuous playback 0:17 → 1:07 → 1:57 across 100s wall time
+    (linear, no 30/45s cuts — >90s requirement MET on the catalog-
+    resolved free track).
+  * 0 page errors; screenshots prod-catalog-free-playback.png +
+    prod-fullplayer-attribution.png in download/free-mode/qa/.
+- Provider research persisted (download/free-mode/PRODUCTION-REPORT.md §7):
+  Jamendo = only viable on-demand full-length API left (free key needed,
+  non-commercial ToS — owner decision); Internet Archive = keyless niche;
+  Mixcloud/FMA/Audiomack/Napster/Monstercat dead or metadata-only;
+  Invidious stays last-resort (legally gray). No new provider integrated.
+- Final report written: download/free-mode/PRODUCTION-REPORT.md.
+
+Stage Summary:
+- FREE PLAYBACK MODE IS LIVE IN PRODUCTION (mq-build-53835547):
+  one click → full track, no Spotify account ever required.
+- All 9 user requirements PASS (report §9). Remaining owner actions:
+  Spotify extended quota (metadata only), optional Jamendo key.
