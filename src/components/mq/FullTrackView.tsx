@@ -33,7 +33,7 @@ import LiquidTitle from "./LiquidTitle";
 import ContextMenu from "./ContextMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
 // V2 multi-provider: catalog → playback attribution + source switch
-import { ProviderChain, trackAttribution, SpotifyOfficialBadge } from "./ui/ProviderBadge";
+import { ProviderChain, trackAttribution } from "./ui/ProviderBadge";
 import { ArrowLeftRight, ExternalLink } from "lucide-react";
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -50,7 +50,6 @@ import { ArrowLeftRight, ExternalLink } from "lucide-react";
 export default function FullTrackView() {
   const isOpen = useAppStore((s) => s.isFullTrackViewOpen);
   const currentTrack = useAppStore((s) => s.currentTrack);
-  const playbackMode = useAppStore((s) => s.playbackMode);
   const isPlaying = useAppStore((s) => s.isPlaying);
   const progress = useAppStore((s) => s.progress);
   const duration = useAppStore((s) => s.duration);
@@ -679,30 +678,20 @@ export default function FullTrackView() {
             metadata and audio come from (e.g. Spotify catalog, SoundCloud
             audio). Native-source tracks show a single badge. */}
         <div className={`flex flex-wrap items-center gap-2 mt-2 ${isMobile ? "justify-center" : ""}`}>
-          {playbackMode === "spotify" ? (
-            <SpotifyOfficialBadge />
-          ) : (
-            <ProviderChain
-              catalog={trackAttribution(currentTrack).catalog}
-              playback={trackAttribution(currentTrack).playback}
-            />
-          )}
+          <ProviderChain
+            catalog={trackAttribution(currentTrack).catalog}
+            playback={trackAttribution(currentTrack).playback}
+          />
           {currentTrack.versionTag && (
             <span className="mq-t-meta-2 px-1.5 py-0.5 rounded-md" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
               {currentTrack.versionTag}
             </span>
           )}
-          {/* Developer Policy §II attribution: Spotify metadata is always
-              accompanied by a link back to the content on the Spotify Service. */}
-          {(currentTrack.spotifyTrackId || currentTrack.spotifyUri) && (
+          {/* Spotify catalog attribution: metadata tracks link back to the
+              content on the Spotify Service (Developer Policy §II). */}
+          {currentTrack.catalogProvider === "spotify" && currentTrack.catalogId && (
             <a
-              href={
-                currentTrack.spotifyUri?.startsWith("spotify:track:")
-                  ? `https://open.spotify.com/track/${currentTrack.spotifyUri.split(":").pop()}`
-                  : currentTrack.spotifyUri?.startsWith("spotify:")
-                    ? `https://open.spotify.com/${currentTrack.spotifyUri.split(":").slice(1).join("/")}`
-                    : `https://open.spotify.com/track/${currentTrack.spotifyTrackId}`
-              }
+              href={`https://open.spotify.com/track/${currentTrack.catalogId}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium hover:opacity-80 transition-opacity"

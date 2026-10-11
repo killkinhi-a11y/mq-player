@@ -9630,3 +9630,78 @@ Stage Summary:
   preview QA'd before prod, 1435/1435 tests, 0 regressions.
 - Owner-pending: Premium E2E protocol; allowlist; optional preview env var;
   commercial-use policy gate.
+
+---
+Task ID: free-mode-v11
+Agent: main (Super Z)
+Task: FINAL FREE PLAYBACK MODE — stop Premium-only Spotify Official, free resolver as the default path for every track
+
+Work Log:
+- Baseline reality check: local main was 25+ commits BEHIND origin/main —
+  the Spotify Official work (OAuth PKCE + Web Playback SDK + gate) was
+  committed/pushed/deployed to PRODUCTION (mq-build-f5f02572, v90) in the
+  previous session. Fast-forwarded local main to 239f7e81 (backup of
+  untracked upload/ pasted images first — merge blocker resolved).
+- Premium path REMOVED (free mode is now the only play path):
+  * useAudioEngine.ts: official SDK branch in loadTrack deleted — the
+    unified catalog branch (source "spotify" + catalogId + no playbackId)
+    now resolves EVERY catalog track (Spotify AND Deezer metadata) through
+    the free PlaybackResolver; events bridge + bindSpotifyTransport +
+    isPlaying/volume/position-continuity SDK branches removed.
+  * useAppStore.ts: spotifyConnected/Premium/PlaybackSupported/FallbackNotice/
+    spotifyGate/spotifyRetryNonce state + setSpotifySession/openSpotifyGate/
+    dismissSpotifyGate/retrySpotifyPlayback actions + togglePlay official
+    retry deleted; playbackMode narrowed to "soundcloud" | "idle";
+    slimTrack persists catalogProvider/catalogId/playbackProvider/playbackId/
+    versionTag (honest attribution survives reload; spotifyUri fields gone).
+  * Track type: spotifyUri/spotifyTrackId removed; playbackProvider narrowed.
+  * Deleted files: SpotifyGateSheet, SpotifyConnectCard, SpotifyLibraryView,
+    useSpotifySession, lib/spotify/{auth,pkce,playbackAdapter,gate,userCatalog,
+    index}, app/spotify/callback, api/spotify/config + 5 premium test suites
+    (91 tests). Kept: spotify/catalog.ts (client-credentials metadata),
+    types.ts (catalog DTOs only), /api/spotify/{search,track,album,artist,
+    suggestions,diag}, /api/catalog/*, /api/resolve.
+  * UI: AppShell (gate sheet + session unmounted), SettingsView (connect card
+    section), LibraryView (Spotify tab), SearchView (userCatalog branch →
+    always free server catalog + dead spotifyResults section removed),
+    FullTrackView(+Mobile) (SpotifyOfficialBadge → ProviderChain always;
+    "Открыть в Spotify" link-back rebuilt from catalogProvider+catalogId),
+    PlaybackSourceBadge/ProviderBadge (official badge component removed),
+    WaveformController (spotify-mode sampler branch removed),
+    WasmAudioBackend (spotify transport bridge removed).
+- RESOLVER FIX (free UX blocker): fan re-uploads named "Artist - Title"
+  with a random uploader capped at conf 0.54 (< 0.60) — Play opened the
+  picker sheet instead of playing. Added artistCreditedInTitle(): strict
+  "Artist - Title" token identity + bracket noise whitelist + duration
+  confirmation ≤8s → +34 artist points. Verified live: "Alan Walker -
+  Faded" fan upload now 0.88 (auto-play); SLUSHII Remix (54), (OneUpped)
+  (46), 2Pac Ft. contamination (4), duration-mismatched uploads (38) all
+  correctly rejected. "Goosebumps - Travis Scott" fan upload 0.78.
+- Gates: vitest 1353/1353 (79 files: 1344 base − 91 spotify + 91 kept-set
+  + 14 new free-playback-mode regressions); tsc src/ = 0 errors; eslint
+  changed files — 7 errors ALL pre-existing on HEAD (lyrics effects in
+  FullTrackView/Mobile + SearchView mount effects, verified identical on
+  origin/main); production build PASS (24.3s).
+- Local QA (production build, :3112, headless Chromium 1440x900):
+  search "goosebumps travis scott" → 62 SC results → Play (NO login, NO
+  gate, NO redirect) → real playback: pause/resume ✓, next/prev ✓, rapid
+  A→B→C (400ms apart) ✓ no stale audio, continuous playback 0:03→4:33
+  (sampled 2:20→2:51→3:26 across 65s wall time — way past the 90s bar),
+  seek via keyboard ✓, honest "SoundCloud" badge ✓, console policy=ALLOW
+  full streams, 0 page errors. Screenshot: download/free-mode/qa/local-free-playback.png.
+- Provider research (2026-10-11, live endpoint tests): Jamendo VIABLE-but-
+  needs-free-key (35k req/mo, non-commercial ToS — owner decision), Internet
+  Archive etree/netlabels VIABLE no-key (niche), Radio Browser (radio mode),
+  FMA/Audiomack/Napster/Monstercat DEAD, Mixcloud metadata-only, Deezer API
+  preview-only, Invidious legally-gray (stays last-resort). No new provider
+  integrated (no clean keyless candidate); chain remains SoundCloud →
+  Audius (+ Invidious last-resort for chart hits).
+
+Stage Summary:
+- FREE MODE IS THE ONLY PLAY PATH: no Spotify login, no Premium, no OAuth,
+  no gate, no redirect — every track (Spotify/Deezer catalog metadata or
+  direct SC/Audius) plays full-length through the PlaybackResolver.
+- Spotify remains as a CATALOG (client-credentials metadata + link-back),
+  attribution honest: «Каталог: Spotify → Звук: SoundCloud».
+- Ready for commit → push → Vercel production deploy → production E2E
+  (catalog-track free flow needs prod env: SPOTIFY_CLIENT_ID/SECRET).

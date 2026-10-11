@@ -14,12 +14,6 @@ export interface Track {
   scIsFull?: boolean;
   createdAt?: string;
   /**
-   * V2 Spotify: official catalog identity (source: "spotify").
-   * spotifyUri drives the Web Playback SDK; spotifyTrackId the Web API.
-   */
-  spotifyUri?: string;
-  spotifyTrackId?: string;
-  /**
    * Honest recommendation context (Wave / recommendations API).
    * Values: related_current | related_history | related_to_liked |
    * liked_artist | artist_match | discovery — surfaced by the Wave UI as
@@ -47,9 +41,9 @@ export interface Track {
   /** Catalog artist id — deep-links the artist page. */
   catalogArtistId?: string;
   /** Audio provider actually playing this track (source field remains the
-   *  historical playback source for the audio engine). "spotify" = Spotify
-   *  Official Playback (Web Playback SDK) owns the audio device. */
-  playbackProvider?: "soundcloud" | "audius" | "spotify";
+   *  historical playback source for the audio engine). Free mode: the
+   *  element/WASM engine plays every track via SoundCloud / Audius. */
+  playbackProvider?: "soundcloud" | "audius";
   /** Provider-native id of the audio source (scTrackId / audius id). */
   playbackId?: string;
   /** Resolver confidence of the catalog→playback match (0…1). */

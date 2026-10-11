@@ -7,7 +7,6 @@ import { themes, applyThemeToDOM } from "@/lib/themes";
 import { canPollProtected } from "@/lib/authGate";
 import { useGlobalNotifications } from "@/hooks/useGlobalNotifications";
 import { useListenSessionSync } from "@/hooks/useListenSessionSync";
-import { useSpotifySession } from "@/hooks/useSpotifySession";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAndroidPermissions } from "@/hooks/use-android-permissions";
 import { isDesktopApp } from "@/lib/desktop-mode";
@@ -102,7 +101,6 @@ const PlayerBar = dynamic(() => import("@/components/mq/PlayerBar"), { ssr: fals
 const ShareSheet = dynamic(() => import("@/components/mq/ShareSheet").then((m) => m.ShareSheet), { ssr: false });
 // V2 multi-provider engine: low-confidence match chooser + manual source switch
 const SourceSheet = dynamic(() => import("@/components/mq/SourceSheet").then((m) => m.SourceSheet), { ssr: false });
-const SpotifyGateSheet = dynamic(() => import("@/components/mq/SpotifyGateSheet").then((m) => m.SpotifyGateSheet), { ssr: false });
 // v8 Full Player Themes: one dispatcher — Classic (FullTrackView desktop /
 // FullTrackViewMobile mobile) or new SpatialFullPlayer, per the persisted
 // «Вид полного плеера» setting (default classic — no change for existing
@@ -691,10 +689,6 @@ export default function AppShell() {
     void ensureFontsLoaded().catch(() => {});
   }, []);
   useLyricsAppearanceSync();
-  // V2 Spotify — global session sync (store slice stays honest for search,
-  // library and the player badges; the adapter reads tokens directly).
-  useSpotifySession();
-
   // MediaSession API — required for lock screen / notification / Android Auto controls
   const _progress = useAppStore((s) => s.progress);
   const _duration = useAppStore((s) => s.duration);
@@ -924,7 +918,6 @@ export default function AppShell() {
       <GlobalShareSheet />
       {/* V2: catalog→playback source chooser (low-confidence + manual switch) */}
       <Suspense fallback={null}><SourceSheet /></Suspense>
-      <Suspense fallback={null}><SpotifyGateSheet /></Suspense>
       <Suspense fallback={null}><EqualizerView show={isEqOpen} onClose={() => setEqOpen(false)} /></Suspense>
       <Suspense fallback={null}><KeyboardShortcutsHelp /></Suspense>
       <Suspense fallback={null}>{showNav && <CommandPalette />}</Suspense>

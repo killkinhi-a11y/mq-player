@@ -20,16 +20,6 @@ export function WaveformController() {
   useEffect(() => {
     let lastKey = "";
     const apply = (trackId: string | undefined, duration: number) => {
-      // Spotify Official owns the audio (DRM sandbox) — there is NO element
-      // signal to sample. Skip the loop entirely: the wave renders its
-      // honest state-driven slim track for SDK playback (no fake waveform).
-      if (useAppStore.getState().playbackMode === "spotify") {
-        if (lastKey) {
-          stopLiveSampling();
-          lastKey = "";
-        }
-        return;
-      }
       if (!trackId || duration <= 0) {
         if (lastKey) {
           stopLiveSampling();
@@ -49,8 +39,7 @@ export function WaveformController() {
     apply(st0.currentTrack?.id, st0.currentTrack?.duration || st0.duration || 0);
 
     // Track changes AND duration discoveries (metadata may start at 0 and
-    // be corrected by the engine once the stream loads) AND playback-mode
-    // switches (spotify ⇄ element engine restart/stop the sampler).
+    // be corrected by the engine once the stream loads).
     const unsub = useAppStore.subscribe((state, prev) => {
       const id = state.currentTrack?.id;
       const pid = prev.currentTrack?.id;

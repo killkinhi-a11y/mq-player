@@ -62,6 +62,77 @@ function titleCoreContained(catalogTitle: string, candidateTitle: string, maxExt
   return b.size - a.length <= maxExtra;
 }
 
+/* ── "Artist - Title" upload naming (FREE MODE 2026-10-11) ───────────── */
+
+/**
+ * Noise tokens tolerated inside candidate titles / bracket qualifiers
+ * ("Alan Walker - Faded (Official Audio)" — upload boilerplate, not a
+ * different recording).
+ */
+const TITLE_NOISE_TOKENS = new Set([
+  "official", "video", "audio", "hq", "hd", "lyrics", "lyric", "quality",
+  "medium", "high", "free", "download", "song", "music", "topic",
+  "original", "mix", "version", "new", "best", "mono", "stereo", "ost",
+]);
+
+/**
+ * "Artist - Title" upload-naming check.
+ *
+ * SoundCloud/Audius metadata carries the track artist in the TITLE, not in
+ * the uploader field ("Alan Walker - Faded" uploaded by LandsXScapes). The
+ * uploader-name artist comparison structurally fails for these re-uploads,
+ * capping honest candidates below the auto-play threshold — the user
+ * pressed Play and got a picker sheet instead of music.
+ *
+ * This rule recognizes the pattern HONESTLY, all conditions required:
+ *   1. candidate title tokens ⊇ catalog ARTIST tokens ∪ catalog TITLE
+ *      tokens, with ZERO extra non-noise tokens ("2Pac Ft. Alan Walker -
+ *      Faded" has an extra artist → different recording → reject);
+ *   2. every bracket qualifier in the raw title is noise/expected only
+ *      ("(SLUSHII Remix)", "(OneUpped)" → reject; "(Official Audio)" → ok);
+ *   3. duration confirmation within 8s — a copy-pasted name can never
+ *      clear on naming alone.
+ *
+ * A candidate passing this rule is the catalog track re-uploaded verbatim
+ * (same name, same artist credited, same length) — safe to credit artist
+ * points for. Alternate versions still take their version penalties.
+ */
+export function artistCreditedInTitle(
+  catalog: { title: string; artist: string; durationSec: number },
+  candidate: { title: string; durationSec: number },
+): boolean {
+  // (3) Duration confirmation required — both known, within 8s.
+  if (catalog.durationSec <= 0 || candidate.durationSec <= 0) return false;
+  if (Math.abs(catalog.durationSec - candidate.durationSec) > 8) return false;
+
+  const artistTokens = normalizeText(catalog.artist).split(" ").filter(Boolean);
+  const titleTokens = normalizeText(catalog.title).split(" ").filter(Boolean);
+  if (artistTokens.length === 0 || titleTokens.length === 0) return false;
+
+  // (2) Bracket qualifiers must be noise/expected only.
+  const expected = new Set([...artistTokens, ...titleTokens]);
+  const brackets = (candidate.title || "").match(/\([^)]*\)|\[[^\]]*\]/g) || [];
+  for (const b of brackets) {
+    const inner = normalizeText(b.replace(/^[([]|[)\]]$/g, ""));
+    for (const t of inner.split(" ").filter(Boolean)) {
+      if (expected.has(t) || TITLE_NOISE_TOKENS.has(t)) continue;
+      return false; // "(SLUSHII Remix)" / "(OneUpped)" / "(Live)" → different cut
+    }
+  }
+
+  // (1) Exact token identity: every artist + title token present, no
+  //     non-noise extras.
+  const candTokens = normalizeText(candidate.title).split(" ").filter(Boolean);
+  const candSet = new Set(candTokens);
+  for (const t of expected) if (!candSet.has(t)) return false;
+  for (const t of candTokens) {
+    if (expected.has(t) || TITLE_NOISE_TOKENS.has(t)) continue;
+    return false; // extra non-noise token → different recording
+  }
+  return true;
+}
+
+
 /** A catalog track from any metadata provider (Spotify, …). */
 export interface CatalogTrack {
   /** Provider track id (e.g. Spotify base62 id). */
@@ -198,9 +269,16 @@ export function scoreCandidate(catalog: CatalogTrack, candidate: PlaybackCandida
   }
 
   // Artist — exact normalized match of primary artist, else similarity.
+  // FREE MODE: "Artist - Title" upload naming — the uploader field is a
+  // random fan account, but the title credits the artist verbatim with
+  // duration confirmation (see artistCreditedInTitle). Same evidence tier
+  // as titleCoreContained (0.85 × weight): the recording identifies itself
+  // as this exact artist + song.
   const artistSim = tokenSimilarity(catalog.artist, candidate.artist);
   if (exactTitle(catalog.artist, candidate.artist)) {
     breakdown.artist = WEIGHTS.artist;
+  } else if (artistCreditedInTitle(catalog, candidate)) {
+    breakdown.artist = Math.round(WEIGHTS.artist * 0.85);
   } else if (artistSim >= 0.8) {
     breakdown.artist = Math.round(WEIGHTS.artist * 0.7);
   } else if (artistSim >= 0.6) {

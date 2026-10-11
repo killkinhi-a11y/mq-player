@@ -5,8 +5,6 @@ import { type Track, type Message as ChatMessage, detectUserCountry, countryName
 import type { CatalogTrackInput, ResolveCandidate } from "@/lib/playback/client";
 import { buildPlayableTrack } from "@/lib/playback/client";
 import type { CatalogAlbumDTO } from "@/lib/spotify/types";
-import { isSpotifyOfficialTrack, type SpotifyGateReason } from "@/lib/spotify/gate";
-import { spotifyPlaybackAdapter } from "@/lib/spotify/playbackAdapter";
 import { extractTasteProfile } from "@/lib/tasteProfile";
 import { appendSkipEvent, buildSkipEvent, loadSkipEvents, buildSkipProfile, skipScoreAdjustment, type SkipEventV3, type SkipProfile } from "@/lib/listening/skipIntelligence";
 import { themes, applyThemeToDOM } from "@/lib/themes";
@@ -219,50 +217,14 @@ interface AppState {
   duration: number;
   shuffle: boolean;
   repeat: "off" | "all" | "one";
-  /** "spotify" = Spotify Official Playback (Web Playback SDK) owns audio;
-   *  "soundcloud" = element/WASM engine (SoundCloud/Audius/local);
-   *  "idle" = nothing loaded. */
-  playbackMode: "soundcloud" | "idle" | "spotify";
+  /** "soundcloud" = element/WASM engine (SoundCloud/Audius/local);
+   *  "idle" = nothing loaded. Free playback mode: every catalog track
+   *  (Spotify/Deezer metadata) resolves through the PlaybackResolver —
+   *  no official SDK mode exists (2026-10-11 direction change). */
+  playbackMode: "soundcloud" | "idle";
   playbackState: PlaybackState;
   isBuffering: boolean;
   isDragging: boolean;
-
-  // ── V2 Spotify session (NOT persisted — derived from the PKCE session) ──
-  spotifyConnected: boolean;
-  spotifyPremium: boolean;
-  spotifyDisplayName: string | null;
-  /** Official playback possible in THIS browser (desktop Chromium/Firefox/Edge). */
-  spotifyPlaybackSupported: boolean;
-  /** DEPRECATED (was: auto-switched to an alternative source) — kept for UI
-   *  compat; official-playback tracks are NEVER auto-substituted anymore. */
-  spotifyFallbackNotice: string | null;
-  setSpotifySession: (s: {
-    connected: boolean;
-    premium: boolean;
-    displayName: string | null;
-    playbackSupported: boolean;
-  }) => void;
-  setSpotifyFallbackNotice: (notice: string | null) => void;
-
-  // ── Spotify Official Playback gate (PHASE 7/§8: honest states, no substitution) ──
-  /** Non-null → the SpotifyGateSheet is open for the current track.
-   *  A Spotify track that cannot play officially STOPS here — the engine
-   *  never routes it to the SoundCloud/Audius resolver. */
-  spotifyGate: {
-    reason: SpotifyGateReason;
-    trackId: string;
-    trackTitle?: string;
-    trackArtist?: string;
-    spotifyUri?: string;
-    errorKind?: string;
-    errorMessage?: string;
-  } | null;
-  /** Bumped by retrySpotifyPlayback() — the engine's load effect re-runs
-   *  and re-attempts the OFFICIAL path for the same track URI. */
-  spotifyRetryNonce: number;
-  openSpotifyGate: (gate: NonNullable<AppState["spotifyGate"]>) => void;
-  dismissSpotifyGate: () => void;
-  retrySpotifyPlayback: () => void;
 
   // Sleep timer
   sleepTimerActive: boolean;
@@ -461,7 +423,7 @@ interface AppState {
   prevTrack: () => void;
   toggleShuffle: () => void;
   toggleRepeat: () => void;
-  setPlaybackMode: (mode: "soundcloud" | "idle" | "spotify") => void;
+  setPlaybackMode: (mode: "soundcloud" | "idle") => void;
   syncWithPlaybackEngine: () => void;
   restorePlayback: () => Promise<boolean>;
 
@@ -814,19 +776,10 @@ const initialState = {
   duration: 0,
   shuffle: false,
   repeat: "off" as "off" | "all" | "one",
-  playbackMode: "idle" as "soundcloud" | "idle" | "spotify",
+  playbackMode: "idle" as "soundcloud" | "idle",
   playbackState: "idle" as PlaybackState,
   isBuffering: false,
   isDragging: false,
-  // V2 Spotify session — starts empty; the session hook syncs it on mount.
-  spotifyConnected: false,
-  spotifyPremium: false,
-  spotifyDisplayName: null,
-  spotifyPlaybackSupported: false,
-  spotifyFallbackNotice: null,
-  // Spotify Official gate — no substitution, honest states only.
-  spotifyGate: null,
-  spotifyRetryNonce: 0,
   sleepTimerActive: false,
   sleepTimerMinutes: 30,
   sleepTimerRemaining: 0,
@@ -1434,26 +1387,6 @@ export const useAppStore = create<AppState>()(
         const state = get();
         if (!state.isPlaying) {
           resumeAudioContext();
-          // Official-only Spotify track not under SDK control (gate
-          // dismissed, failed attempt, or page reload): a plain element
-          // resume would be a dead no-op — the element never had a source
-          // for this track. Re-attempt the OFFICIAL path instead (same as
-          // the gate's Retry button: nonce bump → the engine reloads the
-          // track through the Web Playback SDK with the saved position).
-          // Deezer-catalog tracks (no spotifyUri) are NOT official-only —
-          // they keep the normal element resume.
-          const ct = state.currentTrack;
-          if (
-            ct &&
-            state.playbackMode !== "spotify" &&
-            ct.source === "spotify" &&
-            ct.catalogId &&
-            !ct.playbackId &&
-            isSpotifyOfficialTrack(ct)
-          ) {
-            get().retrySpotifyPlayback();
-            return;
-          }
         }
         // Only flip the isPlaying flag — the isPlaying effect in useAudioEngine
         // is the SINGLE source of truth for calling audio.play()/audio.pause().
@@ -1886,42 +1819,6 @@ export const useAppStore = create<AppState>()(
         })),
 
       setPlaybackMode: (mode) => set({ playbackMode: mode }),
-      setSpotifySession: (s) =>
-        set({
-          spotifyConnected: s.connected,
-          spotifyPremium: s.premium,
-          spotifyDisplayName: s.displayName,
-          spotifyPlaybackSupported: s.playbackSupported,
-        }),
-      setSpotifyFallbackNotice: (notice) => set({ spotifyFallbackNotice: notice }),
-
-      openSpotifyGate: (gate) => {
-        // Honest stop — the SDK device is paused so residual official audio
-        // cannot bleed under the gate or into the next track (all four gate
-        // reasons mean the official path does NOT own audio right now).
-        spotifyPlaybackAdapter.pause().catch(() => {});
-        set({
-          spotifyGate: gate,
-          // The track is STOPPED honestly — never routed to another source.
-          // The gate also means the SDK owns NO audio in this state (the
-          // play never started or died mid-play): drop the mode so the
-          // «Spotify • Official» badge cannot claim playback while nothing
-          // plays.
-          playbackMode: "idle",
-          isPlaying: false,
-          playbackState: gate.reason === "sdk_error" ? "error" : "paused",
-          isBuffering: false,
-          catalogResolving: false,
-        });
-      },
-      dismissSpotifyGate: () => set({ spotifyGate: null }),
-      retrySpotifyPlayback: () =>
-        set((s) => ({
-          spotifyGate: null,
-          spotifyRetryNonce: s.spotifyRetryNonce + 1,
-          isPlaying: true,
-          playbackState: "loading" as PlaybackState,
-        })),
 
       startSleepTimer: (minutes) => {
         const endTime = Date.now() + minutes * 60 * 1000;
@@ -3675,9 +3572,14 @@ export const useAppStore = create<AppState>()(
           // Import source attribution (yandex public import) — tiny, but the
           // contract requires it to SURVIVE persistence, not just live in RAM.
           ...(t._src ? { _src: t._src, _srcTrackId: t._srcTrackId, _srcPlaylistKind: t._srcPlaylistKind } : {}),
-          // V2 Spotify identity — without these a persisted queue track loses
-          // its official-playback URI on reload.
-          spotifyUri: t.spotifyUri, spotifyTrackId: t.spotifyTrackId,
+          // Catalog identity (free-mode): keeps the honest «Каталог → Звук»
+          // attribution alive after reload, and lets the engine re-resolve
+          // a persisted catalog track through the PlaybackResolver.
+          catalogProvider: t.catalogProvider,
+          catalogId: t.catalogId,
+          playbackProvider: t.playbackProvider,
+          playbackId: t.playbackId,
+          versionTag: t.versionTag,
         } as Track);
 
         // ── Size caps to prevent localStorage overflow (~5MB limit) ──

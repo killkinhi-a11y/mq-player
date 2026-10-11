@@ -298,15 +298,13 @@ export function catalogToTrack(dto: CatalogTrackDTO): Track {
     genre: "",
     audioUrl: "",
     previewUrl: "",
-    // Unresolved catalog track: the engine resolves it at play time.
-    // source "spotify" is the historical lazy-resolve marker for ANY
-    // catalog provider — attribution lives in catalogProvider/catalogId.
+    // Unresolved catalog track: the engine resolves it at play time through
+    // the free PlaybackResolver (SoundCloud / Audius full-length). source
+    // "spotify" is the historical lazy-resolve marker for ANY catalog
+    // provider — attribution lives in catalogProvider/catalogId.
     source: "spotify",
     catalogProvider: dto.provider,
     catalogId: dto.catalogId,
     catalogArtistId: dto.artistId,
-    // V2 §7/§16 — official playback URI (Spotify DTOs only): lets the
-    // engine try the Web Playback SDK BEFORE the PlaybackResolver runs.
-    ...(dto.provider === "spotify" && dto.uri ? { spotifyUri: dto.uri, spotifyTrackId: dto.catalogId } : {}),
   };
 }
