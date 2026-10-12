@@ -696,12 +696,22 @@ export default function SearchView() {
     if (activeTracks.length === 0 && artistGroups.length === 0 && albumGroups.length === 0) return null;
     // V4.1: a catalog entity whose NAME matches the query wins (that is
     // what the user asked for — "random access memories" is the album,
-    // not the artist). Normalized startsWith/equality, min length guard.
+    // not the artist). When BOTH an artist and an album carry the query
+    // name, real signals decide: a tiny artist profile (few followers,
+    // no result dominance) loses to the album that carries the name —
+    // Deezer legitimately returns a 43-follower "Random Access Memories"
+    // artist next to Daft Punk's album, and the album is what people mean.
     const q = normalizeName(searchQuery);
     if (q.length >= 3) {
       const nameArtist = artistGroups.find((a) => a.catalogArtistId && nameMatchesQuery(a.name, q));
-      if (nameArtist) return { kind: "artist", artist: nameArtist };
       const nameAlbum = albumGroups.find((al) => al.catalogAlbumId && nameMatchesQuery(al.album, q));
+      if (nameArtist && nameAlbum) {
+        const artistStrong = (nameArtist.followers ?? 0) >= 1000 || nameArtist.count >= 3;
+        return artistStrong
+          ? { kind: "artist", artist: nameArtist }
+          : { kind: "album", album: nameAlbum };
+      }
+      if (nameArtist) return { kind: "artist", artist: nameArtist };
       if (nameAlbum) return { kind: "album", album: nameAlbum };
     }
     // V2 ladder (kept): any catalog artist → dominant artist (≥2 tracks)

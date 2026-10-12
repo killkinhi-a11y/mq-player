@@ -141,9 +141,12 @@ def run():
             has_pl = page.evaluate("() => !!document.querySelector('[data-mq-album-addplaylist]')")
             has_more = page.evaluate("() => !!document.querySelector('[data-mq-album-more]')")
             check("album-hero-actions", has_pl and has_more, f"addPlaylist={has_pl} more={has_more}")
-            # back to search for the continue-listening block
+            # back to search for the continue-listening block (album close
+            # returns to the Home view — navigate to Search explicitly)
             page.evaluate("() => { const b=[...document.querySelectorAll('button')].find(x=>x.getAttribute('aria-label')==='Назад'); if(b) b.click(); return !!b }")
-            page.wait_for_timeout(1500)
+            page.wait_for_timeout(1200)
+            js_click(page, "Поиск")
+            page.wait_for_timeout(1200)
             page.locator("[data-search-input]").first.fill("faded alan walker")
             page.wait_for_timeout(5000)
         else:
