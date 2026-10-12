@@ -77,14 +77,25 @@ const genreAccentColors: Record<string, string> = {
 const localBlobUrls = new Map<string, string>();
 
 // ── V4.1 name matching for the Top Result hero (normalized, no diacritics/
-//    punctuation noise; real strings only — never invents matches) ──
+//    punctuation noise; real strings only — never invents matches).
+//    Strength ladder, all at word boundaries:
+//      1. equality                     — "random access memories" = album
+//      2. entity name starts with q    — "random acce…" still finds it
+//      3. q starts with a LONG name    — "the dark side of the moon…" → album
+//         (≥12 chars: a short "Faded" must NOT capture "faded alan walker")
+//      4. q contains the name as words — "faded alan walker" → artist
+//        "Alan Walker" (the entity is part of what the user typed) ──
 function normalizeName(s: string): string {
   return s.toLowerCase().replace(/[\p{P}\p{S}]+/gu, " ").replace(/\s+/g, " ").trim();
 }
 function nameMatchesQuery(name: string, normalizedQuery: string): boolean {
   const n = normalizeName(name);
   if (!n || n.length < 2) return false;
-  return n === normalizedQuery || n.startsWith(normalizedQuery) || normalizedQuery.startsWith(n);
+  if (n === normalizedQuery) return true;
+  if (n.startsWith(normalizedQuery)) return true;
+  if (normalizedQuery.startsWith(n) && n.length >= 12) return true;
+  const padded = ` ${normalizedQuery} `;
+  return padded.includes(` ${n} `);
 }
 
 export function registerLocalBlobUrl(trackId: string, blobUrl: string) {

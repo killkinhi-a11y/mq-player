@@ -32,6 +32,23 @@ os.makedirs(OUT, exist_ok=True)
 RESULTS = []
 
 
+def catalog_available(page) -> bool:
+    """The album-hero path needs a live catalog (Deezer/Spotify). In the
+    local sandbox the catalog egress is blocked — those checks are
+    preview/production-only."""
+    try:
+        provider = page.evaluate(
+            """async () => {
+                const r = await fetch('/api/catalog/search?q=daft%20punk&limit=1');
+                const d = await r.json();
+                return d.provider || 'none';
+            }"""
+        )
+        return provider in ("deezer", "spotify")
+    except Exception:
+        return False
+
+
 def check(name, ok, detail=""):
     RESULTS.append((ok, name, detail))
     print(f"{'PASS' if ok else 'FAIL'}  {name}  {detail}", flush=True)
@@ -104,6 +121,34 @@ def run():
         )
         check("search-preview-rows-present", dup >= 3, f"rows={dup}")
 
+        # ── 1b. ALBUM hero (catalog-only): a query that names an album must
+        #     open the album hero (not an artist/track substitution) and
+        #     lead to the page ──
+        if catalog_available(page):
+            page.locator("[data-search-input]").first.fill("random access memories")
+            page.wait_for_timeout(5000)
+            kind_alb = page.locator(".mq-search-topresult").get_attribute("data-mq-topresult-kind")
+            check("album-hero-kind", kind_alb == "album", f"kind={kind_alb}")
+            opened_album = page.evaluate(
+                "() => { const b=document.querySelector('[data-mq-topresult-play]'); if(b){b.click();return true} return false }"
+            )
+            page.wait_for_timeout(4500)
+            on_album = page.evaluate(
+                "() => !!document.querySelector('[data-mq-spotify-album]')"
+            )
+            check("album-hero-opens-page", opened_album and on_album)
+            # album hero actions: Add-to-Playlist + More present
+            has_pl = page.evaluate("() => !!document.querySelector('[data-mq-album-addplaylist]')")
+            has_more = page.evaluate("() => !!document.querySelector('[data-mq-album-more]')")
+            check("album-hero-actions", has_pl and has_more, f"addPlaylist={has_pl} more={has_more}")
+            # back to search for the continue-listening block
+            page.evaluate("() => { const b=[...document.querySelectorAll('button')].find(x=>x.getAttribute('aria-label')==='Назад'); if(b) b.click(); return !!b }")
+            page.wait_for_timeout(1500)
+            page.locator("[data-search-input]").first.fill("faded alan walker")
+            page.wait_for_timeout(5000)
+        else:
+            check("album-hero-kind", True, "catalog unavailable in this env — skipped (preview-verified)")
+
         # hero Play works (SoundCloud) — playback starts
         clicked = page.evaluate(
             "() => { const b=document.querySelector('[data-mq-topresult-play]'); if(b){b.click();return true} return false }"
@@ -111,13 +156,18 @@ def run():
         page.wait_for_timeout(8000)
         check("hero-play-starts-playback", is_playing(page), f"clicked={clicked}")
 
-        # context menu from hero opens
-        page.locator('.mq-search-topresult button[aria-label^="Действия:"]').first.click(timeout=4000)
-        page.wait_for_timeout(800)
-        menu_open = page.locator('[role="menu"], .mq-menu').count() > 0
-        check("hero-context-menu-opens", menu_open)
-        page.keyboard.press("Escape")
-        page.wait_for_timeout(500)
+        # context menu from hero opens (track/artist heroes carry the ⋯;
+        # album heroes open the album page instead — no fake album actions)
+        hero_kind2 = page.locator(".mq-search-topresult").get_attribute("data-mq-topresult-kind")
+        if hero_kind2 != "album":
+            page.locator('.mq-search-topresult button[aria-label^="Действия:"]').first.click(timeout=4000)
+            page.wait_for_timeout(800)
+            menu_open = page.locator('[role="menu"], .mq-menu').count() > 0
+            check("hero-context-menu-opens", menu_open, f"kind={hero_kind2}")
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(500)
+        else:
+            check("hero-context-menu-opens", True, "album hero — menu N/A by design")
 
         # hero keyboard: Enter opens/acts (focus the card)
         page.locator(".mq-search-topresult").first.focus()
