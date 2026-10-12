@@ -1,0 +1,25 @@
+OK  01-home-desktop
+OK  01b-home-desktop-continue
+OK  02-search-empty-desktop
+OK  02b-search-topresult-desktop
+OK  02c-search-row-hover
+OK  02d-search-noresults-desktop
+OK  03-artist-desktop-full
+OK  03b-artist-desktop-popular-albums
+album-tile: tile
+OK  04-album-desktop
+OK  04b-album-desktop-tracklist
+OK  03c-artist-desktop-sc
+OK  05-home-minidesktop-playing
+OK  11-home-1280
+OK  12-search-topresult-1280
+OK  20-home-mobile
+OK  21-search-empty-mobile
+OK  21b-search-topresult-mobile
+OK  22-artist-mobile
+album-tile: tile
+OK  23-album-mobile
+OK  23b-album-mobile-tracklist
+OK  30-home-360
+OK  31-search-topresult-360
+PAGE ERRORS: 0

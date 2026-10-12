@@ -9793,3 +9793,68 @@ Stage Summary:
   pass; production playback verified >90s continuous.
 - V4.1 candidates documented: continue-listening card polish, search Top
   Result hero, artist/album compositional passes, Spatial untouched.
+
+---
+Task ID: ui-v4.1
+Agent: main (Super Z)
+Task: MQ UI V4.1 — PREMIUM POLISH PASS + SEARCH HERO + CONTINUE LISTENING (search top-result hero, continue-listening card, artist/album composition, consistency, QA, deploy)
+
+Work Log:
+- PHASE 0: verified origin/main=b7b79da4; production actually served
+  mq-build-b7b79da4 (one docs-commit ahead of the user's last known
+  mq-build-516e728a, code identical). Baseline: vitest 1358/1358, tsc
+  src/=0, build PASS. 24 BEFORE screenshots from production (1440/1280/
+  390/360) + VLM audit → BASELINE.md. Found: fake verified badge in
+  SpotifyArtistView (CatalogArtistDTO has no verified field) — honesty bug.
+- PHASE 1 (SearchView): entity-aware Top Result hero — track/artist/ALBUM
+  kinds; name matching (normalize punctuation/diacritics; equality /
+  entity-starts-with-query / long-prefix ≥12 / word-containment as an
+  ARTIST-ONLY signal) + popularity tiebreak (followers ≥1000 or ≥3 result
+  dominance) — the 43-follower Deezer namesake artist "Random Access
+  Memories" no longer steals the album hero; artwork 168px desktop / 112px
+  mobile; honest meta ladder + provider badge; platinum CTA with live
+  state; real context menus (ContextMenu / ArtistActionsMenu); preview
+  rows dedupe the hero track. 3 iterations on preview until 20/20.
+- PHASE 2 (MainView): ContinueListeningCard rebuilt — 88px artwork (opens
+  full player), live progress + tabular timecodes, honest Resume (audio
+  element holds the position; history has NO saved positions → no fake
+  Resume for history tracks), provider badge, V4 empty state with real
+  CTA. «Недавно» canonical dedupe (id OR normalized title+artist —
+  catches the resolver's dzl_→sc_ twin swap).
+- PHASE 3 (Artist): fake BadgeCheck removed; catalog variant popular
+  tracks 5+«Показать все» + index→play hover + live equalizer; related
+  artists compacted to chip tiles; SC variant hero 380→300px (art 288→232)
+  so popular tracks stay reachable; mobile hero avatar 220→180px.
+- PHASE 4 (Album): hero compacted (lg:w-48, py-6, title clamp 44px/2
+  lines); action row Play/Shuffle/Add-to-Playlist/More via MenuCore
+  (playlist picker adds ALL album tracks + create-new; More = queue /
+  open at provider); column-header duplication removed; mobile touch
+  targets 40px (mq-hit44).
+- Contracts: 3 design-contract suites initially broken by the pass
+  (inline glass blur on hero play, solid cards, 5/7 grid geometry) —
+  restored; final 1358/1358. ESLint A/B (stash): baseline 68 → 70
+  problems, 0 new errors (+2 img warnings, same pattern as 64 existing).
+- False-alarm debug: «Недавно» "disappearing" after next-track on Home =
+  lazy ScrollReveal below-fold mounting (proven by scroll test + original-
+  build A/B) — app behavior correct, test fixed (scroll before assert).
+- QA: local smoke 17/17; preview (mq-build-18b73e18) strict 20/20;
+  production (mq-build-7e44ecd3) strict 20/20; production continuity E2E
+  91s played / 90s wall (0:01→1:32 of 3:31, catalog track via free
+  resolver) across 3 navigations, 0 page errors. 24 AFTER screenshots
+  from preview + element-shot; VLM: continue card 9/10, search hero
+  8-9/10 blocks, artist/album composition confirmed.
+- Deploy: branch ui-v41 → 5 preview deployments in the EXISTING Vercel
+  project; main 7e44ecd3 → production mq-build-7e44ecd3 live on
+  https://mq1.vercel.app (verified /version.json + full prod QA).
+
+Stage Summary:
+- V4.1 SHIPPED: Search top-result editorial hero (entity-aware, honest
+  matching), premium Continue-Listening card (artwork + live progress +
+  honest Resume), artist/album compositional passes, fake-verified-badge
+  honesty fix — on top of untouched free playback/Wave/provider stack.
+- All gates green: 1358 tests, tsc src 0, build, 17/17 + 20/20 + 20/20
+  smoke, 91s continuity, 0 page errors.
+- Residual (pre-existing, documented in UI-V41-REPORT §10): CSP misses
+  challenges.cloudflare.com/telegram.org (auth-page widgets blocked),
+  engine console.error diagnostics, engine self-recovery racing pause
+  during catalog-track resolution.
