@@ -329,11 +329,13 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
           </div>
         </div>
 
-        {/* ── Desktop hero: wide editorial composition ── */}
-        <div className="hidden lg:flex relative items-end gap-8 px-10 pb-8 pt-24" style={{ minHeight: 380 }}>
+        {/* ── Desktop hero: wide editorial composition (V4.1: tighter — the
+            popular tracks must stay reachable; a 380px+ hero pushed them
+            below the fold) ── */}
+        <div className="hidden lg:flex relative items-end gap-8 px-10 pb-7 pt-14" style={{ minHeight: 300 }}>
           {/* WEB/DESKTOP SPLIT: the breathing hero zoom (mq-hero-zoom) is a
               desktop-shell polish; the web hero is the classic static art. */}
-          <div className={"mq-art shrink-0" + (desktopShell ? " mq-hero-zoom" : "")} style={{ width: 288, height: 288, borderRadius: 22, boxShadow: "0 24px 60px rgba(0,0,0,0.55)", overflow: "hidden" }}>
+          <div className={"mq-art shrink-0" + (desktopShell ? " mq-hero-zoom" : "")} style={{ width: 232, height: 232, borderRadius: 20, boxShadow: "0 20px 50px rgba(0,0,0,0.5)", overflow: "hidden" }}>
             {info.avatar ? (
               <img src={info.avatar} alt={artist.name} />
             ) : (
@@ -347,9 +349,9 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
               <span className="mq-t-meta-2 uppercase tracking-[0.16em] font-bold" style={{ color: "var(--mq-text-muted)" }}>Артист</span>
               {info.verified && <BadgeCheck className="w-4 h-4" style={{ color: "var(--mq-platinum-hi)" }} />}
             </div>
-            <h1 className="mq-t-title text-white break-words" style={{ fontSize: "clamp(2.6rem, 5vw, 4.2rem)", fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1.02, textShadow: "0 4px 30px rgba(0,0,0,0.4)" }}>{artist.name}</h1>
+            <h1 className="mq-t-title text-white break-words" style={{ fontSize: "clamp(2.4rem, 4.5vw, 3.6rem)", fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1.02, textShadow: "0 4px 30px rgba(0,0,0,0.4)" }}>{artist.name}</h1>
             <ArtistStats info={info} tracks={tracks.length} />
-            <div className="flex items-center gap-2.5 mt-6">
+            <div className="flex items-center gap-2.5 mt-5">
               <button onClick={heroPlay} disabled={popular.length === 0}
                 className="mq-platinum-btn flex items-center gap-2 h-12 px-7 rounded-full mq-t-section font-bold transition-all hover:scale-[1.02]"
                 style={{ opacity: popular.length ? 1 : 0.4 }}>

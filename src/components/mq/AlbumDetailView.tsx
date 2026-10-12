@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import {
   ChevronLeft, Play, Pause, Shuffle, Heart, MoreHorizontal,
   Music2, Disc3, Clock3, ListPlus, Loader2, ArrowLeftRight, ExternalLink,
+  ListMusic, Plus,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import type { Track } from "@/lib/musicApi";
@@ -14,6 +15,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { extractColors, type DominantColors } from "@/hooks/useDominantColor";
 import { ProviderBadge } from "./ui/ProviderBadge";
+import MenuCore, { backLabelSpec, type MenuElement } from "./ui/MenuCore";
+import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import ContextMenu from "./ContextMenu";
 import type { CatalogAlbumDTO, CatalogTrackDTO } from "@/lib/spotify/types";
 
@@ -116,15 +119,96 @@ function AlbumDetailViewBase({ album, onBack, animationsEnabled }: Props) {
     playTrack(shuffled[0], shuffled);
   }, [albumTracks, playTrack]);
 
+  const shown = detail?.album || album;
+  const year = detail?.album.year || album.year || (shown.releaseDate || "").slice(0, 4);
+  const totalDuration = detail?.album.totalDurationSec || 0;
+
   const queueAlbum = useCallback(() => {
     if (albumTracks.length === 0) return;
     albumTracks.forEach((t) => addToQueue(t));
     toast({ title: "Альбом в очереди", description: `${albumTracks.length} треков добавлено` });
   }, [albumTracks, addToQueue, toast]);
 
-  const shown = detail?.album || album;
-  const year = detail?.album.year || album.year || (shown.releaseDate || "").slice(0, 4);
-  const totalDuration = detail?.album.totalDurationSec || 0;
+  // ── V4.1 hero menus: Add-to-Playlist (picker page) + More (queue /
+  //    provider). Real actions only — built on the same MenuCore engine
+  //    every other MQ menu uses. ──
+  const playlists = useAppStore((s) => s.playlists);
+  const addToPlaylist = useAppStore((s) => s.addToPlaylist);
+  const createPlaylist = useAppStore((s) => s.createPlaylist);
+  const [heroMenu, setHeroMenu] = useState<{ x: number; y: number } | null>(null);
+  const [heroMenuPage, setHeroMenuPage] = useState<"root" | "playlists">("root");
+
+  const openHeroMenu = useCallback((e: React.MouseEvent, page: "root" | "playlists") => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setHeroMenuPage(page);
+    setHeroMenu({ x: r.left, y: r.bottom + 4 });
+  }, []);
+
+  const addAlbumToPlaylist = useCallback((playlistId: string, playlistName: string) => {
+    if (albumTracks.length === 0) return;
+    albumTracks.forEach((t) => addToPlaylist(playlistId, t));
+    toast({
+      title: "Альбом добавлен в плейлист",
+      description: `${playlistName} · ${albumTracks.length} треков`,
+    });
+    setHeroMenu(null);
+  }, [albumTracks, addToPlaylist, toast]);
+
+  const quickCreateAndAddAlbum = useCallback(() => {
+    const name = shown.artist || shown.name;
+    createPlaylist(name);
+    const state = useAppStore.getState();
+    const newPl = [...state.playlists].reverse().find((p) => p.name === name);
+    if (newPl) addAlbumToPlaylist(newPl.id, newPl.name);
+    else setHeroMenu(null);
+  }, [shown.artist, shown.name, createPlaylist, addAlbumToPlaylist]);
+
+  const heroMenuElements = useMemo<MenuElement[]>(() => {
+    if (heroMenuPage === "playlists") {
+      return [
+        backLabelSpec("Назад", () => setHeroMenuPage("root")),
+        { type: "separator" },
+        ...playlists.map<MenuElement>((pl) => ({
+          type: "item",
+          id: `pl-${pl.id}`,
+          icon: ListMusic,
+          label: pl.name,
+          hint: String(pl.tracks?.length ?? 0),
+          disabled: albumTracks.length === 0,
+          onSelect: () => addAlbumToPlaylist(pl.id, pl.name),
+        })),
+        { type: "separator" },
+        {
+          type: "item",
+          id: "pl-new",
+          icon: Plus,
+          label: "Новый плейлист",
+          disabled: albumTracks.length === 0,
+          onSelect: quickCreateAndAddAlbum,
+        },
+      ];
+    }
+    return [
+      {
+        type: "item",
+        id: "queue",
+        icon: ListPlus,
+        label: "Добавить в очередь",
+        hint: albumTracks.length ? String(albumTracks.length) : undefined,
+        disabled: albumTracks.length === 0,
+        onSelect: () => { queueAlbum(); setHeroMenu(null); },
+      },
+      ...(shown.externalUrl
+        ? [{
+            type: "item" as const,
+            id: "provider",
+            icon: ExternalLink,
+            label: "Открыть у провайдера",
+            onSelect: () => { window.open(shown.externalUrl, "_blank", "noopener,noreferrer"); setHeroMenu(null); },
+          }]
+        : []),
+    ];
+  }, [heroMenuPage, playlists, albumTracks.length, addAlbumToPlaylist, quickCreateAndAddAlbum, queueAlbum, shown.externalUrl]);
 
   return (
     <div className="max-w-5xl mx-auto px-3 sm:px-5 pb-10" data-mq-spotify-album={album.catalogId}>
@@ -182,9 +266,9 @@ function AlbumDetailViewBase({ album, onBack, animationsEnabled }: Props) {
               border: "1px solid var(--mq-edge)",
             }}
           >
-            <div className={`relative flex ${isMobile ? "flex-col items-center text-center p-5" : "items-end gap-6 p-7"}`}>
+            <div className={`relative flex ${isMobile ? "flex-col items-center text-center p-5" : "items-end gap-6 px-7 py-6"}`}>
               <div
-                className={`${isMobile ? "w-40" : "w-44 lg:w-52"} aspect-square rounded-[var(--mq-r-card)] overflow-hidden mq-art shrink-0`}
+                className={`${isMobile ? "w-40" : "w-44 lg:w-48"} aspect-square rounded-[var(--mq-r-card)] overflow-hidden mq-art shrink-0`}
                 style={{ boxShadow: "0 18px 48px rgba(0,0,0,0.45)", backgroundColor: "var(--mq-surface-2)" }}
               >
                 {shown.image ? (
@@ -201,9 +285,20 @@ function AlbumDetailViewBase({ album, onBack, animationsEnabled }: Props) {
                   />
                   <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>Альбом</span>
                 </div>
+                {/* V4.1: long titles clamp to two lines — the hero keeps its
+                    height budget and never pushes the tracklist away. */}
                 <h1
                   className="font-bold tracking-tight"
-                  style={{ fontSize: isMobile ? "clamp(24px, 7vw, 36px)" : "clamp(32px, 4vw, 52px)", lineHeight: 1.08, color: "var(--mq-text)", overflowWrap: "anywhere" }}
+                  style={{
+                    fontSize: isMobile ? "clamp(24px, 7vw, 34px)" : "clamp(30px, 3.5vw, 44px)",
+                    lineHeight: 1.08,
+                    color: "var(--mq-text)",
+                    overflowWrap: "anywhere",
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }}
                 >
                   {shown.name}
                 </h1>
@@ -228,50 +323,62 @@ function AlbumDetailViewBase({ album, onBack, animationsEnabled }: Props) {
                     <><span style={{ color: "var(--mq-text-muted)" }}>·</span><span className="mq-t-num" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(totalDuration)}</span></>
                   )}
                 </div>
+                {/* V4.1 action row: Play (primary, honest state) · Shuffle ·
+                    Add to Playlist · More. Queue / provider moved into the
+                    More menu — four clear affordances instead of a row of
+                    equal grey buttons. */}
                 <div className={`flex flex-wrap ${isMobile ? "justify-center" : ""} items-center gap-2.5 mt-4`}>
                   <button
                     onClick={playAlbum}
-                    className="mq-platinum-btn inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-transform active:scale-[0.97]"
-                    aria-label={heroPlaying && isPlaying ? "Пауза" : "Слушать"}
+                    disabled={albumTracks.length === 0}
+                    className="mq-platinum-btn inline-flex items-center gap-2 px-5 h-11 rounded-full text-sm font-semibold transition-transform active:scale-[0.97] disabled:opacity-40"
+                    aria-label={heroPlaying && isPlaying ? "Пауза" : heroPlaying ? "Продолжить" : "Слушать"}
                     data-mq-album-play
                   >
-                    {heroPlaying && isPlaying ? <Pause className="w-4 h-4" fill="currentColor" /> : <Play className="w-4 h-4" fill="currentColor" />}
-                    {heroPlaying && isPlaying ? "Пауза" : "Слушать"}
+                    {heroPlaying && isPlaying
+                      ? <Pause className="w-4 h-4" fill="currentColor" />
+                      : <Play className="w-4 h-4" fill="currentColor" />}
+                    {heroPlaying && isPlaying ? "Пауза" : heroPlaying ? "Продолжить" : "Слушать"}
                   </button>
                   <button
                     onClick={shuffleAlbum}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-transform active:scale-[0.97]"
+                    disabled={albumTracks.length === 0}
+                    className="mq-hit44 inline-flex items-center justify-center w-11 h-11 rounded-full text-sm font-semibold transition-colors hover:bg-[var(--mq-surface-2)] disabled:opacity-40"
                     style={{ background: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)", color: "var(--mq-text)" }}
                     aria-label="Перемешать"
+                    title="Перемешать"
                   >
                     <Shuffle className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={queueAlbum}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-transform active:scale-[0.97]"
+                    onClick={(e) => openHeroMenu(e, "playlists")}
+                    disabled={albumTracks.length === 0}
+                    className="mq-hit44 inline-flex items-center justify-center gap-2 w-11 h-11 rounded-full text-sm font-semibold transition-colors hover:bg-[var(--mq-surface-2)] disabled:opacity-40"
                     style={{ background: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)", color: "var(--mq-text)" }}
-                    aria-label="Добавить в очередь"
+                    aria-label="Добавить альбом в плейлист"
+                    title="Добавить в плейлист"
+                    data-mq-album-addplaylist
                   >
-                    <ListPlus className="w-4 h-4" />
+                    <ListMusic className="w-4 h-4" />
                   </button>
-                  {shown.externalUrl && (
-                    <a
-                      href={shown.externalUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-transform active:scale-[0.97]"
-                      style={{ background: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)", color: "var(--mq-text)" }}
-                      aria-label="Открыть у провайдера каталога"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                  )}
+                  <button
+                    onClick={(e) => openHeroMenu(e, "root")}
+                    className="mq-hit44 inline-flex items-center justify-center w-11 h-11 rounded-full text-sm font-semibold transition-colors hover:bg-[var(--mq-surface-2)]"
+                    style={{ background: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)", color: "var(--mq-text)" }}
+                    aria-label="Ещё действия"
+                    aria-haspopup="menu"
+                    data-mq-album-more
+                  >
+                    <MoreHorizontal className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Track list */}
+          {/* Track list — V4.1: no column-header row (the section head +
+              self-evident row anatomy carry the structure; the old header
+              duplicated «Треки»/«Трек» and read as noise). */}
           {albumTracks.length > 0 ? (
             <section>
               <div className="flex items-baseline justify-between mb-2 px-1">
@@ -293,6 +400,21 @@ function AlbumDetailViewBase({ album, onBack, animationsEnabled }: Props) {
             </div>
           )}
         </div>
+      )}
+
+      {/* V4.1 hero menu (portal) — Add-to-Playlist picker + More */}
+      {heroMenu && (
+        <MenuCore
+          anchor={heroMenu}
+          onClose={() => setHeroMenu(null)}
+          elements={heroMenuElements}
+          ariaLabel={`Действия: альбом ${shown.name}`}
+          header={
+            heroMenuPage === "playlists" ? (
+              <div className="mq-menu-label">Добавить альбом в плейлист</div>
+            ) : undefined
+          }
+        />
       )}
     </div>
   );
@@ -316,19 +438,6 @@ const AlbumTrackList = memo(function AlbumTrackList({
 
   return (
     <>
-      {/* Column header (desktop) */}
-      <div
-        className="hidden sm:flex items-center gap-3 px-3 pb-1.5 mb-0.5"
-        style={{ color: "var(--mq-text-muted)", borderBottom: "1px solid var(--mq-edge)" }}
-      >
-        <span className="mq-t-num w-6 text-xs">#</span>
-        <span className="w-11" />
-        <span className="flex-1 text-xs font-semibold uppercase tracking-wider" style={{ letterSpacing: "0.08em" }}>Трек</span>
-        <span className="w-8" />
-        <span className="text-xs font-semibold uppercase tracking-wider w-14" style={{ letterSpacing: "0.08em" }}>Источник</span>
-        <span className="flex items-center gap-1 text-xs w-14 justify-end"><Clock3 className="w-3.5 h-3.5" /></span>
-        <span className="w-16 text-xs text-center">Действия</span>
-      </div>
       <div className="space-y-0.5">
         {tracks.map((track, i) => {
           const isActive = currentTrackId === track.id;
@@ -348,8 +457,15 @@ const AlbumTrackList = memo(function AlbumTrackList({
               data-active={isActive || undefined}
               data-mq-album-track={track.id}
             >
-              <span className="mq-t-num w-6 text-xs shrink-0" style={{ color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
-                {i + 1}
+              <span className="w-6 shrink-0 flex items-center justify-center">
+                {isActive ? (
+                  <NowPlayingEqualizer size="xs" variant="inline" paused={!isPlaying} />
+                ) : (
+                  <>
+                    <span className="mq-t-num text-xs group-hover:hidden" style={{ color: "var(--mq-text-muted)" }}>{i + 1}</span>
+                    <Play className="w-3.5 h-3.5 hidden group-hover:block" fill="currentColor" style={{ color: "var(--mq-text)" }} />
+                  </>
+                )}
               </span>
               <span className="w-11 h-11 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art relative" style={{ backgroundColor: "var(--mq-surface-2)" }}>
                 {track.cover ? (
@@ -366,7 +482,7 @@ const AlbumTrackList = memo(function AlbumTrackList({
               </span>
               <button
                 onClick={(e) => { e.stopPropagation(); toggleLike(track.id, track); }}
-                className="w-8 h-8 rounded-full grid place-items-center shrink-0"
+                className="mq-hit44 w-10 h-10 sm:w-8 sm:h-8 rounded-full grid place-items-center shrink-0"
                 style={{ color: likedTrackIds.includes(track.id) ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
                 aria-label="В избранное"
               >
@@ -378,10 +494,10 @@ const AlbumTrackList = memo(function AlbumTrackList({
               <span className="mq-t-num text-xs w-14 text-right shrink-0" style={{ color: "var(--mq-text-muted)" }}>
                 {track.duration > 0 ? formatDuration(track.duration) : "—"}
               </span>
-              <span className="w-16 flex items-center justify-end gap-0.5 shrink-0">
+              <span className="w-[76px] sm:w-16 flex items-center justify-end gap-0.5 shrink-0">
                 <button
                   onClick={(e) => { e.stopPropagation(); addToQueue(track); }}
-                  className="w-8 h-8 rounded-full grid place-items-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                  className="mq-hit44 w-10 h-10 sm:w-8 sm:h-8 rounded-full grid place-items-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                   style={{ color: "var(--mq-text-muted)" }}
                   aria-label="В очередь"
                   title="Добавить в очередь"
@@ -394,7 +510,7 @@ const AlbumTrackList = memo(function AlbumTrackList({
                     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
                     setMenu({ track, x: r.left, y: r.bottom + 4 });
                   }}
-                  className="w-8 h-8 rounded-full grid place-items-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                  className="mq-hit44 w-10 h-10 sm:w-8 sm:h-8 rounded-full grid place-items-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                   style={{ color: "var(--mq-text-muted)" }}
                   aria-label="Меню"
                 >

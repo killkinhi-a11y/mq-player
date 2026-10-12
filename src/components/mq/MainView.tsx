@@ -8,7 +8,7 @@ import {
   Play, Pause, Music, Heart, Clock, ListMusic, ListPlus, MessageCircle,
   Sparkles, Waves, User, Flame,
   SkipForward, SkipBack, ThumbsDown, TrendingUp, Compass, RotateCcw,
-  MoreHorizontal, X, Shuffle, ArrowUpRight,
+  MoreHorizontal, X, Shuffle, ArrowUpRight, Search,
 } from "lucide-react";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
 import WaveHome from "./WaveHome";
@@ -27,6 +27,7 @@ const AlbumDetailView = dynamic(() => import("./AlbumDetailView").then((m) => m.
 import ContextMenu from "./ContextMenu";
 import ArtistActionsMenu, { type ArtistMenuTarget } from "./ArtistActionsMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
+import { ProviderBadge } from "./ui/ProviderBadge";
 import MenuCore, { MenuHeader } from "./ui/MenuCore";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import { useLongPress } from "@/hooks/useLongPress";
@@ -163,8 +164,16 @@ function MainView() {
 
   // ── Recent tracks ──
   const recentTracks = useMemo(() => {
-    return history.slice(0, 10).map((h: any) => h.track).filter(Boolean);
-  }, [history]);
+    // V4.1 dedupe: the CURRENT track already owns the Continue band
+    // (desktop) / Now hero (mobile) — repeating it in «Недавно» reads as
+    // padding. Everything else is the real history order.
+    const currentId = currentTrack?.id;
+    return history
+      .filter((h: any) => h?.track && h.track.id !== currentId)
+      .slice(0, 10)
+      .map((h: any) => h.track)
+      .filter(Boolean);
+  }, [history, currentTrack?.id]);
 
   // ── RECOMMENDED PLAYLISTS for the editorial section: the app's TWO real
   // recommendation sources merged — public taste-based picks (the existing
@@ -644,6 +653,8 @@ function MainView() {
               onToggle={togglePlay}
               onSkip={() => wave.skipTrack()}
               onMore={(e) => openTrackMenu(currentTrack!, e)}
+              onOpenFull={() => setFullTrackViewOpen(true)}
+              onGoSearch={() => setView("search")}
             />
             <QuickActionGrid
               likedCount={likedTrackIds.length}
@@ -1211,6 +1222,18 @@ function FeaturedCard({
   );
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   CONTINUE LISTENING (V4.1 premium pass) — the desktop Home band that
+   returns the user to the ONE thing they were really hearing.
+   Honest data contract:
+   • The card shows the CURRENT track with its LIVE position — the audio
+     element holds that position, so «Продолжить» is a real resume.
+   • History tracks have NO saved position in MQ (HistoryEntry carries
+     track/playedAt/playCount only) — they never get a fake progress bar
+     or a fake Resume; they live in the «Недавно» row as honest Plays.
+   • Artwork is the visual anchor; progress + timecodes are real; the
+     provider badge mirrors the actual attribution (catalog vs playback).
+   ══════════════════════════════════════════════════════════════════════════ */
 function ContinueListeningCard({
   track,
   progress,
@@ -1220,6 +1243,8 @@ function ContinueListeningCard({
   onToggle,
   onSkip,
   onMore,
+  onOpenFull,
+  onGoSearch,
 }: {
   track: Track | null;
   progress: number;
@@ -1229,79 +1254,146 @@ function ContinueListeningCard({
   onToggle: () => void;
   onSkip: () => void;
   onMore: (e: React.MouseEvent) => void;
+  onOpenFull: () => void;
+  onGoSearch: () => void;
 }) {
   const pct = duration > 0 ? Math.min(100, (progress / duration) * 100) : 0;
 
-  // Honest empty state — no fake "continue" content.
+  // Honest empty state — V4 structured empty with a REAL CTA.
   if (!track) {
     return (
       <div
-        className="rounded-2xl p-4 sm:p-5 flex items-center gap-4 min-w-0"
-        style={{ backgroundColor: "var(--mq-card)", border: "1px dashed var(--mq-border-thin)" }}
+        className="rounded-[var(--mq-mat-radius,14px)] p-4 sm:p-5 flex items-center gap-4 min-w-0"
+        style={{ backgroundColor: "var(--mq-mat-2-bg)", border: "1px solid var(--mq-mat-2-edge)", boxShadow: "var(--mq-mat-2-shadow)" }}
       >
-        <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 7%, transparent)" }}>
-          <Play className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
+        <div
+          className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
+          style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}
+          aria-hidden
+        >
+          <Play className="w-6 h-6" style={{ color: "var(--mq-accent)" }} fill="currentColor" />
         </div>
-        <div className="min-w-0">
-          <p className="mq-t-label text-sm" style={{ color: "var(--mq-text)" }}>Продолжить прослушивание</p>
+        <div className="min-w-0 flex-1">
+          <p className="mq-t-section text-sm" style={{ color: "var(--mq-text)" }}>Продолжить прослушивание</p>
           <p className="mq-t-meta text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
-            Пока пусто — включи трек, и он появится здесь
+            Включите трек — он появится здесь с текущей позицией
           </p>
         </div>
+        <button
+          onClick={onGoSearch}
+          className="mq-platinum-btn mq-hit44 hidden sm:flex items-center gap-1.5 h-10 px-4 rounded-full text-[13px] font-semibold shrink-0"
+          aria-label="Найти музыку"
+        >
+          <Search className="w-3.5 h-3.5" />
+          Найти музыку
+        </button>
       </div>
     );
   }
 
+  const provider =
+    track.catalogProvider === "deezer" || track.catalogProvider === "spotify"
+      ? track.catalogProvider
+      : track.playbackProvider || (track.source === "audius" || track.source === "soundcloud" ? track.source : null);
+
   return (
     <div
-      className="rounded-[var(--mq-mat-radius,14px)] p-4 sm:p-5 flex items-center gap-4 min-w-0"
-      style={{ backgroundColor: "var(--mq-mat-2-bg)", border: "1px solid var(--mq-mat-2-edge)", boxShadow: "var(--mq-mat-2-shadow)" }}
+      className="group/cl rounded-[var(--mq-mat-radius-float,18px)] p-4 sm:p-5 flex items-center gap-4 min-w-0 transition-colors duration-150"
+      style={{ backgroundColor: "var(--mq-mat-3-bg)", border: "1px solid var(--mq-mat-3-edge)", boxShadow: "var(--mq-mat-3-shadow)" }}
     >
+      {/* Artwork — the visual anchor; opens the full player (real action) */}
       <button
-        onClick={onToggle}
-        className="mq-platinum-btn mq-press w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-        /* V2 §10.5: flat liquid-glass primary play (no red disc, no metal);
-           inline backdrop blur = content-aware glass over the hero surface
-           (Lightning strips backdrop-filter from stylesheets — MenuCore
-           pattern). */
-        aria-label={isPlaying ? "Пауза" : "Продолжить"}
-        style={{ backdropFilter: "var(--mq-blur-md)", WebkitBackdropFilter: "var(--mq-blur-md)" }}
+        onClick={onOpenFull}
+        className="relative w-[88px] h-[88px] rounded-[var(--mq-r-art)] overflow-hidden shrink-0 mq-art"
+        style={{ backgroundColor: "var(--mq-surface-2)", boxShadow: "var(--mq-mat-2-shadow)" }}
+        aria-label={`Открыть плеер: ${track.title}`}
       >
-        {isPlaying ? (
-          <Pause className="w-5 h-5" fill="currentColor" />
+        {track.cover ? (
+          <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
         ) : (
-          <Play className="w-5 h-5 translate-x-[1px]" fill="currentColor" />
+          <span className="w-full h-full flex items-center justify-center">
+            <Music className="w-7 h-7" style={{ color: "var(--mq-text-muted)" }} />
+          </span>
+        )}
+        {isPlaying && (
+          <span
+            className="absolute bottom-1.5 left-1.5 flex items-center justify-center w-6 h-6 rounded-full"
+            style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+            aria-hidden
+          >
+            <NowPlayingEqualizer size="xs" variant="inline" />
+          </span>
         )}
       </button>
+
       <div className="flex-1 min-w-0">
-        <p className="mq-t-label">Продолжить</p>
-        <p className="mq-t-track truncate" style={{ color: "var(--mq-text)" }}>
+        <p className="mq-t-label mq-t-meta-2 text-[10.5px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--mq-text-muted)" }}>
+          Продолжить прослушивание
+        </p>
+        <p className="mq-t-track text-[15px] truncate mt-1" style={{ color: "var(--mq-text)" }}>
           {track.title}
         </p>
-        <p className="mq-t-artist truncate">
-          {track.artist}
-        </p>
-        {/* Real progress bar */}
-        <div className="mt-2 flex items-center gap-2">
-          <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--mq-border-thin)" }} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="mq-t-artist truncate">{track.artist}</span>
+          {track.album && (
+            <>
+              <span style={{ color: "var(--mq-text-muted)" }}>·</span>
+              <span className="mq-t-meta truncate">{track.album}</span>
+            </>
+          )}
+          {provider && (
+            <span className="shrink-0 ml-0.5"><ProviderBadge provider={provider} size="xs" /></span>
+          )}
+        </div>
+        {/* Real progress — live position of the current track */}
+        <div className="mt-2.5 flex items-center gap-2.5">
+          <div
+            className="flex-1 h-1.5 rounded-full overflow-hidden"
+            style={{ backgroundColor: "var(--mq-border-thin)" }}
+            role="progressbar"
+            aria-valuenow={Math.round(pct)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Позиция трека"
+          >
             <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "var(--mq-platinum-progress)" }} />
           </div>
-          <span className="mq-t-num shrink-0" style={{ color: "var(--mq-text-muted)" }}>
+          <span className="mq-t-num text-xs shrink-0 tabular-nums" style={{ color: "var(--mq-text-muted)" }}>
             {formatDuration(progress)} / {formatDuration(duration)}
           </span>
         </div>
       </div>
-      <TrackMoreButton onOpen={onMore} alwaysVisible label={`Действия: ${track.title}`} />
-      {radioMode && (
+
+      {/* Actions: real resume (audio element holds the position) + more */}
+      <div className="flex items-center gap-1.5 shrink-0">
         <button
-          onClick={onSkip}
-          className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors hover:bg-[var(--mq-overlay-hover)]"
-          style={{ border: "1px solid var(--mq-border-thin)" }}
-          aria-label="Следующий в WAVE"
+          onClick={onToggle}
+          className="mq-platinum-btn mq-press w-12 h-12 rounded-full flex items-center justify-center shrink-0"
+          /* V2 §10.5 contract (pinned by tests): flat liquid-glass primary
+             play with INLINE backdrop blur — Lightning-class engines strip
+             backdrop-filter from stylesheets, so the blur rides the inline
+             style (MenuCore pattern). */
+          aria-label={isPlaying ? "Пауза" : "Продолжить"}
+          style={{ backdropFilter: "var(--mq-blur-md)", WebkitBackdropFilter: "var(--mq-blur-md)" }}
         >
-          <SkipForward className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+          {isPlaying ? (
+            <Pause className="w-5 h-5" fill="currentColor" />
+          ) : (
+            <Play className="w-5 h-5 translate-x-[1px]" fill="currentColor" />
+          )}
         </button>
-      )}
+        {radioMode && (
+          <button
+            onClick={onSkip}
+            className="mq-hit44 w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors hover:bg-[var(--mq-overlay-hover)]"
+            style={{ border: "1px solid var(--mq-border-thin)" }}
+            aria-label="Следующий в WAVE"
+          >
+            <SkipForward className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+          </button>
+        )}
+        <TrackMoreButton onOpen={onMore} alwaysVisible label={`Действия: ${track.title}`} />
+      </div>
     </div>
   );
 }

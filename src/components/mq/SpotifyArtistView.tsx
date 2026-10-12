@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ChevronLeft, Play, Pause, Shuffle, Heart, MoreHorizontal,
-  BadgeCheck, Music2, Disc3, Users, Loader2, ArrowLeftRight,
+  Music2, Disc3, Users, Loader2, ArrowLeftRight, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import type { Track } from "@/lib/musicApi";
@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { extractColors, type DominantColors } from "@/hooks/useDominantColor";
 import { ProviderBadge } from "./ui/ProviderBadge";
+import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import ContextMenu from "./ContextMenu";
 import type {
   CatalogAlbumDTO,
@@ -91,8 +92,15 @@ const CatalogTrackRow = memo(function CatalogTrackRow({
         data-active={isActive || undefined}
         data-mq-artist-track={track.id}
       >
-        <span className="mq-t-num w-6 text-left shrink-0" style={{ color: "var(--mq-text-muted)", opacity: 0.8 }}>
-          {index + 1}
+        <span className="w-6 shrink-0 flex items-center justify-center">
+          {isActive ? (
+            <NowPlayingEqualizer size="xs" variant="inline" paused={!isPlaying} />
+          ) : (
+            <>
+              <span className="mq-t-num group-hover:hidden" style={{ color: "var(--mq-text-muted)", opacity: 0.9 }}>{index + 1}</span>
+              <Play className="w-3.5 h-3.5 hidden group-hover:block" fill="currentColor" style={{ color: "var(--mq-text)" }} />
+            </>
+          )}
         </span>
         <span className="w-11 h-11 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art relative" style={{ backgroundColor: "var(--mq-surface-2)" }}>
           {track.cover ? (
@@ -208,6 +216,9 @@ function SpotifyArtistViewBase({ catalogArtistId, catalogProvider, artistName, o
   const [state, setState] = useState<"loading" | "ok" | "unavailable">("loading");
   const [heroColors, setHeroColors] = useState<DominantColors>(FALLBACK_COLORS);
   const heroRef = useRef<HTMLDivElement>(null);
+  // V4.1: popular tracks collapse to the 5-row editorial preview; the full
+  // top-10 opens on demand so albums/singles stay reachable above the fold.
+  const [showAllTop, setShowAllTop] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -321,7 +332,7 @@ function SpotifyArtistViewBase({ catalogArtistId, catalogProvider, artistName, o
       />
       <div className={`relative flex gap-5 ${isMobile ? "flex-col p-5" : "items-end p-7"}`}>
         <div
-          className={`${isMobile ? "w-full max-w-[220px] mx-auto" : "w-44 lg:w-52"} aspect-square rounded-full overflow-hidden mq-art shrink-0`}
+          className={`${isMobile ? "w-full max-w-[180px] mx-auto" : "w-44 lg:w-52"} aspect-square rounded-full overflow-hidden mq-art shrink-0`}
           style={{ boxShadow: `0 18px 48px ${heroColors.rgb.r},${heroColors.rgb.g},${heroColors.rgb.b}33`, backgroundColor: "var(--mq-surface-2)" }}
         >
           {data.artist?.image ? (
@@ -333,7 +344,8 @@ function SpotifyArtistViewBase({ catalogArtistId, catalogProvider, artistName, o
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1.5">
             <ProviderBadge provider={catalogProvider === "deezer" ? "deezer" : "spotify"} title={`Каталог: ${catalogProvider === "deezer" ? "Deezer" : "Spotify"}`} />
-            <BadgeCheck className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+            {/* V4.1 honesty fix: no verified badge — the catalog DTO has no
+                verified field, a permanent BadgeCheck was a fake signal. */}
             <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>Исполнитель</span>
           </div>
           <h1
@@ -478,12 +490,12 @@ function SpotifyArtistViewBase({ catalogArtistId, catalogProvider, artistName, o
               </div>
             )}
 
-          {/* Popular tracks */}
+          {/* Popular tracks — V4.1: 5-row editorial preview + expand */}
           {topTrackQueue.length > 0 && (
             <section>
               {sectionHead("Популярные треки", topTrackQueue.length)}
               <div className="space-y-0.5">
-                {topTrackQueue.slice(0, 10).map((t, i) => (
+                {topTrackQueue.slice(0, showAllTop ? 10 : 5).map((t, i) => (
                   <CatalogTrackRow
                     key={t.id}
                     track={t}
@@ -493,6 +505,17 @@ function SpotifyArtistViewBase({ catalogArtistId, catalogProvider, artistName, o
                   />
                 ))}
               </div>
+              {topTrackQueue.length > 5 && (
+                <button
+                  onClick={() => setShowAllTop((v) => !v)}
+                  className="mq-section-action mt-3 mx-auto flex items-center gap-1.5 mq-t-body"
+                  aria-expanded={showAllTop}
+                >
+                  {showAllTop
+                    ? <>Свернуть<ChevronUp className="w-3.5 h-3.5" /></>
+                    : <>Показать все {topTrackQueue.length}<ChevronDown className="w-3.5 h-3.5" /></>}
+                </button>
+              )}
               {catalogResolving && (
                 <p className="flex items-center gap-2 mt-2 px-1 text-xs" style={{ color: "var(--mq-text-muted)" }}>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -538,11 +561,12 @@ function SpotifyArtistViewBase({ catalogArtistId, catalogProvider, artistName, o
             </section>
           )}
 
-          {/* Related artists */}
+          {/* Related artists — secondary content (V4.1): compact chip-sized
+              tiles so the block reads as discovery, not another content grid */}
           {data.related.length > 0 && (
             <section>
               {sectionHead("Похожие исполнители", data.related.length)}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
                 {data.related.map((ra, i) => (
                   <motion.button
                     key={ra.catalogId}
@@ -551,18 +575,18 @@ function SpotifyArtistViewBase({ catalogArtistId, catalogProvider, artistName, o
                     viewport={{ once: true, amount: 0.2 }}
                     transition={{ duration: 0.2, delay: Math.min(i * 0.02, 0.12) }}
                     onClick={() => setSelectedArtist({ name: ra.name, avatar: ra.image, catalogArtistId: ra.catalogId, catalogProvider: ra.provider })}
-                    className="text-left group"
+                    className="text-left group flex flex-col items-center text-center"
                     data-mq-related-artist={ra.catalogId}
                   >
-                    <span className="block aspect-square rounded-full overflow-hidden mb-2 mq-art" style={{ backgroundColor: "var(--mq-surface-2)" }}>
+                    <span className="block aspect-square rounded-full overflow-hidden mb-2 mq-art w-full max-w-[104px]" style={{ backgroundColor: "var(--mq-surface-2)" }}>
                       {ra.image ? (
                         <img src={ra.image} alt="" className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-[1.04]" loading="lazy" draggable={false} />
                       ) : (
                         <span className="w-full h-full grid place-items-center"><Users className="w-6 h-6" style={{ color: "var(--mq-text-muted)" }} /></span>
                       )}
                     </span>
-                    <span className="block text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{ra.name}</span>
-                    <span className="block mq-t-meta-2 truncate" style={{ color: "var(--mq-text-muted)" }}>{fmtFollowers(ra.followers)}</span>
+                    <span className="block text-sm font-semibold truncate w-full max-w-[128px]" style={{ color: "var(--mq-text)" }}>{ra.name}</span>
+                    <span className="block mq-t-meta-2 truncate w-full max-w-[128px]" style={{ color: "var(--mq-text-muted)" }}>{fmtFollowers(ra.followers)}</span>
                   </motion.button>
                 ))}
               </div>

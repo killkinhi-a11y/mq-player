@@ -11,6 +11,7 @@ import { mergeSearchResults } from "@/lib/playback/merge";
 import type { CatalogAlbumDTO, CatalogArtistDTO, CatalogTrackDTO } from "@/lib/spotify/types";
 import { ProviderBadge } from "./ui/ProviderBadge";
 import ContextMenu from "./ContextMenu";
+import ArtistActionsMenu, { type ArtistMenuTarget } from "./ArtistActionsMenu";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import { useLongPress } from "@/hooks/useLongPress";
 import { Input } from "@/components/ui/input";
@@ -21,7 +22,7 @@ import {
   type SuggestionSourceTrack,
 } from "@/lib/search-suggestions";
 import {
-  Search, X, SlidersHorizontal, Play, Upload, Clock, CheckCircle2,
+  Search, X, SlidersHorizontal, Play, Pause, Upload, Clock, CheckCircle2,
   AlertCircle, Loader2, TrendingUp, ChevronRight, Music, Sparkles,
   RefreshCw, Flame, Zap, Mic, Disc, Heart, Piano, Radio, ListMusic,
   MoreHorizontal, User
@@ -74,6 +75,17 @@ const genreAccentColors: Record<string, string> = {
 
 // ── Global blob URL registry for local tracks ──
 const localBlobUrls = new Map<string, string>();
+
+// ── V4.1 name matching for the Top Result hero (normalized, no diacritics/
+//    punctuation noise; real strings only — never invents matches) ──
+function normalizeName(s: string): string {
+  return s.toLowerCase().replace(/[\p{P}\p{S}]+/gu, " ").replace(/\s+/g, " ").trim();
+}
+function nameMatchesQuery(name: string, normalizedQuery: string): boolean {
+  const n = normalizeName(name);
+  if (!n || n.length < 2) return false;
+  return n === normalizedQuery || n.startsWith(normalizedQuery) || normalizedQuery.startsWith(n);
+}
 
 export function registerLocalBlobUrl(trackId: string, blobUrl: string) {
   localBlobUrls.set(trackId, blobUrl);
@@ -334,6 +346,27 @@ export default function SearchView() {
     setSearchQuery(term);
     if (searchInputRef.current) searchInputRef.current.focus();
   }, [setSearchQuery]);
+
+  // V4.1: open the catalog album page from a search result album (shared
+  // by the hero and the albums grid — one honest navigation path).
+  const openAlbumFromSearch = useCallback((al: {
+    album: string; artist: string; cover?: string; count: number;
+    catalogAlbumId?: string; catalogProvider?: "spotify" | "deezer"; year?: string;
+  }) => {
+    if (!al.catalogAlbumId || !al.catalogProvider) return;
+    openSpotifyAlbum({
+      provider: al.catalogProvider,
+      id: `${al.catalogProvider === "deezer" ? "dzl" : "spl"}_${al.catalogAlbumId}`,
+      catalogId: al.catalogAlbumId,
+      name: al.album,
+      artist: al.artist,
+      image: al.cover || "",
+      year: al.year,
+      albumType: "album",
+      totalTracks: al.count,
+      totalDurationSec: 0,
+    });
+  }, [openSpotifyAlbum]);
 
   const handleClearHistory = useCallback(() => {
     saveSearchHistory([]);
@@ -638,27 +671,45 @@ export default function SearchView() {
       .slice(0, 4);
   }, [userPlaylists, searchQuery]);
 
-  // TOP RESULT: the artist dominating the results (≥2 tracks) wins —
-  // otherwise the first (most relevant) track.
+  // TOP RESULT (V4.1): entity-aware hero selection — real name matching
+  // against the query first, then the established relevance ladder. The
+  // hero never changes the entity type: an album match opens the album
+  // hero, an artist match the artist hero, otherwise the best track.
   const topResult = useMemo<{
     kind: "artist"; artist: ArtistGroup;
   } | {
+    kind: "album"; album: { album: string; artist: string; cover?: string; count: number; catalogAlbumId?: string; catalogProvider?: "spotify" | "deezer"; year?: string };
+  } | {
     kind: "track"; track: Track;
   } | null>(() => {
-    if (activeTracks.length === 0 && artistGroups.length === 0) return null;
-    // V2: a Spotify-linked artist (verified page) wins the hero slot;
-    // otherwise the artist dominating the results (≥2 tracks), else the
-    // first (most relevant) track.
+    if (activeTracks.length === 0 && artistGroups.length === 0 && albumGroups.length === 0) return null;
+    // V4.1: a catalog entity whose NAME matches the query wins (that is
+    // what the user asked for — "random access memories" is the album,
+    // not the artist). Normalized startsWith/equality, min length guard.
+    const q = normalizeName(searchQuery);
+    if (q.length >= 3) {
+      const nameArtist = artistGroups.find((a) => a.catalogArtistId && nameMatchesQuery(a.name, q));
+      if (nameArtist) return { kind: "artist", artist: nameArtist };
+      const nameAlbum = albumGroups.find((al) => al.catalogAlbumId && nameMatchesQuery(al.album, q));
+      if (nameAlbum) return { kind: "album", album: nameAlbum };
+    }
+    // V2 ladder (kept): any catalog artist → dominant artist (≥2 tracks)
+    // → first (most relevant) track.
     const catalogArtist = artistGroups.find((a) => a.catalogArtistId);
     if (catalogArtist) return { kind: "artist", artist: catalogArtist };
     const best = artistGroups[0];
     if (best && best.count >= 2) return { kind: "artist", artist: best };
     if (activeTracks.length === 0) return null;
     return { kind: "track", track: activeTracks[0] };
-  }, [artistGroups, activeTracks]);
+  }, [artistGroups, albumGroups, activeTracks, searchQuery]);
 
-  // Top tracks preview — the 4 most relevant rows next to the top card
-  const previewTracks = useMemo(() => processedTracks.slice(0, 4), [processedTracks]);
+  // Top tracks preview — the 4 most relevant rows next to the top card.
+  // V4.1: a track hero is NOT repeated as the first preview row (the hero
+  // already carries it — duplicated data reads as padding).
+  const previewTracks = useMemo(() => {
+    const heroId = topResult?.kind === "track" ? topResult.track.id : null;
+    return processedTracks.filter((t) => t.id !== heroId).slice(0, 4);
+  }, [processedTracks, topResult]);
 
   // Discovery rows (empty state §9): real listening history, no invention
   const discoveryTracks = useMemo<Track[]>(
@@ -1128,8 +1179,10 @@ export default function SearchView() {
             <div className="lg:col-span-5">
               <TopResultCard
                 result={topResult}
+                queue={fullTracks}
                 onArtistClick={(name, cover, catId, catProv) => setSelectedArtist({ name, avatar: cover, catalogArtistId: catId, catalogProvider: catProv })}
                 onPlay={playTrack}
+                onAlbumOpen={openAlbumFromSearch}
               />
             </div>
             <div className="lg:col-span-7 min-w-0">
@@ -1215,20 +1268,10 @@ export default function SearchView() {
                     viewport={{ once: true, amount: 0.1 }}
                     transition={{ duration: 0.2, delay: Math.min(i * 0.015, 0.12), ease: "easeOut" }}
                     onClick={() => {
-                      // V2: real catalog album → full album page context.
+                      // V2/V4.1: real catalog album → full album page context
+                      // (shared honest navigation path with the hero).
                       if (al.catalogAlbumId && al.catalogProvider) {
-                        openSpotifyAlbum({
-                          provider: al.catalogProvider,
-                          id: `${al.catalogProvider === "deezer" ? "dzl" : "spl"}_${al.catalogAlbumId}`,
-                          catalogId: al.catalogAlbumId,
-                          name: al.album,
-                          artist: al.artist,
-                          image: al.cover || "",
-                          year: al.year,
-                          albumType: "album",
-                          totalTracks: al.count,
-                          totalDurationSec: 0,
-                        });
+                        openAlbumFromSearch(al);
                         return;
                       }
                       handleTrendingClick(al.artist || al.album);
@@ -1941,111 +1984,291 @@ function SearchSuggestions({
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-// TOP RESULT CARD (§4) — the hero of the search results.
-// A solid surface (CONTENT CARD = SOLID, §18) with the dominant match:
-// the artist that owns the results, or the most relevant track.
-// Typography ladder: eyebrow (meta) → title (display) → meta → actions.
+// TOP RESULT HERO (V4.1) — the editorial hero of the search results.
+// Entity-aware (track / artist / album — the type is never substituted),
+// artwork-dominant, solid featured surface. Full honest metadata ladder:
+// eyebrow → display title → artist/album/year/duration → provider badge.
+// Primary Play CTA + real secondary actions in the context menu. Mobile
+// is its own narrow composition (not a squeezed desktop card). No fake
+// Playing status: the button reflects the real playback state only.
 // ═════════════════════════════════════════════════════════════════════════
+
+type TopHeroAlbum = {
+  album: string; artist: string; cover?: string; count: number;
+  catalogAlbumId?: string; catalogProvider?: "spotify" | "deezer"; year?: string;
+};
 
 function TopResultCard({
   result,
+  queue,
   onArtistClick,
   onPlay,
+  onAlbumOpen,
 }: {
   result:
     | { kind: "artist"; artist: { name: string; cover?: string; count: number; topTrack: Track; catalogArtistId?: string; catalogProvider?: "spotify" | "deezer"; followers?: number } }
+    | { kind: "album"; album: TopHeroAlbum }
     | { kind: "track"; track: Track };
+  queue: Track[];
   onArtistClick: (name: string, cover?: string, catalogArtistId?: string, catalogProvider?: "spotify" | "deezer") => void;
   onPlay: (track: Track, queue: Track[]) => void;
+  onAlbumOpen: (album: TopHeroAlbum) => void;
 }) {
+  const currentTrackId = useAppStore((s) => s.currentTrack?.id);
+  const isPlaying = useAppStore((s) => s.isPlaying);
+  const togglePlay = useAppStore((s) => s.togglePlay);
+  const [trackMenu, setTrackMenu] = useState<{ x: number; y: number } | null>(null);
+  const [artistMenu, setArtistMenu] = useState<{ x: number; y: number } | null>(null);
+
   const isArtist = result.kind === "artist";
-  const track: Track = isArtist ? result.artist.topTrack : result.track;
-  const title = isArtist ? result.artist.name : result.track.title;
-  const cover = isArtist ? result.artist.cover : result.track.cover;
-  const meta = isArtist
-    ? `Артист · ${result.artist.count} ${result.artist.count === 1 ? "трек" : result.artist.count < 5 ? "трека" : "треков"}`
-    : `Трек · ${result.track.artist}${result.track.duration > 0 ? ` · ${formatDuration(result.track.duration)}` : ""}`;
+  const isAlbum = result.kind === "album";
+  // The playable track for artist heroes = the artist's top result track;
+  // album heroes open the album page instead (no tracks are loaded here —
+  // an album "Play" without tracks would be a fake button).
+  const track: Track | null = isArtist ? result.artist.topTrack : isAlbum ? null : result.track;
+  const title = isArtist ? result.artist.name : isAlbum ? result.album.album : result.track.title;
+  const cover = isArtist ? result.artist.cover : isAlbum ? result.album.cover : result.track.cover;
+
+  // Honest now-playing state: only when THIS track is really current.
+  const isCurrent = !!track && track.id === currentTrackId;
+  const playLabel = isCurrent ? (isPlaying ? "Пауза" : "Продолжить") : "Слушать";
+
+  const openEntity = useCallback(() => {
+    if (isArtist) onArtistClick(result.artist.name, result.artist.cover, result.artist.catalogArtistId, result.artist.catalogProvider);
+    else if (isAlbum) onAlbumOpen(result.album);
+    else if (track) onPlay(track, [track]);
+  }, [isArtist, isAlbum, result, track, onArtistClick, onAlbumOpen, onPlay]);
 
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onPlay(track, [track]);
+    if (isAlbum) { onAlbumOpen(result.album); return; }
+    if (!track) return;
+    if (isCurrent) { togglePlay(); return; }
+    // Queue context = the artist's own tracks from the live results (real
+    // data, no refetch); fallback to the results list, else the track.
+    if (isArtist) {
+      const artistTracks = queue.filter((t) => t.artist && t.artist.toLowerCase() === result.artist.name.toLowerCase());
+      onPlay(track, artistTracks.length > 0 ? artistTracks : [track]);
+      return;
+    }
+    onPlay(track, queue.length > 0 ? queue : [track]);
   };
+
+  const openMenu = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    if (isArtist) setArtistMenu({ x: r.left, y: r.bottom + 4 });
+    else if (track) setTrackMenu({ x: r.left, y: r.bottom + 4 });
+  };
+
+  const typeLabel = isArtist ? "Артист" : isAlbum ? "Альбом" : "Трек";
+  // Metadata: real fields only — each line renders ONLY when the data
+  // exists (no invented years, albums or durations).
+  const artistLine = isArtist
+    ? result.artist.followers && result.artist.followers > 0
+      ? `${Intl.NumberFormat("ru-RU").format(result.artist.followers)} слушателей`
+      : result.artist.count > 0
+        ? `${result.artist.count} ${result.artist.count === 1 ? "трек" : result.artist.count < 5 ? "трека" : "треков"} в результатах`
+        : "Артист"
+    : isAlbum
+      ? result.album.artist || "Альбом"
+      : result.track.artist;
+  const albumLine = !isArtist && !isAlbum && result.track.album ? result.track.album : null;
+  const tailLine = isAlbum
+    ? [
+        result.album.year || null,
+        result.album.count > 0 ? `${result.album.count} ${result.album.count === 1 ? "трек" : result.album.count < 5 ? "трека" : "треков"}` : null,
+      ].filter(Boolean).join(" · ") || null
+    : !isArtist && !isAlbum && result.track.duration > 0
+      ? formatDuration(result.track.duration)
+      : null;
+  const provider = isArtist
+    ? result.artist.catalogProvider === "deezer" ? "deezer" : result.artist.catalogProvider === "spotify" ? "spotify" : null
+    : isAlbum
+      ? result.album.catalogProvider === "deezer" ? "deezer" : result.album.catalogProvider === "spotify" ? "spotify" : null
+      : result.track.catalogProvider === "deezer" || result.track.catalogProvider === "spotify"
+        ? result.track.catalogProvider
+        : result.track.playbackProvider || (result.track.source === "audius" || result.track.source === "soundcloud" ? result.track.source : null);
+
+  const artRadius = isArtist ? "50%" : "var(--mq-mat-radius-float, 18px)";
+  const artClass = "mq-art flex-shrink-0";
+  const artStyle: React.CSSProperties = {
+    width: 152, height: 152,
+    borderRadius: artRadius,
+    overflow: "hidden",
+    backgroundColor: "var(--mq-surface-2)",
+    boxShadow: "var(--mq-mat-2-shadow)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+  };
+  const FallbackIcon = isArtist ? User : isAlbum ? Disc : Music;
+
+  const titleBlock = (
+    <h3
+      className="mq-t-display text-[22px] sm:text-[26px] leading-[1.08] break-words"
+      style={{
+        color: "var(--mq-text)",
+        display: "-webkit-box",
+        WebkitLineClamp: 2,
+        WebkitBoxOrient: "vertical",
+        overflow: "hidden",
+      }}
+    >
+      {title}
+    </h3>
+  );
+
+  const metaBlock = (
+    <div className="mt-1.5 min-w-0">
+      <p className="mq-t-artist truncate" style={{ color: "var(--mq-text-muted)" }}>
+        {typeLabel}
+        {artistLine && artistLine !== typeLabel ? ` · ${artistLine}` : ""}
+      </p>
+      {albumLine && (
+        <p className="mq-t-meta truncate mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{albumLine}</p>
+      )}
+      <div className="flex items-center gap-2 mt-1.5 min-w-0">
+        {provider && <ProviderBadge provider={provider as "deezer" | "spotify" | "soundcloud" | "audius"} size="sm" />}
+        {tailLine && (
+          <span className="mq-t-meta mq-t-num truncate" style={{ color: "var(--mq-text-muted)" }}>{tailLine}</span>
+        )}
+      </div>
+    </div>
+  );
+
+  const playBlock = (
+    <div className="flex items-center gap-2 mt-4">
+      <button
+        onClick={handlePlay}
+        className="mq-platinum-btn flex-1 min-w-0 flex items-center justify-center gap-2 h-11 px-5 rounded-full text-sm font-semibold transition-transform active:scale-[0.97]"
+        aria-label={isAlbum ? `Открыть альбом ${title}` : `${playLabel} ${title}`}
+        data-mq-topresult-play
+      >
+        {isAlbum ? (
+          <><Disc className="w-4 h-4" />Открыть альбом</>
+        ) : (
+          <>
+            {isCurrent && isPlaying
+              ? <Pause className="w-4 h-4" fill="currentColor" />
+              : <Play className="w-4 h-4" fill="currentColor" />}
+            {playLabel}
+          </>
+        )}
+      </button>
+      {!isAlbum && (
+        <button
+          onClick={openMenu}
+          className="mq-hit44 w-11 h-11 rounded-full flex items-center justify-center shrink-0 transition-colors"
+          style={{
+            background: "color-mix(in srgb, var(--mq-text) 7%, transparent)",
+            border: "1px solid var(--mq-edge)",
+            color: "var(--mq-text)",
+          }}
+          aria-label={`Действия: ${title}`}
+          aria-haspopup="menu"
+        >
+          <MoreHorizontal className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />
+        </button>
+      )}
+    </div>
+  );
 
   return (
     <div
       className="mq-search-topresult group"
       role="button"
       tabIndex={0}
-      onClick={() => { if (isArtist) onArtistClick(result.artist.name, result.artist.cover, result.artist.catalogArtistId, result.artist.catalogProvider); }}
+      onClick={openEntity}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          if (isArtist) onArtistClick(result.artist.name, result.artist.cover, result.artist.catalogArtistId, result.artist.catalogProvider);
+          openEntity();
         }
       }}
-      aria-label={isArtist ? `Открыть артиста ${title}` : `Слушать ${title}`}
+      aria-label={
+        isArtist ? `Открыть артиста ${title}`
+        : isAlbum ? `Открыть альбом ${title}`
+        : `Слушать ${title}`
+      }
+      data-mq-topresult-kind={result.kind}
     >
-      <p className="mq-t-meta text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: "var(--mq-text-muted)" }}>
-        Топ-результат
-      </p>
-      <div className="flex items-center gap-4 mt-2.5">
-        <div
-          className={isArtist ? "mq-art flex-shrink-0" : "mq-art flex-shrink-0"}
-          style={{
-            width: 104,
-            height: 104,
-            borderRadius: isArtist ? "50%" : "var(--mq-mat-radius-float, 18px)",
-            overflow: "hidden",
-            backgroundColor: "var(--mq-surface-2)",
-            boxShadow: "var(--mq-mat-2-shadow)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {cover ? (
-            <img src={cover} alt="" className="w-full h-full object-cover" loading="lazy" draggable={false} />
-          ) : (
-            isArtist
-              ? <User className="w-8 h-8" style={{ color: "var(--mq-text-muted)" }} />
-              : <Music className="w-8 h-8" style={{ color: "var(--mq-text-muted)" }} />
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <h3 className="mq-t-display text-[20px] sm:text-[24px] leading-tight break-words" style={{
-            color: "var(--mq-text)",
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          }}>
-            {title}
-          </h3>
-          <p className="mq-t-meta mt-1 truncate" style={{ color: "var(--mq-text-muted)" }}>{meta}</p>
-        </div>
-      </div>
-      <div className="flex items-center gap-2 mt-4">
-        <button
-          onClick={handlePlay}
-          className="mq-platinum-btn flex items-center gap-1.5 h-10 px-4 rounded-full text-[13px] font-semibold transition-colors duration-150"
-        >
-          <Play className="w-3.5 h-3.5" fill="currentColor" />
-          Слушать
-        </button>
-        {!isArtist && track.artist && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onArtistClick(track.artist, track.cover, track.catalogArtistId, track.catalogProvider); }}
-            className="flex items-center h-10 px-4 rounded-full text-[13px] font-semibold transition-colors duration-150"
+      {/* Desktop (lg+): vertical editorial ladder — eyebrow, dominant
+          artwork, title, metadata, actions */}
+      <div className="hidden lg:block">
+        <div className="flex items-center justify-between gap-2">
+          <p className="mq-t-meta text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--mq-text-muted)" }}>
+            Топ-результат
+          </p>
+          <span
+            className="mq-t-meta-2 text-[11px] font-bold uppercase tracking-[0.1em] px-2 py-0.5 rounded-full"
             style={{
-              backgroundColor: "color-mix(in srgb, var(--mq-text) 7%, transparent)",
-              color: "var(--mq-text)",
-              border: "1px solid var(--mq-edge)",
+              color: "color-mix(in srgb, var(--mq-text) 72%, transparent)",
+              background: "color-mix(in srgb, var(--mq-text) 6%, transparent)",
             }}
           >
-            К артисту
-          </button>
-        )}
+            {typeLabel}
+          </span>
+        </div>
+        <div className={artClass} style={{ ...artStyle, width: 168, height: 168, marginTop: 14 }}>
+          {cover ? (
+            <img src={cover} alt="" className="w-full h-full object-cover" loading="eager" draggable={false} />
+          ) : (
+            <FallbackIcon className="w-10 h-10" style={{ color: "var(--mq-text-muted)" }} />
+          )}
+        </div>
+        <div className="mt-3.5 min-w-0">{titleBlock}</div>
+        {metaBlock}
+        {playBlock}
       </div>
+
+      {/* Mobile (<lg): horizontal composition — art 112px + text column,
+          full-width play row. Independent rhythm, no squeezed desktop. */}
+      <div className="lg:hidden">
+        <div className="flex items-center justify-between gap-2 mb-2.5">
+          <p className="mq-t-meta text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--mq-text-muted)" }}>
+            Топ-результат
+          </p>
+          <span
+            className="mq-t-meta-2 text-[11px] font-bold uppercase tracking-[0.1em] px-2 py-0.5 rounded-full"
+            style={{
+              color: "color-mix(in srgb, var(--mq-text) 72%, transparent)",
+              background: "color-mix(in srgb, var(--mq-text) 6%, transparent)",
+            }}
+          >
+            {typeLabel}
+          </span>
+        </div>
+        <div className="flex items-start gap-3.5">
+          <div className={artClass} style={{ ...artStyle, width: 112, height: 112 }}>
+            {cover ? (
+              <img src={cover} alt="" className="w-full h-full object-cover" loading="eager" draggable={false} />
+            ) : (
+              <FallbackIcon className="w-8 h-8" style={{ color: "var(--mq-text-muted)" }} />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">{titleBlock}{metaBlock}</div>
+        </div>
+        {playBlock}
+      </div>
+
+      {/* Secondary actions — real menus only (track: full ContextMenu,
+          artist: ArtistActionsMenu; album hero opens the album page —
+          no fake album actions). */}
+      {trackMenu && track && (
+        <ContextMenu track={track} x={trackMenu.x} y={trackMenu.y} onClose={() => setTrackMenu(null)} />
+      )}
+      {artistMenu && isArtist && (
+        <ArtistActionsMenu
+          artist={{
+            name: result.artist.name,
+            avatar: result.artist.cover,
+            followers: result.artist.followers,
+            trackCount: result.artist.count,
+          } satisfies ArtistMenuTarget}
+          x={artistMenu.x}
+          y={artistMenu.y}
+          onClose={() => setArtistMenu(null)}
+        />
+      )}
     </div>
   );
 }
