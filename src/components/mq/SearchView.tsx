@@ -83,19 +83,26 @@ const localBlobUrls = new Map<string, string>();
 //      2. entity name starts with q    — "random acce…" still finds it
 //      3. q starts with a LONG name    — "the dark side of the moon…" → album
 //         (≥12 chars: a short "Faded" must NOT capture "faded alan walker")
-//      4. q contains the name as words — "faded alan walker" → artist
-//        "Alan Walker" (the entity is part of what the user typed) ──
+//      4. q contains the name as words — ARTIST signal only:
+//        "faded alan walker" → artist "Alan Walker" (albums never match
+//        by containment — "Faded" must not capture the query) ──
 function normalizeName(s: string): string {
   return s.toLowerCase().replace(/[\p{P}\p{S}]+/gu, " ").replace(/\s+/g, " ").trim();
 }
-function nameMatchesQuery(name: string, normalizedQuery: string): boolean {
+function nameMatchesQuery(name: string, normalizedQuery: string, allowContainment: boolean): boolean {
   const n = normalizeName(name);
   if (!n || n.length < 2) return false;
   if (n === normalizedQuery) return true;
   if (n.startsWith(normalizedQuery)) return true;
   if (normalizedQuery.startsWith(n) && n.length >= 12) return true;
-  const padded = ` ${normalizedQuery} `;
-  return padded.includes(` ${n} `);
+  // Word containment is an ARTIST signal only ("faded alan walker" → the
+  // artist Alan Walker). An album named "Faded" must NOT capture that
+  // query — a track/artist query with a famous single stays track/artist.
+  if (allowContainment) {
+    const padded = ` ${normalizedQuery} `;
+    return padded.includes(` ${n} `);
+  }
+  return false;
 }
 
 export function registerLocalBlobUrl(trackId: string, blobUrl: string) {
@@ -703,8 +710,8 @@ export default function SearchView() {
     // artist next to Daft Punk's album, and the album is what people mean.
     const q = normalizeName(searchQuery);
     if (q.length >= 3) {
-      const nameArtist = artistGroups.find((a) => a.catalogArtistId && nameMatchesQuery(a.name, q));
-      const nameAlbum = albumGroups.find((al) => al.catalogAlbumId && nameMatchesQuery(al.album, q));
+      const nameArtist = artistGroups.find((a) => a.catalogArtistId && nameMatchesQuery(a.name, q, true));
+      const nameAlbum = albumGroups.find((al) => al.catalogAlbumId && nameMatchesQuery(al.album, q, false));
       if (nameArtist && nameAlbum) {
         const artistStrong = (nameArtist.followers ?? 0) >= 1000 || nameArtist.count >= 3;
         return artistStrong
