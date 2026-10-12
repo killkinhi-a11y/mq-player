@@ -166,14 +166,29 @@ function MainView() {
   const recentTracks = useMemo(() => {
     // V4.1 dedupe: the CURRENT track already owns the Continue band
     // (desktop) / Now hero (mobile) — repeating it in «Недавно» reads as
-    // padding. Everything else is the real history order.
+    // padding. Match by ID and by CANONICAL identity (normalized title +
+    // artist): the free resolver legitimately swaps a catalog row
+    // (dzl_/spl_ id) for its SoundCloud/Audius twin (sc_ id) with the same
+    // title — an id-only filter would let the twin through and the user
+    // would see the same track twice.
     const currentId = currentTrack?.id;
+    const curKey = currentTrack
+      ? `${(currentTrack.title || "").toLowerCase().trim()}|${(currentTrack.artist || "").toLowerCase().trim()}`
+      : null;
     return history
-      .filter((h: any) => h?.track && h.track.id !== currentId)
+      .filter((h: any) => {
+        if (!h?.track) return false;
+        if (currentId && h.track.id === currentId) return false;
+        if (curKey) {
+          const key = `${(h.track.title || "").toLowerCase().trim()}|${(h.track.artist || "").toLowerCase().trim()}`;
+          if (key === curKey) return false;
+        }
+        return true;
+      })
       .slice(0, 10)
       .map((h: any) => h.track)
       .filter(Boolean);
-  }, [history, currentTrack?.id]);
+  }, [history, currentTrack]);
 
   // ── RECOMMENDED PLAYLISTS for the editorial section: the app's TWO real
   // recommendation sources merged — public taste-based picks (the existing
