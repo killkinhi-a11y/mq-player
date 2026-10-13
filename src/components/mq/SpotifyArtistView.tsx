@@ -333,7 +333,7 @@ function SpotifyArtistViewBase({ catalogArtistId, catalogProvider, artistName, o
       <div className={`relative flex gap-5 ${isMobile ? "flex-col p-5" : "items-end p-7"}`}>
         <div
           className={`${isMobile ? "w-full max-w-[180px] mx-auto" : "w-44 lg:w-52"} aspect-square rounded-full overflow-hidden mq-art shrink-0`}
-          style={{ boxShadow: `0 18px 48px rgba(${heroColors.rgb.r}, ${heroColors.rgb.g}, ${heroColors.rgb.b}, 0.33)`, backgroundColor: "var(--mq-surface-2)" }}
+          style={{ borderRadius: "50%", boxShadow: `0 18px 48px rgba(${heroColors.rgb.r}, ${heroColors.rgb.g}, ${heroColors.rgb.b}, 0.33)`, backgroundColor: "var(--mq-surface-2)" }}
         >
           {data.artist?.image ? (
             <img src={data.artist.image} alt={data.artist.name} className="w-full h-full object-cover" draggable={false} loading="eager" fetchPriority="high" decoding="async" />
@@ -578,7 +578,7 @@ function SpotifyArtistViewBase({ catalogArtistId, catalogProvider, artistName, o
                     className="text-left group flex flex-col items-center text-center"
                     data-mq-related-artist={ra.catalogId}
                   >
-                    <span className="block aspect-square rounded-full overflow-hidden mb-2 mq-art w-full max-w-[104px]" style={{ backgroundColor: "var(--mq-surface-2)" }}>
+                    <span className="block aspect-square overflow-hidden mb-2 mq-art w-full max-w-[104px]" style={{ borderRadius: "50%", backgroundColor: "var(--mq-surface-2)" }}>
                       {ra.image ? (
                         <img src={ra.image} alt="" className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-[1.04]" loading="lazy" draggable={false} />
                       ) : (

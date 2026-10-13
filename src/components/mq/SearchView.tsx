@@ -1258,7 +1258,7 @@ export default function SearchView() {
                     onClick={() => setSelectedArtist({ name: a.name, avatar: a.cover, catalogArtistId: a.catalogArtistId, catalogProvider: a.catalogProvider })}
                     className="mq-row group"
                   >
-                    <span className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 mq-art flex items-center justify-center" style={{ backgroundColor: "var(--mq-surface-2)" }}>
+                    <span className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 mq-art flex items-center justify-center" style={{ borderRadius: "50%", backgroundColor: "var(--mq-surface-2)" }}>
                       {a.cover ? (
                         <img src={a.cover} alt="" className="w-full h-full object-cover" loading="lazy" draggable={false} />
                       ) : (
@@ -1616,7 +1616,7 @@ export default function SearchView() {
                       className="flex flex-col items-center gap-2 flex-shrink-0 w-[76px] pt-1 pb-1 rounded-[var(--mq-r-card)] transition-colors hover:bg-[var(--mq-overlay-hover)]"
                       style={{ minHeight: 44 }}
                     >
-                      <span className="w-14 h-14 rounded-full overflow-hidden mq-art flex items-center justify-center" style={{ backgroundColor: "var(--mq-surface-2)", boxShadow: "var(--mq-art-edge)" }}>
+                      <span className="w-14 h-14 rounded-full overflow-hidden mq-art flex items-center justify-center" style={{ borderRadius: "50%", backgroundColor: "var(--mq-surface-2)", boxShadow: "var(--mq-art-edge)" }}>
                         {a.avatar ? (
                           <img src={a.avatar} alt="" className="w-full h-full object-cover" loading="lazy" draggable={false} />
                         ) : (
