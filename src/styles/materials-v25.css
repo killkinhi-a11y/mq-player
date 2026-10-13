@@ -430,6 +430,23 @@
   filter: saturate(0.6) brightness(0.8);
 }
 
+/* ── HERO CONTEXT (V4.2 §2.2) ──────────────────────────────────────────────
+   The primary CTA on dark hero surfaces (search Top Result, artist hero,
+   album hero, Continue Listening card). Same flat liquid glass — the only
+   change is a STRONGER cold-light edge (24% → 42%) and a deeper seat so
+   the CTA reads as THE primary action against the dark card instead of
+   melting into it (VLM 6/10 pre-fix). Specificity 0,2,0 — overrides the
+   base border and its :hover without touching the other 15+ call sites. */
+.mq-platinum-btn.mq-platinum-btn--hero {
+  border-color: color-mix(in srgb, var(--mq-platinum-hi) 42%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 4px 16px rgba(0, 0, 0, 0.32);
+}
+.mq-platinum-btn.mq-platinum-btn--hero:hover {
+  border-color: color-mix(in srgb, var(--mq-platinum-hi) 55%, transparent);
+}
+
 /* Identity hairline — selected state / WAVE identity mark. A 1px cold
    light line (single color, theme-kissed) fading at both ends via alpha
    stops. Quiet, precise — not a chrome sweep. */

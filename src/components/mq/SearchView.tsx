@@ -14,6 +14,7 @@ import ContextMenu from "./ContextMenu";
 import ArtistActionsMenu, { type ArtistMenuTarget } from "./ArtistActionsMenu";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import { useLongPress } from "@/hooks/useLongPress";
+import { extractColors, DEFAULT_COLORS, type DominantColors } from "@/hooks/useDominantColor";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -2057,6 +2058,19 @@ function TopResultCard({
   const title = isArtist ? result.artist.name : isAlbum ? result.album.album : result.track.title;
   const cover = isArtist ? result.artist.cover : isAlbum ? result.album.cover : result.track.cover;
 
+  // V4.2 §2.1 — dominant-color ambient under the CIRCULAR artist artwork.
+  // The same treatment as the artist page hero (SpotifyArtistView):
+  // extractColors runs on the already-displayed cover (browser cache, no
+  // extra request), falls back to DEFAULT_COLORS on error/timeout.
+  const [heroColors, setHeroColors] = useState<DominantColors>(DEFAULT_COLORS);
+  useEffect(() => {
+    let cancelled = false;
+    if (isArtist && cover) {
+      extractColors(cover).then((c) => { if (!cancelled) setHeroColors(c); }).catch(() => {});
+    }
+    return () => { cancelled = true; };
+  }, [isArtist, cover]);
+
   // Honest now-playing state: only when THIS track is really current.
   const isCurrent = !!track && track.id === currentTrackId;
   const playLabel = isCurrent ? (isPlaying ? "Пауза" : "Продолжить") : "Слушать";
@@ -2120,12 +2134,20 @@ function TopResultCard({
 
   const artRadius = isArtist ? "50%" : "var(--mq-mat-radius-float, 18px)";
   const artClass = "mq-art flex-shrink-0";
+  // V4.2 §2.1: circles get the dominant-color ambient (the established
+  // artist-hero treatment) — a soft colored halo that lifts the circle off
+  // the card; rectangular artwork keeps the standard material shadow.
+  // rgba() syntax is required — the legacy `${r},${g},${b}33` template on
+  // SpotifyArtistView produced invalid CSS and never rendered.
+  const artShadow = isArtist
+    ? `0 18px 48px rgba(${heroColors.rgb.r}, ${heroColors.rgb.g}, ${heroColors.rgb.b}, 0.33)`
+    : "var(--mq-mat-2-shadow)";
   const artStyle: React.CSSProperties = {
     width: 152, height: 152,
     borderRadius: artRadius,
     overflow: "hidden",
     backgroundColor: "var(--mq-surface-2)",
-    boxShadow: "var(--mq-mat-2-shadow)",
+    boxShadow: artShadow,
     display: "flex", alignItems: "center", justifyContent: "center",
   };
   const FallbackIcon = isArtist ? User : isAlbum ? Disc : Music;
@@ -2167,7 +2189,7 @@ function TopResultCard({
     <div className="flex items-center gap-2 mt-4">
       <button
         onClick={handlePlay}
-        className="mq-platinum-btn flex-1 min-w-0 flex items-center justify-center gap-2 h-11 px-5 rounded-full text-sm font-semibold transition-transform active:scale-[0.97]"
+        className="mq-platinum-btn mq-platinum-btn--hero flex-1 min-w-0 flex items-center justify-center gap-2 h-11 px-5 rounded-full text-sm font-semibold transition-transform active:scale-[0.97]"
         aria-label={isAlbum ? `Открыть альбом ${title}` : `${playLabel} ${title}`}
         data-mq-topresult-play
       >

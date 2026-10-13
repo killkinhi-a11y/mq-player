@@ -331,7 +331,7 @@ function AlbumDetailViewBase({ album, onBack, animationsEnabled }: Props) {
                   <button
                     onClick={playAlbum}
                     disabled={albumTracks.length === 0}
-                    className="mq-platinum-btn inline-flex items-center gap-2 px-5 h-11 rounded-full text-sm font-semibold transition-transform active:scale-[0.97] disabled:opacity-40"
+                    className="mq-platinum-btn mq-platinum-btn--hero inline-flex items-center gap-2 px-5 h-11 rounded-full text-sm font-semibold transition-transform active:scale-[0.97] disabled:opacity-40"
                     aria-label={heroPlaying && isPlaying ? "Пауза" : heroPlaying ? "Продолжить" : "Слушать"}
                     data-mq-album-play
                   >

@@ -78,7 +78,47 @@ const nextConfig: NextConfig = {
       { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=(), payment=()" },
       {
         key: "Content-Security-Policy",
-        value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';",
+        // CSP v4.2 — evidence-based allowlist (4 live violations reproduced on
+        // production 2026-10-13, see download/ui-v4.2/csp-evidence):
+        //   script-src-elem https://telegram.org/js/telegram-widget.js   (login + account linking)
+        //   script-src-elem https://challenges.cloudflare.com/turnstile (CobaltTurnstile, SNIP bypass JWT)
+        //   frame-src      https://challenges.cloudflare.com            (Turnstile iframe)
+        //   frame-src      https://oauth.telegram.org                   (Telegram login widget iframe)
+        // Directive decisions:
+        //   - 'unsafe-eval' REMOVED. No eval()/new Function in src/ (grepped);
+        //     replaced by 'wasm-unsafe-eval' — the only eval-class capability
+        //     the app needs is WebAssembly.compile for the WASM audio engine
+        //     (src/lib/wasm-audio/WasmAudioBackend.ts:494). Narrow keyword:
+        //     allows WASM compile only, blocks JS eval.
+        //   - script-src 'unsafe-inline' KEPT: Next.js App Router streams the
+        //     RSC payload via inline <script>self.__next_f.push(...)</script>
+        //     tags. Removing it requires nonce-based CSP via middleware, which
+        //     forces dynamic rendering of every page — an architectural change
+        //     (no middleware exists in this app), out of scope for a security
+        //     hotfix. Documented, not a quick fix: no third-party origin is
+        //     allowed to inline-eval anything.
+        //   - frame-src ADDED (was absent → fell back to default-src 'self',
+        //     which blocked both auth widgets). 'self' preserved so any
+        //     same-origin embed keeps working exactly as before.
+        //   - style-src 'unsafe-inline' KEPT: framer-motion + React inline
+        //     style attributes are part of the design system (mq-* tokens).
+        //   - img/media/connect broad https: kept: artwork + stream hosts are
+        //     resolver-dynamic (Deezer/SC/Audius CDN families vary per track).
+        //   - frame-ancestors 'none' + X-Frame-Options DENY kept (clickjacking
+        //     protection). NOTE: this also blocks /tg inside Telegram Web K
+        //     iframes (pre-existing, unrelated to login-page fix).
+        value:
+          "default-src 'self'; " +
+          "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://challenges.cloudflare.com https://telegram.org; " +
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+          "font-src 'self' https://fonts.gstatic.com; " +
+          "img-src 'self' data: blob: https:; " +
+          "media-src 'self' blob: https:; " +
+          "connect-src 'self' https: wss:; " +
+          "frame-src 'self' https://challenges.cloudflare.com https://oauth.telegram.org; " +
+          "frame-ancestors 'none'; " +
+          "base-uri 'self'; " +
+          "form-action 'self'",
       },
     ];
 

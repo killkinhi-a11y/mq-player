@@ -1383,7 +1383,7 @@ function ContinueListeningCard({
       <div className="flex items-center gap-1.5 shrink-0">
         <button
           onClick={onToggle}
-          className="mq-platinum-btn mq-press w-12 h-12 rounded-full flex items-center justify-center shrink-0"
+          className="mq-platinum-btn mq-platinum-btn--hero mq-press w-12 h-12 rounded-full flex items-center justify-center shrink-0"
           /* V2 §10.5 contract (pinned by tests): flat liquid-glass primary
              play with INLINE backdrop blur — Lightning-class engines strip
              backdrop-filter from stylesheets, so the blur rides the inline

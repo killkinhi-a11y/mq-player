@@ -333,7 +333,7 @@ function SpotifyArtistViewBase({ catalogArtistId, catalogProvider, artistName, o
       <div className={`relative flex gap-5 ${isMobile ? "flex-col p-5" : "items-end p-7"}`}>
         <div
           className={`${isMobile ? "w-full max-w-[180px] mx-auto" : "w-44 lg:w-52"} aspect-square rounded-full overflow-hidden mq-art shrink-0`}
-          style={{ boxShadow: `0 18px 48px ${heroColors.rgb.r},${heroColors.rgb.g},${heroColors.rgb.b}33`, backgroundColor: "var(--mq-surface-2)" }}
+          style={{ boxShadow: `0 18px 48px rgba(${heroColors.rgb.r}, ${heroColors.rgb.g}, ${heroColors.rgb.b}, 0.33)`, backgroundColor: "var(--mq-surface-2)" }}
         >
           {data.artist?.image ? (
             <img src={data.artist.image} alt={data.artist.name} className="w-full h-full object-cover" draggable={false} loading="eager" fetchPriority="high" decoding="async" />
@@ -367,7 +367,7 @@ function SpotifyArtistViewBase({ catalogArtistId, catalogProvider, artistName, o
             <button
               onClick={playPopular}
               disabled={state !== "ok" || topTrackQueue.length === 0}
-              className="mq-platinum-btn inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-transform active:scale-[0.97] disabled:opacity-40"
+              className="mq-platinum-btn mq-platinum-btn--hero inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-transform active:scale-[0.97] disabled:opacity-40"
               aria-label={heroPlaying && isPlaying ? "Пауза" : "Слушать"}
               data-mq-artist-play
             >

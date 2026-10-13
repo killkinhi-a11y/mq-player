@@ -114,8 +114,9 @@ describe("FCP §4+§7 + V2 §10 — primary play is flat Liquid Glass, red is ra
     const main = readSrc("src/components/mq/MainView.tsx");
     // FeaturedCard «Слушать» CTA
     expect(main).toMatch(/mq-platinum-btn h-11 px-6/);
-    // Continue-listening play disc (V2: + mq-press motion + inline glass blur)
-    expect(main).toMatch(/mq-platinum-btn mq-press w-12 h-12/);
+    // Continue-listening play disc (V2: + mq-press motion + inline glass blur;
+    // V4.2 §2.2: + hero-context edge — stronger platinum contour on dark card)
+    expect(main).toMatch(/mq-platinum-btn mq-platinum-btn--hero mq-press w-12 h-12/);
     expect(main).toMatch(/backdropFilter: "var\(--mq-blur-md\)"/);
     // HeroWaveCTA (compact disc + full button)
     expect(main).toMatch(/mq-platinum-btn w-11 h-11 rounded-full/);
