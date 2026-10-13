@@ -9942,3 +9942,43 @@ Stage Summary:
   1383/1383 tests; preview×2 + production verified.
 - Remaining owner action: bind mq1.vercel.app to Turnstile sitekey in
   Cloudflare dashboard (code side done).
+
+---
+Task ID: deploy-v90-verify
+Agent: main (Super Z)
+Task: «деплой» — sync container, verify deploy currency, gates, prod smoke, evidence push
+
+Work Log:
+- Container was a stale Sep-25 snapshot; remote main had advanced to 7b0a262f
+  (V4.1 2026-10-12 + V4.2 CSP/artwork 2026-10-13). Synced: removed 37 duplicate
+  untracked upload/ files (byte-identical, all tracked upstream), rebase dropped
+  redundant local screenshot commit 69d6bf59 (file existed upstream).
+  HEAD = origin/main = 7b0a262f = production v90 (mq-build-7b0a262f).
+- Deploy currency: prod /version.json = v90 commit 7b0a262f — ALL committed work
+  already live; all feature branches (ui-v41/v42, spotify, yandex) merged to main.
+- Gates on synced tree: vitest 1383/1383 (80 files, 82s); tsc src/=0 (19
+  pre-existing outside src/: desktop/tauri + scripts/skills baseline); eslint
+  55 errors = pre-existing react-hooks-v6-rules baseline on deployed HEAD (45
+  set-state-in-effect, 6 purity, 2 refs, 2 other); next build PASS; build
+  artifacts (version.json, next-env.d.ts) reverted — tree clean.
+- PROD SMOKE (agent-browser, desktop 1440x900 + mobile 390x844):
+  * / 307 → /play 200 (middleware by design); 0 page errors everywhere.
+  * Auth: Telegram Login Widget LIVE — iframe oauth.telegram.org/embed/mq_auth_bot
+    238x40 + data-telegram-login=mq_auth_bot, 0 CSP violations; CSP header live
+    with v4.2 allowlist (telegram.org script-src, oauth.telegram.org +
+    challenges.cloudflare.com frame-src, wasm-unsafe-eval).
+  * Demo → home fully rendered (nav/WAVE/recommended/Продолжить/ИЗБРАННОЕ).
+  * Playback REAL: 0:03 → 0:21 → 0:29 of 5:18 full-length track (free resolver,
+    WebAudio engine — no <audio> el by design).
+  * Search "daft punk" → ARTIST hero + name (V4.1 top-result live).
+  * Mobile 390x844: overflowX=0 (search + home).
+  * Console: only known Turnstile 110200 warnings (OWNER ACTION: bind
+    mq1.vercel.app to sitekey in Cloudflare dashboard — code side done in v4.2).
+  * Evidence: download/deploy-smoke-v90/ (5 screenshots).
+- This commit: worklog + smoke evidence; push → Vercel redeploy (docs-only,
+  app code identical to v90).
+
+Stage Summary:
+- Deploy state VERIFIED: production already ran latest code (v90 = HEAD).
+  Nothing was pending deploy; this pass re-proved it end-to-end and pushed
+  QA evidence. Remaining owner action unchanged: Turnstile domain binding.
