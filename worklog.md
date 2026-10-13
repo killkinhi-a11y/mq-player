@@ -9858,3 +9858,87 @@ Stage Summary:
   challenges.cloudflare.com/telegram.org (auth-page widgets blocked),
   engine console.error diagnostics, engine self-recovery racing pause
   during catalog-track resolution.
+
+---
+Task ID: v4.2
+Agent: main (Super Z)
+Task: MQ UI V4.2 — CSP fix, auth stability & final visual polish
+
+Work Log:
+- PHASE 0 baseline: local main fast-forwarded 69d6bf59→7f8ac460 (V4.1 was
+  DONE by previous session, deployed, prod=7f8ac460; worklog knew nothing).
+  Untracked upload/ conflicts resolved (identical files, verified byte-cmp).
+- PHASE 1 CSP: reproduced 4 LIVE violations on prod via agent-browser
+  securitypolicyviolation listener (telegram-widget.js script-src-elem,
+  turnstile api.js script-src-elem, challenges.cloudflare.com frame-src,
+  oauth.telegram.org frame-src — no frame-src fell back to default-src).
+  Fix in next.config.ts: removed 'unsafe-eval' → 'wasm-unsafe-eval'
+  (only WebAssembly.compile needs it; zero eval in src/), added the 2
+  evidenced script origins (full external-script inventory grepped: 4),
+  added frame-src 'self' + 2 origins. 'unsafe-inline' script-src kept +
+  documented (Next RSC inline bootstrap; nonce = middleware arch change).
+  Evidence: download/ui-v4.2/csp-evidence/CSP-EVIDENCE.md.
+  New regression suite: src/__tests__/config/csp.test.ts (25 token-precise
+  assertions). Google login unaffected (server redirect).
+- Local verification (standalone :3112): 1383/1383 tests, tsc src/=0,
+  build PASS; browser: 0 CSP violations, turnstile API object, both widget
+  scripts load, 2 iframes allowed, WASM compile OK, real SoundCloud
+  playback + nav continuity (0:07→0:16 across search→home).
+- PHASE 2.1 circular artwork: VLM diag 4/10 flat. Found REAL pre-existing
+  bug: SpotifyArtistView avatar ambient boxShadow template `${r},${g},${b}33`
+  = invalid CSS → never rendered (empty computed). Fixed to rgba(). Second
+  bug found on preview: .mq-art border-radius (10px) overrides rounded-full
+  → hero avatar + related chips + 2 search avatar spots rendered
+  RECTANGULAR since V4.1 (VLM-verified on V4.1 screenshot). Fixed inline
+  borderRadius 50% (same pattern as search hero).
+- PHASE 2.2 CTA: mq-platinum-btn--hero modifier (edge 24%→42%, deeper
+  seat) on 4 hero CTAs (search hero/artist/album/continue card);
+  design-contract test updated. VLM: 6/10→7/10 (search), 9/10 (album CTA).
+- PHASE 2.3 search regression on PREVIEW (real catalog): "daft punk" →
+  ARTIST hero "Daft Punk"; "random access memories" → ALBUM hero
+  "Random Access Memories" (namesake-artist tiebreak preserved); hero
+  preview dedup verified locally (Get Lucky not repeated).
+- PHASE 2.4 Continue Listening: real progress 0:16/4:06 advancing,
+  "Недавно" excludes current track (canonical dedup intact).
+- PHASE 2.5 responsive: overflowX=false at 360/390/430/768/1440 on
+  home+search.
+- PHASE 3 perf: no duplicate search fetch on re-query (client cache);
+  playback continuity across navigation confirmed.
+- PREVIEW (mq1-afvbfn5lf... adeaa399): CSP header live ✓, widget script
+  loads ✓, REAL widget iframe RENDERS 238x40 (oauth.telegram.org/embed/
+  mq_auth_bot, data-auth-url → /api/auth/telegram-widget/callback) ✓,
+  0 violations ✓. Artist ambient glow 8/10 (was 4).
+- Commits: adeaa399 (CSP + polish) → 4dbccee4 (circle radius fixes),
+  branch ui-v42 pushed; preview 4dbccee4 building.
+
+Stage Summary:
+- CSP root cause fixed with evidence-based minimal allowlist; auth widgets
+  now load/render end-to-end on preview; Telegram server env is
+  production-only → final widget e2e on production after merge.
+- Found+fixed 2 real pre-existing visual bugs (invalid rgba shadow,
+  mq-art radius override) beyond the planned scope — both evidenced.
+- All tests green (1383), build green, responsive+perf regression clean.
+- PRODUCTION DEPLOYED: main 7f8ac460..4dbccee4 → mq-build-4dbccee4 (live
+  01:23 UTC, verified via /version.json). Post-deploy prod QA:
+  * CSP header live (new allowlist) ✓
+  * Telegram Login Widget RENDERS app-injected on prod: script
+    data-telegram-login=mq_auth_bot + data-auth-url=origin/callback,
+    iframe oauth.telegram.org/embed/mq_auth_bot 238x40 — live button that
+    NEVER existed on any deploy before. 0 CSP violations, 0 page errors.
+  * Mandatory queries on prod catalog: "daft punk"→ARTIST hero,
+    "random access memories"→ALBUM hero. Artist page circle 50% +
+    ambient rgba(65,59,58,.33) renders.
+  * Continue Listening on prod: real progress 0:26/4:08 (catalog track
+    through resolver), playback continuity across search→home.
+  * Turnstile on prod: script loads + widget initializes + talks to
+    Cloudflare, but sitekey returns Error 110200 (domain not bound in
+    Cloudflare dashboard) — owner action, outside code. Honest limit.
+- Final report: download/ui-v4.2/UI-V42-REPORT.md (A–F structure).
+
+Stage Summary:
+- V4.2 COMPLETE: CSP root-caused + fixed with live evidence; auth widgets
+  end-to-end live on production; 2 pre-existing circular-artwork bugs
+  fixed (invalid rgba ambient, mq-art radius override); hero CTA contour;
+  1383/1383 tests; preview×2 + production verified.
+- Remaining owner action: bind mq1.vercel.app to Turnstile sitekey in
+  Cloudflare dashboard (code side done).
