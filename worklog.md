@@ -9982,3 +9982,82 @@ Stage Summary:
 - Deploy state VERIFIED: production already ran latest code (v90 = HEAD).
   Nothing was pending deploy; this pass re-proved it end-to-end and pushed
   QA evidence. Remaining owner action unchanged: Turnstile domain binding.
+
+---
+Task ID: v91-bugfix-pass
+Agent: main (Super Z)
+Task: P0→P1→P2 confirmed-bug fix pass on MQ Player (mq1.vercel.app) + deploy
+
+Work Log:
+- Synced stale container: local main was 91 commits behind (Sep-25 v10.2
+  state) → fast-forwarded to origin/main 0adbb08a (= prod), npm install,
+  prisma generate. Baseline gates: vitest 1383/1383, tsc src clean
+  (19 pre-existing outside app src), eslint 55, build PASS.
+- ROOT CAUSE P0.2 (stuck 0:00): store `progress` is only a seek-command
+  channel — NOTHING ticks it during playback; the Full Player rides the
+  unified PlaybackClock (subscribeClock) directly, but PlayerBar /
+  WaveHome / MobileNowHero / ContinueListeningCard read the static store
+  field. MobileDock had its own private RAF (why mobile bottom bar worked).
+- NEW src/hooks/usePlaybackProgress.ts: subscribes to the ONE unified
+  clock (§13/§27), throttled React state (250–500ms), adjust-state-during-
+  render on trackId change with the previous-trackId stored INSIDE state
+  (react-hooks/refs forbids ref access in render — first attempt rewrote).
+  Consumers: PlayerBar (250ms + local dragProgress override), WaveHome
+  (500ms + width .5s linear transition), MobileNowHero (500ms),
+  ContinueListeningCard (500ms).
+- NEW src/components/mq/CoverImage.tsx: img → onError swaps to quiet
+  deterministic gradient+initials tile (variant=initials, hero art) or
+  wave/music glyph tile (cells); loading=lazy+decoding=async default,
+  eager for heroes; src change retries the new url (no poisoned state);
+  same no-ref-in-render pattern. Replaced raw <img> in WaveHome
+  CrossfadeArtwork + NextUpArtwork, PlayerBar, MobileDock, MobileNowHero,
+  SpatialFullPlayer main art.
+- WaveHome: preload next 3 queue covers (new Image()); data-state attr
+  (idle|loading|playing|error); skeleton layout for «ПОДБИРАЕМ…» (art
+  square + identity lines + transport ghosts, .mq-skeleton); Retry
+  buttons on waveError (in-card + stopped state); reason lines
+  de-opacified (0.72 removed — was 3.9:1).
+- useWaveEngine: force-refresh home feed after wave session's 1st and 3rd
+  started tracks (loadHomeFeed force + fresh history read → «Для вас»
+  fills from real listening; tasteSig excludes history by design).
+- AuthView: always-on quiet hint under the Telegram Login Widget (iframe
+  error text is cross-origin — cannot be suppressed; BotFather domain
+  binding remains owner-action); demo login now also seeds «Демо-микс MQ»
+  playlist with the 4 local demo tracks (createPlaylist + addToPlaylist).
+- CobaltTurnstile: bounded quiet retry (3×20s, console.debug, ref-based
+  counter — module-level let was banned by react-hooks), sitekey overrida-
+  ble via NEXT_PUBLIC_TURNSTILE_SITEKEY; playback unaffected (preview path).
+- SearchView: autoFocusedRef guard — programmatic auto-focus no longer
+  opens the suggestions glass panel (real user focus still shows recents);
+  debounce 300ms + AbortController were already in place (verified).
+- FavoritesView: empty-liked CTA «Лайкни в WAVE» → setView(main) + deferred
+  wave.startWave(). MessengerView: demo-mode empty-chats state says chats
+  are unavailable in demo (isDemoSession flag, non-demo CTA unchanged).
+- PlayerBar: direct EQ icon button (one click → panel + presets, was
+  buried in ⋯ menu). globals.css: --mq-text-muted #9a9a9a→#a6a6a6,
+  .mq-text-faint opacity 0.65→0.8, MobileDock time label 0.85 removed.
+- Tests: +11 (usePlaybackProgress contracts: mount position, clock
+  ticking, track-change immediate reset, unsubscribe, NaN clamps;
+  CoverImage contracts: healthy img, onError→initials tile, src-change
+  retry, empty-src fallback, initials derivation) — react-dom/client
+  harness (no @testing-library/react in project).
+- Gates on final state: vitest 1394/1394, tsc 19 (= baseline, app src 0),
+  eslint 55 errors (= baseline exactly, diffed via git stash -u),
+  npm run build PASS.
+- LOCAL BROWSER QA (built prod server :3210): demo → capsule ticks
+  0:02→0:05; WAVE start → data-state=playing, card ticks 0:08→0:11;
+  skip → covers cached (image-proxy abort survived thanks to preload);
+  synthetic native error event on hero img → broken img REMOVED,
+  initials fallback tile rendered; search open → input focused, NO
+  suggestions panel; EQ one-click → panel with presets («Бас +»,
+  «Электроника», «Рок»); 0 page errors. Evidence:
+  download/qa-v91/01-eq-panel-local.png, 02-wave-home-local.png.
+- Committed 5e6f5ba9, pushed main → Vercel deploy in flight.
+
+Stage Summary:
+- P0.2/P0.3/P1.4/P1.5/P1.6/P1.7/P2.10/P2.11 fixed in code and verified
+  live locally; P0.1/P1.5 owner-actions documented (BotFather domain for
+  mq_auth_bot; Cloudflare Turnstile sitekey domain binding) — code side
+  does the maximum possible.
+- v91 baseline: 1394 tests, 0 new lint, build green. Deploy target:
+  mq-build-5e6f5ba9 (verification pending below).
