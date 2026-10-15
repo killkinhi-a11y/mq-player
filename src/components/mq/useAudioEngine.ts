@@ -15,6 +15,10 @@ import {
 import { replayGain, getDefaultGainForGenre } from "@/lib/replayGain";
 import { getAudiusStream, isAudiusTrack, findAudiusAlternative } from "@/lib/audius";
 import { resolveCatalogTrack } from "@/lib/playback/client";
+// Stream resolution + its shared cache live in lib/streamResolver.ts — the
+// local export name is kept below so every internal call site stays unchanged.
+import { resolveSoundCloudStream, shouldPrefetchStream } from "@/lib/streamResolver";
+export { resolveSoundCloudStream };
 import { prefetchNextTrack } from "@/lib/playback/prefetch";
 import { clockSetPlaying, setClockDurationSource, subscribeClock, wakeClock } from "@/lib/playback/clock";
 import { getLocalBlobUrl } from "./SearchView";
@@ -526,40 +530,11 @@ export function createManifestInterceptor(audioEl: HTMLAudioElement): (xhr: XMLH
   };
 }
 
-// ── Client-side resolved-stream cache (Task 8: slow track loading) ──
-// Replays (from history/likes/queue re-entry) skip the 2-5s resolve round
-// trip entirely. In-flight dedupe: concurrent callers share one promise.
-//
-// TTL / EXPIRY (root cause fixed 2026-09-12): SoundCloud CDN URLs are
-// CloudFront-signed with an AWS:EpochTime validity that is now ≈ 4 MINUTES
-// (measured on a freshly resolved URL; it used to be much longer, which is
-// why the original 15-min TTL was safe). A cached stream whose URL is past
-// expiry hands the engine a dead URL → proxy 502 → fatal → element fallback
-// → MEDIA_ERR → retry dance = the "one track loads forever" bug. Cache hits
-// therefore require the URL signature to STILL be valid (with a 60 s safety
-// margin). Entries without a parseable Policy fall back to a conservative
-// 3-min TTL.
-const STREAM_CACHE_TTL = 15 * 60 * 1000;
-const STREAM_URL_SAFETY_MS = 60 * 1000; // never serve a URL expiring within 60s
-const STREAM_URL_FALLBACK_TTL = 3 * 60 * 1000;
-const streamCache = new Map<number, { stream: StreamResult; at: number; expiresAt: number }>();
-const streamInFlight = new Map<number, Promise<StreamResult | null>>();
-
-/** Decode a signed CDN URL's CloudFront Policy → epoch-ms expiry (0 if unknown). */
-function scUrlExpiresAt(url: string): number {
-  try {
-    const m = url.match(/[?&]Policy=([^&]+)/);
-    if (!m) return 0;
-    let b64 = decodeURIComponent(m[1]);
-    b64 = b64.replace(/-/g, '+').replace(/_/g, '/');
-    while (b64.length % 4) b64 += '=';
-    const json = JSON.parse(atob(b64));
-    const epoch = json?.Statement?.[0]?.Condition?.DateLessThan?.["AWS:EpochTime"];
-    return typeof epoch === 'number' ? epoch * 1000 : 0;
-  } catch {
-    return 0;
-  }
-}
+// ── Client-side resolved-stream cache ──
+// MOVED to lib/streamResolver.ts as the SHARED cached resolver: the playback
+// engine and the waveform generator now hit ONE cache + ONE in-flight dedup
+// (the waveform used to re-resolve a just-played track through a second,
+// uncached round trip). Signature-aware TTL lives there too.
 
 /**
  * Track-loading optimization: prefetch the NEXT queued track's stream URL
@@ -582,9 +557,7 @@ function prefetchNextTrackStream(): void {
       const scId = next?.scTrackId;
       if (!scId || scId <= 0) return;
       if (typeof window === "undefined") return;
-      const hit = streamCache.get(scId);
-      if (hit && Date.now() - hit.at < STREAM_CACHE_TTL) return;
-      if (streamInFlight.has(scId)) return;
+      if (!shouldPrefetchStream(scId)) return;
       // Shared in-flight promise — result lands in the cache for the switch.
       resolveSoundCloudStream(scId).catch(() => {});
     } catch {
@@ -655,125 +628,6 @@ function scheduleWasmNextTrack(
     }
   })();
   wasmNextRegInFlight.set(nextT.id, p);
-}
-
-export async function resolveSoundCloudStream(
-  scTrackId: number,
-  opts?: { noCache?: boolean }
-): Promise<StreamResult | null> {
-  const useCache = !opts?.noCache;
-  if (useCache) {
-    const hit = streamCache.get(scTrackId);
-    if (hit && Date.now() < hit.expiresAt - STREAM_URL_SAFETY_MS) {
-      return hit.stream;
-    }
-    if (hit) streamCache.delete(scTrackId); // expired entry — drop, don't serve
-  }
-  const existing = streamInFlight.get(scTrackId);
-  if (existing) return existing;
-
-  const run = (async () => {
-  try {
-    // Include cobalt JWT if available (for SNIP bypass)
-    const cobaltJwt = useAppStore.getState().getCobaltJwt();
-    const jwtParam = cobaltJwt ? `&cobaltJwt=${encodeURIComponent(cobaltJwt)}` : '';
-    // T2 — metadata/URL lookup begins (stream API request)
-    pbMark("T2-resolve-start");
-    const res = await fetch(`/api/music/soundcloud/stream?trackId=${scTrackId}${jwtParam}`, {
-      signal: AbortSignal.timeout(20000),
-    });
-    // T3 — API response headers received
-    pbMark("T3-api-headers", `HTTP ${res.status}`);
-    if (!res.ok) {
-      console.error(`[resolveStream] HTTP ${res.status} for track ${scTrackId}`);
-      return null;
-    }
-    const data = await res.json();
-
-    console.log(`[resolveStream] track=${scTrackId}, url=${data.url ? 'yes' : 'no'}, resolveUrl=${data.resolveUrl ? 'yes' : 'no'}, error=${data.error || 'none'}, protocol=${data.protocol}, isHls=${data.isHls}, isEncrypted=${data.isEncrypted}, policy=${data.isPreview ? 'SNIP' : 'ALLOW'}, fallbacks=${(data.fallbackStreams || []).length}`);
-    if (data._diag) {
-      console.log(`[resolveStream] diagnostics:`, data._diag);
-    }
-
-    if (data.url) {
-      // T4 — playable URL resolved
-      pbMark("T4-url-resolved", `${data.protocol}${data.isHls ? "/hls" : ""}${data.isEncrypted ? "/enc" : ""}${data.isPreview ? "/snip" : ""}`);
-      const stream: StreamResult = {
-        url: data.url,
-        isPreview: !!data.isPreview,
-        duration: data.duration || 0,
-        fullDuration: data.fullDuration || 0,
-        isHls: !!data.isHls,
-        isEncrypted: !!data.isEncrypted,
-        protocol: data.protocol || null,
-        licenseUrl: data.licenseUrl || null,
-        licenseAuthToken: data.licenseAuthToken || null,
-        fallbackStreams: data.fallbackStreams || null,
-        drmRestricted: !!data.drmRestricted,
-      };
-      cacheResolvedStream(scTrackId, stream);
-      return stream;
-    }
-
-    if (data.resolveUrl) {
-      console.warn("[Player] Edge resolve failed, trying CORS proxy...");
-      try {
-        let proxyUrl = `/api/music/soundcloud/resolve-proxy?url=${encodeURIComponent(data.resolveUrl)}`;
-        if (data.trackAuthorization) {
-          proxyUrl += `&track_authorization=${encodeURIComponent(data.trackAuthorization)}`;
-        }
-        const proxyRes = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
-        if (proxyRes.ok) {
-          const proxyData = await proxyRes.json();
-          if (proxyData.url) {
-            console.log(`[resolveStream] CORS proxy succeeded: url=${proxyData.url.substring(0, 60)}...`);
-            const stream: StreamResult = {
-              url: proxyData.url,
-              isPreview: !!data.isPreview,
-              duration: data.duration || 0,
-              fullDuration: data.fullDuration || 0,
-              isHls: !!data.isHls,
-              isEncrypted: !!data.isEncrypted,
-              protocol: data.protocol || null,
-              licenseUrl: data.licenseUrl || null,
-              licenseAuthToken: data.licenseAuthToken || proxyData.licenseAuthToken || null,
-            };
-            cacheResolvedStream(scTrackId, stream);
-            return stream;
-          }
-        }
-      } catch {
-        // CORS proxy failed too
-      }
-    }
-
-    const diagInfo = data._diag ? ` | diag: ${(data._diag as string[]).join(', ')}` : '';
-    console.error(`[resolveStream] No URL for track ${scTrackId}: error=${data.error || 'none'}, resolveUrl=${data.resolveUrl ? 'yes' : 'no'}${diagInfo}`);
-    return null;
-  } catch (err) {
-    console.warn("[resolveSoundCloudStream] failed:", err);
-    return null;
-  }
-  })();  // end in-flight run
-  streamInFlight.set(scTrackId, run);
-  try {
-    return await run;
-  } finally {
-    streamInFlight.delete(scTrackId);
-  }
-}
-
-function cacheResolvedStream(scTrackId: number, stream: StreamResult) {
-  const urlExpiry = scUrlExpiresAt(stream.url);
-  const expiresAt = urlExpiry
-    ? Math.min(urlExpiry, Date.now() + STREAM_CACHE_TTL)
-    : Date.now() + STREAM_URL_FALLBACK_TTL;
-  streamCache.set(scTrackId, { stream, at: Date.now(), expiresAt });
-  // Cap the cache (oldest-insert eviction) — Map preserves insertion order.
-  if (streamCache.size > 50) {
-    const oldest = streamCache.keys().next().value;
-    if (oldest !== undefined) streamCache.delete(oldest);
-  }
 }
 
 // ── Hook interface ──

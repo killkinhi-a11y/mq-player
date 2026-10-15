@@ -1,9 +1,10 @@
 "use client";
 
-// MQ Player — Messenger (Telegram-style rewrite)
+// MQ Player — Messenger (premium iMessage-grade glass redesign)
 // Safety-first: every state array is Array.isArray-guarded, every async op
 // is wrapped in try/catch, and a recoverable error state replaces any white
-// screen.
+// screen. Visual language lives in ./messenger.css (mqms-* classes) on the
+// MQ material system tokens.
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
@@ -12,12 +13,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageCircle, Search, Send, ArrowLeft, X, Plus, Loader2, UserPlus, Mic,
   Pin, Trash2, Smile, Users, Lock, Check, CheckCheck, Copy, Reply, User, Contact,
+  Play, Pause, Music2, Image as ImageIcon, AlertCircle, Clock,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { simulateDecryptSync, simulateEncrypt } from "@/lib/crypto";
 import { useToast } from "@/hooks/use-toast";
 import type { Message as ChatMessage } from "@/lib/musicApi";
 import { formatDuration as formatDurationCanonical } from "@/lib/musicApi";
 import { hoverProps } from "@/lib/hoverCapability";
+import "./messenger.css";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -163,16 +167,25 @@ function VoiceMessageBubble({ voiceUrl, duration, isMine }: {
   }, []);
 
   return (
-    <div className="flex items-center gap-2 min-w-[180px] py-0.5">
+    <div className="flex items-center gap-3 min-w-[200px] py-0.5">
       <motion.button onClick={toggle}
-        className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 16%, transparent)", color: "#fff" }}
+        className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-transform"
+        whileTap={{ scale: 0.94 }}
+        style={{
+          backgroundColor: isMine
+            ? "color-mix(in srgb, var(--mq-text) 18%, transparent)"
+            : "var(--mq-platinum-lift)",
+          boxShadow: isMine
+            ? "none"
+            : "inset 0 1px 0 rgba(255,255,255,0.09), 0 2px 10px rgba(0,0,0,0.32)",
+          color: "#fff",
+        }}
         aria-label={playing ? "Пауза" : "Воспроизвести"}>
-        {playing ? <span className="mq-t-meta-2 leading-none">❚❚</span>
-          : <span className="text-xs leading-none ml-0.5">▶</span>}
+        {playing ? <Pause className="w-4 h-4" />
+          : <Play className="w-4 h-4 ml-0.5" fill="currentColor" />}
       </motion.button>
-      <div className="flex-1">
-        <div className="flex items-end gap-[2px] h-7">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-end gap-[2px] h-7" aria-hidden="true">
           {bars.map((h, i) => {
             const isActive = (i / bars.length) * 100 < progress;
             return (
@@ -181,13 +194,13 @@ function VoiceMessageBubble({ voiceUrl, duration, isMine }: {
                   height: `${h * 100}%`,
                   backgroundColor: isMine
                     ? (isActive ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.45)")
-                    : (isActive ? "var(--mq-platinum-hi)" : "var(--mq-text-muted)"),
+                    : (isActive ? "var(--mq-platinum-hi)" : "color-mix(in srgb, var(--mq-text) 30%, transparent)"),
                 }} />
             );
           })}
         </div>
-        <div className="mq-t-meta-2 mt-1"
-          style={{ color: isMine ? "rgba(255,255,255,0.75)" : "var(--mq-text-muted)" }}>
+        <div className="mq-t-meta-2 mt-1 tabular-nums"
+          style={{ color: isMine ? "rgba(244,246,250,0.72)" : "var(--mq-text-muted)" }}>
           {formatDuration(playing ? currentTime : dur)}
         </div>
       </div>
@@ -197,12 +210,15 @@ function VoiceMessageBubble({ voiceUrl, duration, isMine }: {
 
 // ─── Avatar ───────────────────────────────────────────────────────────────
 
-function Avatar({ src, name, id, size = 44, isGroup = false }: {
-  src?: string; name: string; id: string; size?: number; isGroup?: boolean;
+function Avatar({ src, name, id, size = 44, isGroup = false, ring = false }: {
+  src?: string; name: string; id: string; size?: number; isGroup?: boolean; ring?: boolean;
 }) {
+  const ringShadow = ring
+    ? { boxShadow: "0 0 0 1px color-mix(in srgb, var(--mq-text) 14%, transparent), 0 0 0 4px color-mix(in srgb, var(--mq-text) 4%, transparent)" }
+    : undefined;
   if (src) {
     return <img src={src} alt={name} className="rounded-full object-cover flex-shrink-0"
-      style={{ width: size, height: size }} />;
+      style={{ width: size, height: size, boxShadow: ringShadow ? ringShadow.boxShadow : undefined }} />;
   }
   return (
     <div className="rounded-full flex items-center justify-center font-bold flex-shrink-0"
@@ -210,6 +226,7 @@ function Avatar({ src, name, id, size = 44, isGroup = false }: {
         width: size, height: size,
         background: isGroup ? "linear-gradient(135deg, #8b5cf6, #6366f1)" : colorForId(id),
         color: "#fff", fontSize: size * 0.4,
+        boxShadow: ringShadow ? ringShadow.boxShadow : undefined,
       }}>
       {isGroup ? <Users style={{ width: size * 0.45, height: size * 0.45 }} /> : getInitials(name)}
     </div>
@@ -220,11 +237,45 @@ function Avatar({ src, name, id, size = 44, isGroup = false }: {
 
 function DateSeparator({ label }: { label: string }) {
   return (
-    <div className="flex justify-center my-3">
-      <span className="mq-t-meta-2 px-3 py-1 rounded-full font-medium"
-        style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)", color: "var(--mq-text-muted)" }}>
-        {label}
-      </span>
+    <div className="mqms-date" role="separator" aria-label={label}>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+// ─── List preview: type icon for the last message (voice / photo / track) ──
+
+function previewIconFor(last: ChatMessage | undefined): LucideIcon | null {
+  if (!last) return null;
+  if (last.messageType === "voice") return Mic;
+  try {
+    const raw = decrypt(last.content || "").trim();
+    if (/^https?:\/\/\S+\.(jpg|jpeg|png|gif|webp|bmp|svg)([?#]|$)/i.test(raw)) return ImageIcon;
+    if (raw.startsWith("🎵")) return Music2;
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.type === "track_share") return Music2;
+  } catch { /* plain text — no icon */ }
+  return null;
+}
+
+// ─── History skeleton (loading state) ─────────────────────────────────────
+
+function HistorySkeleton() {
+  const rows = [
+    { mine: false, w: "w-40 sm:w-52", h: "h-11" },
+    { mine: true, w: "w-56 sm:w-72", h: "h-12" },
+    { mine: false, w: "w-32 sm:w-40", h: "h-9" },
+    { mine: true, w: "w-44 sm:w-60", h: "h-11" },
+  ];
+  return (
+    <div className="flex flex-col gap-4 pt-2" aria-hidden="true">
+      {rows.map((r, i) => (
+        <div key={i} className={`flex ${r.mine ? "justify-end" : "justify-start"}`}>
+          <div
+            className={`mqms-skel ${r.w} ${r.h} ${r.mine ? "mqms-tail-out" : "mqms-tail-in"}`}
+            style={{ animationDelay: `${i * 0.14}s` }} />
+        </div>
+      ))}
     </div>
   );
 }
@@ -291,6 +342,9 @@ export default function MessengerView() {
   const [showQuickEmojis, setShowQuickEmojis] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  // v-redesign: visual-layer states — history skeleton + failed-send retry.
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [failedDraft, setFailedDraft] = useState<{ text: string; chatId: string } | null>(null);
 
   // ── Refs ──
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -591,6 +645,9 @@ export default function MessengerView() {
     // Phase 2C: gated — demo DMs are local-only, no 401 round-trip.
     if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) return;
     let cancelled = false;
+    // Visual-layer: skeleton bubbles until the history arrives (deferred —
+    // no synchronous setState inside the effect body).
+    const skelTimer = setTimeout(() => { if (!cancelled) setHistoryLoading(true); }, 0);
     const load = async () => {
       try {
         const res = await fetch(`/api/messages?senderId=${userId}&receiverId=${selectedContactId}`);
@@ -610,15 +667,23 @@ export default function MessengerView() {
           setTimeout(() => useAppStore.getState().loadMessages(serverMsgs), 0);
         }
       } catch {}
+      finally {
+        if (!cancelled) setHistoryLoading(false);
+      }
     };
     load();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; clearTimeout(skelTimer); };
   }, [userId, selectedContactId]);
 
   // ── Load group messages + poll every 8s ──
   useEffect(() => {
     if (!userId || !selectedGroupId) return;
     let cancelled = false;
+    // Visual-layer: skeleton for real sessions (demo has no server
+    // round-trip). Deferred — no synchronous setState in the effect body.
+    const skelTimer = setTimeout(() => {
+      if (!cancelled) setHistoryLoading(userId !== "demo-user-id");
+    }, 0);
     const load = async () => {
       try {
         const res = await fetch(`/api/group-chats/${selectedGroupId}/messages?userId=${userId}`);
@@ -641,6 +706,9 @@ export default function MessengerView() {
         );
         if (!cancelled) setGroupMessages((prev) => ({ ...prev, [selectedGroupId]: msgs }));
       } catch {}
+      finally {
+        if (!cancelled) setHistoryLoading(false);
+      }
     };
     load();
     // Phase 2C: gate the 8s group-message polling (demo/unauth skip).
@@ -651,7 +719,7 @@ export default function MessengerView() {
       }
       load();
     }, 8000);
-    return () => { cancelled = true; clearInterval(interval); };
+    return () => { cancelled = true; clearInterval(interval); clearTimeout(skelTimer); };
   }, [userId, selectedGroupId]);
 
   // ── Auto-scroll on new message ──
@@ -849,11 +917,16 @@ export default function MessengerView() {
   }, [conversationMessages]);
 
   // ── Send message (DM or group) ──
-  const handleSend = useCallback(async () => {
-    const text = (inputText || "").trim();
+  // v-redesign: accepts an optional text override so the failed-send
+  // bubble can retry a draft without touching the composer state. Call
+  // sites without arguments keep the exact previous behavior.
+  const handleSend = useCallback(async (overrideText?: string) => {
+    const raw = typeof overrideText === "string" ? overrideText : inputText;
+    const text = (raw || "").trim();
     if (!text || !userId || !activeChatId || isSending) return;
     setIsSending(true);
     setInputText("");
+    setFailedDraft(null);
     const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const now = new Date().toISOString();
     const msg: ChatMessage = {
@@ -896,6 +969,8 @@ export default function MessengerView() {
       }
     } catch {
       toast({ title: "Не удалось отправить" });
+      // Visual-layer: keep the draft visible as an error bubble with retry.
+      setFailedDraft({ text, chatId: activeChatId });
       if (!isGroupChat) {
         useAppStore.setState((s) => ({
           messages: (Array.isArray(s.messages) ? s.messages : []).filter(
@@ -911,6 +986,14 @@ export default function MessengerView() {
       setIsSending(false);
     }
   }, [inputText, userId, activeChatId, isGroupChat, isSending, addMessage, username, toast]);
+
+  // ── Retry a failed send (re-runs the exact same pipeline) ──
+  const retryFailedSend = useCallback(() => {
+    if (!failedDraft) return;
+    const draft = failedDraft;
+    setFailedDraft(null);
+    handleSend(draft.text);
+  }, [failedDraft, handleSend]);
 
   // ── Voice recording ──
   const startRecording = useCallback(async () => {
@@ -1203,19 +1286,20 @@ export default function MessengerView() {
     return (
       <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container-wide)] mx-auto`}
         style={{ height: "calc(100dvh - 90px - 56px)" }}>
-        <div className="flex flex-col items-center justify-center h-full rounded-[var(--mq-mat-radius-lg)]"
-          style={{ backgroundColor: "var(--mq-mat-2-bg)", border: "1px solid var(--mq-mat-2-edge)" }}>
-          <MessageCircle className="w-10 h-10 mb-3"
-            style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
-          <p className="text-sm font-medium mb-2" style={{ color: "var(--mq-text)" }}>
+        <div className="flex flex-col items-center justify-center h-full rounded-[var(--mq-mat-radius-lg)] gap-1"
+          style={{ backgroundColor: "var(--mq-mat-2-bg)", border: "1px solid var(--mq-mat-2-edge)", boxShadow: "var(--mq-mat-3-shadow)" }}>
+          <div className="mqms-empty-icon mb-2" aria-hidden="true">
+            <MessageCircle className="w-6 h-6" />
+          </div>
+          <p className="text-sm font-semibold mb-1" style={{ color: "var(--mq-text)" }}>
             Не удалось загрузить чаты
           </p>
-          <p className="text-xs mb-4" style={{ color: "var(--mq-text-muted)" }}>
+          <p className="text-xs mb-5 max-w-[260px] text-center" style={{ color: "var(--mq-text-muted)" }}>
             Проверьте подключение и попробуйте снова
           </p>
           <motion.button
             onClick={() => { setLoadError(false); fetchFriends(); fetchGroupChats(); }}
-            className="mq-btn-neutral px-4 py-2 rounded-xl text-xs font-semibold">
+            className="mq-btn-neutral flex items-center gap-2 px-5 h-11 rounded-full text-xs font-semibold">
             Повторить
           </motion.button>
         </div>
@@ -1228,11 +1312,6 @@ export default function MessengerView() {
     border: "1px solid var(--mq-mat-2-edge)" as const,
     boxShadow: "var(--mq-mat-3-shadow)" as const,
   };
-  const inputStyle = {
-    backgroundColor: "var(--mq-input-bg)" as const,
-    border: "1px solid var(--mq-border-hairline)" as const,
-    color: "var(--mq-text)" as const,
-  };
   const hairlineBorder = { borderColor: "var(--mq-border-hairline)" as const };
 
   return (
@@ -1244,73 +1323,85 @@ export default function MessengerView() {
           <div className={`${isMobileView && mobileView === "chat" ? "hidden" : "flex"} flex-col w-full lg:w-[380px] flex-shrink-0 border-r`}
             style={hairlineBorder}>
             {/* Header */}
-            <div className="p-4 flex items-center justify-between border-b" style={hairlineBorder}>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>Чаты</h2>
+            <div className="px-4 py-3 flex items-center justify-between gap-2 border-b" style={hairlineBorder}>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <h2 className="text-[17px] font-bold truncate" style={{ color: "var(--mq-text)", letterSpacing: "-0.01em" }}>Чаты</h2>
                 {safeFriends.length + safeGroupChats.length > 0 && (
-                  <span className="text-xs px-2 py-0.5 rounded-full"
-                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
+                  <span className="mq-t-meta-2 px-2 py-0.5 rounded-full tabular-nums flex-shrink-0"
+                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 7%, transparent)", color: "var(--mq-text-muted)" }}>
                     {safeFriends.length + safeGroupChats.length}
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 {/* Task 9: Friends access — opens the real FriendsView
                     (requests, online statuses, add-friend, listen invites). */}
-                <motion.button whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
+                <motion.button whileHover={hoverProps({ scale: 1.04, transition: { duration: 0.12, ease: "easeOut" } })}
                   onClick={() => setView("friends")}
-                  className="h-10 px-3 sm:px-3.5 rounded-full flex items-center gap-1.5"
+                  className="h-11 px-3.5 sm:px-4 rounded-full flex items-center gap-1.5 flex-shrink-0 transition-colors"
                   style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
                   aria-label="Друзья" title="Друзья">
-                  <Contact className="w-4 h-4" />
-                  <span className="hidden sm:inline text-xs font-medium">Друзья</span>
+                  <Contact className="w-[18px] h-[18px]" />
+                  <span className="hidden sm:inline text-xs font-semibold">Друзья</span>
                 </motion.button>
-                <motion.button whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
+                <motion.button whileHover={hoverProps({ scale: 1.04, transition: { duration: 0.12, ease: "easeOut" } })}
                   onClick={() => setShowNewGroup(true)}
-                  className="w-11 h-11 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
+                  className="mqms-icon-btn"
                   aria-label="Новая группа" title="Новая группа">
-                  <Users className="w-4 h-4" />
+                  <Users className="w-[18px] h-[18px]" />
                 </motion.button>
-                <motion.button whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
+                <motion.button whileHover={hoverProps({ scale: 1.04, transition: { duration: 0.12, ease: "easeOut" } })}
                   onClick={() => setShowNewChat(true)}
-                  className="mq-platinum-btn w-11 h-11 rounded-full flex items-center justify-center"
-                  aria-label="Новый чат">
-                  <Plus className="w-4 h-4" />
+                  className="mq-platinum-btn w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                  aria-label="Новый чат" title="Новый чат">
+                  <Plus className="w-[18px] h-[18px]" />
                 </motion.button>
               </div>
             </div>
 
             {/* Search */}
-            <div className="p-3 border-b" style={hairlineBorder}>
+            <div className="px-3.5 pt-3 pb-2.5 border-b" style={hairlineBorder}>
               <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2"
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
                   style={{ color: "var(--mq-text-muted)" }} />
                 <input type="text" value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Поиск чатов"
-                  className="w-full pl-9 pr-3 py-2 rounded-xl text-sm outline-none"
-                  style={inputStyle} />
+                  aria-label="Поиск чатов"
+                  className="mqms-input-pill h-11 pl-10 pr-4 text-sm outline-none" />
               </div>
             </div>
 
             {/* List */}
-            <div className="flex-1 overflow-y-auto"
+            <div className="flex-1 overflow-y-auto overscroll-contain p-2"
               onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
               {isRefreshing && (
-                <div className="flex items-center justify-center py-2">
+                <div className="flex items-center justify-center gap-2 py-2.5" role="status">
                   <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
+                  <span className="mq-t-meta-2">Обновление…</span>
                 </div>
               )}
               {isLoadingFriends && safeFriends.length === 0 && safeGroupChats.length === 0 ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
+                <div className="flex flex-col gap-4 px-2 pt-2" aria-hidden="true">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <div key={i} className="flex items-center gap-3 px-2">
+                      <div className="mqms-skel w-12 h-12 rounded-full flex-shrink-0"
+                        style={{ animationDelay: `${i * 0.1}s` }} />
+                      <div className="flex-1 min-w-0 flex flex-col gap-2">
+                        <div className="mqms-skel h-3 rounded-full"
+                          style={{ width: `${52 - i * 6}%`, animationDelay: `${i * 0.1 + 0.05}s` }} />
+                        <div className="mqms-skel h-2.5 rounded-full"
+                          style={{ width: `${70 - i * 8}%`, animationDelay: `${i * 0.1 + 0.1}s` }} />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : sortedChats.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
-                  <MessageCircle className="w-10 h-10 mb-3"
-                    style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
-                  <p className="text-sm font-medium mb-1" style={{ color: "var(--mq-text)" }}>
+                <div className="flex flex-col items-center justify-center py-12 px-6 text-center mq-empty-anim">
+                  <div className="mqms-empty-icon mb-3" aria-hidden="true">
+                    <MessageCircle className="w-6 h-6" />
+                  </div>
+                  <p className="text-sm font-semibold mb-1.5" style={{ color: "var(--mq-text)" }}>
                     {/* UX Core #1 (Эвристика доступности): без императива,
                         позитивная формулировка снижает барьер. */}
                     {searchQuery.trim() ? "Ничего не найдено" : "Пока пусто"}
@@ -1324,14 +1415,14 @@ export default function MessengerView() {
                       Создайте аккаунт, чтобы переписываться и слушать музыку вместе
                     </p>
                   ) : (
-                    <p className="text-xs mb-4" style={{ color: "var(--mq-text-muted)" }}>
+                    <p className="text-xs mb-5 max-w-[280px]" style={{ color: "var(--mq-text-muted)" }}>
                       {searchQuery.trim() ? "Попробуйте другой запрос" : "Найдите друзей — и здесь появятся чаты"}
                     </p>
                   )}
                   {!searchQuery.trim() && !isDemoSession && (
                     <motion.button whileHover={hoverProps({ scale: 1.02, transition: { duration: 0.12, ease: "easeOut" } })}
                       onClick={() => setShowNewChat(true)}
-                      className="mq-btn-neutral flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold">
+                      className="mq-btn-neutral flex items-center gap-1.5 px-5 h-11 rounded-full text-xs font-semibold">
                       <UserPlus className="w-3.5 h-3.5" />
                       Найти друзей
                     </motion.button>
@@ -1348,7 +1439,7 @@ export default function MessengerView() {
                   let lastText: string;
                   if (last) {
                     if (last.messageType === "voice") {
-                      lastText = "🎤 Голосовое сообщение";
+                      lastText = "Голосовое сообщение";
                     } else {
                       const prefix = last.senderId === userId && item.type === "group" ? "Вы: " : "";
                       lastText = prefix + decrypt(last.content).slice(0, 40);
@@ -1360,6 +1451,7 @@ export default function MessengerView() {
                   } else {
                     lastText = formatLastSeen(onlineStatuses[item.id]?.lastSeen ?? null);
                   }
+                  const PreviewIcon = previewIconFor(last);
                   return (
                     <motion.button key={`${item.type}_${item.id}`}
                       initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
@@ -1375,44 +1467,39 @@ export default function MessengerView() {
                         }
                       }}
                       onContextMenu={(e) => { e.preventDefault(); togglePinChat(item.id); }}
-                      className="w-full flex items-center gap-3 p-3 text-left transition-colors"
-                      style={{
-                        backgroundColor: isActive
-                          ? "color-mix(in srgb, var(--mq-text) 6%, transparent)" : "transparent",
-                        borderLeft: isActive ? "3px solid var(--mq-platinum-lift)" : "3px solid transparent",
-                      }}>
+                      data-active={isActive}
+                      aria-current={isActive ? "true" : undefined}
+                      className="mqms-row">
                       <div className="relative flex-shrink-0">
-                        <Avatar src={item.avatar} name={item.name} id={item.id} size={44}
+                        <Avatar src={item.avatar} name={item.name} id={item.id} size={48}
                           isGroup={item.type === "group"} />
-                        {isOnline && (
-                          <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
-                            style={{ backgroundColor: "#4ade80", borderColor: "var(--mq-card)" }} />
-                        )}
+                        {isOnline && <span className="mqms-online" aria-hidden="true" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-semibold truncate flex items-center gap-1"
-                            style={{ color: "var(--mq-text)" }}>
+                        <div className="flex items-baseline justify-between gap-2">
+                          <p className="text-[15px] font-semibold truncate flex items-center gap-1.5"
+                            style={{ color: "var(--mq-text)", lineHeight: 1.25 }}>
                             {isPinned && (
-                              <Pin className="w-3 h-3 flex-shrink-0"
-                                style={{ color: "var(--mq-text-muted)" }} fill="currentColor" />
+                              <Pin className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}
+                                fill="currentColor" aria-hidden="true" />
                             )}
                             {item.name}
                           </p>
                           {last && (
-                            <span className="mq-t-meta-2 flex-shrink-0"
-                              style={{ color: isPinned ? "var(--mq-text)" : "var(--mq-text-muted)" }}>
+                            <span className="mq-t-meta flex-shrink-0 tabular-nums"
+                              style={{ color: "var(--mq-text-muted)" }}>
                               {formatTime(last.createdAt)}
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center justify-between gap-2 mt-0.5">
-                          <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
+                        <div className="flex items-center justify-between gap-2 mt-1">
+                          <p className="text-[13px] truncate flex items-center gap-1.5"
+                            style={{ color: "var(--mq-text-muted)", lineHeight: 1.3 }}>
+                            {PreviewIcon && <PreviewIcon className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />}
                             {lastText}
                           </p>
                           {unread > 0 && (
-                            <span className="min-w-[18px] h-[18px] rounded-full flex items-center justify-center mq-t-meta-2 font-bold px-1 flex-shrink-0"
-                              style={{ backgroundColor: "var(--mq-platinum-lift)", color: "#fff" }}>
+                            <span className="mqms-badge flex-shrink-0" aria-label={`${unread} непрочитанных`}>
                               {unread > 99 ? "99+" : unread}
                             </span>
                           )}
@@ -1429,11 +1516,11 @@ export default function MessengerView() {
         {/* ── Chat panel ── */}
         {showChatPanel && (selectedFriend || selectedGroup) ? (
           <div className={`${isMobileView && mobileView === "list" ? "hidden" : "flex"} flex-col flex-1 min-w-0`}>
-            {/* Header */}
-            <div className="p-3 sm:p-4 flex items-center gap-3 border-b" style={hairlineBorder}>
+            {/* Header — ~80px tall: avatar 44 + status + round actions */}
+            <div className="px-3 sm:px-4 py-3 min-h-[80px] flex items-center gap-2.5 sm:gap-3 border-b" style={hairlineBorder}>
               {isMobileView && (
                 <motion.button onClick={handleMobileBack}
-                  className="p-1" style={{ color: "var(--mq-text-muted)" }} aria-label="Назад">
+                  className="mqms-icon-btn" aria-label="Назад к списку чатов" title="Назад">
                   <ArrowLeft className="w-5 h-5" />
                 </motion.button>
               )}
@@ -1446,30 +1533,35 @@ export default function MessengerView() {
                 }}
               >
                 {isGroupChat ? (
-                  <Avatar name={selectedGroup?.name || "Group"} id={selectedGroupId || ""} size={40} isGroup />
+                  <Avatar name={selectedGroup?.name || "Group"} id={selectedGroupId || ""} size={44} isGroup ring />
                 ) : (
                   <Avatar src={selectedFriend?.avatar} name={selectedFriend?.username || "User"}
-                    id={selectedFriend?.id || ""} size={40} />
+                    id={selectedFriend?.id || ""} size={44} ring />
                 )}
                 {!isGroupChat && selectedFriend && onlineStatuses[selectedFriend.id]?.online && (
-                  <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
-                    style={{ backgroundColor: "#4ade80", borderColor: "var(--mq-card)" }} />
+                  <span className="mqms-online" aria-hidden="true" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>
+                <p className="text-base font-semibold truncate" style={{ color: "var(--mq-text)", lineHeight: 1.3 }}>
                   {isGroupChat ? selectedGroup?.name : selectedFriend?.username}
                 </p>
-                <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
                   {showTyping && !isGroupChat ? (
-                    <span style={{ color: "var(--mq-text-muted)" }}>печатает…</span>
+                    <span className="flex items-center gap-1.5" style={{ color: "var(--mq-text)" }}>
+                      <span className="mq-typing-dot" aria-hidden="true" />
+                      печатает…
+                    </span>
                   ) : isGroupChat ? (
                     (selectedGroup && Array.isArray(selectedGroup.members)
                       ? selectedGroup.members.filter((m) => m.id !== userId).length : 0) > 0
                       ? `${selectedGroup && Array.isArray(selectedGroup.members) ? selectedGroup.members.filter((m) => m.id !== userId).length : 0} участников`
                       : "Участников пока нет"
                   ) : onlineStatuses[selectedFriend?.id || ""]?.online ? (
-                    "в сети"
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: "#30d158" }} aria-hidden="true" />
+                      в сети
+                    </span>
                   ) : (
                     formatLastSeen(onlineStatuses[selectedFriend?.id || ""]?.lastSeen ?? null)
                   )}
@@ -1480,7 +1572,7 @@ export default function MessengerView() {
                 <div className="hidden sm:flex -space-x-2">
                   {selectedGroup.members.slice(0, 4).map((m, idx) => (
                     <div key={m.id || `m${idx}`} className="rounded-full border-2"
-                      style={{ borderColor: "var(--mq-card)" }}>
+                      style={{ borderColor: "var(--mq-mat-2-bg)" }}>
                       <Avatar src={m.avatar} name={m.username} id={m.id || `m${idx}`} size={24} />
                     </div>
                   ))}
@@ -1493,15 +1585,24 @@ export default function MessengerView() {
                   setShowInChatSearch(!showInChatSearch);
                   if (showInChatSearch) setInChatSearch("");
                 }}
-                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
-                style={{
-                  backgroundColor: showInChatSearch ? "color-mix(in srgb, var(--mq-text) 8%, transparent)" : "transparent",
-                  color: showInChatSearch ? "var(--mq-text)" : "var(--mq-text-muted)",
-                }}
+                data-on={showInChatSearch}
+                className="mqms-icon-btn"
+                aria-label="Поиск по чату"
                 title="Поиск по сообщениям"
               >
-                <Search className="w-4 h-4" />
+                <Search className="w-[18px] h-[18px]" />
               </motion.button>
+              {/* Profile / chat menu (DMs open the profile modal) */}
+              {!isGroupChat && selectedFriend && (
+                <motion.button
+                  onClick={() => setShowProfile(selectedFriend.id)}
+                  className="mqms-icon-btn"
+                  aria-label="Профиль собеседника"
+                  title="Профиль"
+                >
+                  <User className="w-[18px] h-[18px]" />
+                </motion.button>
+              )}
             </div>
 
             {/* In-chat search input (collapsible) */}
@@ -1513,34 +1614,30 @@ export default function MessengerView() {
                   exit={{ height: 0, opacity: 0 }}
                   className="overflow-hidden"
                 >
-                  <div className="px-4 py-2 border-b" style={{ borderColor: "var(--mq-border-hairline)" }}>
+                  <div className="px-3.5 sm:px-5 pt-2.5 pb-3 border-b" style={{ borderColor: "var(--mq-border-hairline)" }}>
                     <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: "var(--mq-text-muted)" }} />
                       <input
                         type="text"
                         value={inChatSearch}
                         onChange={(e) => setInChatSearch(e.target.value)}
-                        placeholder="Поиск в чате..."
+                        placeholder="Поиск в чате…"
                         autoFocus
-                        className="w-full pl-9 pr-9 py-2 rounded-xl text-sm outline-none"
-                        style={{
-                          backgroundColor: "var(--mq-card)",
-                          color: "var(--mq-text)",
-                          border: "1px solid var(--mq-border-thin)",
-                        }}
+                        aria-label="Поиск в чате"
+                        className="mqms-input-pill h-11 pl-10 pr-11 text-sm outline-none"
                       />
                       {inChatSearch && (
                         <button
                           onClick={() => setInChatSearch("")}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center"
-                          style={{ color: "var(--mq-text-muted)" }}
+                          className="mqms-inline-x absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center"
+                          aria-label="Очистить поиск"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>
                     {inChatSearch.trim() && (
-                      <p className="mq-t-meta-2 mt-1.5" style={{ color: "var(--mq-text-muted)" }}>
+                      <p className="mq-t-meta-2 mt-2 tabular-nums" style={{ color: "var(--mq-text-muted)" }} role="status">
                         Найдено: {filteredMessages.length}
                       </p>
                     )}
@@ -1554,58 +1651,98 @@ export default function MessengerView() {
               {pinnedMessage && (
                 <motion.div initial={{ height: 0, opacity: 0 }}
                   animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                  className="px-4 py-2 border-b flex items-center gap-2 overflow-hidden"
+                  className="px-4 py-2 border-b flex items-center gap-2.5 overflow-hidden"
                   style={{
                     borderColor: "var(--mq-border-hairline)",
-                    backgroundColor: "color-mix(in srgb, var(--mq-text) 5%, transparent)",
+                    backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)",
                   }}>
                   <Pin className="w-3.5 h-3.5 flex-shrink-0"
-                    style={{ color: "var(--mq-text-muted)" }} fill="currentColor" />
+                    style={{ color: "var(--mq-platinum-hi)" }} fill="currentColor" aria-hidden="true" />
+                  <span className="w-px h-4 flex-shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 12%, transparent)" }} aria-hidden="true" />
                   <p className="text-xs truncate flex-1" style={{ color: "var(--mq-text-muted)" }}>
                     {pinnedMessage.messageType === "voice"
-                      ? "🎤 Голосовое сообщение"
+                      ? "Голосовое сообщение"
                       : decrypt(pinnedMessage.content).slice(0, 80)}
                   </p>
                   <button onClick={() => togglePinMessage(pinnedMessage.id)}
-                    style={{ color: "var(--mq-text-muted)" }} aria-label="Открепить">
+                    className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors mqms-inline-x"
+                    aria-label="Открепить сообщение">
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Messages */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
-              {filteredMessages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center">
+            {/* Messages — live log of the conversation */}
+            <div ref={scrollRef} role="log" aria-live="polite" aria-label="Лента сообщений"
+              className="flex-1 overflow-y-auto overscroll-contain px-3 sm:px-5 py-4">
+              {historyLoading && conversationMessages.length === 0 ? (
+                <HistorySkeleton />
+              ) : filteredMessages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center mq-empty-anim">
                   {isGroupChat && (selectedGroup?.members?.length ?? 0) <= 1 ? (
                     <>
-                      <Users className="w-10 h-10 mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
-                      <p className="text-sm font-semibold mb-1" style={{ color: "var(--mq-text)" }}>
+                      <div className="mqms-empty-icon mb-3" aria-hidden="true">
+                        <Users className="w-6 h-6" />
+                      </div>
+                      <p className="text-sm font-semibold mb-1.5" style={{ color: "var(--mq-text)" }}>
                         Группа создана
                       </p>
-                      <p className="text-xs mb-4" style={{ color: "var(--mq-text-muted)" }}>
+                      <p className="text-xs mb-5 max-w-[260px]" style={{ color: "var(--mq-text-muted)" }}>
                         Участников пока нет
                       </p>
                       <button
                         onClick={() => { setShowAddMembers(true); setNewChatSearch(""); }}
-                        className="px-4 py-2 rounded-xl text-xs font-semibold transition-colors"
-                        style={{
-                          backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)",
-                          color: "var(--mq-text)",
-                          border: "1px solid color-mix(in srgb, var(--mq-text) 16%, transparent)",
-                        }}>
+                        className="mq-btn-neutral px-5 h-11 rounded-full text-xs font-semibold">
                         Добавить участников
                       </button>
                     </>
                   ) : (
                     <>
-                      <MessageCircle className="w-10 h-10 mb-3"
-                        style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
-                      <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-                        {/* UX Core #1: позитивная формулировка вместо императива */}
-                        {inChatSearch.trim() ? "Ничего не найдено" : (isGroupChat ? "Пока тишина" : `Напишите ${selectedFriend?.username} — пусть начнётся`)}
-                      </p>
+                      {inChatSearch.trim() ? (
+                        <>
+                          <div className="mqms-empty-icon mb-3" aria-hidden="true">
+                            <Search className="w-6 h-6" />
+                          </div>
+                          <p className="text-sm font-semibold mb-1.5" style={{ color: "var(--mq-text)" }}>
+                            Ничего не найдено
+                          </p>
+                          <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                            Попробуйте другой запрос
+                          </p>
+                        </>
+                      ) : isGroupChat ? (
+                        <>
+                          <div className="mqms-empty-icon mb-3" aria-hidden="true">
+                            <Users className="w-6 h-6" />
+                          </div>
+                          <p className="text-sm font-semibold mb-1.5" style={{ color: "var(--mq-text)" }}>
+                            Пока тишина
+                          </p>
+                          <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                            {/* UX Core #1: позитивная формулировка вместо императива */}
+                            Напишите первое сообщение — разговор начнётся здесь
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          {/* Premium empty chat: big avatar + name + invitation */}
+                          <div className="relative mb-4">
+                            <Avatar src={selectedFriend?.avatar} name={selectedFriend?.username || "User"}
+                              id={selectedFriend?.id || ""} size={72} ring />
+                            {onlineStatuses[selectedFriend?.id || ""]?.online && (
+                              <span className="mqms-online" aria-hidden="true" />
+                            )}
+                          </div>
+                          <p className="text-lg font-semibold mb-1.5" style={{ color: "var(--mq-text)" }}>
+                            {selectedFriend?.username}
+                          </p>
+                          <p className="text-xs max-w-[240px]" style={{ color: "var(--mq-text-muted)" }}>
+                            {/* UX Core #1: позитивная формулировка вместо императива */}
+                            Напишите первое сообщение
+                          </p>
+                        </>
+                      )}
                     </>
                   )}
                 </div>
@@ -1613,8 +1750,11 @@ export default function MessengerView() {
                 filteredMessages.map((msg, i) => {
                   const isMine = msg.senderId === userId;
                   const prev = filteredMessages[i - 1];
+                  const next = filteredMessages[i + 1];
                   const showDateSep = !prev || !sameDay(prev.createdAt, msg.createdAt);
                   const prevSameSender = prev && prev.senderId === msg.senderId && !showDateSep;
+                  const isLastOfGroup = !next || next.senderId !== msg.senderId ||
+                    !sameDay(next.createdAt, msg.createdAt);
                   const voiceData = parseVoice(msg.content);
                   const text = voiceData ? "" : decrypt(msg.content);
                   const isTemp = String(msg.id).startsWith("temp_");
@@ -1624,9 +1764,9 @@ export default function MessengerView() {
                       <motion.div
                         initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
                         animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
-                        className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"} ${prevSameSender ? "mt-0.5" : "mt-2"}`}>
+                        className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"} ${prevSameSender ? "mt-[3px]" : "mt-2.5"}`}>
                         {!isMine && (
-                          <div className="w-7 flex-shrink-0">
+                          <div className="w-7 h-7 flex-shrink-0">
                             {!prevSameSender && (
                               isGroupChat ? (
                                 <div className="w-7 h-7 rounded-full flex items-center justify-center mq-t-meta-2 font-bold"
@@ -1641,9 +1781,9 @@ export default function MessengerView() {
                             )}
                           </div>
                         )}
-                        <div className="relative group max-w-[85%]">
+                        <div className="relative group max-w-[86%] sm:max-w-[78%] lg:max-w-[70%]">
                           {isGroupChat && !isMine && !prevSameSender && (
-                            <p className="mq-t-meta-2 mb-1 ml-1 font-medium"
+                            <p className="mq-t-meta-2 mb-1 ml-2 font-semibold"
                               style={{ color: colorForId(msg.senderId) }}>
                               {msg.senderName?.replace("@", "") || "User"}
                             </p>
@@ -1653,28 +1793,21 @@ export default function MessengerView() {
                               e.preventDefault();
                               setContextMenu({ id: msg.id, x: e.clientX, y: e.clientY });
                             }}
-                            className={`px-3.5 py-2 cursor-pointer ${isMine ? "rounded-2xl rounded-br-md" : "rounded-2xl rounded-bl-md"}`}
-                            style={{
-                              backgroundColor: isMine
-                                ? "color-mix(in srgb, var(--mq-text) 20%, var(--mq-card))"
-                                : "color-mix(in srgb, var(--mq-text) 8%, var(--mq-card))",
-                              color: isMine ? "#fff" : "var(--mq-text)",
-                            }}>
+                            className={`mqms-bubble cursor-default ${isMine ? "mqms-bubble-out" : "mqms-bubble-in"} ${
+                              isLastOfGroup ? "mqms-tail" : ""
+                            } ${isTemp ? "mqms-pending" : ""}`}>
                             {voiceData ? (
                               <VoiceMessageBubble voiceUrl={voiceData.voiceUrl}
                                 duration={voiceData.voiceDuration || 0} isMine={isMine} />
                             ) : (
                               <p className="text-sm whitespace-pre-wrap break-words">{text}</p>
                             )}
-                            <div className="flex items-center justify-end gap-1 mt-0.5">
-                              <span className="mq-t-meta-2"
-                                style={{ color: isMine ? "rgba(255,255,255,0.7)" : "var(--mq-text-muted)" }}>
-                                {formatTime(msg.createdAt)}
-                              </span>
+                            <div className="mqms-meta">
+                              <span className="tabular-nums">{formatTime(msg.createdAt)}</span>
                               {isMine && (isTemp ? (
-                                <Check className="w-3 h-3" style={{ color: "rgba(255,255,255,0.7)" }} />
+                                <Clock className="w-3.5 h-3.5" aria-label="Отправляется" />
                               ) : (
-                                <CheckCheck className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.85)" }} />
+                                <CheckCheck className="w-3.5 h-3.5" aria-label="Доставлено" />
                               ))}
                             </div>
                           </div>
@@ -1684,15 +1817,43 @@ export default function MessengerView() {
                   );
                 })
               )}
+              {/* Failed send — error bubble with retry (draft kept locally) */}
+              {failedDraft && failedDraft.chatId === activeChatId && !inChatSearch.trim() && (
+                <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }} className="flex items-end justify-end gap-2 mt-2.5">
+                  <div className="mqms-bubble mqms-bubble-out mqms-failed max-w-[86%] sm:max-w-[78%] lg:max-w-[70%]"
+                    role="alert">
+                    <p className="text-sm whitespace-pre-wrap break-words">{failedDraft.text}</p>
+                    <div className="flex items-center justify-between gap-3 mt-1.5 -mb-0.5">
+                      <span className="flex items-center gap-1.5 mq-t-meta-2"
+                        style={{ color: "rgba(244,246,250,0.72)" }}>
+                        <AlertCircle className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} aria-hidden="true" />
+                        Не отправлено
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <button onClick={retryFailedSend} className="mqms-retry-btn">Повторить</button>
+                        <button onClick={() => setFailedDraft(null)}
+                          className="mqms-inline-x w-9 h-9 rounded-full flex items-center justify-center"
+                          aria-label="Скрыть ошибку">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </span>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
               {showTyping && !isGroupChat && (
                 <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
-                  className="flex items-end gap-2 justify-start mt-2">
-                  <div className="w-7 flex-shrink-0" />
+                  className="flex items-end gap-2 justify-start mt-2.5">
+                  <div className="w-7 h-7 flex-shrink-0">
+                    <Avatar src={selectedFriend?.avatar} name={selectedFriend?.username || "U"}
+                      id={selectedFriend?.id || ""} size={28} />
+                  </div>
                   {/* v68: premium typing indicator — pure CSS dots (mq-typing-dot),
                       no per-frame JS; dots breathe with a staggered lift */}
-                  <div className="px-4 py-3.5 rounded-2xl rounded-bl-md flex items-center gap-1"
-                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, var(--mq-card))", color: "var(--mq-text-muted)" }}>
+                  <div className="mqms-bubble mqms-bubble-in mqms-tail px-4 py-3.5 flex items-center gap-1.5"
+                    aria-label="Собеседник печатает…">
                     <span className="mq-typing-dot" />
                     <span className="mq-typing-dot" />
                     <span className="mq-typing-dot" />
@@ -1701,45 +1862,46 @@ export default function MessengerView() {
               )}
             </div>
 
-            {/* Input */}
-            <div className="p-3 border-t" style={hairlineBorder}>
+            {/* Input (composer) — pill textarea + 44px controls + safe areas */}
+            <div className="mqms-composer border-t" style={hairlineBorder}>
               {isRecording ? (
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 flex items-center gap-2 px-4 py-2.5 rounded-full"
-                    style={{ backgroundColor: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
+                  <div className="flex-1 flex items-center gap-3 px-4 h-12 rounded-full"
+                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)", border: "1px solid color-mix(in srgb, var(--mq-accent) 28%, transparent)" }}>
                     <motion.span animate={{ opacity: [1, 0.3, 1] }}
                       transition={{ duration: 1, repeat: Infinity }}
-                      className="w-2 h-2 rounded-full" style={{ backgroundColor: "#ef4444" }} />
-                    <span className="text-sm" style={{ color: "var(--mq-error)" }}>
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)" }} />
+                    <span className="text-sm font-medium tabular-nums" style={{ color: "var(--mq-text)" }}>
                       Запись… {formatDuration(recordingDuration)}
                     </span>
                   </div>
                   <motion.button onClick={stopRecording}
-                    className="mq-platinum-btn w-11 h-11 rounded-full flex items-center justify-center"
+                    className="mqms-icon-btn mqms-send" data-ready="true"
                     aria-label="Отправить голосовое">
-                    <Send className="w-4 h-4" />
+                    <Send className="w-[18px] h-[18px]" />
                   </motion.button>
                   <motion.button onClick={cancelRecording}
-                    className="w-11 h-11 rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#ef4444" }}
+                    className="mqms-icon-btn"
+                    style={{ color: "var(--mq-accent)", background: "color-mix(in srgb, var(--mq-accent) 12%, transparent)" }}
                     aria-label="Отменить запись">
-                    <X className="w-4 h-4" />
+                    <X className="w-[18px] h-[18px]" />
                   </motion.button>
                 </div>
               ) : (
                 <div className="flex flex-col gap-2" style={{ paddingBottom: "var(--mq-kb-offset, 0px)" }}>
                   {showQuickEmojis && (
                     <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
-                      className="flex gap-1">
+                      className="flex gap-1.5 flex-wrap px-1">
                       {QUICK_EMOJIS.map((emoji) => (
-                        <motion.button key={emoji} whileHover={hoverProps({ scale: 1.2, transition: { duration: 0.12, ease: "easeOut" } })}
+                        <motion.button key={emoji} whileHover={hoverProps({ scale: 1.15, transition: { duration: 0.12, ease: "easeOut" } })}
                           onClick={() => {
                             setInputText((p) => p + emoji);
                             setShowQuickEmojis(false);
                             inputRef.current?.focus();
                           }}
-                          className="text-xl p-1.5 rounded-lg"
-                          style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)" }}>
+                          className="text-xl w-11 h-11 flex items-center justify-center rounded-xl transition-colors"
+                          style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)" }}
+                          aria-label={`Вставить ${emoji}`}>
                           {emoji}
                         </motion.button>
                       ))}
@@ -1748,21 +1910,16 @@ export default function MessengerView() {
                   <div className="flex items-end gap-2">
                     <motion.button whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
                       onClick={() => setShowQuickEmojis((v) => !v)}
-                      className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{
-                        backgroundColor: showQuickEmojis
-                          ? "color-mix(in srgb, var(--mq-text) 9%, transparent)"
-                          : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
-                        color: showQuickEmojis ? "var(--mq-text)" : "var(--mq-text-muted)",
-                      }} aria-label="Эмодзи">
-                      <Smile className="w-4 h-4" />
+                      data-on={showQuickEmojis}
+                      className="mqms-icon-btn"
+                      aria-label="Эмодзи" title="Эмодзи">
+                      <Smile className="w-[18px] h-[18px]" />
                     </motion.button>
                     <motion.button whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
                       onClick={startRecording}
-                      className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
-                      aria-label="Записать голосовое">
-                      <Mic className="w-4 h-4" />
+                      className="mqms-icon-btn"
+                      aria-label="Записать голосовое" title="Голосовое сообщение">
+                      <Mic className="w-[18px] h-[18px]" />
                     </motion.button>
                     <textarea ref={inputRef} value={inputText}
                       onChange={(e) => handleInputChange(e.target.value)}
@@ -1772,23 +1929,18 @@ export default function MessengerView() {
                           handleSend();
                         }
                       }}
-                      placeholder="Сообщение…" rows={1}
-                      className="flex-1 px-4 py-2.5 rounded-2xl text-sm outline-none resize-none max-h-[120px]"
-                      style={inputStyle} />
+                      placeholder="Сообщение…" rows={1} aria-label="Сообщение"
+                      className="mqms-input-pill flex-1 min-h-[44px] px-4 py-2.5 text-sm outline-none resize-none max-h-[120px]" />
                     <motion.button whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
-                      onClick={handleSend} disabled={!inputText.trim() || isSending}
-                      className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{
-                        backgroundColor: inputText.trim() && !isSending
-                          ? "var(--mq-platinum-lift)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
-                        color: inputText.trim() && !isSending ? "#fff" : "var(--mq-text-muted)",
-                      }} aria-label="Отправить">
-                      {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      onClick={() => handleSend()} disabled={!inputText.trim() || isSending}
+                      data-ready={!!(inputText.trim() && !isSending)}
+                      className="mqms-icon-btn mqms-send" aria-label="Отправить сообщение">
+                      {isSending ? <Loader2 className="w-[18px] h-[18px] animate-spin" /> : <Send className="w-[18px] h-[18px]" />}
                     </motion.button>
                   </div>
                   <div className="flex items-center justify-center gap-1 mq-t-meta-2"
                     style={{ color: "var(--mq-text-muted)" }}>
-                    <Lock className="w-2.5 h-2.5" />
+                    <Lock className="w-2.5 h-2.5" aria-hidden="true" />
                     <span>Сообщения защищены TLS-шифрованием</span>
                   </div>
                 </div>
@@ -1796,13 +1948,14 @@ export default function MessengerView() {
             </div>
           </div>
         ) : showChatPanel ? (
-          <div className={`${isMobileView && mobileView === "list" ? "hidden" : "flex"} flex-1 flex-col items-center justify-center text-center p-8`}>
-            <MessageCircle className="w-12 h-12 mb-4"
-              style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
-            <p className="text-base font-semibold mb-1" style={{ color: "var(--mq-text)" }}>
+          <div className={`${isMobileView && mobileView === "list" ? "hidden" : "flex"} flex-1 flex-col items-center justify-center text-center p-8 mq-empty-anim`}>
+            <div className="mqms-empty-icon mb-4" style={{ width: 64, height: 64 }} aria-hidden="true">
+              <MessageCircle className="w-7 h-7" />
+            </div>
+            <p className="text-base font-semibold mb-1.5" style={{ color: "var(--mq-text)" }}>
               Выберите чат
             </p>
-            <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+            <p className="text-sm max-w-[260px]" style={{ color: "var(--mq-text-muted)" }}>
               Выберите собеседника слева, чтобы начать диалог
             </p>
           </div>
@@ -1814,37 +1967,36 @@ export default function MessengerView() {
         {contextMenu && (
           <motion.div initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
             onClick={(e) => e.stopPropagation()}
-            className="fixed z-50 min-w-[180px] rounded-[var(--mq-r-card)] overflow-hidden py-1"
+            role="menu"
+            aria-label="Действия с сообщением"
+            className="fixed z-50 min-w-[200px] rounded-[var(--mq-mat-radius)] overflow-hidden py-1.5"
             style={{
               left: Math.min(contextMenu.x,
-                (typeof window !== "undefined" ? window.innerWidth : 9999) - 180),
+                (typeof window !== "undefined" ? window.innerWidth : 9999) - 200),
               top: Math.min(contextMenu.y,
-                (typeof window !== "undefined" ? window.innerHeight : 9999) - 220),
+                (typeof window !== "undefined" ? window.innerHeight : 9999) - 240),
               ...cardStyle,
             }}>
-            <button onClick={() => handleReplyMessage(contextMenu.id)}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm hover:bg-[var(--mq-overlay-hover)]"
-              style={{ color: "var(--mq-text)" }}>
-              <Reply className="w-3.5 h-3.5" /> Ответить
+            <button onClick={() => handleReplyMessage(contextMenu.id)} role="menuitem"
+              className="mqms-ctx-item">
+              <Reply className="w-4 h-4 flex-shrink-0" aria-hidden="true" /> Ответить
             </button>
-            <button onClick={() => handleCopyMessage(contextMenu.id)}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm hover:bg-[var(--mq-overlay-hover)]"
-              style={{ color: "var(--mq-text)" }}>
-              <Copy className="w-3.5 h-3.5" /> Копировать
+            <button onClick={() => handleCopyMessage(contextMenu.id)} role="menuitem"
+              className="mqms-ctx-item">
+              <Copy className="w-4 h-4 flex-shrink-0" aria-hidden="true" /> Копировать
             </button>
-            <button onClick={() => togglePinMessage(contextMenu.id)}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm hover:bg-[var(--mq-overlay-hover)]"
-              style={{ color: "var(--mq-text)" }}>
-              <Pin className="w-3.5 h-3.5"
-                style={{ color: pinnedMsgId === contextMenu.id ? "var(--mq-text)" : "currentColor" }}
-                fill={pinnedMsgId === contextMenu.id ? "currentColor" : "none"} />
+            <button onClick={() => togglePinMessage(contextMenu.id)} role="menuitem"
+              className="mqms-ctx-item">
+              <Pin className="w-4 h-4 flex-shrink-0"
+                style={{ color: pinnedMsgId === contextMenu.id ? "var(--mq-platinum-hi)" : "currentColor" }}
+                fill={pinnedMsgId === contextMenu.id ? "currentColor" : "none"} aria-hidden="true" />
               {pinnedMsgId === contextMenu.id ? "Открепить" : "Закрепить"}
             </button>
-            <button onClick={() => handleDeleteMessage(contextMenu.id)}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm hover:bg-[var(--mq-overlay-hover)]"
-              style={{ color: "#ef4444" }}>
-              <Trash2 className="w-3.5 h-3.5" /> Удалить
+            <button onClick={() => handleDeleteMessage(contextMenu.id)} role="menuitem"
+              className="mqms-ctx-item" style={{ color: "var(--mq-accent)" }}>
+              <Trash2 className="w-4 h-4 flex-shrink-0" aria-hidden="true" /> Удалить
             </button>
           </motion.div>
         )}
@@ -1860,24 +2012,24 @@ export default function MessengerView() {
             <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              className="w-full max-w-md rounded-2xl overflow-hidden"
-              style={cardStyle} onClick={(e) => e.stopPropagation()}>
+              className="w-full max-w-md rounded-[var(--mq-card-r-md)] overflow-hidden"
+              style={cardStyle} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Новый чат">
               <div className="p-4 flex items-center justify-between border-b" style={hairlineBorder}>
                 <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>Новый чат</h3>
                 <button onClick={() => setShowNewChat(false)}
+                  className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
                   style={{ color: "var(--mq-text-muted)" }} aria-label="Закрыть">
                   <X className="w-4 h-4" />
                 </button>
               </div>
               <div className="p-4">
                 <div className="relative mb-3">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2"
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
                     style={{ color: "var(--mq-text-muted)" }} />
                   <input type="text" value={newChatSearch}
                     onChange={(e) => setNewChatSearch(e.target.value)}
-                    placeholder="Поиск пользователей" autoFocus
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none"
-                    style={inputStyle} />
+                    placeholder="Поиск пользователей" autoFocus aria-label="Поиск пользователей"
+                    className="mqms-input-pill h-11 pl-10 pr-4 text-sm outline-none" />
                 </div>
                 <div className="max-h-80 overflow-y-auto">
                   {!newChatSearch.trim() ? (
@@ -1896,7 +2048,7 @@ export default function MessengerView() {
 
                         onClick={() => handleStartChat(user)}
                         className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-colors hover:bg-[color-mix(in_srgb,var(--mq-text)_4%,transparent)]">
-                        <Avatar src={user.avatar} name={user.username} id={user.id} size={40} />
+                        <Avatar src={user.avatar} name={user.username} id={user.id} size={44} />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>
                             {user.username}
@@ -1925,11 +2077,12 @@ export default function MessengerView() {
             <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              className="w-full max-w-md rounded-2xl overflow-hidden"
-              style={cardStyle} onClick={(e) => e.stopPropagation()}>
+              className="w-full max-w-md rounded-[var(--mq-card-r-md)] overflow-hidden"
+              style={cardStyle} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Новая группа">
               <div className="p-4 flex items-center justify-between border-b" style={hairlineBorder}>
                 <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>Новая группа</h3>
                 <button onClick={() => setShowNewGroup(false)}
+                  className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
                   style={{ color: "var(--mq-text-muted)" }} aria-label="Закрыть">
                   <X className="w-4 h-4" />
                 </button>
@@ -1937,17 +2090,16 @@ export default function MessengerView() {
               <div className="p-4 space-y-3">
                 <input type="text" value={groupName}
                   onChange={(e) => setGroupName(e.target.value)}
-                  placeholder="Название группы" autoFocus
-                  className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
-                  style={inputStyle} />
+                  placeholder="Название группы" autoFocus aria-label="Название группы"
+                  className="mqms-input-pill h-11 px-4 text-sm outline-none" />
                 <div className="relative">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2"
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
                     style={{ color: "var(--mq-text-muted)" }} />
                   <input type="text" value={newChatSearch}
                     onChange={(e) => setNewChatSearch(e.target.value)}
                     placeholder="Добавить участников (необязательно)"
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none"
-                    style={inputStyle} />
+                    aria-label="Поиск участников"
+                    className="mqms-input-pill h-11 pl-10 pr-4 text-sm outline-none" />
                 </div>
                 {selectedMembers.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
@@ -1955,14 +2107,15 @@ export default function MessengerView() {
                       const u = newChatUsers.find((u) => u.id === id);
                       if (!u) return null;
                       return (
-                        <span key={id} className="flex items-center gap-1 px-2 py-1 rounded-full text-xs"
+                        <span key={id} className="flex items-center gap-1.5 pl-3 pr-1.5 h-8 rounded-full text-xs font-medium"
                           style={{
                             backgroundColor: "color-mix(in srgb, var(--mq-text) 9%, transparent)",
                             color: "var(--mq-text)",
                           }}>
                           {u.username}
                           <button onClick={() => setSelectedMembers((p) => p.filter((x) => x !== id))}
-                            aria-label="Убрать">
+                            className="w-6 h-6 rounded-full flex items-center justify-center"
+                            aria-label={`Убрать ${u.username}`}>
                             <X className="w-3 h-3" />
                           </button>
                         </span>
@@ -1981,15 +2134,16 @@ export default function MessengerView() {
                         onClick={() => setSelectedMembers((p) =>
                           selected ? p.filter((x) => x !== user.id) : [...p, user.id])}
                         className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-colors hover:bg-[color-mix(in_srgb,var(--mq-text)_4%,transparent)]">
-                        <Avatar src={user.avatar} name={user.username} id={user.id} size={36} />
+                        <Avatar src={user.avatar} name={user.username} id={user.id} size={40} />
                         <p className="flex-1 text-sm font-semibold truncate"
                           style={{ color: "var(--mq-text)" }}>
                           {user.username}
                         </p>
                         {selected && (
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center"
-                            style={{ backgroundColor: "var(--mq-platinum-lift)" }}>
-                            <span className="mq-t-meta-2" style={{ color: "#fff" }}>✓</span>
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                            aria-hidden="true"
+                            style={{ backgroundColor: "var(--mq-platinum-lift)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)" }}>
+                            <Check className="w-3.5 h-3.5" style={{ color: "#fff" }} />
                           </div>
                         )}
                       </motion.button>
@@ -1998,13 +2152,7 @@ export default function MessengerView() {
                 </div>
                 <button onClick={handleCreateGroup}
                   disabled={!groupName.trim()}
-                  className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors"
-                  style={{
-                    backgroundColor: groupName.trim()
-                      ? "var(--mq-platinum-lift)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
-                    color: groupName.trim()
-                      ? "#fff" : "var(--mq-text-muted)",
-                  }}>
+                  className="mq-platinum-btn w-full h-11 rounded-xl text-sm font-semibold">
                   Создать группу
                 </button>
               </div>
@@ -2023,26 +2171,26 @@ export default function MessengerView() {
             <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              className="w-full max-w-md rounded-2xl overflow-hidden"
-              style={cardStyle} onClick={(e) => e.stopPropagation()}>
+              className="w-full max-w-md rounded-[var(--mq-card-r-md)] overflow-hidden"
+              style={cardStyle} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Добавить участников">
               <div className="p-4 flex items-center justify-between border-b" style={hairlineBorder}>
                 <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>
                   Добавить участников
                 </h3>
                 <button onClick={() => setShowAddMembers(false)}
+                  className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
                   style={{ color: "var(--mq-text-muted)" }} aria-label="Закрыть">
                   <X className="w-4 h-4" />
                 </button>
               </div>
               <div className="p-4 space-y-3">
                 <div className="relative">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2"
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
                     style={{ color: "var(--mq-text-muted)" }} />
                   <input type="text" value={newChatSearch}
                     onChange={(e) => setNewChatSearch(e.target.value)}
-                    placeholder="Поиск пользователей" autoFocus
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none"
-                    style={inputStyle} />
+                    placeholder="Поиск пользователей" autoFocus aria-label="Поиск пользователей"
+                    className="mqms-input-pill h-11 pl-10 pr-4 text-sm outline-none" />
                 </div>
                 {addMembersTarget.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
@@ -2050,14 +2198,15 @@ export default function MessengerView() {
                       const u = newChatUsers.find((u) => u.id === id);
                       if (!u) return null;
                       return (
-                        <span key={id} className="flex items-center gap-1 px-2 py-1 rounded-full text-xs"
+                        <span key={id} className="flex items-center gap-1.5 pl-3 pr-1.5 h-8 rounded-full text-xs font-medium"
                           style={{
                             backgroundColor: "color-mix(in srgb, var(--mq-text) 9%, transparent)",
                             color: "var(--mq-text)",
                           }}>
                           {u.username}
                           <button onClick={() => setAddMembersTarget((p) => p.filter((x) => x !== id))}
-                            aria-label="Убрать">
+                            className="w-6 h-6 rounded-full flex items-center justify-center"
+                            aria-label={`Убрать ${u.username}`}>
                             <X className="w-3 h-3" />
                           </button>
                         </span>
@@ -2083,7 +2232,7 @@ export default function MessengerView() {
                           selected ? p.filter((x) => x !== user.id) : [...p, user.id])}
                         className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-colors hover:bg-[color-mix(in_srgb,var(--mq-text)_4%,transparent)]"
                         style={{ opacity: alreadyIn ? 0.45 : 1 }}>
-                        <Avatar src={user.avatar} name={user.username} id={user.id} size={36} />
+                        <Avatar src={user.avatar} name={user.username} id={user.id} size={40} />
                         <p className="flex-1 text-sm font-semibold truncate"
                           style={{ color: "var(--mq-text)" }}>
                           {user.username}
@@ -2091,9 +2240,10 @@ export default function MessengerView() {
                         {alreadyIn ? (
                           <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>уже в группе</span>
                         ) : selected && (
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center"
-                            style={{ backgroundColor: "var(--mq-platinum-lift)" }}>
-                            <span className="mq-t-meta-2" style={{ color: "#fff" }}>✓</span>
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                            aria-hidden="true"
+                            style={{ backgroundColor: "var(--mq-platinum-lift)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)" }}>
+                            <Check className="w-3.5 h-3.5" style={{ color: "#fff" }} />
                           </div>
                         )}
                       </motion.button>
@@ -2102,13 +2252,7 @@ export default function MessengerView() {
                 </div>
                 <button onClick={handleAddMembers}
                   disabled={addMembersTarget.length === 0}
-                  className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors"
-                  style={{
-                    backgroundColor: addMembersTarget.length > 0
-                      ? "var(--mq-platinum-lift)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
-                    color: addMembersTarget.length > 0
-                      ? "#fff" : "var(--mq-text-muted)",
-                  }}>
+                  className="mq-platinum-btn w-full h-11 rounded-xl text-sm font-semibold">
                   Добавить
                 </button>
               </div>
@@ -2140,11 +2284,13 @@ export default function MessengerView() {
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.9, y: 20 }}
                 transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-                className="rounded-3xl overflow-hidden w-full max-w-sm"
+                role="dialog"
+                aria-label={`Профиль ${friend.username}`}
+                className="rounded-[var(--mq-mat-radius-float)] overflow-hidden w-full max-w-sm"
                 style={{
-                  backgroundColor: "var(--mq-card)",
-                  border: "1px solid var(--mq-border-thin)",
-                  boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+                  backgroundColor: "var(--mq-mat-2-bg)",
+                  border: "1px solid var(--mq-mat-2-edge)",
+                  boxShadow: "var(--mq-mat-3-shadow)",
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -2157,8 +2303,9 @@ export default function MessengerView() {
                 >
                   <button
                     onClick={() => setShowProfile(null)}
-                    className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: "rgba(0,0,0,0.3)", color: "#fff" }}
+                    className="absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: "rgba(0,0,0,0.35)", color: "#fff" }}
+                    aria-label="Закрыть профиль"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -2167,19 +2314,25 @@ export default function MessengerView() {
                 {/* Avatar + name */}
                 <div className="px-6 pb-6 -mt-12 flex flex-col items-center text-center">
                   <div className="relative mb-3">
-                    <Avatar src={friend.avatar} name={friend.username} id={friend.id} size={80} />
+                    <Avatar src={friend.avatar} name={friend.username} id={friend.id} size={80} ring />
                     {status?.online && (
                       <span
-                        className="absolute bottom-1 right-1 w-4 h-4 rounded-full border-3"
-                        style={{ backgroundColor: "#4ade80", borderColor: "var(--mq-card)" }}
+                        className="mqms-online"
+                        style={{ width: 16, height: 16, bottom: 2, right: 2 }}
+                        aria-hidden="true"
                       />
                     )}
                   </div>
                   <h3 className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>
                     {friend.username}
                   </h3>
-                  <p className="text-sm mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
-                    {status?.online ? "в сети" : formatLastSeen(status?.lastSeen ?? null)}
+                  <p className="text-sm mt-0.5 flex items-center gap-1.5" style={{ color: "var(--mq-text-muted)" }}>
+                    {status?.online ? (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#30d158" }} aria-hidden="true" />
+                        в сети
+                      </>
+                    ) : formatLastSeen(status?.lastSeen ?? null)}
                   </p>
 
                   {/* Added date */}
@@ -2196,7 +2349,7 @@ export default function MessengerView() {
                       onClick={() => {
                         setShowProfile(null);
                       }}
-                      className="mq-platinum-btn flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold"
+                      className="mq-platinum-btn flex-1 flex items-center justify-center gap-2 h-11 rounded-xl text-sm font-semibold"
                     >
                       <MessageCircle className="w-4 h-4" />
                       Написать
@@ -2208,12 +2361,8 @@ export default function MessengerView() {
                         setShowProfile(null);
                         if (isMobileView) setMobileView("chat");
                       }}
-                      className="flex items-center justify-center w-11 h-11 rounded-xl flex-shrink-0"
-                      style={{
-                        backgroundColor: "var(--mq-bg)",
-                        color: "var(--mq-text-muted)",
-                        border: "1px solid var(--mq-border-thin)",
-                      }}
+                      className="mq-btn-neutral flex items-center justify-center w-11 h-11 rounded-xl flex-shrink-0"
+                      aria-label="Открыть чат"
                     >
                       <User className="w-4 h-4" />
                     </motion.button>

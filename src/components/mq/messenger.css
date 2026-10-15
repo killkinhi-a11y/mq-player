@@ -1,0 +1,378 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   MQ MESSENGER — visual layer for MessengerView + MessageBubble.
+
+   Premium iMessage-grade chat glass on the MQ material system:
+   - incoming bubbles  : light tonal glass (veil + hairline edge)
+   - outgoing bubbles  : cold liquid-glass accent stack (mq-platinum-btn
+                         language: deep veil + theme tint + cold-light edge)
+   - radius 18px, sender-side corner 6px (asymmetric tail)
+   - rows/badges/dots  : conversation list anatomy (72px rows, online dot,
+                         unread badge, 3px active rail)
+
+   PIPELINE CONTRACT (see materials-v25.css): plain declarations only;
+   static color-mix() allowed in VALUES — never inside var() fallbacks;
+   NO backdrop-filter here (components set it inline when needed);
+   multi-layer paint = background-color + flat linear-gradient(c,c)
+   image overlays (the RENDER CONTRACT shape).
+
+   Motion: MICRO 80–160ms / STANDARD 180–300ms; everything frozen under
+   prefers-reduced-motion.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Conversation list row ─────────────────────────────────────────────── */
+.mqms-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 72px;
+  padding: 10px 12px 10px 16px;
+  margin: 0;
+  border-radius: var(--mq-mat-radius);
+  text-align: left;
+  transition:
+    background-color var(--mq-mo-micro) var(--mq-ease-out),
+    border-color var(--mq-mo-micro) var(--mq-ease-out);
+}
+
+/* Active rail — 3px cold-light bar on the left edge of the row. */
+.mqms-row::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  width: 3px;
+  height: 34px;
+  border-radius: var(--mq-radius-full);
+  background: transparent;
+  transform: translateY(-50%);
+  transition: background-color var(--mq-mo-standard) var(--mq-ease-out);
+}
+
+.mqms-row[data-active="true"] {
+  background: color-mix(in srgb, var(--mq-text) 8%, transparent);
+}
+.mqms-row[data-active="true"]::before {
+  background: var(--mq-platinum-hi);
+}
+
+.mqms-row:active {
+  background: color-mix(in srgb, var(--mq-text) 10%, transparent);
+}
+
+@media (hover: hover) {
+  .mqms-row:hover {
+    background: color-mix(in srgb, var(--mq-text) 5%, transparent);
+  }
+  .mqms-row[data-active="true"]:hover {
+    background: color-mix(in srgb, var(--mq-text) 9%, transparent);
+  }
+}
+
+/* ── Online presence dot (over avatars) ────────────────────────────────── */
+.mqms-online {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--mq-radius-full);
+  background: #30d158;
+  /* white-ish ring reads as the dot "cutting" into any surface */
+  box-shadow:
+    0 0 0 2px var(--mq-mat-2-bg),
+    0 0 0 3px color-mix(in srgb, var(--mq-text) 10%, transparent);
+}
+
+/* ── Circular icon button (44px touch target) ──────────────────────────── */
+.mqms-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--mq-radius-full);
+  flex-shrink: 0;
+  color: var(--mq-text-muted);
+  background: color-mix(in srgb, var(--mq-text) 6%, transparent);
+  transition:
+    background-color var(--mq-mo-micro) var(--mq-ease-out),
+    color var(--mq-mo-micro) var(--mq-ease-out),
+    transform var(--mq-mo-micro) var(--mq-ease-press);
+}
+.mqms-icon-btn:active {
+  transform: scale(0.94);
+}
+.mqms-icon-btn[data-on="true"] {
+  background: color-mix(in srgb, var(--mq-text) 12%, transparent);
+  color: var(--mq-text);
+}
+@media (hover: hover) {
+  .mqms-icon-btn:hover {
+    background: color-mix(in srgb, var(--mq-text) 10%, transparent);
+    color: var(--mq-text);
+  }
+}
+
+/* Send button — muted until ready, accent (cold light fill) when armed. */
+.mqms-send[data-ready="true"] {
+  background-color: var(--mq-platinum-lift);
+  background-image: linear-gradient(168deg, rgba(255, 255, 255, 0.1), transparent 52%);
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 2px 12px rgba(0, 0, 0, 0.3);
+}
+.mqms-send:disabled {
+  cursor: default;
+}
+
+/* ── Pill input (search fields + composer textarea) — 20px radius ─────── */
+.mqms-input-pill {
+  width: 100%;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--mq-text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mq-text) 8%, transparent);
+  color: var(--mq-text);
+  transition:
+    border-color var(--mq-mo-micro) var(--mq-ease-out),
+    background-color var(--mq-mo-micro) var(--mq-ease-out);
+}
+.mqms-input-pill::placeholder {
+  color: var(--mq-text-muted);
+}
+.mqms-input-pill:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--mq-text) 22%, transparent);
+  background: color-mix(in srgb, var(--mq-text) 8%, transparent);
+}
+
+/* ── Message bubbles ───────────────────────────────────────────────────── */
+.mqms-bubble {
+  position: relative;
+  max-width: 100%;
+  padding: 10px 14px;
+  border-radius: 18px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* IN — light tonal glass: translucent fill + hairline edge + top sheen. */
+.mqms-bubble-in {
+  background-color: color-mix(in srgb, var(--mq-text) 7%, transparent);
+  background-image:
+    linear-gradient(165deg, color-mix(in srgb, var(--mq-text) 4%, transparent), transparent 44%);
+  border: 1px solid color-mix(in srgb, var(--mq-text) 8%, transparent);
+  color: var(--mq-text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
+}
+
+/* OUT — the cold liquid-glass accent stack (mq-platinum-btn language):
+   deep veil body + theme tint + one top light + cold-light edge. */
+.mqms-bubble-out {
+  background-color: rgba(6, 9, 16, 0.52);
+  background-image:
+    linear-gradient(168deg, rgba(255, 255, 255, 0.055), transparent 46%),
+    linear-gradient(
+      color-mix(in srgb, var(--mq-text) 9%, transparent),
+      color-mix(in srgb, var(--mq-text) 9%, transparent)),
+    linear-gradient(var(--mq-g2-tint), var(--mq-g2-tint));
+  border: 1px solid color-mix(in srgb, var(--mq-platinum-hi) 24%, transparent);
+  color: #f4f6fa;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 10px rgba(0, 0, 0, 0.22);
+}
+
+/* Asymmetric "tail" — 6px corner on the sender's side (last of a group). */
+.mqms-bubble-in.mqms-tail {
+  border-bottom-left-radius: 6px;
+}
+.mqms-bubble-out.mqms-tail {
+  border-bottom-right-radius: 6px;
+}
+
+/* Pending (optimistic, awaiting server id) — slightly transparent. */
+.mqms-bubble-out.mqms-pending {
+  opacity: 0.72;
+}
+
+/* Failed send — accent-red edge, honest error state. */
+.mqms-bubble-out.mqms-failed {
+  border-color: color-mix(in srgb, var(--mq-accent) 45%, transparent);
+}
+.mqms-bubble-in.mqms-ghost {
+  border-style: dashed;
+  opacity: 0.65;
+}
+
+/* In-bubble meta row (time / checks) — 11px, low emphasis. */
+.mqms-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--mq-text-muted);
+  opacity: 0.75;
+}
+.mqms-bubble-out .mqms-meta {
+  color: rgba(244, 246, 250, 0.66);
+  opacity: 1;
+}
+
+/* Retry chip inside the failed bubble. */
+.mqms-retry-btn {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f4f6fa;
+  padding: 5px 12px;
+  border-radius: var(--mq-radius-full);
+  background: color-mix(in srgb, var(--mq-text) 14%, transparent);
+  transition: background-color var(--mq-mo-micro) var(--mq-ease-out);
+}
+@media (hover: hover) {
+  .mqms-retry-btn:hover {
+    background: color-mix(in srgb, var(--mq-text) 22%, transparent);
+  }
+}
+.mqms-retry-btn:active {
+  background: color-mix(in srgb, var(--mq-text) 26%, transparent);
+}
+
+/* ── Secondary inline dismiss (36px) — search clear / unpin / hide error ──
+   Smaller than the 44px primary mqms-icon-btn on purpose: these sit inside
+   dense bars (pinned message, pill input, failed bubble) where 44px would
+   blow up the row; still a comfortable target with the hover feedback. */
+.mqms-inline-x {
+  color: var(--mq-text-muted);
+  transition:
+    background-color var(--mq-mo-micro) var(--mq-ease-out),
+    color var(--mq-mo-micro) var(--mq-ease-out);
+}
+@media (hover: hover) {
+  .mqms-inline-x:hover {
+    background: color-mix(in srgb, var(--mq-text) 8%, transparent);
+    color: var(--mq-text);
+  }
+}
+.mqms-inline-x:active {
+  background: color-mix(in srgb, var(--mq-text) 12%, transparent);
+}
+
+/* ── Date separator chip ───────────────────────────────────────────────── */
+.mqms-date {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0 10px;
+}
+.mqms-date > span {
+  padding: 5px 14px;
+  border-radius: var(--mq-radius-full);
+  background: color-mix(in srgb, var(--mq-text) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mq-text) 7%, transparent);
+  color: var(--mq-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+/* ── Unread badge — the ONE semantic red accent in the list ───────────── */
+.mqms-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--mq-radius-full);
+  background: var(--mq-accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--mq-accent) 30%, transparent);
+}
+
+/* ── Skeleton bubbles (history loading) ────────────────────────────────── */
+.mqms-skel {
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--mq-text) 6%, transparent);
+  animation: mqms-skel-pulse 1.4s ease-in-out infinite;
+}
+.mqms-skel.mqms-tail-in {
+  border-bottom-left-radius: 6px;
+}
+.mqms-skel.mqms-tail-out {
+  border-bottom-right-radius: 6px;
+}
+@keyframes mqms-skel-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.85; }
+}
+
+/* ── Composer ──────────────────────────────────────────────────────────── */
+.mqms-composer {
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ── Empty / no-chat states ────────────────────────────────────────────── */
+.mqms-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--mq-radius-full);
+  background: color-mix(in srgb, var(--mq-text) 7%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mq-text) 9%, transparent);
+  color: var(--mq-text-muted);
+}
+
+/* ── Context menu item ─────────────────────────────────────────────────── */
+.mqms-ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  color: var(--mq-text);
+  transition: background-color var(--mq-mo-micro) var(--mq-ease-out);
+}
+@media (hover: hover) {
+  .mqms-ctx-item:hover {
+    background: color-mix(in srgb, var(--mq-text) 6%, transparent);
+  }
+}
+.mqms-ctx-item:active {
+  background: color-mix(in srgb, var(--mq-text) 10%, transparent);
+}
+
+/* ── Reduced motion — freeze everything, keep the materials ────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .mqms-row,
+  .mqms-row::before,
+  .mqms-icon-btn,
+  .mqms-send,
+  .mqms-input-pill,
+  .mqms-retry-btn,
+  .mqms-inline-x,
+  .mqms-ctx-item {
+    transition: none;
+  }
+  .mqms-icon-btn:active,
+  .mqms-send:active {
+    transform: none;
+  }
+  .mqms-skel {
+    animation: none;
+    opacity: 0.6;
+  }
+}

@@ -261,6 +261,16 @@ function FullTrackViewMobileInner() {
     return out;
   })();
 
+  // Retry key — the mobile panel listens to the SAME "mq-lyrics-retry"
+  // window event the desktop FullTrackView does (the LyricsView retry
+  // button used to be a silent no-op here — spec §4.5 retry).
+  const [lyricsRetryKey, setLyricsRetryKey] = useState(0);
+  useEffect(() => {
+    const onRetry = () => setLyricsRetryKey((k) => k + 1);
+    window.addEventListener("mq-lyrics-retry", onRetry);
+    return () => window.removeEventListener("mq-lyrics-retry", onRetry);
+  }, []);
+
   useEffect(() => {
     if (!isOpen || !currentTrack || panel !== "lyrics") return;
     setLyrics([]); setPlainLyrics(""); setLyricsLoading(true); setLyricsError(null);
@@ -268,6 +278,8 @@ function FullTrackViewMobileInner() {
     // Client-side fetch directly from lrclib.net (CORS-enabled) — bypasses
     // Vercel serverless which is IP-blocked by lrclib.net's WAF.
     // v11: full query (artist+title+album+duration) + normalized result.
+    // Word-level sources (local TTML/QRC imports, enhanced LRC) are picked
+    // up inside fetchLyrics itself — every view gets them consistently.
     Promise.all([
       import("@/lib/lyrics-client"),
       import("@/lib/lyrics/types"),
@@ -296,7 +308,7 @@ function FullTrackViewMobileInner() {
       if (!cancelled) setLyricsLoading(false);
       });
     return () => { cancelled = true; };
-  }, [panel, isOpen, currentTrack]);
+  }, [panel, isOpen, currentTrack, lyricsRetryKey]);
 
   useEffect(() => { setLyrics([]); setPlainLyrics(""); setLyricsError(null); }, [currentTrack?.id]);
   // Artwork skeleton: the artwork subtree is KEYED BY TRACK ID below —

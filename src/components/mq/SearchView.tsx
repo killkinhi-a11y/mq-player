@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { isDesktopApp } from "@/lib/desktop-mode";
+import { getCachedSearch, putCachedSearch } from "@/lib/searchCache";
 import { motion, AnimatePresence } from "framer-motion";
 import { genresList, type Track, formatDuration } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
@@ -270,6 +271,24 @@ export default function SearchView() {
       // Typing again re-opens it (onChange resets hasSearched).
       setShowSuggestions(false);
 
+      // ── Client search cache: repeat queries render instantly (5-min TTL).
+      const cached = getCachedSearch(searchQuery);
+      if (cached) {
+        setSearchResults(cached.tracks);
+        setSpotifyTracks(cached.spotifyTracks);
+        setSpotifyArtists(cached.spotifyArtists);
+        setSpotifyAlbums(cached.spotifyAlbums);
+        setSpotifyState(cached.spotifyState);
+        setIsLoading(false);
+        const qh = searchQuery.trim();
+        if (qh) {
+          const updated = [qh, ...getSearchHistory().filter(h => h.toLowerCase() !== qh.toLowerCase())].slice(0, MAX_HISTORY);
+          saveSearchHistory(updated);
+          setSearchHistory(updated);
+        }
+        return;
+      }
+
       // ── Catalog search in parallel (FREE MODE): one anonymous server layer
       //  (/api/catalog/search — Spotify client-credentials preferred, Deezer
       //  open fallback). No user login; playback for every result resolves
@@ -277,6 +296,12 @@ export default function SearchView() {
       // Honest states: provider "none" → the server section simply doesn't
       // render and SoundCloud/Audius results remain fully functional.
       setSpotifyState("loading");
+      // Locals captured for the client search cache (state updates are
+      // async — the cache write below needs the values from THIS round).
+      let spTracks: CatalogTrackDTO[] = [];
+      let spArtists: CatalogArtistDTO[] = [];
+      let spAlbums: CatalogAlbumDTO[] = [];
+      let spState: "ok" | "unavailable" = "unavailable";
       const spFetch = fetch(`/api/catalog/search?q=${encodeURIComponent(searchQuery.trim())}&limit=8`, {
             signal: controller.signal,
           })
@@ -292,15 +317,20 @@ export default function SearchView() {
             .then((d) => {
               if (controller.signal.aborted) return;
               if (d.provider === "none") {
+                spTracks = []; spArtists = []; spAlbums = []; spState = "unavailable";
                 setSpotifyTracks([]);
                 setSpotifyArtists([]);
                 setSpotifyAlbums([]);
                 setSpotifyState("unavailable");
                 return;
               }
-              setSpotifyTracks(d.tracks || []);
-              setSpotifyArtists(d.artists || []);
-              setSpotifyAlbums(d.albums || []);
+              spTracks = d.tracks || [];
+              spArtists = d.artists || [];
+              spAlbums = d.albums || [];
+              spState = "ok";
+              setSpotifyTracks(spTracks);
+              setSpotifyArtists(spArtists);
+              setSpotifyAlbums(spAlbums);
               setSpotifyState("ok");
             })
             .catch(() => {
@@ -317,15 +347,27 @@ export default function SearchView() {
           fetch(`/api/music/search?${params}`, { signal: controller.signal }),
           spFetch,
         ]);
+        let musicTracks: Track[] = [];
         if (!controller.signal.aborted && res.ok) {
           const data = await res.json();
-          setSearchResults(data.tracks || []);
+          musicTracks = data.tracks || [];
+          setSearchResults(musicTracks);
         }
         const query = searchQuery.trim();
         if (query) {
           const updated = [query, ...getSearchHistory().filter(h => h.toLowerCase() !== query.toLowerCase())].slice(0, MAX_HISTORY);
           saveSearchHistory(updated);
           setSearchHistory(updated);
+        }
+        // Persist the merged result for instant repeat queries.
+        if (!controller.signal.aborted) {
+          putCachedSearch(searchQuery, {
+            tracks: musicTracks,
+            spotifyTracks: spTracks,
+            spotifyArtists: spArtists,
+            spotifyAlbums: spAlbums,
+            spotifyState: spState,
+          });
         }
       } catch {
         if (!controller.signal.aborted) {

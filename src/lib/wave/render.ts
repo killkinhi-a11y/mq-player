@@ -136,19 +136,39 @@ export function buildWaveColors(p: PaletteInput): WaveColors {
   const accent = p.accent ?? [215, 226, 255]; // platinum-hi default
   const deep = p.deep ?? [24, 34, 58];
   const accentCss = `rgb(${accent[0]},${accent[1]},${accent[2]})`;
-  const deepCss = `rgb(${Math.round(deep[0])},${Math.round(deep[1])},${Math.round(deep[2])})`;
-  const mix = (a: [number, number, number], b: [number, number, number], t: number) =>
-    `rgb(${Math.round(a[0] * (1 - t) + b[0] * t)},${Math.round(a[1] * (1 - t) + b[1] * t)},${Math.round(a[2] * (1 - t) + b[2] * t)})`;
+
+  // §7.2 readability: with a DARK artwork palette the old fixed mixes went
+  // nearly black on the dark glass panels (measured: unplayed bars under
+  // luminance 70/255 = invisible field). Mixes now walk back toward the
+  // accent until the perceptual luminance clears a readability floor — the
+  // waveform always READS as a waveform, whatever the artwork mood.
+  const lum = (r: number, g: number, b: number) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const mixAt = (t: number) => {
+    const r = Math.round(accent[0] * (1 - t) + deep[0] * t);
+    const g = Math.round(accent[1] * (1 - t) + deep[1] * t);
+    const b = Math.round(accent[2] * (1 - t) + deep[2] * t);
+    return { css: `rgb(${r},${g},${b})`, lum: lum(r, g, b) };
+  };
+  const readableMix = (t: number, minLum: number) => {
+    let cur = mixAt(t);
+    let tt = t;
+    while (cur.lum < minLum && tt > 0) {
+      tt = Math.max(0, tt - 0.08);
+      cur = mixAt(tt);
+    }
+    return cur.css;
+  };
   return {
     playedHi: accentCss,
-    playedLo: mix(accent, deep, 0.55),
+    playedLo: readableMix(0.55, 110),
     // §15 QA (VLM feedback): the unplayed field must READ as a waveform,
-    // not a flat dark track — keep artwork hue but lift the lightness.
-    quiet: mix(accent, deep, 0.64),
-    buffered: mix(accent, deep, 0.5), // clearly brighter than quiet
-    placeholder: mix(accent, deep, 0.78),
+    // not a flat dark track — keep artwork hue but lift the lightness
+    // (§7.2: plus a hard luminance floor so dark palettes stay readable).
+    quiet: readableMix(0.64, 100),
+    buffered: readableMix(0.5, 112), // clearly brighter than quiet
+    placeholder: readableMix(0.78, 72),
     playhead: accentCss,
-    track: mix(accent, deep, 0.6),
+    track: readableMix(0.6, 90),
   };
 }
 

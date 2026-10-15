@@ -50,3 +50,15 @@ export function cacheKey(
 export function clearCache(): void {
   cache.clear();
 }
+
+/**
+ * Clear every entry whose key starts with `prefix` (artist|title — the
+ * album/duration suffixes vary per lookup). Used after a local lyrics
+ * import so the fresh document is picked up on the next fetch.
+ */
+export function clearCachePrefix(prefix: string): void {
+  if (!prefix) return;
+  for (const key of cache.keys()) {
+    if (key.startsWith(prefix)) cache.delete(key);
+  }
+}

@@ -28,7 +28,14 @@ export interface WaveformData {
   updatedAt: number;
 }
 
-export type WaveformStatus = "idle" | "loading" | "ready" | "unavailable";
+export type WaveformStatus =
+  | "idle"
+  | "loading"
+  /** Real peaks, but only part of the track (progressive Range decode) —
+   *  the rest streams in and upgrades the record to "ready". */
+  | "partial"
+  | "ready"
+  | "unavailable";
 
 export interface WaveformSnapshot {
   status: WaveformStatus;

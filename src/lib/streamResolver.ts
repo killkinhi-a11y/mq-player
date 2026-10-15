@@ -40,7 +40,8 @@ export interface StreamResult {
 
 // ── Stream Resolution ──
 
-export async function resolveSoundCloudStream(
+/** Raw (uncached) SoundCloud stream resolve — one HTTP round trip. */
+async function resolveSoundCloudStreamRaw(
   scTrackId: number,
   cobaltJwt?: string | null,
 ): Promise<StreamResult | null> {
@@ -477,4 +478,111 @@ export function shouldProxyUrl(url: string): string {
     return `/api/music/soundcloud/proxy?url=${encodeURIComponent(url)}`;
   }
   return url;
+}
+
+// ── Shared cached stream resolution (player + waveform, ONE cache) ──────────
+//
+// The waveform generator and the playback engine used to run two separate
+// resolvers with separate caches — a track played would resolve its stream
+// for playback, then the waveform re-resolved the SAME track through a
+// second uncached round trip. This shared layer dedupes both: one cache,
+// one in-flight promise per track, URL-signature-aware TTL (see below).
+
+import { useAppStore } from "@/store/useAppStore";
+
+// TTL / EXPIRY: SoundCloud CDN URLs are CloudFront-signed with an
+// AWS:EpochTime validity that is ≈ 4 MINUTES. A cached stream whose URL is
+// past expiry hands the engine a dead URL → proxy 502 → fatal → element
+// fallback → MEDIA_ERR → retry dance = the "one track loads forever" bug.
+// Cache hits therefore require the URL signature to STILL be valid (with a
+// 60 s safety margin). Entries without a parseable Policy fall back to a
+// conservative 3-min TTL.
+const STREAM_CACHE_TTL = 15 * 60 * 1000;
+const STREAM_URL_SAFETY_MS = 60 * 1000; // never serve a URL expiring within 60s
+const STREAM_URL_FALLBACK_TTL = 3 * 60 * 1000;
+const streamCache = new Map<number, { stream: StreamResult; at: number; expiresAt: number }>();
+const streamInFlight = new Map<number, Promise<StreamResult | null>>();
+
+/** Decode a signed CDN URL's CloudFront Policy → epoch-ms expiry (0 if unknown). */
+function scUrlExpiresAt(url: string): number {
+  try {
+    const m = url.match(/[?&]Policy=([^&]+)/);
+    if (!m) return 0;
+    let b64 = decodeURIComponent(m[1]);
+    b64 = b64.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    const json = JSON.parse(atob(b64));
+    const epoch = json?.Statement?.[0]?.Condition?.DateLessThan?.["AWS:EpochTime"];
+    return typeof epoch === 'number' ? epoch * 1000 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function cacheResolvedStream(scTrackId: number, stream: StreamResult) {
+  const urlExpiry = scUrlExpiresAt(stream.url);
+  const expiresAt = urlExpiry
+    ? Math.min(urlExpiry, Date.now() + STREAM_CACHE_TTL)
+    : Date.now() + STREAM_URL_FALLBACK_TTL;
+  streamCache.set(scTrackId, { stream, at: Date.now(), expiresAt });
+  // Cap the cache (oldest-insert eviction) — Map preserves insertion order.
+  if (streamCache.size > 50) {
+    const oldest = streamCache.keys().next().value;
+    if (oldest !== undefined) streamCache.delete(oldest);
+  }
+}
+
+/** True when a prefetch for this track would be USEFUL (no fresh hit, none in flight). */
+export function shouldPrefetchStream(scTrackId: number): boolean {
+  if (streamInFlight.has(scTrackId)) return false;
+  const hit = streamCache.get(scTrackId);
+  if (hit && Date.now() - hit.at < STREAM_CACHE_TTL) return false;
+  return true;
+}
+
+/**
+ * Cached + deduped SoundCloud stream resolve — THE entry point for both the
+ * playback engine and the waveform generator. Fresh hits return instantly;
+ * concurrent callers share one in-flight request; stale-signed URLs are
+ * dropped instead of served.
+ */
+export async function resolveSoundCloudStream(
+  scTrackId: number,
+  opts?: { noCache?: boolean },
+): Promise<StreamResult | null> {
+  if (!opts?.noCache) {
+    const hit = streamCache.get(scTrackId);
+    if (hit && Date.now() < hit.expiresAt - STREAM_URL_SAFETY_MS) {
+      return hit.stream;
+    }
+    if (hit) streamCache.delete(scTrackId); // expired entry — drop, don't serve
+  }
+  const existing = streamInFlight.get(scTrackId);
+  if (existing) return existing;
+
+  const run = (async () => {
+    try {
+      // Include cobalt JWT if available (for SNIP bypass).
+      const cobaltJwt = useAppStore.getState().getCobaltJwt();
+      return await resolveSoundCloudStreamRaw(scTrackId, cobaltJwt);
+    } catch (err) {
+      console.warn("[resolveSoundCloudStream] failed:", err);
+      return null;
+    }
+  })();
+
+  streamInFlight.set(scTrackId, run);
+  try {
+    const res = await run;
+    if (res) cacheResolvedStream(scTrackId, res);
+    return res;
+  } finally {
+    streamInFlight.delete(scTrackId);
+  }
+}
+
+/** Test hook — drop the shared caches. */
+export function resetStreamCacheForTest() {
+  streamCache.clear();
+  streamInFlight.clear();
 }

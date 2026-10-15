@@ -26,11 +26,18 @@ import {
 import {
   normalizeLegacyLines,
   withEndMs,
+  syncLevelOf,
   type LyricsError,
   type LyricsQuery,
   type LyricsResult,
 } from "@/lib/lyrics/types";
-import { getCached, setCached } from "@/lib/lyricsCache";
+import { getCached, setCached, clearCachePrefix } from "@/lib/lyricsCache";
+import { parseEnhancedLrc } from "@/lib/lyrics/wordLevel";
+import {
+  getLocalLyrics,
+  getFetchedLyrics,
+  putFetchedLyrics,
+} from "@/lib/lyrics/lyricsStore";
 
 export type { LyricLine, LyricsError, LyricsQuery, LyricsResult } from "@/lib/lyrics/types";
 
@@ -54,6 +61,19 @@ function clean(s: string): string {
     .replace(/^official\s+/i, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/**
+ * The canonical (cleaned) artist/title identity — ONE normalization shared
+ * by the memory cache, the IDB stores (fetched + local import) and cache
+ * invalidation, so an import saved from the UI is always found by the
+ * fetchLyrics Hop 0 lookup (which cleans the same way).
+ */
+export function lyricsIdentity(
+  artist: string,
+  title: string,
+): { artist: string; title: string } {
+  return { artist: cleanArtist(artist || ""), title: clean(title || "") };
 }
 
 // ─── lyrics.ovh (free, CORS-enabled, plain text only) ────────────────────────
@@ -91,12 +111,14 @@ async function fetchServerFallback(q: LyricsQuery): Promise<LyricsResult | null>
       ? data.lines
       : normalizeLegacyLines(data.lyrics);
     if (data.plainText || lines.length > 0) {
+      const withEnds = withEndMs(lines, q.duration);
       return {
-        lines: withEndMs(lines, q.duration),
-        lyrics: lines.map((l) => ({ time: (l.startMs ?? 0) / 1000, text: l.text })),
+        lines: withEnds,
+        lyrics: withEnds.map((l) => ({ time: (l.startMs ?? 0) / 1000, text: l.text })),
         plainText: data.plainText || "",
         synced: lines.length > 0,
         source: "server",
+        syncLevel: syncLevelOf(withEnds, !!data.plainText),
       };
     }
     return null;
@@ -108,7 +130,17 @@ async function fetchServerFallback(q: LyricsQuery): Promise<LyricsResult | null>
 // ─── Result builders ─────────────────────────────────────────────────────────
 
 function fromLrclibRecord(rec: LrcLibRecord, duration?: number): LyricsResult {
-  const lines = rec.syncedLyrics?.trim() ? parseLrc(rec.syncedLyrics) : [];
+  const syncedBody = rec.syncedLyrics?.trim() ? rec.syncedLyrics : "";
+  // Word-level first: some LRCLIB entries are enhanced LRC (per-word
+  // `<mm:ss.xx>` tags). When present, real word timings beat everything.
+  // Plain LRC stays on the proven line-level parser.
+  const enhanced = syncedBody
+    ? parseEnhancedLrc(syncedBody, duration ? Math.round(duration * 1000) : undefined)
+    : null;
+  const lines = enhanced
+    ?? (syncedBody
+      ? parseLrc(syncedBody).filter((l) => l.startMs !== undefined)
+      : []);
   const synced = lines.some((l) => l.startMs !== undefined);
   const plainText = rec.plainLyrics?.trim() || "";
   const withEnds = withEndMs(
@@ -121,6 +153,7 @@ function fromLrclibRecord(rec: LrcLibRecord, duration?: number): LyricsResult {
     plainText,
     synced: withEnds.length > 0,
     source: "lrclib",
+    syncLevel: syncLevelOf(withEnds, !!plainText),
   };
 }
 
@@ -131,6 +164,7 @@ function plainOnly(plainText: string, source: LyricsResult["source"]): LyricsRes
     plainText,
     synced: false,
     source,
+    syncLevel: "plain",
   };
 }
 
@@ -174,6 +208,33 @@ export async function fetchLyrics(
   const cached = getCached(key);
   if (cached) return cached;
 
+  // ── Hop 0: user-imported local document (instant, highest priority) ──
+  // A user-provided TTML/QRC/enhanced-LRC file beats every provider.
+  try {
+    const local = await getLocalLyrics(
+      artistClean,
+      titleClean,
+      duration ? Math.round(duration * 1000) : undefined,
+    );
+    if (local && (local.lines.length > 0 || local.plainText)) {
+      setCached(key, local);
+      return local;
+    }
+  } catch {
+    /* IDB unavailable — skip silently */
+  }
+
+  // ── Hop 0.5: persistent cache (survives reloads, 14-day TTL) ──
+  try {
+    const persisted = await getFetchedLyrics(key);
+    if (persisted) {
+      setCached(key, persisted);
+      return persisted;
+    }
+  } catch {
+    /* IDB unavailable — skip silently */
+  }
+
   // ── Hop 1: LRCLIB direct (synced preferred, spec §1) ──
   const { record, error } = await searchLrclib({
     artist: artistClean,
@@ -184,6 +245,7 @@ export async function fetchLyrics(
   if (hasContent(record)) {
     const result = fromLrclibRecord(record as LrcLibRecord, duration || undefined);
     setCached(key, result);
+    void putFetchedLyrics(key, result);
     return result;
   }
 
@@ -192,6 +254,7 @@ export async function fetchLyrics(
   if (ovh) {
     const result = plainOnly(ovh, "lyrics-ovh");
     setCached(key, result);
+    void putFetchedLyrics(key, result);
     return result;
   }
 
@@ -200,6 +263,7 @@ export async function fetchLyrics(
   const server = error === "rate_limited" ? null : await fetchServerFallback(q);
   if (server && (server.lines.length > 0 || server.plainText)) {
     setCached(key, server);
+    void putFetchedLyrics(key, server);
     return server;
   }
 
@@ -209,5 +273,18 @@ export async function fetchLyrics(
       ? none(error)
       : none("not_found");
   setCached(key, notFound);
+  void putFetchedLyrics(key, notFound);
   return notFound;
+}
+
+/**
+ * Drop the cached lyrics for one track (memory + persistent). Used after a
+ * local document import so the next fetchLyrics picks the fresh import up
+ * instead of returning the stale provider result.
+ */
+export async function invalidateLyricsCache(artist: string, title: string): Promise<void> {
+  // The in-memory cache keys on the CLEANED artist|title|album|duration —
+  // clear every variant by prefix (album/duration differ per lookup).
+  const prefix = `${cleanArtist(artist).toLowerCase()}|${clean(title).toLowerCase()}`;
+  clearCachePrefix(prefix);
 }

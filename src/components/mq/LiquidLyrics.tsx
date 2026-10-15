@@ -5,7 +5,8 @@ import { currentPlaybackPosition } from "@/lib/wasm-audio";
 import { subscribeClock, wakeClock } from "@/lib/playback/clock";
 import { useAppStore } from "@/store/useAppStore";
 import { formatDuration } from "@/lib/musicApi";
-import type { LyricLine } from "@/lib/lyrics/types";
+import type { LyricLine, LyricWord } from "@/lib/lyrics/types";
+import { syncLevelOf } from "@/lib/lyrics/types";
 import "./liquid-lyrics.css";
 
 /**
@@ -46,6 +47,9 @@ export interface LiquidLyricsProps {
   /** panel = desktop inline card (max-height), full = wide aside / mobile,
    *  focus = fullscreen spotlight (big centered type, blurred context). */
   variant?: "panel" | "full" | "focus";
+  /** Per-line RU translation (matched by line index), when the user enabled
+   *  it — rendered as a smaller muted line under each lyric line. */
+  translations?: string[];
 }
 
 /** Window params per word: [start, reciprocalSpan] in 0..100 space. */
@@ -53,6 +57,15 @@ export type WordWin = [number, number];
 
 const WORD_SPAN = 55; // each word fills over ~55% of the line duration
 const MIN_SPAN = 10;
+/** Visual floor for REAL word windows (percent of line) — keeps tiny
+ *  syllables visible while staying honest to the source timing. */
+const MIN_REAL_SPAN = 1.5;
+
+/** Render token: text + whether a space follows it. */
+interface WordToken {
+  text: string;
+  spaceAfter: boolean;
+}
 
 /** Lines longer than this switch to windowed rendering. */
 export const VIRTUALIZE_THRESHOLD = 320;
@@ -77,6 +90,68 @@ export function wordWindows(n: number): WordWin[] {
     out.push([Number(start.toFixed(2)), Number((100 / span).toFixed(4))]);
   }
   return out;
+}
+
+/** Shared line bounds (seconds) — the single timing base for BOTH the line
+ *  fill and the real word windows, so they can never drift apart. */
+export function lineBounds(
+  lines: LyricLine[],
+  idx: number,
+  duration: number,
+): { start: number; end: number } {
+  const line = lines[idx];
+  const start = lineStartSec(line);
+  let end: number;
+  if (typeof line.endMs === "number" && line.endMs > start * 1000 + 50) {
+    end = line.endMs / 1000;
+  } else {
+    end = idx + 1 < lines.length ? lineStartSec(lines[idx + 1]) : 0;
+    if (!end || end <= start + 0.05) {
+      end = duration > start + 0.05 ? Math.min(duration, start + 6) : start + 5;
+    }
+  }
+  return { start, end };
+}
+
+/** REAL word windows (word-by-word karaoke) in 0..100 line-progress space,
+ *  derived from the provider's per-word timings via the shared bounds. */
+export function wordWindowsFromTimings(
+  line: LyricLine,
+  bounds: { start: number; end: number },
+): WordWin[] {
+  const words = line.words;
+  if (!words || !words.length) return [];
+  const spanMs = (bounds.end - bounds.start) * 1000;
+  if (spanMs <= 50) return wordWindows(words.length);
+  const baseMs = bounds.start * 1000;
+  const out: WordWin[] = [];
+  for (const w of words) {
+    let wa = ((w.startMs - baseMs) / spanMs) * 100;
+    if (wa < 0) wa = 0;
+    if (wa > 99) wa = 99;
+    const wEnd = typeof w.endMs === "number" && w.endMs > w.startMs ? w.endMs : w.startMs + 200;
+    let span = ((wEnd - w.startMs) / spanMs) * 100;
+    if (span < MIN_REAL_SPAN) span = MIN_REAL_SPAN;
+    if (wa + span > 100) span = Math.max(1, 100 - wa);
+    out.push([Number(wa.toFixed(2)), Number((100 / span).toFixed(4))]);
+  }
+  return out;
+}
+
+/** Render tokens for a line: REAL timed tokens when present (spacing from
+ *  the source), else the projected word split. */
+function tokensForLine(line: LyricLine): WordToken[] {
+  if (line.words && line.words.length) {
+    const toks = line.words.map((w: LyricWord) => ({
+      text: w.text || "♪",
+      spaceAfter: (w as LyricWord & { spaceAfter?: boolean }).spaceAfter !== false,
+    }));
+    return toks.length ? toks : [{ text: "♪", spaceAfter: false }];
+  }
+  return splitWords(line.text).map((w, i, arr) => ({
+    text: w,
+    spaceAfter: i < arr.length - 1,
+  }));
 }
 
 /** Line start in SECONDS (normalized ms format → engine clock units). */
@@ -107,17 +182,7 @@ export function findActiveIdx(lines: LyricLine[], t: number): number {
  * guess — never invented beyond that.
  */
 export function lineFill(lines: LyricLine[], idx: number, pos: number, duration: number): number {
-  const line = lines[idx];
-  const start = lineStartSec(line);
-  let end: number;
-  if (typeof line.endMs === "number" && line.endMs > start * 1000 + 50) {
-    end = line.endMs / 1000;
-  } else {
-    end = idx + 1 < lines.length ? lineStartSec(lines[idx + 1]) : 0;
-    if (!end || end <= start + 0.05) {
-      end = duration > start + 0.05 ? Math.min(duration, start + 6) : start + 5;
-    }
-  }
+  const { start, end } = lineBounds(lines, idx, duration);
   const span = end - start;
   if (span <= 0.05) return pos >= end ? 1 : 0;
   const p = (pos - start) / span;
@@ -148,7 +213,7 @@ export function visibleRange(
   return [lo, hi];
 }
 
-function LiquidLyricsBase({ lines, currentTime, onSeek, duration = 0, variant = "panel" }: LiquidLyricsProps) {
+function LiquidLyricsBase({ lines, currentTime, onSeek, duration = 0, variant = "panel", translations }: LiquidLyricsProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const activeElRef = useRef<HTMLButtonElement | null>(null);
 
@@ -187,16 +252,31 @@ function LiquidLyricsBase({ lines, currentTime, onSeek, duration = 0, variant = 
 
   // Word lists per active/after line — derived data, memoized (typical
   // lines have < 14 words; recompute only when the line changes).
+  // REAL word timings (word-synced sources) produce true karaoke windows;
+  // line-level sources keep the sanctioned visual projection.
   const activeWords = useMemo(() => {
-    if (activeIdx < 0 || activeIdx >= lines.length) return { words: [] as string[], wins: [] as WordWin[] };
-    const words = splitWords(lines[activeIdx].text);
-    return { words, wins: wordWindows(words.length) };
-  }, [lines, activeIdx]);
+    if (activeIdx < 0 || activeIdx >= lines.length) {
+      return { tokens: [] as WordToken[], wins: [] as WordWin[], real: false };
+    }
+    const line = lines[activeIdx];
+    const tokens = tokensForLine(line);
+    if (line.words && line.words.length) {
+      const wins = wordWindowsFromTimings(line, lineBounds(lines, activeIdx, duration));
+      return { tokens, wins, real: true };
+    }
+    return { tokens, wins: wordWindows(tokens.length), real: false };
+  }, [lines, activeIdx, duration]);
 
   const afterWordList = useMemo(() => {
-    if (afterIdx < 0 || afterIdx >= lines.length) return [] as string[];
-    return splitWords(lines[afterIdx].text);
+    if (afterIdx < 0 || afterIdx >= lines.length) return [] as WordToken[];
+    return tokensForLine(lines[afterIdx]);
   }, [lines, afterIdx]);
+
+  // Honest sync granularity of the current lyrics (drives the container
+  // attribute + suppresses decorative breathing in real word mode).
+  const syncLevel = useMemo(() => syncLevelOf(lines), [lines]);
+  const realWordsRef = useRef(false);
+  useEffect(() => { realWordsRef.current = activeWords.real; }, [activeWords]);
 
   // ── THE unified clock subscription (V3 §13/§19 — no private rAF) ────
   // The fill/active-line loop rides the shared PlaybackClock: one loop for
@@ -242,9 +322,10 @@ function LiquidLyricsBase({ lines, currentTime, onSeek, duration = 0, variant = 
 
       let fill = lineFill(ls, idx, pos, durationRef.current) * 100;
       // Organic surface breathing — tiny, mid-fill only, never in
-      // reduced-motion mode, never enough to disturb reading.
+      // reduced-motion mode, never with REAL word timings (honest timing
+      // must not wobble), never enough to disturb reading.
       const t = typeof performance !== "undefined" ? performance.now() : Date.now();
-      if (!reduceMotionRef.current && fill > 3 && fill < 97) {
+      if (!reduceMotionRef.current && !realWordsRef.current && fill > 3 && fill < 97) {
         fill += Math.sin(t * 0.0021) * 0.8;
       }
 
@@ -377,21 +458,21 @@ function LiquidLyricsBase({ lines, currentTime, onSeek, duration = 0, variant = 
   const beforeCount = virtualized ? lo : 0;
   const afterCount = virtualized ? Math.max(0, lines.length - hi) : 0;
 
-  const renderWords = (words: string[], wins?: WordWin[]) =>
-    words.map((w, j) => (
+  const renderWords = (tokens: WordToken[], wins?: WordWin[]) =>
+    tokens.map((tok, j) => (
       <React.Fragment key={j}>
         <span
           className="ll-w"
-          data-w={w}
+          data-w={tok.text}
           style={
             wins
-              ? ({ "--wa": wins[j][0], "--w-inv": wins[j][1] } as React.CSSProperties)
+              ? ({ "--wa": wins[j]?.[0] ?? 0, "--w-inv": wins[j]?.[1] ?? 0.01 } as React.CSSProperties)
               : ({ "--wa": -200, "--w-inv": 0.01 } as React.CSSProperties)
           }
         >
-          {w}
+          {tok.text}
         </span>
-        {j < words.length - 1 ? " " : null}
+        {tok.spaceAfter && j < tokens.length - 1 ? " " : null}
       </React.Fragment>
     ));
 
@@ -400,13 +481,14 @@ function LiquidLyricsBase({ lines, currentTime, onSeek, duration = 0, variant = 
       ref={containerRef}
       className={`ll-scroll${variant === "full" ? " ll-full" : ""}${variant === "focus" ? " ll-focus" : ""}${animated ? "" : " ll-static"}`}
       data-custom-weight={customWeight > 0 ? "" : undefined}
+      data-sync={syncLevel}
       onTouchStart={pauseAutoScroll}
       onTouchEnd={pauseAutoScroll}
       onMouseDown={pauseAutoScroll}
       onMouseUp={pauseAutoScroll}
       onWheel={pauseAutoScroll}
       role="list"
-      aria-label="Синхронизированный текст песни"
+      aria-label={syncLevel === "word" ? "Текст песни с пословной синхронизацией" : syncLevel === "line" ? "Синхронизированный текст песни" : "Текст песни"}
     >
       {beforeCount > 0 && (
         <div aria-hidden="true" style={{ height: beforeCount * VIRTUALIZED_LINE_H }} />
@@ -427,13 +509,14 @@ function LiquidLyricsBase({ lines, currentTime, onSeek, duration = 0, variant = 
 
         let content: React.ReactNode;
         if (isActive) {
-          const { words, wins } = activeWords;
-          content = renderWords(words, wins);
+          const { tokens, wins } = activeWords;
+          content = renderWords(tokens, wins);
         } else if (isAfter) {
           content = renderWords(afterWordList);
         } else {
           content = line.text || "♪";
         }
+        const translation = translations?.[realIdx]?.trim();
 
         return (
           <button
@@ -462,6 +545,7 @@ function LiquidLyricsBase({ lines, currentTime, onSeek, duration = 0, variant = 
             }}
           >
             {content}
+            {translation ? <span className="ll-tr">{translation}</span> : null}
           </button>
         );
       })}

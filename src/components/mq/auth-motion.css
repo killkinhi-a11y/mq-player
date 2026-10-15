@@ -1,0 +1,95 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   MQ AUTH MOTION — custom keyframes for the auth screen + splash.
+   Imported by AuthView.tsx and SplashScreen.tsx (deduped by bundler).
+
+   Scope: everything is prefixed .mq-auth-* — no global selectors touched.
+   Gating:
+     - JS gate (AuthView): animated layers are only rendered when the
+       store allows motion (animationsEnabled && !reduceMotion && !OS
+       prefers-reduced-motion) — see fullMotion in AuthView.
+     - CSS gate (belt & suspenders): @media (prefers-reduced-motion)
+       kills every animation here, so a static store hydration can never
+       leave an infinite animation running for sensitive users.
+   All keyframes animate transform / box-shadow only — no layout, no
+   per-frame JS. GPU-friendly per project motion policy.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Auth root — accent-tinted keyboard focus rings (2px, offset 2px) for
+   inputs/buttons on the auth screen only. The global *:focus-visible
+   system in globals.css consumes this custom property; here we tint it
+   toward the brand accent (mixed with white to keep ≥3:1 contrast). */
+.mq-auth-root {
+  --mq-focus-ring-color: color-mix(in srgb, var(--mq-accent, #e03131) 78%, #ffffff);
+}
+
+/* ── Stage 1: logo mark breathing glow ────────────────────────────────── */
+.mq-auth-logo {
+  animation: mq-auth-glow 3.2s ease-in-out infinite;
+}
+@keyframes mq-auth-glow {
+  0%, 100% {
+    box-shadow: 0 0 0px color-mix(in srgb, var(--mq-accent, #e03131) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 26px color-mix(in srgb, var(--mq-accent, #e03131) 26%, transparent);
+  }
+}
+
+/* ── Sound-wave rings — concentric circles pulsing out from the logo ────
+   Sized by the parent box (inset: 0); place inside a relatively
+   positioned square wrapper. Subtle by design: opacity 0.04–0.08. */
+.mq-auth-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 1px solid var(--mq-accent, #e03131);
+  opacity: 0;
+  pointer-events: none;
+  animation: mq-auth-ring 3.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  will-change: transform, opacity;
+}
+@keyframes mq-auth-ring {
+  0%   { transform: scale(1);    opacity: 0; }
+  12%  { opacity: 0.08; }
+  70%  { opacity: 0.04; }
+  100% { transform: scale(2.6);  opacity: 0; }
+}
+
+/* ── Background: very slow gradient drift (18s, transform only) ─────────
+   Blobs are pre-blurred via radial-gradient falloff — no filter:blur()
+   paint cost. opacity is static per blob (NOT animated — perf rule). */
+.mq-auth-blob {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  will-change: transform;
+  animation: mq-auth-drift 18s ease-in-out infinite alternate;
+}
+@keyframes mq-auth-drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(3.5%, -3%, 0) scale(1.06); }
+  100% { transform: translate3d(-3%, 3.5%, 0) scale(0.97); }
+}
+
+/* ── Loading: soft card border pulse while a submit is in flight ─────── */
+.mq-auth-card--loading {
+  animation: mq-auth-card-pulse 2.4s ease-in-out infinite;
+}
+@keyframes mq-auth-card-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--mq-accent, #e03131) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mq-accent, #e03131) 16%, transparent);
+  }
+}
+
+/* ── Reduced motion: kill every continuous animation here ────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .mq-auth-logo,
+  .mq-auth-ring,
+  .mq-auth-blob,
+  .mq-auth-card--loading {
+    animation: none !important;
+  }
+}

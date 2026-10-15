@@ -31,6 +31,8 @@ export interface FullscreenLyricsProps {
   cover?: string;
   title?: string;
   artist?: string;
+  /** Per-line RU translation from the LyricsView toggle (same indexing). */
+  translations?: string[];
   onSeek: (t: number) => void;
   onClose: () => void;
 }
@@ -63,6 +65,7 @@ export function FullscreenLyrics({
   cover,
   title,
   artist,
+  translations,
   onSeek,
   onClose,
 }: FullscreenLyricsProps) {
@@ -204,6 +207,7 @@ export function FullscreenLyrics({
             onSeek={onSeek}
             duration={duration}
             variant={focusMode ? "focus" : "full"}
+            translations={translations}
           />
         ) : hasPlain ? (
           <div className="flex-1 min-h-0 overflow-y-auto py-6">

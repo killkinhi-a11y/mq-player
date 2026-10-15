@@ -316,3 +316,28 @@
   .ll-line.ll-on .ll-w::before { animation: none; }
 }
 .mq-reduce-motion .ll-line.ll-on .ll-w::before { animation: none; }
+
+/* ── Per-line RU translation (v12) — smaller muted line under each lyric ──── */
+.ll-tr {
+  display: block;
+  margin-top: 0.18em;
+  font-size: 0.52em;
+  font-weight: 400;
+  line-height: 1.35;
+  letter-spacing: 0.012em;
+  color: color-mix(in srgb, var(--mq-text) 62%, transparent);
+  opacity: 0.92;
+  transition: opacity 0.4s var(--ease-out, ease-out);
+  overflow-wrap: anywhere;
+  text-align: inherit;
+}
+
+.ll-line[data-past] .ll-tr { opacity: 0.38; }
+.ll-line.ll-on .ll-tr { opacity: 1; color: color-mix(in srgb, var(--mq-text) 72%, transparent); }
+
+/* Focus/fullscreen variants: slightly larger translation for readability */
+.ll-focus .ll-tr,
+.ll-full .ll-tr { font-size: 0.56em; }
+
+/* Static mode: no transition needed */
+.ll-static .ll-tr { transition: none; }

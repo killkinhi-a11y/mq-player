@@ -26,6 +26,8 @@ import { createRoot } from "react-dom/client";
 import { act } from "react";
 
 vi.mock("@/lib/lyrics-client", () => ({
+  // v12: LyricsView imports lyricsIdentity — keep the mock complete.
+  lyricsIdentity: vi.fn((artist: string, title: string) => ({ artist, title })),
   fetchLyrics: vi.fn(async () => ({ lyrics: [{ time: 0, text: "ла ла ла" }], plainText: "" })),
 }));
 

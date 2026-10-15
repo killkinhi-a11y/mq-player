@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import type { ReactNode } from "react";
+import { motion, AnimatePresence, useReducedMotion, useAnimationControls, type Variants } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import { Send, ArrowLeft, AtSign, Check, X, Loader2, UserPlus, Lock, Eye, EyeOff, Mail, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import "./auth-motion.css";
 
 type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid';
 
@@ -132,6 +134,257 @@ function CodeBoxes({
           autoComplete="one-time-code"
         />
       ))}
+    </div>
+  );
+}
+
+/** ═════════════════════════════════════════════════════════════════════
+ *  AUTH MOTION SYSTEM — presentation-only helpers (NO auth logic here).
+ *
+ *  Entrance sequence (~1s, interactive ≤600ms — controls render from t=0):
+ *   Stage 1 — brand mark MQ: scale 0.8→1, blur 8px→0, breathing glow
+ *             (CSS) + concentric sound-wave rings (CSS, opacity ≤0.08)
+ *   Stage 2 — wordmark «MQ» + slogan «Music is more than listening»:
+ *             stagger 80ms, letter-spacing 0.3em→norm reveal
+ *   Stage 3 — glass card: y:24→0 + blur 6px→0 (AuthCard, first mount)
+ *   Stage 4 — inner blocks: opacity+y stagger 40ms (Reveal)
+ *
+ *  Step transitions (login↔register↔confirm…): shared-axis X slide ±28px
+ *  + crossfade 0.32s, low spring (stiffness 260, damping 26), direction
+ *  derived from STEP_DEPTH — AnimatePresence mode="wait" preserved.
+ *
+ *  All of it collapses to instant opacity fades (120ms) when motion is
+ *  reduced: store reduceMotion / animationsEnabled=false / OS
+ *  prefers-reduced-motion (useReducedMotion). CSS pieces are additionally
+ *  killed by the @media gate in auth-motion.css.
+ * ═══════════════════════════════════════════════════════════════════ */
+
+/** Brand easing — exponential out. */
+const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
+
+/** Shared-axis depth of each step — used ONLY to pick the slide direction
+ *  (deeper → +x enter, back → −x enter). Never gates any logic. */
+const STEP_DEPTH: Record<string, number> = {
+  telegram: 0,
+  login: 1,
+  register: 1,
+  "telegram-register": 1,
+  "telegram-widget-register": 1,
+  confirm: 2,
+  "forgot-password": 2,
+  "telegram-link": 2,
+};
+
+/** Glass card — stage 3 of the entrance (first mount only): rises y:24→0
+ *  with blur settling in. Later steps mount it as part of the sliding step
+ *  (no own entrance). While a submit is in flight it pulses its border
+ *  softly (CSS, 2.4s). */
+function AuthCard({
+  firstMount,
+  fullMotion,
+  loading,
+  children,
+}: {
+  firstMount: boolean;
+  fullMotion: boolean;
+  loading?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <motion.div
+      className={`rounded-2xl p-6 lg:p-8${loading && fullMotion ? " mq-auth-card--loading" : ""}`}
+      style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+      initial={
+        firstMount
+          ? fullMotion
+            ? { opacity: 0, y: 24, filter: "blur(6px)" }
+            : { opacity: 0 }
+          : false
+      }
+      animate={
+        firstMount
+          ? { opacity: 1, y: 0, filter: "blur(0px)" }
+          : undefined
+      }
+      transition={
+        firstMount
+          ? fullMotion
+            ? { delay: 0.15, duration: 0.5, ease: EASE }
+            : { duration: 0.12 }
+          : undefined
+      }
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+type BannerTone = "error" | "success" | "info" | "warn";
+
+const BANNER_STYLES: Record<BannerTone, React.CSSProperties> = {
+  error: { backgroundColor: "rgba(224,49,49,0.15)", color: "#ff6b6b", border: "1px solid rgba(224,49,49,0.3)" },
+  success: { backgroundColor: "rgba(34,197,94,0.12)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.3)" },
+  info: { backgroundColor: "rgba(42,171,238,0.1)", color: "var(--mq-telegram)", border: "1px solid rgba(42,171,238,0.25)" },
+  warn: { backgroundColor: "rgba(234,179,8,0.12)", color: "#fbbf24", border: "1px solid rgba(234,179,8,0.25)" },
+};
+
+/** Inline banner. Errors appear with y:8→0 (the related FIELD shakes —
+ *  see ShakeField; the card never shakes). Success messages get a light
+ *  1→1.02→1 flourish. */
+function AuthBanner({
+  tone,
+  fullMotion,
+  className = "",
+  children,
+}: {
+  tone: BannerTone;
+  fullMotion: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  const isSuccess = tone === "success";
+  return (
+    <motion.div
+      className={`mb-4 p-3 rounded-lg text-sm ${className}`}
+      style={BANNER_STYLES[tone]}
+      initial={fullMotion ? { opacity: 0, y: 8 } : { opacity: 0 }}
+      animate={
+        fullMotion
+          ? isSuccess
+            ? { opacity: 1, y: 0, scale: [1, 1.02, 1] }
+            : { opacity: 1, y: 0 }
+          : { opacity: 1 }
+      }
+      transition={
+        fullMotion
+          ? { duration: isSuccess ? 0.45 : 0.3, ease: EASE }
+          : { duration: 0.12 }
+      }
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/** Field-level error shake: x ±6px, 0.4s, two cycles — never the card.
+ *  Re-triggers only when a NEW error message arrives. */
+function ShakeField({
+  trigger,
+  fullMotion,
+  children,
+}: {
+  trigger: string;
+  fullMotion: boolean;
+  children: ReactNode;
+}) {
+  const controls = useAnimationControls();
+  const prevTriggerRef = useRef("");
+
+  useEffect(() => {
+    if (trigger && trigger !== prevTriggerRef.current && fullMotion) {
+      controls.set({ x: 0 });
+      controls.start({
+        x: [0, -6, 6, -6, 6, -3, 3, 0],
+        transition: { duration: 0.4, ease: "easeInOut" },
+      });
+    }
+    prevTriggerRef.current = trigger;
+  }, [trigger, fullMotion, controls]);
+
+  return <motion.div animate={controls}>{children}</motion.div>;
+}
+
+/** Stage-4 stagger wrapper: animates (opacity + y:10→0, 40ms stagger) only
+ *  on the first mount of the auth screen; renders a plain passthrough div
+ *  on every later step mount, so step transitions stay a single shared-axis
+ *  unit with zero perceived latency. */
+function Reveal({
+  index,
+  firstMount,
+  fullMotion,
+  className,
+  style,
+  children,
+}: {
+  index: number;
+  firstMount: boolean;
+  fullMotion: boolean;
+  className?: string;
+  style?: React.CSSProperties;
+  children: ReactNode;
+}) {
+  if (!firstMount) {
+    return (
+      <div className={className} style={style}>
+        {children}
+      </div>
+    );
+  }
+  return (
+    <motion.div
+      className={className}
+      style={style}
+      initial={fullMotion ? { opacity: 0, y: 10 } : { opacity: 0 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={
+        fullMotion
+          ? { delay: 0.22 + index * 0.04, duration: 0.3, ease: EASE }
+          : { delay: 0.15 + index * 0.02, duration: 0.12 }
+      }
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/** Persistent brand header — stages 1–2 of the entrance: the MQ mark
+ *  (scale+blur+glow, sound-wave rings), then the wordmark and slogan with
+ *  a letter-spacing reveal, 80ms apart. Stays mounted across all steps so
+ *  it never replays. */
+function BrandHeader({ fullMotion }: { fullMotion: boolean }) {
+  return (
+    <div className="flex flex-col items-center text-center mb-5 sm:mb-7 select-none">
+      <motion.div
+        className="relative flex items-center justify-center mb-3"
+        style={{ width: 56, height: 56 }}
+        initial={fullMotion ? { opacity: 0, scale: 0.8, filter: "blur(8px)" } : { opacity: 0 }}
+        animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+        transition={fullMotion ? { delay: 0.05, duration: 0.45, ease: EASE } : { duration: 0.12 }}
+      >
+        {fullMotion &&
+          [0, 1, 2].map((i) => (
+            <span key={i} className="mq-auth-ring" style={{ animationDelay: `${i * 1.2}s` }} />
+          ))}
+        <div
+          className="mq-auth-logo relative z-10 w-12 h-12 rounded-2xl flex items-center justify-center"
+          style={{ backgroundColor: "var(--mq-accent, #e03131)" }}
+        >
+          <span
+            className="text-xl font-black text-white"
+            style={{ fontFamily: "var(--mq-font-serif, Georgia, serif)" }}
+          >
+            mq
+          </span>
+        </div>
+      </motion.div>
+      <motion.h1
+        className="text-3xl font-semibold mb-1.5"
+        style={{ color: "var(--mq-text)", fontFamily: "var(--mq-font-serif, Georgia, serif)" }}
+        initial={fullMotion ? { opacity: 0, y: 6, letterSpacing: "0.3em" } : { opacity: 0 }}
+        animate={{ opacity: 1, y: 0, letterSpacing: "0.02em" }}
+        transition={fullMotion ? { delay: 0.13, duration: 0.4, ease: EASE } : { duration: 0.12 }}
+      >
+        MQ
+      </motion.h1>
+      <motion.p
+        className="text-xs sm:text-[13px] font-medium"
+        style={{ color: "var(--mq-text-muted)" }}
+        initial={fullMotion ? { opacity: 0, y: 6, letterSpacing: "0.3em" } : { opacity: 0 }}
+        animate={{ opacity: 1, y: 0, letterSpacing: "0.1em" }}
+        transition={fullMotion ? { delay: 0.21, duration: 0.35, ease: EASE } : { duration: 0.12 }}
+      >
+        Music is more than listening
+      </motion.p>
     </div>
   );
 }
@@ -876,131 +1129,233 @@ export default function AuthView() {
     }
   };
 
+  // ─── Motion policy (visual only — never gates auth logic) ───────────
+  // fullMotion=false → the whole entrance collapses to instant opacity
+  // fades (120ms): no translate, no scale, no blur, no shake, no rings.
+  // Sources: store reduceMotion (master kill switch), animationsEnabled
+  // («Анимации интерфейса»), OS prefers-reduced-motion (useReducedMotion
+  // also honours the MotionConfig reducedMotion="always" from AppShell).
+  const storeReduceMotion = useAppStore((s) => s.reduceMotion);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const osReduceMotion = useReducedMotion();
+  const fullMotion = animationsEnabled && !storeReduceMotion && !osReduceMotion;
+
+  // Step navigation direction (animation-only state): +1 when going
+  // deeper (login→confirm…), −1 when going back. Drives the shared-axis
+  // X slide. Never affects which step is shown.
+  const prevStepRef = useRef<string>(authStep);
+  const [stepDir, setStepDir] = useState(1);
+  useEffect(() => {
+    const prev = prevStepRef.current;
+    if (prev !== authStep) {
+      prevStepRef.current = authStep;
+      setStepDir((STEP_DEPTH[authStep] ?? 0) >= (STEP_DEPTH[prev] ?? 0) ? 1 : -1);
+    }
+  }, [authStep]);
+
+  // First-mount flag — the staged entrance plays ONCE; every later step
+  // mount rides the shared-axis slide instead of re-staggering fields.
+  // Implemented with the official "storing information from previous
+  // renders" pattern (same as usePlaybackProgress / CoverImage): the
+  // react-hooks/refs rule forbids reading refs during render and a
+  // set-state-in-effect would cascade renders. nav.step mirrors authStep;
+  // the guarded render-phase update makes React discard the stale pass and
+  // re-render with the fresh epoch before commit.
+  const [nav, setNav] = useState({ step: authStep, epoch: 0 });
+  if (nav.step !== authStep) {
+    setNav({ step: authStep, epoch: nav.epoch + 1 });
+  }
+  const firstMount = nav.epoch === 0;
+
+  // Shared-axis step variants. `custom` carries { dir, first }: the step
+  // entering on the FIRST mount skips the X slide (its card rises instead
+  // — stage 3), exiting steps always slide opposite to the travel direction.
+  const stepVariants: Variants = {
+    enter: ({ dir, first }: { dir: number; first: boolean }) => ({
+      opacity: 0,
+      x: fullMotion && !first ? 28 * dir : 0,
+    }),
+    center: { opacity: 1, x: 0 },
+    exit: ({ dir }: { dir: number; first: boolean }) => ({
+      opacity: 0,
+      x: fullMotion ? -28 * dir : 0,
+    }),
+  };
+
+  // Props for each step's motion wrapper (spread onto motion.div — the
+  // key is passed explicitly at the call site, never via spread).
+  const stepMotion = (stepKey: string) => ({
+    "data-auth-step": stepKey,
+    custom: { dir: stepDir, first: firstMount },
+    variants: stepVariants,
+    initial: "enter" as const,
+    animate: "center" as const,
+    exit: "exit" as const,
+    transition: {
+      x: fullMotion
+        ? { type: "spring" as const, stiffness: 260, damping: 26 }
+        : { duration: 0.12 },
+      opacity: { duration: fullMotion ? 0.32 : 0.12, ease: "easeOut" as const },
+    },
+    className: "w-full",
+  });
+
   // ─── Render ─────────────────────────────────────────────────────────
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
+      className="mq-auth-root min-h-screen flex items-center justify-center p-4 sm:p-6 relative overflow-x-hidden"
       style={{ backgroundColor: "var(--mq-bg)" }}
     >
-      <div className="absolute inset-0 pointer-events-none" style={{ background: "var(--mq-gradient)" }} />
-
-      {/* Animated background particles */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute rounded-full"
-            style={{
-              width: 100 + i * 60,
-              height: 100 + i * 60,
-              background: "radial-gradient(circle, var(--mq-telegram) 0%, transparent 70%)",
-              opacity: 0.03 + i * 0.01,
-              left: `${10 + i * 15}%`,
-              top: `${20 + (i % 3) * 20}%`,
-            }}
-            animate={{
-              x: [0, 20, -10, 0],
-              y: [0, -15, 10, 0],
-              scale: [1, 1.1, 0.95, 1],
-            }}
-            transition={{
-              duration: 8 + i * 2,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: i * 0.5,
-            }}
-          />
-        ))}
+      {/* Ambient background — static gradient wash + very slow gradient
+          drift (CSS, 18s, transform-only — no per-frame JS). The drift
+          layer is only rendered when motion is allowed. */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+        <div className="absolute inset-0" style={{ background: "var(--mq-gradient)" }} />
+        {fullMotion && (
+          <>
+            <div
+              className="mq-auth-blob"
+              style={{
+                width: "46vmax",
+                height: "46vmax",
+                left: "-12%",
+                top: "-18%",
+                opacity: 0.05,
+                background: "radial-gradient(circle, var(--mq-telegram, #2AABEE) 0%, transparent 70%)",
+                animationDelay: "-6s",
+              }}
+            />
+            <div
+              className="mq-auth-blob"
+              style={{
+                width: "40vmax",
+                height: "40vmax",
+                right: "-14%",
+                bottom: "-16%",
+                opacity: 0.04,
+                background: "radial-gradient(circle, var(--mq-accent, #e03131) 0%, transparent 70%)",
+                animationDelay: "-12s",
+              }}
+            />
+            <div
+              className="mq-auth-blob"
+              style={{
+                width: "34vmax",
+                height: "34vmax",
+                left: "28%",
+                bottom: "-10%",
+                opacity: 0.035,
+                background: "radial-gradient(circle, var(--mq-telegram, #2AABEE) 0%, transparent 70%)",
+                animationDelay: "-2s",
+              }}
+            />
+          </>
+        )}
       </div>
 
-      {/* Session restore overlay (after OAuth redirect back) */}
+      {/* Session restore overlay (after OAuth redirect back) — the visible
+          success moment: brand mark with wave rings + a light 1→1.02→1
+          flourish while the session cookie is being verified. */}
       <AnimatePresence>
         {restoringSession && (
           <motion.div
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4"
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5"
             style={{ backgroundColor: "var(--mq-bg)" }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.3, ease: EASE }}
           >
-            <Loader2 className="w-10 h-10 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
-            <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Завершаем вход…</p>
+            <motion.div
+              className="relative flex items-center justify-center"
+              style={{ width: 64, height: 64 }}
+              initial={{ opacity: 0 }}
+              animate={fullMotion ? { opacity: 1, scale: [1, 1.02, 1] } : { opacity: 1 }}
+              transition={fullMotion ? { duration: 0.5, ease: EASE } : { duration: 0.12 }}
+            >
+              {fullMotion &&
+                [0, 1, 2].map((i) => (
+                  <span key={i} className="mq-auth-ring" style={{ animationDelay: `${i * 1.2}s` }} />
+                ))}
+              <div
+                className="mq-auth-logo relative z-10 w-14 h-14 rounded-2xl flex items-center justify-center"
+                style={{ backgroundColor: "var(--mq-accent, #e03131)" }}
+              >
+                <span
+                  className="text-2xl font-black text-white"
+                  style={{ fontFamily: "var(--mq-font-serif, Georgia, serif)" }}
+                >
+                  mq
+                </span>
+              </div>
+            </motion.div>
+            <motion.p
+              className="text-sm font-medium"
+              style={{ color: "var(--mq-text)" }}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1, duration: 0.3, ease: EASE }}
+            >
+              Завершаем вход…
+            </motion.p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <AnimatePresence mode="wait">
+      {/* Persistent column: brand header (stages 1–2, never replays) +
+          the step stack (shared-axis transitions below). */}
+      <div className="w-full max-w-md relative z-10 flex flex-col items-center">
+        <BrandHeader fullMotion={fullMotion} />
+
+        <AnimatePresence
+          mode="wait"
+          custom={{ dir: stepDir, first: false }}
+        >
         {/* ─── Landing: provider selection + Telegram code entry ─── */}
         {authStep === "telegram" && (
-          <motion.div key="telegram"
-            initial={{ opacity: 0, y: 40, scale: 0.94 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.96 }}
-            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            className="w-full max-w-md relative z-10">
-            <div className="rounded-2xl p-6 lg:p-8"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+          <motion.div key="telegram" {...stepMotion("telegram")}>
+            <AuthCard firstMount={firstMount} fullMotion={fullMotion} loading={tgVerifyLoading || googleRedirecting}>
 
               {/* Title */}
-              <motion.div
-                className="flex flex-col items-center text-center mb-6"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15, duration: 0.4 }}>
-                <motion.div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-                  style={{ backgroundColor: "var(--mq-accent, #e03131)" }}
-                  animate={{ boxShadow: ["0 0 0px rgba(224,49,49,0)", "0 0 30px rgba(224,49,49,0.25)", "0 0 0px rgba(224,49,49,0)"] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  <span className="text-2xl font-black text-white">mq</span>
-                </motion.div>
+              <Reveal index={0} firstMount={firstMount} fullMotion={fullMotion} className="flex flex-col items-center text-center mb-6">
                 <h2 className="text-xl font-semibold mb-1" style={{ color: "var(--mq-text)" }}>Вход в MQ Player</h2>
                 <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
                   Музыка, плейлисты и чаты синхронизированы между устройствами
                 </p>
-              </motion.div>
+              </Reveal>
 
               {/* OAuth redirect error (from URL param) */}
               {redirectError && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                  className="mb-4 p-3 rounded-lg text-sm text-center"
-                  style={{ backgroundColor: "rgba(224,49,49,0.15)", color: "#ff6b6b", border: "1px solid rgba(224,49,49,0.3)" }}>
+                <AuthBanner tone="error" fullMotion={fullMotion} className="text-center">
                   {redirectError}
-                </motion.div>
+                </AuthBanner>
               )}
 
               {/* Continue with Google */}
-              <motion.button
-                type="button"
-                onClick={handleGoogleLogin}
-                disabled={googleRedirecting || tgBotLoading || (providers !== null && !providers.google)}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25, duration: 0.3 }}
-                className="flex items-center justify-center gap-2.5 w-full min-h-[44px] rounded-xl text-sm font-medium transition-[filter,transform] duration-200 hover:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ backgroundColor: "#ffffff", color: "#1f2937", border: "1px solid #e5e7eb" }}
-              >
-                {googleRedirecting || (tgBotLoading && providers === null) ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <GoogleIcon className="w-[18px] h-[18px]" />
-                    {providers !== null && !providers.google ? "Google недоступен (не настроен)" : "Продолжить с Google"}
-                  </>
-                )}
-              </motion.button>
+              <Reveal index={1} firstMount={firstMount} fullMotion={fullMotion}>
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  disabled={googleRedirecting || tgBotLoading || (providers !== null && !providers.google)}
+                  className="flex items-center justify-center gap-2.5 w-full min-h-[44px] rounded-xl text-sm font-medium transition-[filter,transform] duration-200 hover:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: "#ffffff", color: "#1f2937", border: "1px solid #e5e7eb" }}
+                >
+                  {googleRedirecting || (tgBotLoading && providers === null) ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <GoogleIcon className="w-[18px] h-[18px]" />
+                      {providers !== null && !providers.google ? "Google недоступен (не настроен)" : "Продолжить с Google"}
+                    </>
+                  )}
+                </button>
+              </Reveal>
 
               {/* Continue with Telegram — official Login Widget.
                   Desktop uses the bot-code flow below (widget callback
                   can't reach the app origin). */}
               {providers?.telegramWidget && !isDesktopApp && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3, duration: 0.3 }}
-                  className="mt-3 flex flex-col items-center gap-1.5 min-h-[40px]"
-                >
+                <Reveal index={2} firstMount={firstMount} fullMotion={fullMotion} className="mt-3 flex flex-col items-center gap-1.5 min-h-[40px]">
                   <div ref={tgWidgetContainerRef} />
                   {/* P0: the widget is a cross-origin iframe — if the bot's
                       domain isn't bound in BotFather, Telegram renders
@@ -1010,17 +1365,11 @@ export default function AuthView() {
                   <p className="text-[11px] text-center" style={{ color: "var(--mq-text-muted)" }}>
                     Кнопка не нажимается или показывает ошибку? Войдите по коду из бота ниже
                   </p>
-                </motion.div>
+                </Reveal>
               )}
 
               {/* Telegram bot-code flow (fallback — works everywhere) */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35, duration: 0.3 }}
-                className="mt-4 pt-4"
-                style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
-              >
+              <Reveal index={3} firstMount={firstMount} fullMotion={fullMotion} className="mt-4 pt-4" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                 <div className="flex items-center justify-center gap-2 mb-3">
                   <Send className="w-4 h-4" style={{ color: "var(--mq-telegram)" }} />
                   <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>
@@ -1033,98 +1382,84 @@ export default function AuthView() {
 
                 {/* Bot not configured warning */}
                 {!tgBotLoading && tgBotConfigured === false && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-4 p-3 rounded-lg text-xs text-center"
-                    style={{ backgroundColor: "rgba(234,179,8,0.12)", color: "#fbbf24", border: "1px solid rgba(234,179,8,0.25)" }}
-                  >
+                  <AuthBanner tone="warn" fullMotion={fullMotion} className="text-xs text-center">
                     Бот ещё не настроен. Обратитесь к администратору.
-                  </motion.div>
+                  </AuthBanner>
                 )}
 
                 {/* Open bot button — ?start=code triggers /code automatically */}
                 {tgBotConfigured && tgBotName && (
-                  <motion.a
-                    href={`https://t.me/${tgBotName}?start=code`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4, duration: 0.3 }}
-                    className="flex items-center justify-center gap-2 w-full min-h-[44px] rounded-xl text-sm font-medium transition-[filter,background-color] duration-200 hover:brightness-110 mb-4"
-                    style={{ backgroundColor: "rgba(42,171,238,0.15)", color: "var(--mq-telegram)", border: "1px solid rgba(42,171,238,0.3)" }}
-                  >
-                    <Send className="w-4 h-4" />
-                    Открыть бота в Telegram
-                  </motion.a>
+                  <Reveal index={4} firstMount={firstMount} fullMotion={fullMotion}>
+                    <a
+                      href={`https://t.me/${tgBotName}?start=code`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 w-full min-h-[44px] rounded-xl text-sm font-medium transition-[filter,background-color] duration-200 hover:brightness-110 mb-4"
+                      style={{ backgroundColor: "rgba(42,171,238,0.15)", color: "var(--mq-telegram)", border: "1px solid rgba(42,171,238,0.3)" }}
+                    >
+                      <Send className="w-4 h-4" />
+                      Открыть бота в Telegram
+                    </a>
+                  </Reveal>
                 )}
 
                 {/* Telegram code error */}
                 {tgVerifyError && (
-                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                    className="mb-4 p-3 rounded-lg text-sm text-center"
-                    style={{ backgroundColor: "rgba(224,49,49,0.15)", color: "#ff6b6b", border: "1px solid rgba(224,49,49,0.3)" }}>
+                  <AuthBanner tone="error" fullMotion={fullMotion} className="text-center">
                     {tgVerifyError}
-                  </motion.div>
+                  </AuthBanner>
                 )}
 
                 {/* 6-digit code inputs */}
-                <motion.div
-                  className="flex justify-center gap-2.5 sm:gap-3 mb-4"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.45, duration: 0.4 }}
-                >
-                  {verifyCode.map((digit, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.45 + index * 0.05, duration: 0.3 }}
-                    >
-                      <input
-                        ref={(el) => { tgCodeInputRefs.current[index] = el; }}
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={1}
-                        value={digit}
-                        onChange={(e) => handleTgCodeInput(index, e.target.value)}
-                        onKeyDown={(e) => handleTgCodeKeyDown(index, e)}
-                        onPaste={index === 0 ? handleTgCodePaste : undefined}
-                        disabled={tgVerifyLoading}
-                        className="w-11 h-14 sm:w-13 sm:h-16 text-center text-xl sm:text-2xl font-bold rounded-xl outline-none transition-all duration-200"
-                        style={{
-                          backgroundColor: "var(--mq-input-bg)",
-                          border: `2px solid ${tgVerifyError ? '#ef4444' : digit ? 'var(--mq-telegram)' : 'var(--mq-border)'}`,
-                          color: "var(--mq-text)",
-                          caretColor: "var(--mq-telegram)",
-                          boxShadow: digit ? '0 0 12px rgba(42,171,238,0.15)' : 'none',
-                        }}
-                        autoComplete="one-time-code"
-                      />
-                    </motion.div>
-                  ))}
-                </motion.div>
+                <ShakeField trigger={tgVerifyError} fullMotion={fullMotion}>
+                  <div className="flex justify-center gap-2.5 sm:gap-3 mb-4">
+                    {verifyCode.map((digit, index) => (
+                      <Reveal key={index} index={5 + index} firstMount={firstMount} fullMotion={fullMotion}>
+                        <input
+                          ref={(el) => { tgCodeInputRefs.current[index] = el; }}
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={1}
+                          value={digit}
+                          onChange={(e) => handleTgCodeInput(index, e.target.value)}
+                          onKeyDown={(e) => handleTgCodeKeyDown(index, e)}
+                          onPaste={index === 0 ? handleTgCodePaste : undefined}
+                          disabled={tgVerifyLoading}
+                          className="w-11 h-14 sm:w-13 sm:h-16 text-center text-xl sm:text-2xl font-bold rounded-xl outline-none transition-all duration-200"
+                          style={{
+                            backgroundColor: "var(--mq-input-bg)",
+                            border: `2px solid ${tgVerifyError ? '#ef4444' : digit ? 'var(--mq-telegram)' : 'var(--mq-border)'}`,
+                            color: "var(--mq-text)",
+                            caretColor: "var(--mq-telegram)",
+                            boxShadow: digit ? '0 0 12px rgba(42,171,238,0.15)' : 'none',
+                          }}
+                          autoComplete="one-time-code"
+                        />
+                      </Reveal>
+                    ))}
+                  </div>
+                </ShakeField>
 
                 {/* Verify button */}
-                <Button
-                  onClick={() => handleTgVerify()}
-                  disabled={tgVerifyLoading || verifyCode.some(d => !d)}
-                  className="w-full min-h-[44px]"
-                  style={{ backgroundColor: "var(--mq-telegram)", color: "#ffffff" }}
-                >
-                  {tgVerifyLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Подтвердить"}
-                </Button>
-              </motion.div>
+                <Reveal index={11} firstMount={firstMount} fullMotion={fullMotion}>
+                  <Button
+                    onClick={() => handleTgVerify()}
+                    disabled={tgVerifyLoading || verifyCode.some(d => !d)}
+                    className="w-full min-h-[44px]"
+                    style={{ backgroundColor: "var(--mq-telegram)", color: "#ffffff" }}
+                  >
+                    {tgVerifyLoading ? (
+                      <span className="flex items-center justify-center gap-2 w-full">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Проверяем…</span>
+                      </span>
+                    ) : "Подтвердить"}
+                  </Button>
+                </Reveal>
+              </Reveal>
 
               {/* Continue with Email */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.55, duration: 0.3 }}
-                className="mt-4"
-              >
+              <Reveal index={12} firstMount={firstMount} fullMotion={fullMotion} className="mt-4">
                 <Button
                   variant="outline"
                   onClick={() => setAuthStep("login")}
@@ -1134,11 +1469,10 @@ export default function AuthView() {
                   <Mail className="w-4 h-4" />
                   Продолжить с Email
                 </Button>
-              </motion.div>
+              </Reveal>
 
               {/* Bottom links */}
-              <motion.div className="mt-6 pt-4 flex items-center justify-between" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6, duration: 0.3 }}>
+              <Reveal index={13} firstMount={firstMount} fullMotion={fullMotion} className="mt-6 pt-4 flex items-center justify-between" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                 <Button variant="ghost" onClick={handleDemoLogin} disabled={demoLoading} className="text-sm h-auto p-0 flex items-center gap-2"
                   style={{ color: "var(--mq-text-muted)" }}>
                   {demoLoading ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Загрузка...</> : "Демо-режим"}
@@ -1146,89 +1480,67 @@ export default function AuthView() {
                 <button
                   type="button"
                   onClick={() => setAuthStep("register")}
-                  className="text-sm font-medium transition-opacity hover:opacity-80 py-2 px-1"
+                  className="text-sm font-medium transition-opacity hover:opacity-80 py-2.5 px-1"
                   style={{ color: "var(--mq-text)" }}
                 >
                   Регистрация
                 </button>
-              </motion.div>
+              </Reveal>
 
               {/* Legal links — real routes (Google OAuth branding requirement) */}
-              <motion.div
-                className="mt-4 pt-4 flex items-center justify-center gap-2 text-xs"
-                style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.65, duration: 0.3 }}
-              >
-                <a href="/privacy" className="underline underline-offset-2 hover:opacity-80 transition-opacity py-2 px-1" style={{ color: "var(--mq-text-muted)" }}>
+              <Reveal index={14} firstMount={firstMount} fullMotion={fullMotion} className="mt-4 pt-4 flex items-center justify-center gap-2 text-xs" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
+                <a href="/privacy" className="underline underline-offset-2 hover:opacity-80 transition-opacity py-2.5 px-1" style={{ color: "var(--mq-text-muted)" }}>
                   Политика конфиденциальности
                 </a>
                 <span style={{ color: "var(--mq-text-muted)" }}>·</span>
-                <a href="/terms" className="underline underline-offset-2 hover:opacity-80 transition-opacity py-2 px-1" style={{ color: "var(--mq-text-muted)" }}>
+                <a href="/terms" className="underline underline-offset-2 hover:opacity-80 transition-opacity py-2.5 px-1" style={{ color: "var(--mq-text-muted)" }}>
                   Условия использования
                 </a>
-              </motion.div>
+              </Reveal>
 
-            </div>
+            </AuthCard>
           </motion.div>
         )}
 
         {/* ─── Email: Login ─── */}
         {authStep === "login" && (
-          <motion.div key="login"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full max-w-md relative z-10">
-            <div className="rounded-2xl p-6 lg:p-8"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+          <motion.div key="login" {...stepMotion("login")}>
+            <AuthCard firstMount={firstMount} fullMotion={fullMotion} loading={loginLoading}>
 
-              <button onClick={() => setAuthStep("telegram")} className="flex items-center gap-1 mb-4" style={{ color: "var(--mq-text-muted)" }}>
-                <ArrowLeft className="w-4 h-4" />
-                <span className="text-sm">Назад</span>
-              </button>
+              <Reveal index={0} firstMount={firstMount} fullMotion={fullMotion}>
+                <button onClick={() => setAuthStep("telegram")} className="flex items-center gap-1 mb-4 min-h-[44px]" style={{ color: "var(--mq-text-muted)" }}>
+                  <ArrowLeft className="w-4 h-4" />
+                  <span className="text-sm">Назад</span>
+                </button>
+              </Reveal>
 
-              <motion.div
-                className="flex flex-col items-center text-center mb-6"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.15, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
-                <motion.div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-                  style={{ backgroundColor: "rgba(224,49,49,0.12)" }}
-                  animate={{ boxShadow: ["0 0 0px rgba(224,49,49,0)", "0 0 25px rgba(224,49,49,0.2)", "0 0 0px rgba(224,49,49,0)"] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                >
+              <Reveal index={1} firstMount={firstMount} fullMotion={fullMotion} className="flex flex-col items-center text-center mb-6">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+                  style={{ backgroundColor: "rgba(224,49,49,0.12)" }}>
                   <Mail className="w-8 h-8" style={{ color: "var(--mq-accent, #e03131)" }} />
-                </motion.div>
+                </div>
                 <h2 className="text-xl font-semibold mb-1" style={{ color: "var(--mq-text)" }}>Вход по Email</h2>
                 <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
                   Введите email и пароль от вашего аккаунта
                 </p>
-              </motion.div>
+              </Reveal>
 
               {/* Success banner (e.g. after password reset) */}
               {loginSuccess && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                  className="mb-4 p-3 rounded-lg text-sm text-center"
-                  style={{ backgroundColor: "rgba(34,197,94,0.12)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.3)" }}>
+                <AuthBanner tone="success" fullMotion={fullMotion} className="text-center">
                   {loginSuccess}
-                </motion.div>
+                </AuthBanner>
               )}
 
               {loginError && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                  className="mb-4 p-3 rounded-lg text-sm"
-                  style={{ backgroundColor: "rgba(224,49,49,0.15)", color: "#ff6b6b", border: "1px solid rgba(224,49,49,0.3)" }}>
+                <AuthBanner tone="error" fullMotion={fullMotion}>
                   {loginError}
-                </motion.div>
+                </AuthBanner>
               )}
 
               {/* Unconfirmed account → jump straight to confirmation */}
               {showConfirmHint && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-4">
+                <Reveal index={2} firstMount={firstMount} fullMotion={fullMotion} className="mb-4">
                   <Button
                     onClick={() => { setConfirmEmail(loginEmail); setConfirmCode(["", "", "", "", "", ""]); setDevCodeHint(null); setAuthStep("confirm"); }}
                     className="w-full min-h-[44px]"
@@ -1236,229 +1548,231 @@ export default function AuthView() {
                   >
                     Подтвердить почту
                   </Button>
-                </motion.div>
+                </Reveal>
               )}
 
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Email</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-                    <Input
-                      type="email"
-                      placeholder="you@example.com"
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleEmailLogin(); }}
-                      className="pl-10"
-                      autoComplete="email"
-                      style={{ backgroundColor: "var(--mq-input-bg)", border: `1px solid ${loginError ? '#ef4444' : 'var(--mq-border)'}`, color: "var(--mq-text)" }}
-                    />
-                  </div>
+              <Reveal index={3} firstMount={firstMount} fullMotion={fullMotion}>
+                <div className="space-y-4">
+                  <ShakeField trigger={loginError} fullMotion={fullMotion}>
+                    <div>
+                      <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Email</label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+                        <Input
+                          type="email"
+                          placeholder="you@example.com"
+                          value={loginEmail}
+                          onChange={(e) => setLoginEmail(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleEmailLogin(); }}
+                          className="pl-10 min-h-[44px]"
+                          autoComplete="email"
+                          style={{ backgroundColor: "var(--mq-input-bg)", border: `1px solid ${loginError ? '#ef4444' : 'var(--mq-border)'}`, color: "var(--mq-text)" }}
+                        />
+                      </div>
+                    </div>
+                  </ShakeField>
+
+                  <ShakeField trigger={loginError} fullMotion={fullMotion}>
+                    <div>
+                      <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Пароль</label>
+                      <div className="relative">
+                        <Input
+                          type={loginShowPassword ? "text" : "password"}
+                          placeholder="Введите пароль"
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleEmailLogin(); }}
+                          className="pr-10 min-h-[44px]"
+                          autoComplete="current-password"
+                          style={{ backgroundColor: "var(--mq-input-bg)", border: `1px solid ${loginError ? '#ef4444' : 'var(--mq-border)'}`, color: "var(--mq-text)" }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setLoginShowPassword(!loginShowPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center"
+                          style={{ color: "var(--mq-text-muted)" }}
+                          aria-label={loginShowPassword ? "Скрыть пароль" : "Показать пароль"}
+                        >
+                          {loginShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </ShakeField>
+
+                  <Button onClick={handleEmailLogin}
+                    disabled={loginLoading || !loginEmail || !loginPassword}
+                    className="mq-platinum-btn w-full min-h-[44px]"
+                    style={{ color: "#ffffff" }}>
+                    {loginLoading ? (
+                      <span className="flex items-center justify-center gap-2 w-full">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Входим…</span>
+                      </span>
+                    ) : "Войти"}
+                  </Button>
                 </div>
+              </Reveal>
 
-                <div>
-                  <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Пароль</label>
-                  <div className="relative">
-                    <Input
-                      type={loginShowPassword ? "text" : "password"}
-                      placeholder="Введите пароль"
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleEmailLogin(); }}
-                      className="pr-10"
-                      autoComplete="current-password"
-                      style={{ backgroundColor: "var(--mq-input-bg)", border: `1px solid ${loginError ? '#ef4444' : 'var(--mq-border)'}`, color: "var(--mq-text)" }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setLoginShowPassword(!loginShowPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2"
-                      style={{ color: "var(--mq-text-muted)" }}
-                      aria-label={loginShowPassword ? "Скрыть пароль" : "Показать пароль"}
-                    >
-                      {loginShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <Button onClick={handleEmailLogin}
-                  disabled={loginLoading || !loginEmail || !loginPassword}
-                  className="mq-platinum-btn w-full min-h-[44px]"
-                  style={{ color: "#ffffff" }}>
-                  {loginLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Войти"}
-                </Button>
-              </div>
-
-              <div className="mt-4 flex items-center justify-between text-sm">
+              <Reveal index={4} firstMount={firstMount} fullMotion={fullMotion} className="mt-4 flex items-center justify-between text-sm">
                 <button type="button" onClick={() => setAuthStep("forgot-password")}
-                  className="transition-opacity hover:opacity-80" style={{ color: "var(--mq-text-muted)" }}>
+                  className="transition-opacity hover:opacity-80 py-2.5" style={{ color: "var(--mq-text-muted)" }}>
                   Забыли пароль?
                 </button>
                 <button type="button" onClick={() => setAuthStep("register")}
-                  className="font-medium transition-opacity hover:opacity-80" style={{ color: "var(--mq-accent, #e03131)" }}>
+                  className="font-medium transition-opacity hover:opacity-80 py-2.5" style={{ color: "var(--mq-accent, #e03131)" }}>
                   Создать аккаунт
                 </button>
-              </div>
-            </div>
+              </Reveal>
+            </AuthCard>
           </motion.div>
         )}
 
         {/* ─── Email: Registration ─── */}
         {authStep === "register" && (
-          <motion.div key="register"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full max-w-md relative z-10">
-            <div className="rounded-2xl p-6 lg:p-8"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+          <motion.div key="register" {...stepMotion("register")}>
+            <AuthCard firstMount={firstMount} fullMotion={fullMotion} loading={regLoading}>
 
-              <button onClick={() => setAuthStep("telegram")} className="flex items-center gap-1 mb-4" style={{ color: "var(--mq-text-muted)" }}>
-                <ArrowLeft className="w-4 h-4" />
-                <span className="text-sm">Назад</span>
-              </button>
+              <Reveal index={0} firstMount={firstMount} fullMotion={fullMotion}>
+                <button onClick={() => setAuthStep("telegram")} className="flex items-center gap-1 mb-4 min-h-[44px]" style={{ color: "var(--mq-text-muted)" }}>
+                  <ArrowLeft className="w-4 h-4" />
+                  <span className="text-sm">Назад</span>
+                </button>
+              </Reveal>
 
-              <motion.div
-                className="flex flex-col items-center text-center mb-6"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.15, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
-                <motion.div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+              <Reveal index={1} firstMount={firstMount} fullMotion={fullMotion} className="flex flex-col items-center text-center mb-6">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
                   style={{ backgroundColor: "rgba(224,49,49,0.12)" }}>
                   <UserPlus className="w-8 h-8" style={{ color: "var(--mq-accent, #e03131)" }} />
-                </motion.div>
+                </div>
                 <h2 className="text-xl font-semibold mb-1" style={{ color: "var(--mq-text)" }}>Регистрация</h2>
                 <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
                   Создайте аккаунт по email: музыка и чаты на всех устройствах
                 </p>
-              </motion.div>
+              </Reveal>
 
               {/* Email delivery warning (admin has not configured Brevo) */}
               {providers !== null && !providers.emailDelivery && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                  className="mb-4 p-3 rounded-lg text-xs text-center flex items-start gap-2"
-                  style={{ backgroundColor: "rgba(234,179,8,0.12)", color: "#fbbf24", border: "1px solid rgba(234,179,8,0.25)" }}>
+                <AuthBanner tone="warn" fullMotion={fullMotion} className="text-xs text-center flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                   <span>Email-сервис не настроен. Код подтверждения придёт только в dev-режиме.</span>
-                </motion.div>
+                </AuthBanner>
               )}
 
               {regError && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                  className="mb-4 p-3 rounded-lg text-sm"
-                  style={{ backgroundColor: "rgba(224,49,49,0.15)", color: "#ff6b6b", border: "1px solid rgba(224,49,49,0.3)" }}>
+                <AuthBanner tone="error" fullMotion={fullMotion}>
                   {regError}
-                </motion.div>
+                </AuthBanner>
               )}
 
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Имя пользователя</label>
-                  <div className="relative">
-                    <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-                    <Input
-                      placeholder="username"
-                      value={regUsername}
-                      onChange={(e) => setRegUsername(e.target.value.replace(/\s/g, ''))}
-                      className="pl-10"
-                      autoComplete="username"
-                      style={{ backgroundColor: "var(--mq-input-bg)", border: '1px solid var(--mq-border)', color: "var(--mq-text)" }}
-                    />
-                  </div>
-                  <p className="mq-t-meta-2 mt-1" style={{ color: "var(--mq-text-muted)" }}>
-                    2-20 символов: буквы, цифры, _ и - (отображается как @{regUsername || "..."})
-                  </p>
+              <Reveal index={2} firstMount={firstMount} fullMotion={fullMotion}>
+                <div className="space-y-4">
+                  <ShakeField trigger={regError} fullMotion={fullMotion}>
+                    <div>
+                      <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Имя пользователя</label>
+                      <div className="relative">
+                        <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+                        <Input
+                          placeholder="username"
+                          value={regUsername}
+                          onChange={(e) => setRegUsername(e.target.value.replace(/\s/g, ''))}
+                          className="pl-10 min-h-[44px]"
+                          autoComplete="username"
+                          style={{ backgroundColor: "var(--mq-input-bg)", border: `1px solid ${regError ? '#ef4444' : 'var(--mq-border)'}`, color: "var(--mq-text)" }}
+                        />
+                      </div>
+                      <p className="mq-t-meta-2 mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                        2-20 символов: буквы, цифры, _ и - (отображается как @{regUsername || "..."})
+                      </p>
+                    </div>
+                  </ShakeField>
+
+                  <ShakeField trigger={regError} fullMotion={fullMotion}>
+                    <div>
+                      <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Email</label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+                        <Input
+                          type="email"
+                          placeholder="you@example.com"
+                          value={regEmail}
+                          onChange={(e) => setRegEmail(e.target.value)}
+                          className="pl-10 min-h-[44px]"
+                          autoComplete="email"
+                          style={{ backgroundColor: "var(--mq-input-bg)", border: `1px solid ${regError ? '#ef4444' : 'var(--mq-border)'}`, color: "var(--mq-text)" }}
+                        />
+                      </div>
+                    </div>
+                  </ShakeField>
+
+                  <ShakeField trigger={regError} fullMotion={fullMotion}>
+                    <div>
+                      <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Пароль</label>
+                      <div className="relative">
+                        <Input
+                          type={regShowPassword ? "text" : "password"}
+                          placeholder="Минимум 6 символов"
+                          value={regPassword}
+                          onChange={(e) => setRegPassword(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleRegister(); }}
+                          className="pr-10 min-h-[44px]"
+                          autoComplete="new-password"
+                          style={{ backgroundColor: "var(--mq-input-bg)", border: `1px solid ${regError ? '#ef4444' : 'var(--mq-border)'}`, color: "var(--mq-text)" }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setRegShowPassword(!regShowPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center"
+                          style={{ color: "var(--mq-text-muted)" }}
+                          aria-label={regShowPassword ? "Скрыть пароль" : "Показать пароль"}
+                        >
+                          {regShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </ShakeField>
+
+                  <Button onClick={handleRegister}
+                    disabled={regLoading || !regUsername || !regEmail || !regPassword}
+                    className="mq-platinum-btn w-full min-h-[44px]"
+                    style={{ color: "#ffffff" }}>
+                    {regLoading ? (
+                      <span className="flex items-center justify-center gap-2 w-full">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Создаём…</span>
+                      </span>
+                    ) : "Зарегистрироваться"}
+                  </Button>
                 </div>
+              </Reveal>
 
-                <div>
-                  <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Email</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-                    <Input
-                      type="email"
-                      placeholder="you@example.com"
-                      value={regEmail}
-                      onChange={(e) => setRegEmail(e.target.value)}
-                      className="pl-10"
-                      autoComplete="email"
-                      style={{ backgroundColor: "var(--mq-input-bg)", border: '1px solid var(--mq-border)', color: "var(--mq-text)" }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Пароль</label>
-                  <div className="relative">
-                    <Input
-                      type={regShowPassword ? "text" : "password"}
-                      placeholder="Минимум 6 символов"
-                      value={regPassword}
-                      onChange={(e) => setRegPassword(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleRegister(); }}
-                      className="pr-10"
-                      autoComplete="new-password"
-                      style={{ backgroundColor: "var(--mq-input-bg)", border: '1px solid var(--mq-border)', color: "var(--mq-text)" }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setRegShowPassword(!regShowPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2"
-                      style={{ color: "var(--mq-text-muted)" }}
-                      aria-label={regShowPassword ? "Скрыть пароль" : "Показать пароль"}
-                    >
-                      {regShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <Button onClick={handleRegister}
-                  disabled={regLoading || !regUsername || !regEmail || !regPassword}
-                  className="mq-platinum-btn w-full min-h-[44px]"
-                  style={{ color: "#ffffff" }}>
-                  {regLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Зарегистрироваться"}
-                </Button>
-              </div>
-
-              <div className="mt-4 text-center text-sm">
+              <Reveal index={3} firstMount={firstMount} fullMotion={fullMotion} className="mt-4 text-center text-sm">
                 <span style={{ color: "var(--mq-text-muted)" }}>Уже есть аккаунт? </span>
                 <button type="button" onClick={() => setAuthStep("login")}
-                  className="font-medium transition-opacity hover:opacity-80" style={{ color: "var(--mq-accent, #e03131)" }}>
+                  className="font-medium transition-opacity hover:opacity-80 py-2.5" style={{ color: "var(--mq-accent, #e03131)" }}>
                   Войти
                 </button>
-              </div>
-            </div>
+              </Reveal>
+            </AuthCard>
           </motion.div>
         )}
 
         {/* ─── Email: Confirm code ─── */}
         {authStep === "confirm" && (
-          <motion.div key="confirm"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full max-w-md relative z-10">
-            <div className="rounded-2xl p-6 lg:p-8"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+          <motion.div key="confirm" {...stepMotion("confirm")}>
+            <AuthCard firstMount={firstMount} fullMotion={fullMotion} loading={confirmLoading}>
 
-              <button onClick={() => setAuthStep("login")} className="flex items-center gap-1 mb-4" style={{ color: "var(--mq-text-muted)" }}>
-                <ArrowLeft className="w-4 h-4" />
-                <span className="text-sm">Назад</span>
-              </button>
+              <Reveal index={0} firstMount={firstMount} fullMotion={fullMotion}>
+                <button onClick={() => setAuthStep("login")} className="flex items-center gap-1 mb-4 min-h-[44px]" style={{ color: "var(--mq-text-muted)" }}>
+                  <ArrowLeft className="w-4 h-4" />
+                  <span className="text-sm">Назад</span>
+                </button>
+              </Reveal>
 
-              <motion.div
-                className="flex flex-col items-center text-center mb-6"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.15, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
-                <motion.div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+              <Reveal index={1} firstMount={firstMount} fullMotion={fullMotion} className="flex flex-col items-center text-center mb-6">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
                   style={{ backgroundColor: "rgba(224,49,49,0.12)" }}>
                   <Check className="w-8 h-8" style={{ color: "var(--mq-accent, #e03131)" }} />
-                </motion.div>
+                </div>
                 <h2 className="text-xl font-semibold mb-1" style={{ color: "var(--mq-text)" }}>Подтверждение почты</h2>
                 <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
                   Код отправлен на <span className="font-medium" style={{ color: "var(--mq-text)" }}>{confirmEmail}</span>
@@ -1466,84 +1780,80 @@ export default function AuthView() {
                 <p className="text-xs mt-1" style={{ color: "var(--mq-text-muted)" }}>
                   Введите 6-значный код из письма
                 </p>
-              </motion.div>
+              </Reveal>
 
               {devCodeHint && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  className="mb-4 p-3 rounded-lg text-xs text-center"
-                  style={{ backgroundColor: "rgba(42,171,238,0.1)", color: "var(--mq-telegram)", border: "1px solid rgba(42,171,238,0.25)" }}>
+                <AuthBanner tone="info" fullMotion={fullMotion} className="text-xs text-center">
                   Dev-режим (email не настроен): ваш код <span className="font-bold">{devCodeHint}</span>
-                </motion.div>
+                </AuthBanner>
               )}
 
               {confirmInfo && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                  className="mb-4 p-3 rounded-lg text-sm text-center"
-                  style={{ backgroundColor: "rgba(34,197,94,0.1)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.25)" }}>
+                <AuthBanner tone="success" fullMotion={fullMotion} className="text-center">
                   {confirmInfo}
-                </motion.div>
+                </AuthBanner>
               )}
 
               {confirmError && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                  className="mb-4 p-3 rounded-lg text-sm text-center"
-                  style={{ backgroundColor: "rgba(224,49,49,0.15)", color: "#ff6b6b", border: "1px solid rgba(224,49,49,0.3)" }}>
+                <AuthBanner tone="error" fullMotion={fullMotion} className="text-center">
                   {confirmError}
-                </motion.div>
+                </AuthBanner>
               )}
 
-              <CodeBoxes
-                value={confirmCode}
-                onChange={setConfirmCode}
-                onAutoSubmit={(code) => handleConfirmVerify(code)}
-                disabled={confirmLoading}
-                error={!!confirmError}
-              />
+              <Reveal index={2} firstMount={firstMount} fullMotion={fullMotion}>
+                <ShakeField trigger={confirmError} fullMotion={fullMotion}>
+                  <CodeBoxes
+                    value={confirmCode}
+                    onChange={setConfirmCode}
+                    onAutoSubmit={(code) => handleConfirmVerify(code)}
+                    disabled={confirmLoading}
+                    error={!!confirmError}
+                  />
+                </ShakeField>
+              </Reveal>
 
-              <div className="mt-6 space-y-3">
-                <Button onClick={() => handleConfirmVerify()}
-                  disabled={confirmLoading || confirmCode.some(d => !d)}
-                  className="mq-platinum-btn w-full min-h-[44px]"
-                  style={{ color: "#ffffff" }}>
-                  {confirmLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Подтвердить"}
-                </Button>
-                <Button variant="ghost" onClick={handleResendCode} disabled={confirmLoading}
-                  className="w-full min-h-[44px] text-sm" style={{ color: "var(--mq-text-muted)" }}>
-                  Отправить код повторно
-                </Button>
-              </div>
-            </div>
+              <Reveal index={3} firstMount={firstMount} fullMotion={fullMotion}>
+                <div className="mt-6 space-y-3">
+                  <Button onClick={() => handleConfirmVerify()}
+                    disabled={confirmLoading || confirmCode.some(d => !d)}
+                    className="mq-platinum-btn w-full min-h-[44px]"
+                    style={{ color: "#ffffff" }}>
+                    {confirmLoading ? (
+                      <span className="flex items-center justify-center gap-2 w-full">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Подтверждаем…</span>
+                      </span>
+                    ) : "Подтвердить"}
+                  </Button>
+                  <Button variant="ghost" onClick={handleResendCode} disabled={confirmLoading}
+                    className="w-full min-h-[44px] text-sm" style={{ color: "var(--mq-text-muted)" }}>
+                    Отправить код повторно
+                  </Button>
+                </div>
+              </Reveal>
+            </AuthCard>
           </motion.div>
         )}
 
         {/* ─── Email: Forgot password ─── */}
         {authStep === "forgot-password" && (
-          <motion.div key="forgot-password"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full max-w-md relative z-10">
-            <div className="rounded-2xl p-6 lg:p-8"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+          <motion.div key="forgot-password" {...stepMotion("forgot-password")}>
+            <AuthCard firstMount={firstMount} fullMotion={fullMotion} loading={fpLoading}>
 
-              <button
-                onClick={() => setAuthStep(fpStage === "reset" ? "login" : "login")}
-                className="flex items-center gap-1 mb-4" style={{ color: "var(--mq-text-muted)" }}>
-                <ArrowLeft className="w-4 h-4" />
-                <span className="text-sm">Назад</span>
-              </button>
+              <Reveal index={0} firstMount={firstMount} fullMotion={fullMotion}>
+                <button
+                  onClick={() => setAuthStep(fpStage === "reset" ? "login" : "login")}
+                  className="flex items-center gap-1 mb-4 min-h-[44px]" style={{ color: "var(--mq-text-muted)" }}>
+                  <ArrowLeft className="w-4 h-4" />
+                  <span className="text-sm">Назад</span>
+                </button>
+              </Reveal>
 
-              <motion.div
-                className="flex flex-col items-center text-center mb-6"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.15, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
-                <motion.div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+              <Reveal index={1} firstMount={firstMount} fullMotion={fullMotion} className="flex flex-col items-center text-center mb-6">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
                   style={{ backgroundColor: "rgba(224,49,49,0.12)" }}>
                   <Lock className="w-8 h-8" style={{ color: "var(--mq-accent, #e03131)" }} />
-                </motion.div>
+                </div>
                 <h2 className="text-xl font-semibold mb-1" style={{ color: "var(--mq-text)" }}>
                   {fpStage === "request" ? "Восстановление пароля" : "Новый пароль"}
                 </h2>
@@ -1552,367 +1862,364 @@ export default function AuthView() {
                     ? "Введите email аккаунта, мы отправим код подтверждения"
                     : "Введите код из письма и новый пароль"}
                 </p>
-              </motion.div>
+              </Reveal>
 
               {fpInfo && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                  className="mb-4 p-3 rounded-lg text-sm text-center"
-                  style={{ backgroundColor: "rgba(34,197,94,0.1)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.25)" }}>
+                <AuthBanner tone="success" fullMotion={fullMotion} className="text-center">
                   {fpInfo}
-                </motion.div>
+                </AuthBanner>
               )}
 
               {fpError && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                  className="mb-4 p-3 rounded-lg text-sm text-center"
-                  style={{ backgroundColor: "rgba(224,49,49,0.15)", color: "#ff6b6b", border: "1px solid rgba(224,49,49,0.3)" }}>
+                <AuthBanner tone="error" fullMotion={fullMotion} className="text-center">
                   {fpError}
-                </motion.div>
+                </AuthBanner>
               )}
 
               {fpStage === "request" ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Email</label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-                      <Input
-                        type="email"
-                        placeholder="you@example.com"
-                        value={fpEmail}
-                        onChange={(e) => setFpEmail(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") handleForgotRequest(); }}
-                        className="pl-10"
-                        autoComplete="email"
-                        style={{ backgroundColor: "var(--mq-input-bg)", border: `1px solid ${fpError ? '#ef4444' : 'var(--mq-border)'}`, color: "var(--mq-text)" }}
-                      />
-                    </div>
+                <Reveal index={2} firstMount={firstMount} fullMotion={fullMotion}>
+                  <div className="space-y-4">
+                    <ShakeField trigger={fpError} fullMotion={fullMotion}>
+                      <div>
+                        <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Email</label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+                          <Input
+                            type="email"
+                            placeholder="you@example.com"
+                            value={fpEmail}
+                            onChange={(e) => setFpEmail(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") handleForgotRequest(); }}
+                            className="pl-10 min-h-[44px]"
+                            autoComplete="email"
+                            style={{ backgroundColor: "var(--mq-input-bg)", border: `1px solid ${fpError ? '#ef4444' : 'var(--mq-border)'}`, color: "var(--mq-text)" }}
+                          />
+                        </div>
+                      </div>
+                    </ShakeField>
+                    <Button onClick={handleForgotRequest}
+                      disabled={fpLoading || !fpEmail}
+                      className="mq-platinum-btn w-full min-h-[44px]"
+                      style={{ color: "#ffffff" }}>
+                      {fpLoading ? (
+                        <span className="flex items-center justify-center gap-2 w-full">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Отправляем…</span>
+                        </span>
+                      ) : "Отправить код"}
+                    </Button>
                   </div>
-                  <Button onClick={handleForgotRequest}
-                    disabled={fpLoading || !fpEmail}
-                    className="mq-platinum-btn w-full min-h-[44px]"
-                    style={{ color: "#ffffff" }}>
-                    {fpLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Отправить код"}
-                  </Button>
-                </div>
+                </Reveal>
               ) : (
-                <div className="space-y-4">
-                  <CodeBoxes
-                    value={fpCode}
-                    onChange={setFpCode}
-                    disabled={fpLoading}
-                    error={!!fpError}
-                  />
-                  <div>
-                    <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Новый пароль</label>
-                    <div className="relative">
-                      <Input
-                        type={fpShowPassword ? "text" : "password"}
-                        placeholder="Минимум 6 символов"
-                        value={fpNewPassword}
-                        onChange={(e) => setFpNewPassword(e.target.value)}
-                        className="pr-10"
-                        autoComplete="new-password"
-                        style={{ backgroundColor: "var(--mq-input-bg)", border: `1px solid ${fpError ? '#ef4444' : 'var(--mq-border)'}`, color: "var(--mq-text)" }}
+                <Reveal index={2} firstMount={firstMount} fullMotion={fullMotion}>
+                  <div className="space-y-4">
+                    <ShakeField trigger={fpError} fullMotion={fullMotion}>
+                      <CodeBoxes
+                        value={fpCode}
+                        onChange={setFpCode}
+                        disabled={fpLoading}
+                        error={!!fpError}
                       />
-                      <button
-                        type="button"
-                        onClick={() => setFpShowPassword(!fpShowPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2"
-                        style={{ color: "var(--mq-text-muted)" }}
-                        aria-label={fpShowPassword ? "Скрыть пароль" : "Показать пароль"}
-                      >
-                        {fpShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
+                    </ShakeField>
+                    <ShakeField trigger={fpError} fullMotion={fullMotion}>
+                      <div>
+                        <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Новый пароль</label>
+                        <div className="relative">
+                          <Input
+                            type={fpShowPassword ? "text" : "password"}
+                            placeholder="Минимум 6 символов"
+                            value={fpNewPassword}
+                            onChange={(e) => setFpNewPassword(e.target.value)}
+                            className="pr-10 min-h-[44px]"
+                            autoComplete="new-password"
+                            style={{ backgroundColor: "var(--mq-input-bg)", border: `1px solid ${fpError ? '#ef4444' : 'var(--mq-border)'}`, color: "var(--mq-text)" }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setFpShowPassword(!fpShowPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center"
+                            style={{ color: "var(--mq-text-muted)" }}
+                            aria-label={fpShowPassword ? "Скрыть пароль" : "Показать пароль"}
+                          >
+                            {fpShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    </ShakeField>
+                    <ShakeField trigger={fpError} fullMotion={fullMotion}>
+                      <div>
+                        <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Повторите пароль</label>
+                        <Input
+                          type={fpShowPassword ? "text" : "password"}
+                          placeholder="Ещё раз"
+                          value={fpConfirmPassword}
+                          onChange={(e) => setFpConfirmPassword(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleResetPassword(); }}
+                          className="min-h-[44px]"
+                          autoComplete="new-password"
+                          style={{ backgroundColor: "var(--mq-input-bg)", border: `1px solid ${fpError ? '#ef4444' : 'var(--mq-border)'}`, color: "var(--mq-text)" }}
+                        />
+                      </div>
+                    </ShakeField>
+                    <Button onClick={() => handleResetPassword()}
+                      disabled={fpLoading || fpCode.some(d => !d) || !fpNewPassword || !fpConfirmPassword}
+                      className="mq-platinum-btn w-full min-h-[44px]"
+                      style={{ color: "#ffffff" }}>
+                      {fpLoading ? (
+                        <span className="flex items-center justify-center gap-2 w-full">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Сохраняем…</span>
+                        </span>
+                      ) : "Изменить пароль"}
+                    </Button>
                   </div>
-                  <div>
-                    <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Повторите пароль</label>
-                    <Input
-                      type={fpShowPassword ? "text" : "password"}
-                      placeholder="Ещё раз"
-                      value={fpConfirmPassword}
-                      onChange={(e) => setFpConfirmPassword(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleResetPassword(); }}
-                      autoComplete="new-password"
-                      style={{ backgroundColor: "var(--mq-input-bg)", border: `1px solid ${fpError ? '#ef4444' : 'var(--mq-border)'}`, color: "var(--mq-text)" }}
-                    />
-                  </div>
-                  <Button onClick={() => handleResetPassword()}
-                    disabled={fpLoading || fpCode.some(d => !d) || !fpNewPassword || !fpConfirmPassword}
-                    className="mq-platinum-btn w-full min-h-[44px]"
-                    style={{ color: "#ffffff" }}>
-                    {fpLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Изменить пароль"}
-                  </Button>
-                </div>
+                </Reveal>
               )}
-            </div>
+            </AuthCard>
           </motion.div>
         )}
 
         {/* ─── Telegram: New User Registration (bot-code flow) ─── */}
         {authStep === "telegram-register" && (
-          <motion.div key="telegram-register"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full max-w-md relative z-10">
-            <div className="rounded-2xl p-6 lg:p-8"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+          <motion.div key="telegram-register" {...stepMotion("telegram-register")}>
+            <AuthCard firstMount={firstMount} fullMotion={fullMotion} loading={tgRegisterLoading}>
 
-              <button onClick={() => { setAuthStep("telegram"); }} className="flex items-center gap-1 mb-4" style={{ color: "var(--mq-text-muted)" }}>
-                <ArrowLeft className="w-4 h-4" />
-                <span className="text-sm">Назад</span>
-              </button>
+              <Reveal index={0} firstMount={firstMount} fullMotion={fullMotion}>
+                <button onClick={() => { setAuthStep("telegram"); }} className="flex items-center gap-1 mb-4 min-h-[44px]" style={{ color: "var(--mq-text-muted)" }}>
+                  <ArrowLeft className="w-4 h-4" />
+                  <span className="text-sm">Назад</span>
+                </button>
+              </Reveal>
 
-              <motion.div
-                className="flex flex-col items-center text-center mb-6"
-                initial={{ opacity: 0, scale: 0.5, rotate: -10 }}
-                animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                transition={{ delay: 0.3, duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}>
-                <motion.div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-                  style={{ backgroundColor: "rgba(42,171,238,0.12)" }}
-                  animate={{ boxShadow: ["0 0 0px rgba(42,171,238,0)", "0 0 25px rgba(42,171,238,0.3)", "0 0 0px rgba(42,171,238,0)"] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                >
+              <Reveal index={1} firstMount={firstMount} fullMotion={fullMotion} className="flex flex-col items-center text-center mb-6">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+                  style={{ backgroundColor: "rgba(42,171,238,0.12)" }}>
                   <UserPlus className="w-8 h-8" style={{ color: "var(--mq-telegram)" }} />
-                </motion.div>
+                </div>
                 <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--mq-text)" }}>Новый аккаунт</h2>
                 <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
                   Telegram подтверждён! Выберите имя пользователя
                 </p>
-              </motion.div>
+              </Reveal>
 
               {tgRegisterError && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                  className="mb-4 p-3 rounded-lg text-sm"
-                  style={{ backgroundColor: "rgba(224,49,49,0.15)", color: "#ff6b6b", border: "1px solid rgba(224,49,49,0.3)" }}>
+                <AuthBanner tone="error" fullMotion={fullMotion}>
                   {tgRegisterError}
-                </motion.div>
+                </AuthBanner>
               )}
 
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Имя пользователя</label>
-                  <div className="relative">
-                    <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-                    <Input placeholder="username" value={tgUsername}
-                      onChange={(e) => handleUsernameChange(e.target.value, false)}
-                      className="pl-10 pr-9" style={{
-                        backgroundColor: "var(--mq-input-bg)",
-                        border: `1px solid ${usernameStatus === 'available' ? '#22c55e' : usernameStatus === 'taken' || usernameStatus === 'invalid' ? '#ef4444' : 'var(--mq-border)'}`,
-                        color: "var(--mq-text)"
-                      }} />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <Reveal index={2} firstMount={firstMount} fullMotion={fullMotion}>
+                <div className="space-y-4">
+                  <ShakeField trigger={tgRegisterError} fullMotion={fullMotion}>
+                    <div>
+                      <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Имя пользователя</label>
+                      <div className="relative">
+                        <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+                        <Input placeholder="username" value={tgUsername}
+                          onChange={(e) => handleUsernameChange(e.target.value, false)}
+                          className="pl-10 pr-9 min-h-[44px]" style={{
+                            backgroundColor: "var(--mq-input-bg)",
+                            border: `1px solid ${tgRegisterError ? '#ef4444' : usernameStatus === 'available' ? '#22c55e' : usernameStatus === 'taken' || usernameStatus === 'invalid' ? '#ef4444' : 'var(--mq-border)'}`,
+                            color: "var(--mq-text)"
+                          }} />
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <AnimatePresence mode="wait">
+                            {usernameStatus === 'checking' && (
+                              <motion.div key="tg-checking" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                                <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
+                              </motion.div>
+                            )}
+                            {usernameStatus === 'available' && (
+                              <motion.div key="tg-available" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>
+                                <Check className="w-4 h-4" style={{ color: "#22c55e" }} />
+                              </motion.div>
+                            )}
+                            {(usernameStatus === 'taken' || usernameStatus === 'invalid') && (
+                              <motion.div key="tg-error" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>
+                                <X className="w-4 h-4" style={{ color: "#ef4444" }} />
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      </div>
                       <AnimatePresence mode="wait">
-                        {usernameStatus === 'checking' && (
-                          <motion.div key="tg-checking" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                            <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
-                          </motion.div>
-                        )}
                         {usernameStatus === 'available' && (
-                          <motion.div key="tg-available" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>
-                            <Check className="w-4 h-4" style={{ color: "#22c55e" }} />
-                          </motion.div>
+                          <motion.p key="tg-avail" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                            className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "#22c55e" }}>
+                            <Check className="w-3 h-3" /> Имя доступно
+                          </motion.p>
                         )}
-                        {(usernameStatus === 'taken' || usernameStatus === 'invalid') && (
-                          <motion.div key="tg-error" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>
-                            <X className="w-4 h-4" style={{ color: "#ef4444" }} />
-                          </motion.div>
+                        {usernameStatus === 'taken' && usernameError && (
+                          <motion.p key="tg-taken" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                            className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "#60a5fa" }}>
+                            <Lock className="w-3 h-3" /> Аккаунт с таким именем уже существует. Нажмите кнопку ниже для входа
+                          </motion.p>
+                        )}
+                        {usernameStatus === 'invalid' && usernameError && (
+                          <motion.p key="tg-inv" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                            className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "#ef4444" }}>
+                            <X className="w-3 h-3" /> {usernameError}
+                          </motion.p>
+                        )}
+                        {usernameStatus === 'idle' && (
+                          <motion.p key="tg-idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            className="mq-t-meta-2 mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                            Отображается как @{tgUsername || "..."}
+                          </motion.p>
+                        )}
+                        {usernameStatus === 'checking' && (
+                          <motion.p key="tg-checking-hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            className="mq-t-meta-2 mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                            Проверка имени...
+                          </motion.p>
                         )}
                       </AnimatePresence>
                     </div>
-                  </div>
-                  <AnimatePresence mode="wait">
-                    {usernameStatus === 'available' && (
-                      <motion.p key="tg-avail" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                        className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "#22c55e" }}>
-                        <Check className="w-3 h-3" /> Имя доступно
-                      </motion.p>
-                    )}
-                    {usernameStatus === 'taken' && usernameError && (
-                      <motion.p key="tg-taken" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                        className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "#60a5fa" }}>
-                        <Lock className="w-3 h-3" /> Аккаунт с таким именем уже существует. Нажмите кнопку ниже для входа
-                      </motion.p>
-                    )}
-                    {usernameStatus === 'invalid' && usernameError && (
-                      <motion.p key="tg-inv" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                        className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "#ef4444" }}>
-                        <X className="w-3 h-3" /> {usernameError}
-                      </motion.p>
-                    )}
-                    {usernameStatus === 'idle' && (
-                      <motion.p key="tg-idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="mq-t-meta-2 mt-1" style={{ color: "var(--mq-text-muted)" }}>
-                        Отображается как @{tgUsername || "..."}
-                      </motion.p>
-                    )}
-                    {usernameStatus === 'checking' && (
-                      <motion.p key="tg-checking-hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="mq-t-meta-2 mt-1" style={{ color: "var(--mq-text-muted)" }}>
-                        Проверка имени...
-                      </motion.p>
-                    )}
-                  </AnimatePresence>
-                </div>
+                  </ShakeField>
 
-                <Button onClick={handleTgRegister}
-                  disabled={tgRegisterLoading || !tgUsername || usernameStatus === 'invalid' || usernameStatus === 'checking'}
-                  className="w-full min-h-[44px]" style={{ backgroundColor: usernameStatus === 'taken' ? '#1d4ed8' : "var(--mq-telegram)", color: "#ffffff" }}>
-                  {tgRegisterLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : usernameStatus === 'taken' ? "Привязать к существующему аккаунту" : "Создать аккаунт"}
-                </Button>
-              </div>
-            </div>
+                  <Button onClick={handleTgRegister}
+                    disabled={tgRegisterLoading || !tgUsername || usernameStatus === 'invalid' || usernameStatus === 'checking'}
+                    className="w-full min-h-[44px]" style={{ backgroundColor: usernameStatus === 'taken' ? '#1d4ed8' : "var(--mq-telegram)", color: "#ffffff" }}>
+                    {tgRegisterLoading ? (
+                      <span className="flex items-center justify-center gap-2 w-full">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Создаём…</span>
+                      </span>
+                    ) : usernameStatus === 'taken' ? "Привязать к существующему аккаунту" : "Создать аккаунт"}
+                  </Button>
+                </div>
+              </Reveal>
+            </AuthCard>
           </motion.div>
         )}
 
         {/* ─── Telegram Widget: New User Registration (official Login Widget) ─── */}
         {authStep === "telegram-widget-register" && (
-          <motion.div key="telegram-widget-register"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full max-w-md relative z-10">
-            <div className="rounded-2xl p-6 lg:p-8"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+          <motion.div key="telegram-widget-register" {...stepMotion("telegram-widget-register")}>
+            <AuthCard firstMount={firstMount} fullMotion={fullMotion} loading={tgrLoading}>
 
-              <button onClick={() => { pendingTgWidgetRef.current = null; setAuthStep("telegram"); }} className="flex items-center gap-1 mb-4" style={{ color: "var(--mq-text-muted)" }}>
-                <ArrowLeft className="w-4 h-4" />
-                <span className="text-sm">Назад</span>
-              </button>
+              <Reveal index={0} firstMount={firstMount} fullMotion={fullMotion}>
+                <button onClick={() => { pendingTgWidgetRef.current = null; setAuthStep("telegram"); }} className="flex items-center gap-1 mb-4 min-h-[44px]" style={{ color: "var(--mq-text-muted)" }}>
+                  <ArrowLeft className="w-4 h-4" />
+                  <span className="text-sm">Назад</span>
+                </button>
+              </Reveal>
 
-              <motion.div
-                className="flex flex-col items-center text-center mb-6"
-                initial={{ opacity: 0, scale: 0.5, rotate: -10 }}
-                animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                transition={{ delay: 0.3, duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}>
-                <motion.div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-                  style={{ backgroundColor: "rgba(42,171,238,0.12)" }}
-                  animate={{ boxShadow: ["0 0 0px rgba(42,171,238,0)", "0 0 25px rgba(42,171,238,0.3)", "0 0 0px rgba(42,171,238,0)"] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                >
+              <Reveal index={1} firstMount={firstMount} fullMotion={fullMotion} className="flex flex-col items-center text-center mb-6">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+                  style={{ backgroundColor: "rgba(42,171,238,0.12)" }}>
                   <UserPlus className="w-8 h-8" style={{ color: "var(--mq-telegram)" }} />
-                </motion.div>
+                </div>
                 <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--mq-text)" }}>Новый аккаунт</h2>
                 <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
                   Telegram подтверждён! Выберите имя пользователя
                 </p>
-              </motion.div>
+              </Reveal>
 
               {tgrError && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                  className="mb-4 p-3 rounded-lg text-sm"
-                  style={{ backgroundColor: "rgba(224,49,49,0.15)", color: "#ff6b6b", border: "1px solid rgba(224,49,49,0.3)" }}>
+                <AuthBanner tone="error" fullMotion={fullMotion}>
                   {tgrError}
-                </motion.div>
+                </AuthBanner>
               )}
 
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Имя пользователя</label>
-                  <div className="relative">
-                    <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-                    <Input placeholder="username" value={tgrUsername}
-                      onChange={(e) => handleUsernameChange(e.target.value, true)}
-                      className="pl-10 pr-9" style={{
-                        backgroundColor: "var(--mq-input-bg)",
-                        border: `1px solid ${usernameStatus === 'available' ? '#22c55e' : usernameStatus === 'taken' || usernameStatus === 'invalid' ? '#ef4444' : 'var(--mq-border)'}`,
-                        color: "var(--mq-text)"
-                      }} />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <Reveal index={2} firstMount={firstMount} fullMotion={fullMotion}>
+                <div className="space-y-4">
+                  <ShakeField trigger={tgrError} fullMotion={fullMotion}>
+                    <div>
+                      <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Имя пользователя</label>
+                      <div className="relative">
+                        <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+                        <Input placeholder="username" value={tgrUsername}
+                          onChange={(e) => handleUsernameChange(e.target.value, true)}
+                          className="pl-10 pr-9 min-h-[44px]" style={{
+                            backgroundColor: "var(--mq-input-bg)",
+                            border: `1px solid ${tgrError ? '#ef4444' : usernameStatus === 'available' ? '#22c55e' : usernameStatus === 'taken' || usernameStatus === 'invalid' ? '#ef4444' : 'var(--mq-border)'}`,
+                            color: "var(--mq-text)"
+                          }} />
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <AnimatePresence mode="wait">
+                            {usernameStatus === 'checking' && (
+                              <motion.div key="tgr-checking" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                                <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
+                              </motion.div>
+                            )}
+                            {usernameStatus === 'available' && (
+                              <motion.div key="tgr-available" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>
+                                <Check className="w-4 h-4" style={{ color: "#22c55e" }} />
+                              </motion.div>
+                            )}
+                            {(usernameStatus === 'taken' || usernameStatus === 'invalid') && (
+                              <motion.div key="tgr-error" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>
+                                <X className="w-4 h-4" style={{ color: "#ef4444" }} />
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      </div>
                       <AnimatePresence mode="wait">
-                        {usernameStatus === 'checking' && (
-                          <motion.div key="tgr-checking" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                            <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
-                          </motion.div>
-                        )}
                         {usernameStatus === 'available' && (
-                          <motion.div key="tgr-available" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>
-                            <Check className="w-4 h-4" style={{ color: "#22c55e" }} />
-                          </motion.div>
+                          <motion.p key="tgr-avail" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                            className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "#22c55e" }}>
+                            <Check className="w-3 h-3" /> Имя доступно
+                          </motion.p>
                         )}
-                        {(usernameStatus === 'taken' || usernameStatus === 'invalid') && (
-                          <motion.div key="tgr-error" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>
-                            <X className="w-4 h-4" style={{ color: "#ef4444" }} />
-                          </motion.div>
+                        {usernameStatus === 'taken' && usernameError && (
+                          <motion.p key="tgr-taken" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                            className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "#60a5fa" }}>
+                            <Lock className="w-3 h-3" /> Аккаунт с таким именем уже существует. Нажмите кнопку ниже для входа
+                          </motion.p>
+                        )}
+                        {usernameStatus === 'invalid' && usernameError && (
+                          <motion.p key="tgr-inv" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                            className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "#ef4444" }}>
+                            <X className="w-3 h-3" /> {usernameError}
+                          </motion.p>
+                        )}
+                        {usernameStatus === 'idle' && (
+                          <motion.p key="tgr-idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            className="mq-t-meta-2 mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                            Отображается как @{tgrUsername || "..."}
+                          </motion.p>
                         )}
                       </AnimatePresence>
                     </div>
-                  </div>
-                  <AnimatePresence mode="wait">
-                    {usernameStatus === 'available' && (
-                      <motion.p key="tgr-avail" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                        className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "#22c55e" }}>
-                        <Check className="w-3 h-3" /> Имя доступно
-                      </motion.p>
-                    )}
-                    {usernameStatus === 'taken' && usernameError && (
-                      <motion.p key="tgr-taken" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                        className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "#60a5fa" }}>
-                        <Lock className="w-3 h-3" /> Аккаунт с таким именем уже существует. Нажмите кнопку ниже для входа
-                      </motion.p>
-                    )}
-                    {usernameStatus === 'invalid' && usernameError && (
-                      <motion.p key="tgr-inv" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                        className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "#ef4444" }}>
-                        <X className="w-3 h-3" /> {usernameError}
-                      </motion.p>
-                    )}
-                    {usernameStatus === 'idle' && (
-                      <motion.p key="tgr-idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="mq-t-meta-2 mt-1" style={{ color: "var(--mq-text-muted)" }}>
-                        Отображается как @{tgrUsername || "..."}
-                      </motion.p>
-                    )}
-                  </AnimatePresence>
-                </div>
+                  </ShakeField>
 
-                <Button onClick={handleWidgetRegister}
-                  disabled={tgrLoading || !tgrUsername || usernameStatus === 'invalid' || usernameStatus === 'checking'}
-                  className="w-full min-h-[44px]" style={{ backgroundColor: usernameStatus === 'taken' ? '#1d4ed8' : "var(--mq-telegram)", color: "#ffffff" }}>
-                  {tgrLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : usernameStatus === 'taken' ? "Привязать к существующему аккаунту" : "Создать аккаунт"}
-                </Button>
-              </div>
-            </div>
+                  <Button onClick={handleWidgetRegister}
+                    disabled={tgrLoading || !tgrUsername || usernameStatus === 'invalid' || usernameStatus === 'checking'}
+                    className="w-full min-h-[44px]" style={{ backgroundColor: usernameStatus === 'taken' ? '#1d4ed8' : "var(--mq-telegram)", color: "#ffffff" }}>
+                    {tgrLoading ? (
+                      <span className="flex items-center justify-center gap-2 w-full">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Создаём…</span>
+                      </span>
+                    ) : usernameStatus === 'taken' ? "Привязать к существующему аккаунту" : "Создать аккаунт"}
+                  </Button>
+                </div>
+              </Reveal>
+            </AuthCard>
           </motion.div>
         )}
 
         {/* ─── Telegram: Link to existing account (password required) ─── */}
         {authStep === "telegram-link" && (
-          <motion.div key="telegram-link"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full max-w-md relative z-10">
-            <div className="rounded-2xl p-6 lg:p-8"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+          <motion.div key="telegram-link" {...stepMotion("telegram-link")}>
+            <AuthCard firstMount={firstMount} fullMotion={fullMotion} loading={tgLinkLoading}>
 
-              <button
-                onClick={() => { setAuthStep(widgetLinkMode ? "telegram-widget-register" : "telegram-register"); setTgLinkError(""); }}
-                className="flex items-center gap-1 mb-4" style={{ color: "var(--mq-text-muted)" }}>
-                <ArrowLeft className="w-4 h-4" />
-                <span className="text-sm">Назад</span>
-              </button>
+              <Reveal index={0} firstMount={firstMount} fullMotion={fullMotion}>
+                <button
+                  onClick={() => { setAuthStep(widgetLinkMode ? "telegram-widget-register" : "telegram-register"); setTgLinkError(""); }}
+                  className="flex items-center gap-1 mb-4 min-h-[44px]" style={{ color: "var(--mq-text-muted)" }}>
+                  <ArrowLeft className="w-4 h-4" />
+                  <span className="text-sm">Назад</span>
+                </button>
+              </Reveal>
 
-              <motion.div
-                className="flex flex-col items-center text-center mb-6"
-                initial={{ opacity: 0, scale: 0.5, rotate: -10 }}
-                animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                transition={{ delay: 0.3, duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}>
-                <motion.div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-                  style={{ backgroundColor: "rgba(42,171,238,0.12)" }}
-                  animate={{ boxShadow: ["0 0 0px rgba(42,171,238,0)", "0 0 25px rgba(42,171,238,0.3)", "0 0 0px rgba(42,171,238,0)"] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                >
+              <Reveal index={1} firstMount={firstMount} fullMotion={fullMotion} className="flex flex-col items-center text-center mb-6">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+                  style={{ backgroundColor: "rgba(42,171,238,0.12)" }}>
                   <Lock className="w-8 h-8" style={{ color: "var(--mq-telegram)" }} />
-                </motion.div>
+                </div>
                 <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--mq-text)" }}>Подтверждение аккаунта</h2>
                 <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
                   Аккаунт <span className="font-medium" style={{ color: "var(--mq-text)" }}>@{widgetLinkMode ? tgrUsername : tgUsername}</span> уже существует
@@ -1923,55 +2230,64 @@ export default function AuthView() {
                 <p className="text-sm mt-2" style={{ color: "var(--mq-telegram)" }}>
                   Введите пароль для привязки Telegram
                 </p>
-              </motion.div>
+              </Reveal>
 
               {tgLinkError && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                  className="mb-4 p-3 rounded-lg text-sm"
-                  style={{ backgroundColor: "rgba(224,49,49,0.15)", color: "#ff6b6b", border: "1px solid rgba(224,49,49,0.3)" }}>
+                <AuthBanner tone="error" fullMotion={fullMotion}>
                   {tgLinkError}
-                </motion.div>
+                </AuthBanner>
               )}
 
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Пароль</label>
-                  <div className="relative">
-                    <Input
-                      type={tgLinkShowPassword ? "text" : "password"}
-                      placeholder="Введите пароль от аккаунта"
-                      value={tgLinkPassword}
-                      onChange={(e) => setTgLinkPassword(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleTgLinkSubmit(); }}
-                      className="pr-10"
-                      style={{
-                        backgroundColor: "var(--mq-input-bg)",
-                        border: `1px solid ${tgLinkError ? '#ef4444' : 'var(--mq-border)'}`,
-                        color: "var(--mq-text)",
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setTgLinkShowPassword(!tgLinkShowPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2"
-                      style={{ color: "var(--mq-text-muted)" }}
-                    >
-                      {tgLinkShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
+              <Reveal index={2} firstMount={firstMount} fullMotion={fullMotion}>
+                <div className="space-y-4">
+                  <ShakeField trigger={tgLinkError} fullMotion={fullMotion}>
+                    <div>
+                      <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Пароль</label>
+                      <div className="relative">
+                        <Input
+                          type={tgLinkShowPassword ? "text" : "password"}
+                          placeholder="Введите пароль от аккаунта"
+                          value={tgLinkPassword}
+                          onChange={(e) => setTgLinkPassword(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleTgLinkSubmit(); }}
+                          className="pr-10 min-h-[44px]"
+                          style={{
+                            backgroundColor: "var(--mq-input-bg)",
+                            border: `1px solid ${tgLinkError ? '#ef4444' : 'var(--mq-border)'}`,
+                            color: "var(--mq-text)",
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setTgLinkShowPassword(!tgLinkShowPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center"
+                          style={{ color: "var(--mq-text-muted)" }}
+                          aria-label={tgLinkShowPassword ? "Скрыть пароль" : "Показать пароль"}
+                        >
+                          {tgLinkShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </ShakeField>
 
-                <Button onClick={handleTgLinkSubmit}
-                  disabled={tgLinkLoading || !tgLinkPassword}
-                  className="w-full min-h-[44px]" style={{ backgroundColor: "var(--mq-telegram)", color: "#ffffff" }}>
-                  {tgLinkLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Привязать Telegram"}
-                </Button>
-              </div>
-            </div>
+                  <Button onClick={handleTgLinkSubmit}
+                    disabled={tgLinkLoading || !tgLinkPassword}
+                    className="w-full min-h-[44px]" style={{ backgroundColor: "var(--mq-telegram)", color: "#ffffff" }}>
+                    {tgLinkLoading ? (
+                      <span className="flex items-center justify-center gap-2 w-full">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Привязываем…</span>
+                      </span>
+                    ) : "Привязать Telegram"}
+                  </Button>
+                </div>
+              </Reveal>
+            </AuthCard>
           </motion.div>
         )}
 
-      </AnimatePresence>
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, Play, Pause, Music2, Headphones, BookOpen, Loader2, Check, CheckCheck, ChevronDown, Smile, Reply } from "lucide-react";
+import { Lock, Play, Pause, Music2, Headphones, BookOpen, Loader2, CheckCheck, Smile, Reply } from "lucide-react";
 import { simulateDecryptSync } from "@/lib/crypto";
 import ContextMenu from "./ContextMenu";
 import { TrackMoreButton } from "./ui/TrackMoreButton";
@@ -344,25 +344,25 @@ function ReplyPreview({
     <div
       onClick={() => onReplyClick?.(replyTo.id)}
       className={`
-        flex items-stretch gap-2 rounded-lg px-2.5 py-1.5 mb-1.5 cursor-pointer
+        flex items-stretch gap-2 rounded-[10px] px-2.5 py-1.5 mb-1.5 cursor-pointer
         transition-colors duration-150
       `}
       style={{
         backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 12%, transparent)" : "color-mix(in srgb, var(--mq-text) 4%, transparent)",
-        borderLeft: `3px solid ${isMine ? "rgba(255,255,255,0.5)" : "color-mix(in srgb, var(--mq-text) 45%, transparent)"}`,
+        borderLeft: `3px solid ${isMine ? "rgba(244,246,250,0.55)" : "color-mix(in srgb, var(--mq-platinum-hi) 55%, transparent)"}`,
       }}
       title="Перейти к сообщению"
     >
       <div className="min-w-0 flex-1">
         <p
           className="mq-t-meta-2 font-bold leading-tight truncate"
-          style={{ color: isMine ? "rgba(255,255,255,0.8)" : "var(--mq-text)" }}
+          style={{ color: isMine ? "rgba(244,246,250,0.85)" : "var(--mq-text)" }}
         >
           {senderLabel}
         </p>
         <p
           className="mq-t-meta-2 leading-snug truncate mt-0.5"
-          style={{ color: isMine ? "rgba(255,255,255,0.55)" : "var(--mq-text-muted)" }}
+          style={{ color: isMine ? "rgba(244,246,250,0.6)" : "var(--mq-text-muted)" }}
         >
           {truncated}
         </p>
@@ -378,7 +378,7 @@ function renderTextWithMentions(text: string, isMine: boolean) {
   return parts.map((part, i) => {
     if (part.startsWith("@")) {
       return (
-        <span key={i} style={{ color: isMine ? "rgba(255,255,255,0.9)" : "var(--mq-accent)", fontWeight: 600 }}>
+        <span key={i} style={{ color: isMine ? "rgba(244,246,250,0.92)" : "var(--mq-platinum-hi)", fontWeight: 600 }}>
           {part}
         </span>
       );
@@ -491,17 +491,11 @@ export default function MessageBubble({
       >
         <div className="max-w-[80%] lg:max-w-[65%] w-fit">
           <div
-            className="rounded-2xl px-4 py-2.5"
-            style={{
-              backgroundColor: isMine ? "color-mix(in srgb, var(--mq-accent) 85%, color-mix(in srgb, var(--mq-text) 18%, transparent))" : "var(--mq-card)",
-              border: isMine ? "none" : "1px solid var(--mq-border-thin)",
-              borderTopRightRadius: isMine ? "6px" : undefined,
-              borderTopLeftRadius: isMine ? undefined : "6px",
-            }}
+            className={`mqms-bubble ${isMine ? "mqms-bubble-out" : "mqms-bubble-in"} mqms-ghost`}
           >
             <p
               className="text-xs italic"
-              style={{ color: isMine ? "rgba(255,255,255,0.5)" : "var(--mq-text-muted)" }}
+              style={{ color: isMine ? "rgba(244,246,250,0.5)" : "var(--mq-text-muted)" }}
             >
               Сообщение удалено
             </p>
@@ -523,17 +517,18 @@ export default function MessageBubble({
           className="flex justify-center w-full"
         >
           <div
-            className="rounded-2xl px-5 py-3 max-w-[85%] flex flex-col items-center gap-2"
+            className="rounded-[18px] px-5 py-4 max-w-[85%] flex flex-col items-center gap-2"
             style={{
-              backgroundColor: "var(--mq-card)",
-              border: "1px solid var(--mq-border)",
-              boxShadow: "var(--mq-shadow-card)",
+              backgroundColor: "color-mix(in srgb, var(--mq-text) 7%, transparent)",
+              border: "1px solid color-mix(in srgb, var(--mq-text) 9%, transparent)",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.14)",
             }}
           >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 2px 10px color-mix(in srgb, var(--mq-accent) 30%, transparent)" }}>
               <Headphones className="w-5 h-5" style={{ color: "#fff" }} />
             </div>
-            <p className="text-xs text-center font-medium" style={{ color: "var(--mq-text)" }}>
+            <p className="text-xs text-center font-semibold" style={{ color: "var(--mq-text)" }}>
               Приглашение слушать вместе
             </p>
             <p className="mq-t-meta-2 text-center" style={{ color: "var(--mq-text-muted)" }}>
@@ -553,8 +548,7 @@ export default function MessageBubble({
                   }
                 } catch {}
               }}
-              className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-medium transition-opacity hover:opacity-80"
-              style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
+              className="mq-platinum-btn flex items-center gap-1.5 px-5 h-10 rounded-full text-xs font-semibold"
             >
               <Headphones className="w-3.5 h-3.5" />
               Принять
@@ -588,8 +582,8 @@ export default function MessageBubble({
         <div
           className="rounded-full px-4 py-1.5 max-w-[75%]"
           style={{
-            backgroundColor: "var(--mq-card)",
-            border: "1px solid var(--mq-border)",
+            backgroundColor: "color-mix(in srgb, var(--mq-text) 7%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--mq-text) 8%, transparent)",
           }}
         >
           <p
@@ -635,8 +629,8 @@ export default function MessageBubble({
         <div className="max-w-[85%] lg:max-w-[70%] w-fit">
           {!isMine && message.senderName && (
             <p
-              className="mq-t-meta-2 mb-1 ml-3 font-semibold"
-              style={{ color: "var(--mq-accent)" }}
+              className="mq-t-meta-2 mb-1 ml-2 font-semibold"
+              style={{ color: "color-mix(in srgb, var(--mq-platinum-hi) 85%, var(--mq-text))" }}
             >
               {message.senderName}
             </p>
@@ -646,34 +640,20 @@ export default function MessageBubble({
             <ReplyPreview replyTo={message.replyTo} onReplyClick={onReplyClick} isMine={isMine} />
           )}
           <div
-            className="rounded-2xl px-4 py-3 relative"
-            style={{
-              backgroundColor: isMine ? "color-mix(in srgb, var(--mq-accent) 85%, color-mix(in srgb, var(--mq-text) 18%, transparent))" : "var(--mq-card)",
-              border: isMine ? "none" : "1px solid var(--mq-border-thin)",
-              boxShadow: isMine
-                ? "0 2px 16px color-mix(in srgb, var(--mq-accent) 250%, transparent)"
-                : "0 1px 6px rgba(0,0,0,0.12)",
-              borderTopRightRadius: isMine ? "6px" : undefined,
-              borderTopLeftRadius: isMine ? undefined : "6px",
-            }}
+            className={`mqms-bubble ${isMine ? "mqms-bubble-out" : "mqms-bubble-in"} mqms-tail`}
           >
             <VoicePlayer
               voiceUrl={message.voiceUrl!}
               voiceDuration={message.voiceDuration ?? null}
               isMine={isMine}
             />
-            <div className="flex items-center justify-end gap-1.5 mt-2">
+            <div className="mqms-meta">
               {message.encrypted && isMine && (
-                <span title="Передано по TLS"><Lock className="w-3 h-3" style={{ color: "#64748b" }} /></span>
+                <span title="Передано по TLS"><Lock className="w-3 h-3" aria-hidden="true" /></span>
               )}
-              <span
-                className="mq-t-meta-2"
-                style={{ color: isMine ? "rgba(255,255,255,0.6)" : "var(--mq-text-muted)" }}
-              >
-                {time}
-              </span>
+              <span className="tabular-nums">{time}</span>
               {isMine && (
-                <CheckCheck className="w-3 h-3" style={{ color: "rgba(255,255,255,0.5)" }} />
+                <CheckCheck className="w-3.5 h-3.5" aria-label="Доставлено" />
               )}
             </div>
           </div>
@@ -688,8 +668,8 @@ export default function MessageBubble({
       return (
         <img
           src={displayContent.trim()}
-          alt="Image"
-          className="rounded-xl max-w-full max-h-64 object-cover"
+          alt="Изображение"
+          className="rounded-[14px] max-w-full max-h-64 object-cover"
           loading="lazy"
         />
       );
@@ -710,10 +690,10 @@ export default function MessageBubble({
       };
       return (
         <motion.div
-          className="flex items-center gap-3 mb-2 p-2 rounded-xl cursor-pointer"
+          className="flex items-center gap-3 mb-2 p-2.5 rounded-[14px] cursor-pointer"
           style={{
             backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 12%, transparent)" : "color-mix(in srgb, var(--mq-text) 5%, transparent)",
-            border: `1px solid ${isMine ? "color-mix(in srgb, var(--mq-text) 15%, transparent)" : "color-mix(in srgb, var(--mq-text) 8%, transparent)"}`,
+            border: `1px solid ${isMine ? "color-mix(in srgb, var(--mq-text) 16%, transparent)" : "color-mix(in srgb, var(--mq-text) 9%, transparent)"}`,
           }}
 
           onClick={() => {
@@ -725,29 +705,29 @@ export default function MessageBubble({
               <img
                 src={trackShareData.cover}
                 alt={trackShareData.title}
-                className="w-14 h-14 rounded-lg object-cover"
+                className="w-14 h-14 rounded-[10px] object-cover"
               />
-              <div className="absolute inset-0 flex items-center justify-center rounded-lg opacity-0 group-hover/cover:opacity-100 transition-opacity" style={{ backgroundColor: "rgba(0,0,0,0.45)" }}>
-                <Play className="w-5 h-5 text-white" style={{ marginLeft: 2 }} />
+              <div className="absolute inset-0 flex items-center justify-center rounded-[10px] opacity-0 group-hover/cover:opacity-100 transition-opacity" style={{ backgroundColor: "rgba(0,0,0,0.45)" }}>
+                <Play className="w-5 h-5 text-white" style={{ marginLeft: 2 }} fill="currentColor" />
               </div>
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <p className="mq-t-track-sm truncate" style={{ color: isMine ? "#fff" : "var(--mq-text)" }}>
+            <p className="mq-t-track-sm truncate" style={{ color: isMine ? "#f4f6fa" : "var(--mq-text)" }}>
               {trackShareData.title}
             </p>
-            <p className="mq-t-meta-2 truncate" style={{ color: isMine ? "rgba(255,255,255,0.65)" : "var(--mq-text-muted)" }}>
+            <p className="mq-t-meta-2 truncate" style={{ color: isMine ? "rgba(244,246,250,0.65)" : "var(--mq-text-muted)" }}>
               {trackShareData.artist}
             </p>
             {/* v69 duration contract: chat track-share card shows its
                 duration (shrink-0, tabular) — previously absent entirely. */}
             {trackShareData.duration > 0 && (
-              <span className="mq-t-num" style={{ color: isMine ? "rgba(255,255,255,0.55)" : "var(--mq-text-muted)", opacity: 0.85 }}>
+              <span className="mq-t-num" style={{ color: isMine ? "rgba(244,246,250,0.55)" : "var(--mq-text-muted)", opacity: 0.85 }}>
                 {formatDuration(trackShareData.duration)}
               </span>
             )}
           </div>
-          <Music2 className="w-4 h-4 flex-shrink-0" style={{ color: isMine ? "rgba(255,255,255,0.5)" : "var(--mq-accent)" }} />
+          <Music2 className="w-4 h-4 flex-shrink-0" style={{ color: isMine ? "rgba(244,246,250,0.5)" : "var(--mq-accent)" }} aria-hidden="true" />
           <TrackMoreButton
             size="sm"
             onOpen={(e) => {
@@ -764,12 +744,12 @@ export default function MessageBubble({
     if (isTrackShare && !trackShareData) {
       return (
         <div
-          className="flex items-center gap-2 mb-1.5 p-2 rounded-lg"
+          className="flex items-center gap-2.5 mb-1.5 p-2.5 rounded-[12px]"
           style={{ backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 10%, transparent)" : "color-mix(in srgb, var(--mq-text) 5%, transparent)" }}
         >
-          <Music2 className="w-4 h-4" style={{ color: isMine ? "rgba(255,255,255,0.6)" : "var(--mq-accent)" }} />
+          <Music2 className="w-4 h-4" style={{ color: isMine ? "rgba(244,246,250,0.6)" : "var(--mq-accent)" }} aria-hidden="true" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium truncate" style={{ color: isMine ? "#fff" : "var(--mq-text)" }}>
+            <p className="text-xs font-medium truncate" style={{ color: isMine ? "#f4f6fa" : "var(--mq-text)" }}>
               Поделился треком
             </p>
           </div>
@@ -804,8 +784,8 @@ export default function MessageBubble({
         {/* Sender name (received messages only) */}
         {!isMine && message.senderName && (
           <p
-            className="mq-t-meta-2 mb-1 ml-3 font-semibold"
-            style={{ color: "var(--mq-accent)" }}
+            className="mq-t-meta-2 mb-1 ml-2 font-semibold"
+            style={{ color: "color-mix(in srgb, var(--mq-platinum-hi) 85%, var(--mq-text))" }}
           >
             {message.senderName}
           </p>
@@ -818,25 +798,14 @@ export default function MessageBubble({
 
         {/* Bubble */}
         <div
-          className="rounded-2xl px-3.5 py-2 relative"
-          style={{
-            backgroundColor: isMine
-              ? "color-mix(in srgb, var(--mq-accent) 85%, color-mix(in srgb, var(--mq-text) 18%, transparent))"
-              : "var(--mq-card)",
-            border: isMine ? "none" : "1px solid var(--mq-border-thin)",
-            boxShadow: isMine
-              ? "0 2px 16px color-mix(in srgb, var(--mq-accent) 250%, transparent)"
-              : "0 1px 6px rgba(0,0,0,0.12)",
-            borderTopRightRadius: isMine ? "6px" : undefined,
-            borderTopLeftRadius: isMine ? undefined : "6px",
-          }}
+          className={`mqms-bubble ${isMine ? "mqms-bubble-out mqms-tail" : "mqms-bubble-in mqms-tail"} relative`}
         >
           {/* Message content */}
           {isTrackShare || isImageUrl ? (
             contentRenderer()
           ) : (
             <div className="text-sm break-words whitespace-pre-wrap" style={{
-              color: isMine ? "#fff" : "var(--mq-text)",
+              color: isMine ? "#f4f6fa" : "var(--mq-text)",
               overflowWrap: "break-word",
               wordBreak: displayContent.length > 100 ? "break-all" : "break-word",
             }}>
@@ -845,23 +814,16 @@ export default function MessageBubble({
           )}
 
           {/* Timestamp + lock + edited + checkmarks — inline at end */}
-          <div className="flex items-center justify-end gap-1 mt-1 -mb-0.5">
+          <div className="mqms-meta">
             {isEdited && (
-              <span className="mq-t-meta-2 italic" style={{ color: isMine ? "rgba(255,255,255,0.45)" : "var(--mq-text-muted)" }}>
-                ред.
-              </span>
+              <span className="italic">ред.</span>
             )}
             {message.encrypted && isMine && (
-              <span title="Передано по TLS"><Lock className="w-3 h-3" style={{ color: "#64748b" }} /></span>
+              <span title="Передано по TLS"><Lock className="w-3 h-3" aria-hidden="true" /></span>
             )}
-            <span
-              className="mq-t-meta-2 tabular-nums"
-              style={{ color: isMine ? "rgba(255,255,255,0.5)" : "var(--mq-text-muted)" }}
-            >
-              {time}
-            </span>
+            <span className="tabular-nums">{time}</span>
             {isMine && (
-              <CheckCheck className="w-3 h-3" style={{ color: "rgba(255,255,255,0.5)" }} />
+              <CheckCheck className="w-3.5 h-3.5" aria-label="Доставлено" />
             )}
           </div>
 
@@ -937,8 +899,8 @@ export default function MessageBubble({
             <motion.button
 
               onClick={() => setShowReactions(!showReactions)}
-              className="w-7 h-7 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}
+              className="w-8 h-8 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 7%, transparent)", border: "1px solid color-mix(in srgb, var(--mq-text) 10%, transparent)", color: "var(--mq-text-muted)" }}
               aria-label="Реакция"
               title="Реакция"
             >
@@ -948,8 +910,8 @@ export default function MessageBubble({
               <motion.button
 
                 onClick={() => onReplyClick(message.id)}
-                className="w-7 h-7 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 7%, transparent)", border: "1px solid color-mix(in srgb, var(--mq-text) 10%, transparent)", color: "var(--mq-text-muted)" }}
                 aria-label="Ответить"
                 title="Ответить"
               >

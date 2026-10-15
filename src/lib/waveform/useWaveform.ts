@@ -45,7 +45,15 @@ export function useWaveform(track: Track | null, enabled: boolean): UseWaveformR
     if (!requestKey) return;
     let cancelled = false;
 
-    getWaveform(track!)
+    getWaveform(track!, (partial) => {
+      // Progressive first paint — the partial belongs to the SAME request.
+      if (cancelled) return;
+      setStored({
+        forKey: requestKey,
+        status: "partial",
+        data: partial,
+      });
+    })
       .then((data) => {
         if (cancelled) return;
         setStored({

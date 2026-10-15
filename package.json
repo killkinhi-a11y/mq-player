@@ -36,6 +36,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@braccato/parsers": "^0.3.2",
     "@capacitor/android": "^8.4.1",
     "@capacitor/app": "^8.1.0",
     "@capacitor/cli": "^8.4.1",

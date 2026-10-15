@@ -62,7 +62,8 @@ describe("LyricsView — modes & normalized errors", () => {
   it("panel mode renders the synced lyrics + the fullscreen toggle", async () => {
     await render();
     expect(container.textContent).toContain("Текст песни");
-    expect(container.textContent).toContain("Synced");
+    // v12: honest sync-level badge (line-level data says «Построчная»).
+    expect(container.textContent).toContain("Построчная");
     const expand = container.querySelector('button[aria-label="Текст песни на весь экран"]');
     expect(expand).not.toBeNull();
     // Synced lines rendered as focusable buttons (keyboard reachable).
@@ -126,7 +127,9 @@ describe("LyricsView — modes & normalized errors", () => {
   it("normalized error codes map to human messages (never raw errors)", async () => {
     await render({ lines: [], error: "provider_unavailable" });
     expect(container.textContent).toContain("Сервис текстов недоступен");
-    expect(container.querySelector("button")?.textContent).toContain("Попробовать снова");
+    expect(
+      container.querySelector('button[aria-label="Повторить загрузку текста"]')?.textContent,
+    ).toContain("Попробовать снова");
   });
 
   it("plain lyrics render as readable text (never a fake sync)", async () => {

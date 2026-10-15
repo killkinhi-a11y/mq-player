@@ -11,6 +11,18 @@
  * `normalizeLegacyLines`.
  */
 
+/** One word inside a synced line — REAL provider timings (TTML word spans,
+ * QRC per-word Karaoke timings, enhanced-LRC `<mm:ss.xx>` tags). Words are
+ * optional: line-level sources (plain LRC from LRCLIB) simply omit them. */
+export type LyricWord = {
+  text: string;
+  /** Word start, ms from track start. Always present for real word timings. */
+  startMs: number;
+  /** Word end, ms from track start. Present when the format states it
+ *  (TTML span end / QRC word duration); otherwise derived (next word start). */
+  endMs?: number;
+};
+
 /** One lyrics line. `startMs`/`endMs` in MILLISECONDS. */
 export type LyricLine = {
   text: string;
@@ -19,7 +31,26 @@ export type LyricLine = {
   /** Line end, ms from track start. LRCLIB is line-level only: endMs is the
    *  next line's start (or the track duration bound for the last line). */
   endMs?: number;
+  /** REAL per-word timings, when the source provides them (word-synced TTML,
+   * QRC, enhanced LRC). Absent on line-level lyrics — the UI then honestly
+   * falls back to line-level sync (never a fake word timing). */
+  words?: LyricWord[];
 };
+
+/** Honesty contract (spec §4.4): the sync granularity the data actually has.
+ *  - "word":  real per-word timings → word-by-word karaoke
+ *  - "line":  per-line timings only → line-level karaoke
+ *  - "plain": no timings → static text, NEVER a fake sync */
+export type SyncLevel = "word" | "line" | "plain";
+
+/** Derive the honest sync level from what the lines actually carry. */
+export function syncLevelOf(lines: LyricLine[], hasPlain = false): SyncLevel {
+  if (lines.some((l) => l.startMs !== undefined && l.words && l.words.length > 0)) {
+    return "word";
+  }
+  if (lines.some((l) => l.startMs !== undefined)) return "line";
+  return hasPlain ? "plain" : "plain";
+}
 
 /** Normalized lyrics payload used across the whole app. */
 export type Lyrics = {
@@ -55,7 +86,9 @@ export interface LyricsResult {
   /** Plain (unsynced) lyrics text, when the provider only has that. */
   plainText: string;
   synced: boolean;
-  source: "lrclib" | "lyrics-ovh" | "server" | "none";
+  source: "lrclib" | "lyrics-ovh" | "server" | "local" | "none";
+  /** Honest sync granularity of `lines` — "word" only with real word timings. */
+  syncLevel?: SyncLevel;
   /** Normalized error code (absent on success). */
   error?: LyricsError;
 }
@@ -130,6 +163,7 @@ export function withEndMs(lines: LyricLine[], durationSec?: number): LyricLine[]
       }
     }
     if (endMs !== undefined && endMs < startMs) endMs = startMs;
+    // Word timings ride along unchanged — withEndMs only fixes line bounds.
     return { ...line, startMs, endMs };
   });
 }
