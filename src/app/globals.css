@@ -320,7 +320,11 @@ input, textarea, select {
   --mq-card-hover: #222222;
   --mq-accent: #e03131;
   --mq-text: #f0f0f0;
-  --mq-text-muted: #9a9a9a;
+  /* P2 CONTRAST (WCAG AA >= 4.5:1 on near-black surfaces): was #9a9a9a
+     (~7:1) — fine alone, but every downstream opacity modifier (0.65-0.85)
+     pushed secondary TEXT below 4.5:1. Base bumped to #a6a6a6 (~8:1) so
+     meta text stays AA even at 0.9 opacity. */
+  --mq-text-muted: #a6a6a6;
   /* Focus ring color — ONE neutral token for every focus surface in MQ
      (global ring, layout.tsx pre-paint ring, sliders, lyrics lines, toggles).
      Derives from --mq-text so it inverts correctly on light themes
@@ -481,7 +485,9 @@ main {
    a dead class. Colors come from theme vars (never hardcoded). */
 .mq-text-muted   { color: var(--mq-text-muted); }
 .mq-text-secondary { color: var(--mq-text-muted); opacity: 0.85; }
-.mq-text-faint   { color: var(--mq-text-muted); opacity: 0.65; }
+/* P2 CONTRAST: 0.65 was ~4.2:1 — below AA. 0.8 keeps the "faint" feel
+   while staying above 4.5:1 on all standard surfaces. */
+.mq-text-faint   { color: var(--mq-text-muted); opacity: 0.8; }
 .mq-text-on-accent { color: var(--mq-text-on-accent, #fff); }
 .mq-text-xl      { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; }
 .mq-text-eyebrow {

@@ -78,6 +78,7 @@ import MenuCore, { MenuHeader, type MenuElement } from "@/components/mq/ui/MenuC
 import { shareTrackUrl, openInAppTrackUrl } from "@/lib/share-urls";
 import { WaveformView } from "@/components/mq/WaveformView";
 import { DownloadMenu } from "@/components/mq/ui/DownloadMenu";
+import CoverImage from "@/components/mq/CoverImage";
 
 // ═════════════════════════════════════════════════════════════════════════
 // GEOMETRY — reference anatomy, fixed as numbers (pure + unit-tested)
@@ -930,12 +931,12 @@ function SpatialPlayerScreen({ motionOn }: { motionOn: boolean }) {
                     transition={{ duration: motionOn ? 0.35 : 0, ease: SPATIAL_EASE }}
                   >
                     {currentTrack.cover ? (
-                      <img
+                      <CoverImage
                         src={currentTrack.cover}
-                        alt=""
+                        title={currentTrack.title}
+                        variant="initials"
+                        eager
                         className="absolute inset-0 w-full h-full object-cover"
-                        loading="eager"
-                        draggable={false}
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-surface-3, #2a2a30), var(--mq-surface-1, #17171c))" }}>

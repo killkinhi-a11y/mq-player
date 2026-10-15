@@ -15,8 +15,16 @@ import { useAppStore } from "@/store/useAppStore";
  * once per session (or when the JWT expires).
  */
 
-const TURNSTILE_SITEKEY = "0x4AAAAAAAhUvTuTxLs2HYH4";
+const TURNSTILE_SITEKEY =
+  process.env.NEXT_PUBLIC_TURNSTILE_SITEKEY || "0x4AAAAAAAhUvTuTxLs2HYH4";
 const COBALT_SESSION_URL = "/api/cobalt/session";
+
+/* P1 (110200 graceful handling): when the sitekey's domain allowlist does
+   not include the deployment host, Cloudflare's widget errors forever.
+   That is an OWNER action (bind the domain in the Cloudflare dashboard) —
+   code-side we cap the retries and demote the logs so the console is not
+   spammed and playback simply rides the normal preview fallback. */
+const MAX_WIDGET_RETRIES = 3;
 
 // Load Turnstile script once
 let turnstileLoaded = false;
@@ -62,6 +70,7 @@ export default function CobaltTurnstile() {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const isRequestingRef = useRef(false);
+  const retryCountRef = useRef(0);
 
   const obtainJwt = useCallback(async (token: string) => {
     if (isRequestingRef.current) return;
@@ -122,10 +131,30 @@ export default function CobaltTurnstile() {
         widgetIdRef.current = turnstile.render(containerRef.current, {
           sitekey: TURNSTILE_SITEKEY,
           callback: (token: string) => {
+            retryCountRef.current = 0; // solved — reset the bounded-retry budget
             obtainJwt(token);
           },
           "error-callback": () => {
-            console.warn("[CobaltTurnstile] Turnstile error — will retry later");
+            // P1: quiet + bounded retry (was an infinite warn loop when the
+            // sitekey domain wasn't bound — error 110200).
+            if (retryCountRef.current < MAX_WIDGET_RETRIES) {
+              retryCountRef.current += 1;
+              const attempt = retryCountRef.current;
+              console.debug(
+                `[CobaltTurnstile] widget error (attempt ${attempt}/${MAX_WIDGET_RETRIES}) — retrying in 20s. ` +
+                  `If this persists, bind this domain to the Turnstile sitekey in the Cloudflare dashboard.`,
+              );
+              setTimeout(() => {
+                try {
+                  if (widgetIdRef.current) turnstile.reset(widgetIdRef.current);
+                } catch { /* widget already gone — nothing to retry */ }
+              }, 20_000);
+            } else if (retryCountRef.current === MAX_WIDGET_RETRIES) {
+              retryCountRef.current += 1;
+              console.debug(
+                "[CobaltTurnstile] widget keeps failing — SNIP bypass unavailable, playback uses the normal preview path",
+              );
+            }
           },
           "expired-callback": () => {
             // Turnstile token expired — reset widget

@@ -13,6 +13,7 @@ import {
 import { formatDuration, formatTrackDuration, type Track } from "@/lib/musicApi";
 import ContextMenu from "./ContextMenu";
 import { useTrackContextMenu } from "@/hooks/useTrackContextMenu";
+import { useWaveEngine } from "@/hooks/useWaveEngine";
 import { hoverProps } from "@/lib/hoverCapability";
 
 type TabType = "liked" | "disliked" | "subscriptions";
@@ -36,6 +37,10 @@ export default function FavoritesView() {
   const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
   const playlists = useAppStore((s) => s.playlists);
   const addToPlaylist = useAppStore((s) => s.addToPlaylist);
+
+  // P1: the empty-favorites CTA starts WAVE from here (navigates Home,
+  // then the wave engine's fetch+play pipeline runs from this instance).
+  const wave = useWaveEngine();
 
   const [activeTab, setActiveTab] = useState<TabType>("liked");
   const [searchQuery, setSearchQuery] = useState("");
@@ -914,12 +919,22 @@ export default function FavoritesView() {
               </p>
               {activeTab === "liked" && (
                 <motion.button
-
-                  onClick={() => useAppStore.getState().setView("main")}
+                  /* P1: CTA points at WAVE — the fastest honest way to earn
+                     the first like (one tap → personalized stream → ♡). */
+                  onClick={() => {
+                    const st = useAppStore.getState();
+                    const wasRadio = st.radioMode;
+                    st.setView("main");
+                    if (!wasRadio) {
+                      // Defer one frame so MainView mounts and WaveHome
+                      // owns the hero before the fetch starts.
+                      setTimeout(() => { wave.startWave(); }, 60);
+                    }
+                  }}
                   className="mq-btn-neutral mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold"
                 >
-                  <Music className="w-3.5 h-3.5" />
-                  Искать музыку
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Лайкни в WAVE
                 </motion.button>
               )}
               <motion.div

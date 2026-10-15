@@ -852,6 +852,23 @@ export default function AuthView() {
       } else {
         useAppStore.setState({ demoLoading: false });
       }
+      // P1 (demo onboarding, ~10s to sound): also seed ONE real local
+      // playlist with the demo tracks so Библиотека → Плейлисты opens on
+      // content, and the queue's instant local audio (/demo/*.mp3 — no
+      // proxy, no cold start) is one tap away from three surfaces:
+      // hero play, player bar, and the playlist itself.
+      const st = useAppStore.getState();
+      const hasDemoPlaylist = (st.playlists || []).some((p) => p.name === "Демо-микс MQ");
+      if (!hasDemoPlaylist) {
+        st.createPlaylist("Демо-микс MQ", "Локальные демо-треки — мгновенный звук без интернета");
+        const st2 = useAppStore.getState();
+        const created = st2.playlists[st2.playlists.length - 1];
+        if (created) {
+          for (const t of DEMO_TRACKS) {
+            st2.addToPlaylist(created.id, t);
+          }
+        }
+      }
     } catch (err) {
       console.error("[Demo] Failed to load:", err);
       setDemoLoading(false);
@@ -982,9 +999,17 @@ export default function AuthView() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3, duration: 0.3 }}
-                  className="mt-3 flex justify-center min-h-[40px]"
+                  className="mt-3 flex flex-col items-center gap-1.5 min-h-[40px]"
                 >
                   <div ref={tgWidgetContainerRef} />
+                  {/* P0: the widget is a cross-origin iframe — if the bot's
+                      domain isn't bound in BotFather, Telegram renders
+                      «Bot domain invalid» INSIDE it and we cannot suppress
+                      that. What we CAN do: always offer the working
+                      fallback next to it so the user is never blocked. */}
+                  <p className="text-[11px] text-center" style={{ color: "var(--mq-text-muted)" }}>
+                    Кнопка не нажимается или показывает ошибку? Войдите по коду из бота ниже
+                  </p>
                 </motion.div>
               )}
 

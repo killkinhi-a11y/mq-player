@@ -11,6 +11,7 @@ import {
   MoreHorizontal, X, Shuffle, ArrowUpRight, Search,
 } from "lucide-react";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
+import { usePlaybackProgress } from "@/hooks/usePlaybackProgress";
 import WaveHome from "./WaveHome";
 import { useFriendsListening } from "@/hooks/useFriendsListening";
 import { useRecUpdates } from "@/hooks/useRecUpdates";
@@ -30,6 +31,7 @@ import { TrackMoreButton } from "./ui/TrackMoreButton";
 import { ProviderBadge } from "./ui/ProviderBadge";
 import MenuCore, { MenuHeader } from "./ui/MenuCore";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
+import CoverImage from "./CoverImage";
 import { useLongPress } from "@/hooks/useLongPress";
 import { hoverProps } from "@/lib/hoverCapability";
 
@@ -109,7 +111,6 @@ function MainView() {
   const favoriteArtists = useAppStore((s) => s.favoriteArtists);
   const radioMode = useAppStore((s) => s.radioMode);
   const duration = useAppStore((s) => s.duration);
-  const progress = useAppStore((s) => s.progress);
   const contacts = useAppStore((s) => s.contacts);
 
   // ── Home feed cache (Task 2): data lives in the STORE and survives view
@@ -627,7 +628,6 @@ function MainView() {
               fallbackTrack={featuredTrack}
               fallbackReason={featuredReason}
               isPlaying={isPlaying}
-              progress={progress}
               duration={duration}
               radioMode={radioMode}
               onToggle={togglePlay}
@@ -661,7 +661,6 @@ function MainView() {
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3 mb-7">
             <ContinueListeningCard
               track={currentTrack}
-              progress={progress}
               duration={duration}
               isPlaying={isPlaying}
               radioMode={radioMode}
@@ -1251,7 +1250,6 @@ function FeaturedCard({
    ══════════════════════════════════════════════════════════════════════════ */
 function ContinueListeningCard({
   track,
-  progress,
   duration,
   isPlaying,
   radioMode,
@@ -1262,7 +1260,6 @@ function ContinueListeningCard({
   onGoSearch,
 }: {
   track: Track | null;
-  progress: number;
   duration: number;
   isPlaying: boolean;
   radioMode: boolean;
@@ -1272,6 +1269,9 @@ function ContinueListeningCard({
   onOpenFull: () => void;
   onGoSearch: () => void;
 }) {
+  /* P0 FIX: live position from the unified PlaybackClock (the store's
+     `progress` never ticks during playback). */
+  const progress = usePlaybackProgress(500);
   const pct = duration > 0 ? Math.min(100, (progress / duration) * 100) : 0;
 
   // Honest empty state — V4 structured empty with a REAL CTA.
@@ -1466,7 +1466,6 @@ function MobileNowHero({
   fallbackTrack,
   fallbackReason,
   isPlaying,
-  progress,
   duration,
   radioMode,
   onToggle,
@@ -1481,7 +1480,6 @@ function MobileNowHero({
   fallbackTrack: Track | null;
   fallbackReason: string;
   isPlaying: boolean;
-  progress: number;
   duration: number;
   radioMode: boolean;
   onToggle: () => void;
@@ -1492,9 +1490,12 @@ function MobileNowHero({
   onOpenFull: () => void;
   onMore: (e: React.MouseEvent) => void;
 }) {
+  /* P0 FIX: the edge progress strip rode the static store `progress`
+     (never ticked) — subscribe to the unified PlaybackClock instead. */
+  const liveProgress = usePlaybackProgress(500);
   const hero = track || fallbackTrack;
   const isNow = !!track; // true → real "now playing"; false → pick + play CTA
-  const pct = isNow && duration > 0 ? Math.min(100, (progress / duration) * 100) : 0;
+  const pct = isNow && duration > 0 ? Math.min(100, (liveProgress / duration) * 100) : 0;
 
   // Honest empty state: no track, no recommendation → compact Wave card,
   // same 76px geometry as the now-card (one primary action, no dead zones).
@@ -1530,12 +1531,11 @@ function MobileNowHero({
           aria-label={isNow ? "Открыть плеер" : "Открыть трек"}
         >
           {hero.cover ? (
-            <img
+            <CoverImage
               src={hero.cover}
-              alt=""
+              title={hero.title}
+              eager
               className="w-full h-full object-cover"
-              style={{ display: "block" }}
-              loading="eager"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center" style={{ background: getWaveGradient() }}>

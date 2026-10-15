@@ -5,8 +5,9 @@ import { useAppStore } from "@/store/useAppStore";
 import { getAudioElement } from "@/lib/audioEngine";
 import { currentPlaybackPosition } from "@/lib/wasm-audio";
 import { formatDuration } from "@/lib/musicApi";
-import { Play, Pause, Heart, Music, Loader2, Home, Search, Library, MessageCircle, User } from "lucide-react";
+import { Play, Pause, Heart, Loader2, Home, Search, Library, MessageCircle, User } from "lucide-react";
 import type { ViewType } from "@/store/useAppStore";
+import CoverImage from "./CoverImage";
 
 // ═════════════════════════════════════════════════════════════════════════
 // MobileDock — minimal bottom bar
@@ -221,8 +222,12 @@ function MobileDockInner() {
           onTouchStart={onMiniTouchStart} onTouchMove={onMiniTouchMove} onTouchEnd={onMiniTouchEnd}>
             <button onClick={() => { if (!gestureConsumed.current) openFull(); }} className="mq-mini flex items-center gap-2.5 flex-1 min-w-0" style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
               <div className="rounded-[10px] overflow-hidden flex-shrink-0" style={{ width: "36px", height: "36px" }}>
-                {currentTrack!.cover ? <img src={currentTrack!.cover} alt="" className="w-full h-full object-cover" />
-                  : <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, color-mix(in srgb, var(--mq-text) 10%, var(--mq-bg)), var(--mq-mat-2-bg))" }}><Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} /></div>}
+                <CoverImage
+                  src={currentTrack!.cover}
+                  title={currentTrack!.title}
+                  eager
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="mq-t-body font-semibold truncate" style={{ color: "var(--mq-text)", lineHeight: "1.2" }}>{currentTrack!.title}</p>
@@ -230,11 +235,12 @@ function MobileDockInner() {
                   {currentTrack!.artist}
                 </p>
                 {/* v69 mini-player duration contract: cur / total, tabular
-                    Manrope, updated by the RAF loop (no re-renders). */}
+                    Manrope, updated by the RAF loop (no re-renders).
+                    P2 CONTRAST: opacity 0.85 removed (was below AA). */}
                 <span
                   ref={timeLabelRef}
                   className="mq-t-num block truncate"
-                  style={{ color: "var(--mq-text-muted)", opacity: 0.85, lineHeight: "1.3", marginTop: "1px" }}
+                  style={{ color: "var(--mq-text-muted)", lineHeight: "1.3", marginTop: "1px" }}
                   aria-hidden="true"
                 >
                   0:00

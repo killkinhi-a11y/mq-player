@@ -158,6 +158,12 @@ export default function SearchView() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  /* P1 FIX (semi-transparent overlay on first render): opening Поиск
+     auto-focuses the field (desktop), and onFocus opened the suggestions
+     glass panel — an uninvited translucent overlay covering the fresh
+     page. This flag suppresses the panel for the PROGRAMMATIC focus only;
+     a real user tap/click on the field still shows recents (W02). */
+  const autoFocusedRef = useRef(false);
   const suggestionsHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sortBy, setSortBy] = useState<"relevance" | "duration" | "title">("relevance");
   const [filterDuration, setFilterDuration] = useState<"all" | "short" | "medium" | "long">("all");
@@ -211,7 +217,10 @@ export default function SearchView() {
   useEffect(() => {
     if (currentView === "search" && window.innerWidth >= 768) {
       const timer = setTimeout(() => {
-        if (searchInputRef.current) searchInputRef.current.focus({ preventScroll: true });
+        if (searchInputRef.current) {
+          autoFocusedRef.current = true; // this focus is ours — not a user intent
+          searchInputRef.current.focus({ preventScroll: true });
+        }
       }, 50);
       return () => clearTimeout(timer);
     }
@@ -885,6 +894,12 @@ export default function SearchView() {
             onKeyDown={handleSearchKeyDown}
             onFocus={() => {
               setIsFocused(true);
+              // Programmatic auto-focus must not flash the suggestions
+              // overlay — only a real user focus shows the panel (P1).
+              if (autoFocusedRef.current) {
+                autoFocusedRef.current = false;
+                return;
+              }
               // Cancel any pending hide timer, show suggestions if there's a query
               if (suggestionsHideTimer.current) {
                 clearTimeout(suggestionsHideTimer.current);

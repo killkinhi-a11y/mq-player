@@ -234,6 +234,9 @@ function DateSeparator({ label }: { label: string }) {
 export default function MessengerView() {
   const userId = useAppStore((s) => s.userId);
   const username = useAppStore((s) => s.username);
+  // P1: demo sessions have no social graph — the empty-chats state says so.
+  // (isDemoUser() helper stays module-level; this is just the local flag.)
+  const isDemoSession = userId === "demo-user-id";
   const messages = useAppStore((s) => s.messages);
   const addMessage = useAppStore((s) => s.addMessage);
   const selectedContactId = useAppStore((s) => s.selectedContactId);
@@ -1312,10 +1315,20 @@ export default function MessengerView() {
                         позитивная формулировка снижает барьер. */}
                     {searchQuery.trim() ? "Ничего не найдено" : "Пока пусто"}
                   </p>
-                  <p className="text-xs mb-4" style={{ color: "var(--mq-text-muted)" }}>
-                    {searchQuery.trim() ? "Попробуйте другой запрос" : "Найдите друзей — и здесь появятся чаты"}
-                  </p>
-                  {!searchQuery.trim() && (
+                  {/* P1: honest demo answer — in demo mode there is no social
+                      graph at all, so instead of a dead-end «найдите друзей»
+                      loop we say exactly what's going on. */}
+                  {isDemoSession ? (
+                    <p className="text-xs leading-relaxed max-w-[280px]" style={{ color: "var(--mq-text-muted)" }}>
+                      В демо-режиме чаты недоступны — здесь нет собеседников.
+                      Создайте аккаунт, чтобы переписываться и слушать музыку вместе
+                    </p>
+                  ) : (
+                    <p className="text-xs mb-4" style={{ color: "var(--mq-text-muted)" }}>
+                      {searchQuery.trim() ? "Попробуйте другой запрос" : "Найдите друзей — и здесь появятся чаты"}
+                    </p>
+                  )}
+                  {!searchQuery.trim() && !isDemoSession && (
                     <motion.button whileHover={hoverProps({ scale: 1.02, transition: { duration: 0.12, ease: "easeOut" } })}
                       onClick={() => setShowNewChat(true)}
                       className="mq-btn-neutral flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold">

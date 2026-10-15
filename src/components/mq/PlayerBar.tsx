@@ -14,6 +14,7 @@ import { seekPlayback } from "@/lib/wasm-audio";
 import { formatDuration } from "@/lib/musicApi";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
+import { usePlaybackProgress } from "@/hooks/usePlaybackProgress";
 import { hapticLike, hapticDislike, hapticSkip, hapticPlay } from "@/lib/haptics";
 import { useToast } from "@/hooks/use-toast";
 import { shareTrackUrl, openInAppTrackUrl } from "@/lib/share-urls";
@@ -23,6 +24,7 @@ import { TextSwap } from "./ui/TextSwap";
 import { PlaybackSourceBadge } from "./ui/PlaybackSourceBadge";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import MenuCore, { MenuHeader } from "./ui/MenuCore";
+import CoverImage from "./CoverImage";
 
 // ═════════════════════════════════════════════════════════════════════════
 // PLAYER BAR — desktop floating glass capsule (v72 desktop redesign).
@@ -42,7 +44,6 @@ import MenuCore, { MenuHeader } from "./ui/MenuCore";
 export default function PlayerBar() {
   const currentTrack = useAppStore((s) => s.currentTrack);
   const isPlaying = useAppStore((s) => s.isPlaying);
-  const progress = useAppStore((s) => s.progress);
   const duration = useAppStore((s) => s.duration);
   const volume = useAppStore((s) => s.volume);
   const shuffle = useAppStore((s) => s.shuffle);
@@ -88,6 +89,16 @@ export default function PlayerBar() {
   const isMobile = useIsMobile();
   const [isDragging, setIsDragging] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
+
+  // ── P0 FIX (progress stuck at 0:00 in the mini-player) ──
+  // The store's `progress` is only a SEEK COMMAND channel — nothing ticks
+  // it during playback (the Full Player rides the unified clock directly,
+  // which is why it worked there). Subscribe to the SAME PlaybackClock
+  // here (one timer, §27); a local drag override keeps the bar under the
+  // user's thumb while dragging, then the clock re-syncs on release.
+  const clockProgress = usePlaybackProgress(250);
+  const [dragProgress, setDragProgress] = useState<number | null>(null);
+  const progress = dragProgress ?? clockProgress;
   // v68: More menu = unified MenuCore (portal, keyboard, Escape, flip).
   // PlayerBar sits at the bottom → menu opens ABOVE the trigger.
   const [moreMenu, setMoreMenu] = useState<{ x: number; y: number } | null>(null);
@@ -100,6 +111,8 @@ export default function PlayerBar() {
   const handleProgressSeek = useCallback((time: number) => {
     seekPlayback(time);
     setProgress(time);
+    // Local mirror so the fill follows the thumb between clock ticks.
+    setDragProgress(time);
   }, [setProgress]);
 
   const handleProgressDragStart = useCallback(() => {
@@ -108,6 +121,9 @@ export default function PlayerBar() {
 
   const handleProgressDragEnd = useCallback(() => {
     setIsDragging(false);
+    // Release the drag override — the clock takes over (the seek already
+    // applied, so it re-syncs to the exact position within one tick).
+    setDragProgress(null);
   }, []);
 
   // ── Volume ──
@@ -297,13 +313,12 @@ export default function PlayerBar() {
               <div
                 className="w-11 h-11 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 relative mq-art"
               >
-                {currentTrack.cover ? (
-                  <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" loading="eager" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center" style={{ background: "var(--mq-surface-2)" }}>
-                    <Music className="w-5 h-5" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} />
-                  </div>
-                )}
+                <CoverImage
+                  src={currentTrack.cover}
+                  title={currentTrack.title}
+                  eager
+                  className="w-full h-full object-cover"
+                />
                 {/* Playing indicator — overlay only when playing.
                     When paused, cover art is fully visible (no overlay). */}
                 {(isPlaying || isLoading) && (
@@ -611,6 +626,21 @@ export default function PlayerBar() {
               {/* Queue */}
               <button onClick={() => setShowQueue(true)} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Очередь" aria-label="Очередь воспроизведения">
                 <ListMusic className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+              </button>
+
+              {/* EQ — one direct click opens the panel + presets (P2:
+                  was buried in the ⋯ menu; the panel itself has the preset
+                  pills, so a single click now reaches them). */}
+              <button
+                onClick={() => setEqOpen(true)}
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 mq-icon-btn"
+                data-active={eqEnabled}
+                style={{ ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-platinum-lift) 26%, transparent)" }}
+                title="Эквалайзер"
+                aria-label="Эквалайзер"
+                aria-haspopup="dialog"
+              >
+                <Sliders className="w-4 h-4" style={{ color: eqEnabled ? "var(--mq-platinum-hi)" : "var(--mq-text-muted)" }} />
               </button>
 
               {/* More — advanced controls live here, not on the play level:

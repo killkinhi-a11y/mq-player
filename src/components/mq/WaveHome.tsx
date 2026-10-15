@@ -7,12 +7,14 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
+import { usePlaybackProgress } from "@/hooks/usePlaybackProgress";
 import { formatDuration, type Track } from "@/lib/musicApi";
 import { waveReasonText as engineReasonText, waveSeedLabel } from "@/lib/wave/reasons";
 import type { WaveRelevanceDebug } from "@/lib/wave";
 import ContextMenu from "./ContextMenu";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import MenuCore, { type MenuElement } from "./ui/MenuCore";
+import CoverImage from "./CoverImage";
 
 /* ══════════════════════════════════════════════════════════════════════════
    WaveHome V2 — the personal music station hero.
@@ -152,17 +154,17 @@ function CrossfadeArtwork({
             data-active={l.id === activeId || undefined}
             aria-hidden="true"
           >
-            {l.cover ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={l.cover} alt="" draggable={false} />
-            ) : (
-              <span
-                className="w-full h-full flex items-center justify-center"
-                style={{ background: "var(--mq-mat-2-bg)" }}
-              >
-                <Waves className="w-10 h-10" style={{ color: "var(--mq-text-muted)" }} />
-              </span>
-            )}
+            {/* P0 FIX: CoverImage — a failed cover URL (CDN 403/timeout)
+                now swaps to a quiet gradient+initials tile instead of the
+                black square; the eager hero art keeps instant swaps. */}
+            <CoverImage
+              src={l.cover}
+              title={track?.title}
+              variant="initials"
+              wave
+              eager
+              className="w-full h-full"
+            />
           </span>
         ))
       )}
@@ -219,20 +221,15 @@ function DebugChips({ debug }: { debug?: WaveRelevanceDebug | null }) {
 
 type NextUpItem = NonNullable<ReturnType<typeof useWaveEngine>["nextUpPreview"]>[number];
 
-function NextUpArtwork({ src }: { src?: string }) {
-  if (src) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" draggable={false} />;
-  }
+function NextUpArtwork({ src, title }: { src?: string; title?: string }) {
+  /* P0 FIX: same never-black contract as the hero art (CoverImage). */
   return (
-    <span
-      className="w-full h-full flex items-center justify-center"
-      /* RED ACCENT FIX: fallback wave avatar was accent-red tint — WAVE
-         identity material is platinum (cold), same as the wordmark. */
-      style={{ background: "color-mix(in srgb, var(--mq-platinum-refl, #8fa3c8) 16%, var(--mq-bg))" }}
-    >
-      <Waves className="w-5 h-5" style={{ color: "var(--mq-platinum-hi, #e9edf5)" }} />
-    </span>
+    <CoverImage
+      src={src}
+      title={title}
+      wave
+      className="w-full h-full object-cover"
+    />
   );
 }
 
@@ -249,7 +246,7 @@ function NextUpCard({ item, onPlay, debugMode }: { item: NextUpItem; onPlay: () 
         style={{ boxShadow: "0 0 0 1px color-mix(in srgb, var(--mq-text) 8%, transparent)" }}
         aria-hidden="true"
       >
-        <NextUpArtwork src={item.track.cover} />
+        <NextUpArtwork src={item.track.cover} title={item.track.title} />
       </span>
       <span className="min-w-0 px-0.5">
         <span className="mq-t-track block truncate" style={{ color: "var(--mq-text)" }}>
@@ -258,7 +255,9 @@ function NextUpCard({ item, onPlay, debugMode }: { item: NextUpItem; onPlay: () 
         <span className="mq-t-meta block truncate mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
           {item.track.artist}
         </span>
-        <span className="mq-t-meta-2 block truncate mt-0.5" style={{ color: "var(--mq-text-muted)", opacity: 0.72 }}>
+        {/* P2 CONTRAST: was muted + opacity 0.72 (≈3.9:1 — below AA). The
+            reason line is real text — keep it at full muted opacity. */}
+        <span className="mq-t-meta-2 block truncate mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
           {engineReasonText(item.reason, item.seedRef)}
         </span>
         {debugMode && item.debug && (
@@ -295,7 +294,7 @@ function NextUpRow({
         style={{ boxShadow: "0 0 0 1px color-mix(in srgb, var(--mq-text) 8%, transparent)" }}
         aria-hidden="true"
       >
-        <NextUpArtwork src={item.track.cover} />
+        <NextUpArtwork src={item.track.cover} title={item.track.title} />
       </span>
       <span className="min-w-0 flex-1">
         <span className="mq-t-track block truncate" style={{ color: "var(--mq-text)" }}>
@@ -304,7 +303,8 @@ function NextUpRow({
         <span className="mq-t-meta block truncate mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
           {item.track.artist}
         </span>
-        <span className="mq-t-meta-2 block truncate mt-0.5" style={{ color: "var(--mq-text-muted)", opacity: 0.72 }}>
+        {/* P2 CONTRAST: opacity 0.72 removed (was ≈3.9:1 — below AA). */}
+        <span className="mq-t-meta-2 block truncate mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
           {engineReasonText(item.reason, item.seedRef)}
         </span>
         {debugMode && item.debug && (
@@ -321,15 +321,35 @@ export default function WaveHome() {
   const wave = useWaveEngine();
   const currentTrack = useAppStore((s) => s.currentTrack);
   const isPlaying = useAppStore((s) => s.isPlaying);
-  const progress = useAppStore((s) => s.progress);
   const duration = useAppStore((s) => s.duration);
   const playTrack = useAppStore((s) => s.playTrack);
   const isTrackLiked = useAppStore((s) => s.isTrackLiked);
   const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
 
+  /* ── P0 FIX (progress stuck at 0:00 on the WAVE card) ──
+     Same story as the mini-player: `s.progress` is a seek-command channel,
+     nothing ticks it during playback. Ride the unified PlaybackClock
+     (§27 — one timer for every surface) at a calm 500ms; the fill bar
+     carries a CSS width-transition so the motion reads continuous. */
+  const progress = usePlaybackProgress(500);
+
   const [menu, setMenu] = useState<{ track: Track; x: number; y: number } | null>(null);
   const [moreAnchor, setMoreAnchor] = useState<{ x: number; y: number } | null>(null);
   const debugMode = useWaveDebugMode();
+
+  /* ── P0/P2 FIX: preload the next queue covers so «Следующий в WAVE»
+     swaps with the artwork ALREADY in the browser cache — the next card
+     is visible for seconds before it becomes the hero, so a warm cache
+     removes both the black flash and the pop-in. */
+  const nextUpCovers = wave.nextUpPreview.map((q) => q.track.cover).filter(Boolean).slice(0, 3).join("|");
+  useEffect(() => {
+    if (typeof window === "undefined" || !nextUpCovers) return;
+    for (const src of nextUpCovers.split("|")) {
+      const img = new window.Image();
+      img.decoding = "async";
+      img.src = src;
+    }
+  }, [nextUpCovers]);
 
   const seedChip = useMemo(() => {
     if (!wave.waveSession) return "WAVE";
@@ -403,11 +423,21 @@ export default function WaveHome() {
   const pct = duration > 0 ? Math.min(100, (progress / duration) * 100) : 0;
   const trackKey = currentTrack?.id ?? "empty";
 
+  // P1: explicit machine state for tests/QA — idle | loading | playing | error.
+  const waveState: "idle" | "loading" | "playing" | "error" = wave.waveError
+    ? "error"
+    : wave.waveLoading || !currentTrack
+      ? "loading"
+      : isPlaying
+        ? "playing"
+        : "idle";
+
   return (
     <section
       className="mq-wave"
       aria-label="WAVE — персональное радио"
       data-testid="wave-home"
+      data-state={waveState}
       /* V2.5: mark as the mobile hero owner — MobileDock's hero detection
          ([data-mq-hero]) hides its mini player while the wave hero is in
          view, so the now-playing surface never duplicates on phones. */
@@ -628,6 +658,8 @@ export default function WaveHome() {
                   style={{
                     width: `${pct}%`,
                     background: "var(--mq-platinum-progress)",
+                    /* 500ms clock + 0.5s linear fill = continuous motion. */
+                    transition: "width 0.5s linear",
                   }}
                 />
               </div>
@@ -637,9 +669,22 @@ export default function WaveHome() {
             </div>
 
             {wave.waveError && (
-              <p className="mq-t-meta text-xs mt-3 text-center lg:text-left" style={{ color: "#e5484d" }} role="alert">
-                {wave.waveError}
-              </p>
+              <div className="mq-t-meta text-xs mt-3 flex items-center justify-center gap-3 lg:justify-start" role="alert">
+                <span style={{ color: "#e5484d" }}>{wave.waveError}</span>
+                {/* P1: retry on network/Turnstile errors — one tap restarts
+                    the wave (fresh fetch, fresh signals). */}
+                <button
+                  type="button"
+                  onClick={() => { wave.stopWave(); wave.startWave(); }}
+                  className="mq-t-label text-xs px-3 py-1.5 rounded-full"
+                  style={{
+                    color: "var(--mq-text)",
+                    backgroundColor: "color-mix(in srgb, var(--mq-text) 9%, transparent)",
+                  }}
+                >
+                  Повторить
+                </button>
+              </div>
             )}
           </div>
 
@@ -706,20 +751,55 @@ export default function WaveHome() {
           </div>
         </div>
       ) : (
-        <div className="relative px-6 pb-10 pt-6 text-center">
-          <div
-            className="mq-spin w-8 h-8 border-2 rounded-full mx-auto"
-            style={{ borderColor: "var(--mq-accent)", borderTopColor: "transparent" }}
-            aria-hidden="true"
-          />
-          <p className="mq-t-body mt-4" style={{ color: "var(--mq-text-muted)" }}>
+        /* P1: honest machine states for the «ПОДБИРАЕМ…» moment (3–5s):
+           loading → a real skeleton of the hero it becomes (art square +
+           identity lines + transport ghosts), error → message + retry.
+           No naked spinner over an empty page. */
+        <div className="relative px-6 pb-10 pt-6" data-testid="wave-loading-state">
+          {wave.waveLoading ? (
+            <div className="max-w-[340px] mx-auto flex flex-col gap-5" aria-hidden="true">
+              <span className="mq-skeleton block w-full aspect-square rounded-[var(--mq-mat-radius,14px)]" />
+              <span className="flex flex-col items-center gap-2.5">
+                <span className="mq-skeleton block h-6 rounded-md" style={{ width: "72%" }} />
+                <span className="mq-skeleton block h-4 rounded-md" style={{ width: "46%" }} />
+                <span className="mq-skeleton block h-3 rounded-full mt-1" style={{ width: "58%" }} />
+              </span>
+              <span className="flex items-center justify-center gap-3">
+                <span className="mq-skeleton block w-14 h-14 rounded-full" />
+                <span className="mq-skeleton block w-[72px] h-[72px] rounded-full" />
+                <span className="mq-skeleton block w-14 h-14 rounded-full" />
+              </span>
+            </div>
+          ) : null}
+          <p className="mq-t-body mt-4 text-center" style={{ color: "var(--mq-text-muted)" }}>
             {wave.waveLoading ? "Подбираем музыку для тебя…" : "WAVE остановлена"}
           </p>
-          {wave.waveError && (
-            <p className="mq-t-meta mt-2" style={{ color: "#e5484d" }} role="alert">
-              {wave.waveError}
-            </p>
-          )}
+          {wave.waveError ? (
+            <div className="mt-2 flex flex-col items-center gap-3">
+              <p className="mq-t-meta" style={{ color: "#e5484d" }} role="alert">
+                {wave.waveError}
+              </p>
+              <button
+                type="button"
+                onClick={() => wave.startWave()}
+                className="mq-platinum-btn mq-t-label px-5 h-11 rounded-full"
+                style={{ color: "var(--mq-text)" }}
+              >
+                Повторить
+              </button>
+            </div>
+          ) : !wave.waveLoading ? (
+            <div className="mt-3 flex justify-center">
+              <button
+                type="button"
+                onClick={() => wave.startWave()}
+                className="mq-platinum-btn mq-t-label px-5 h-11 rounded-full"
+                style={{ color: "var(--mq-text)" }}
+              >
+                Запустить WAVE
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
 

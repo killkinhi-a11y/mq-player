@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { extractTasteProfile } from "@/lib/tasteProfile";
 import {
@@ -662,6 +662,35 @@ export function useWaveEngine() {
       return () => clearTimeout(timer);
     }
   }, [radioMode, currentTrack, queue, waveQueue]);
+
+  /* ────────────────────────────────────────────────────────────────────
+   * P1: feed «Для вас» from Wave listening.
+   * The home feed's taste signature DELIBERATELY excludes history (v72
+   * perf fix — every skip would otherwise refetch 5 endpoints), so after
+   * a user starts listening in WAVE the shelf stayed «Пока пусто» until
+   * the 5-minute TTL expired. This refreshes the feed ONCE after the
+   * session's 1st started track and once more after the 3rd — the two
+   * moments when there is genuinely new taste signal (loadHomeFeed reads
+   * the FRESH history from state at fetch time, so the «для вас» related
+   * category fills from real listening).
+   * ──────────────────────────────────────────────────────────────────── */
+  const homeFeedStageRef = useRef(0);
+  useEffect(() => {
+    if (!radioMode || !waveSession) return;
+    const started = waveSession.stats?.started ?? 0;
+    const stage = started >= 3 ? 2 : started >= 1 ? 1 : 0;
+    if (stage === 0 || stage <= homeFeedStageRef.current) return;
+    homeFeedStageRef.current = stage;
+    const timer = setTimeout(() => {
+      useAppStore.getState().loadHomeFeed({
+        force: true,
+        tasteSig: `wave_${waveSession.id}_${stage}`,
+        topGenres: [],
+        topArtists: [],
+      });
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [radioMode, waveSession]);
 
   /* ── Public preview of the next wave items (Wave UI source, §14) ── */
   const nextUpPreview: WaveQueueItem<MQTrack>[] = waveQueue.slice(0, 5);
