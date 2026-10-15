@@ -5,9 +5,11 @@
    - incoming bubbles  : light tonal glass (veil + hairline edge)
    - outgoing bubbles  : cold liquid-glass accent stack (mq-platinum-btn
                          language: deep veil + theme tint + cold-light edge)
-   - radius 18px, sender-side corner 6px (asymmetric tail)
+   - radius 20px, sender-side corner 4px (asymmetric tail, reference)
    - rows/badges/dots  : conversation list anatomy (72px rows, online dot,
                          unread badge, 3px active rail)
+   - nav rows          : reference section navigation (Чаты / Группы / Друзья)
+   - composer          : ONE pill — emoji + mic + textarea + send inside
 
    PIPELINE CONTRACT (see materials-v25.css): plain declarations only;
    static color-mix() allowed in VALUES — never inside var() fallbacks;
@@ -18,6 +20,81 @@
    Motion: MICRO 80–160ms / STANDARD 180–300ms; everything frozen under
    prefers-reduced-motion.
    ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Shell height — dock-mode aware ──────────────────────────────────────
+   Mobile (<768): legacy calc — MobileDock (90) + NavBar (56).
+   ≥768: topbar/web-nav offset + wrapper padding (92px) + the player zone
+   (--mq-msgr-player-h), which the [data-player-dock] attribute zeroes in
+   side/hidden modes: the messenger window stops slipping under the
+   floating capsule (P0 overlap fix), and in side/hidden modes the chat
+   gets the full viewport height back. */
+.mqms-shell {
+  height: calc(100dvh - 90px - 56px);
+}
+@media (min-width: 768px) {
+  .mq-app-root { --mq-msgr-player-h: 0px; }
+  .mq-app-root.mq-has-player { --mq-msgr-player-h: 104px; }
+  .mq-app-root.mq-has-player[data-player-dock="side"],
+  .mq-app-root.mq-has-player[data-player-dock="hidden"] {
+    --mq-msgr-player-h: 0px;
+  }
+  .mqms-shell {
+    height: calc(100dvh - 92px - var(--mq-msgr-player-h, 0px));
+  }
+}
+
+/* ── Section nav rows (reference sidebar anatomy) ────────────────────── */
+.mqms-nav-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--mq-text);
+  text-align: left;
+  transition:
+    background-color var(--mq-mo-micro) var(--mq-ease-out),
+    color var(--mq-mo-micro) var(--mq-ease-out);
+}
+.mqms-nav-row[data-active="true"] {
+  background: color-mix(in srgb, var(--mq-text) 8%, transparent);
+  color: var(--mq-text);
+}
+@media (hover: hover) {
+  .mqms-nav-row:hover {
+    background: color-mix(in srgb, var(--mq-text) 5%, transparent);
+  }
+}
+.mqms-nav-count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--mq-radius-full);
+  background: color-mix(in srgb, var(--mq-text) 8%, transparent);
+  color: var(--mq-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.mqms-nav-row[data-active="true"] .mqms-nav-count {
+  background: color-mix(in srgb, var(--mq-platinum-hi) 22%, transparent);
+  color: var(--mq-text);
+}
+.mqms-nav-add {
+  color: var(--mq-text-muted);
+  margin-left: -2px;
+  transition: color var(--mq-mo-micro) var(--mq-ease-out);
+}
+@media (hover: hover) {
+  .mqms-nav-row:hover .mqms-nav-add { color: var(--mq-text); }
+}
 
 /* ── Conversation list row ─────────────────────────────────────────────── */
 .mqms-row {
@@ -153,7 +230,7 @@
   position: relative;
   max-width: 100%;
   padding: 10px 14px;
-  border-radius: 18px;
+  border-radius: 20px;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
@@ -185,12 +262,12 @@
     0 2px 10px rgba(0, 0, 0, 0.22);
 }
 
-/* Asymmetric "tail" — 6px corner on the sender's side (last of a group). */
+/* Asymmetric "tail" — 4px corner on the sender's side (last of a group). */
 .mqms-bubble-in.mqms-tail {
-  border-bottom-left-radius: 6px;
+  border-bottom-left-radius: 4px;
 }
 .mqms-bubble-out.mqms-tail {
-  border-bottom-right-radius: 6px;
+  border-bottom-right-radius: 4px;
 }
 
 /* Pending (optimistic, awaiting server id) — slightly transparent. */
@@ -300,15 +377,15 @@
 
 /* ── Skeleton bubbles (history loading) ────────────────────────────────── */
 .mqms-skel {
-  border-radius: 18px;
+  border-radius: 20px;
   background: color-mix(in srgb, var(--mq-text) 6%, transparent);
   animation: mqms-skel-pulse 1.4s ease-in-out infinite;
 }
 .mqms-skel.mqms-tail-in {
-  border-bottom-left-radius: 6px;
+  border-bottom-left-radius: 4px;
 }
 .mqms-skel.mqms-tail-out {
-  border-bottom-right-radius: 6px;
+  border-bottom-right-radius: 4px;
 }
 @keyframes mqms-skel-pulse {
   0%, 100% { opacity: 0.45; }
@@ -318,6 +395,97 @@
 /* ── Composer ──────────────────────────────────────────────────────────── */
 .mqms-composer {
   padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Reference composer pill — ONE glass pill holds every control:
+   emoji + mic on the left, autogrowing textarea in the middle, the
+   accent send button (42px) docked right INSIDE the pill. Arms to
+   platinum only when there is text to send. */
+.mqms-composer-pill {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  min-height: 52px;
+  padding: 5px 6px;
+  border-radius: 26px;
+  background: color-mix(in srgb, var(--mq-text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mq-text) 9%, transparent);
+  transition:
+    border-color var(--mq-mo-micro) var(--mq-ease-out),
+    background-color var(--mq-mo-micro) var(--mq-ease-out);
+}
+.mqms-composer-pill:focus-within {
+  border-color: color-mix(in srgb, var(--mq-text) 22%, transparent);
+  background: color-mix(in srgb, var(--mq-text) 8%, transparent);
+}
+.mqms-composer-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--mq-radius-full);
+  flex-shrink: 0;
+  color: var(--mq-text-muted);
+  background: transparent;
+  transition:
+    background-color var(--mq-mo-micro) var(--mq-ease-out),
+    color var(--mq-mo-micro) var(--mq-ease-out);
+}
+.mqms-composer-btn[data-on="true"] {
+  background: color-mix(in srgb, var(--mq-text) 12%, transparent);
+  color: var(--mq-text);
+}
+@media (hover: hover) {
+  .mqms-composer-btn:hover {
+    background: color-mix(in srgb, var(--mq-text) 10%, transparent);
+    color: var(--mq-text);
+  }
+}
+.mqms-composer-input {
+  min-height: 40px;
+  max-height: 120px;
+  padding: 9px 6px;
+  border: none;
+  background: transparent;
+  color: var(--mq-text);
+  font-size: 14px;
+  line-height: 1.45;
+  resize: none;
+  outline: none;
+}
+.mqms-composer-input::placeholder {
+  color: var(--mq-text-muted);
+}
+/* Send — muted glass at rest, cold platinum when armed. */
+.mqms-composer-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--mq-radius-full);
+  flex-shrink: 0;
+  color: var(--mq-text-muted);
+  background: color-mix(in srgb, var(--mq-text) 8%, transparent);
+  transition:
+    background-color var(--mq-mo-micro) var(--mq-ease-out),
+    color var(--mq-mo-micro) var(--mq-ease-out),
+    transform var(--mq-mo-micro) var(--mq-ease-press);
+}
+.mqms-composer-send[data-ready="true"] {
+  background-color: var(--mq-platinum-lift);
+  background-image: linear-gradient(168deg, rgba(255, 255, 255, 0.1), transparent 52%);
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 2px 12px rgba(0, 0, 0, 0.3);
+}
+.mqms-composer-send:disabled {
+  cursor: default;
+}
+.mqms-composer-send:active {
+  transform: scale(0.94);
 }
 
 /* ── Empty / no-chat states ────────────────────────────────────────────── */
@@ -364,11 +532,15 @@
   .mqms-input-pill,
   .mqms-retry-btn,
   .mqms-inline-x,
-  .mqms-ctx-item {
+  .mqms-ctx-item,
+  .mqms-nav-row,
+  .mqms-composer-btn,
+  .mqms-composer-send {
     transition: none;
   }
   .mqms-icon-btn:active,
-  .mqms-send:active {
+  .mqms-send:active,
+  .mqms-composer-send:active {
     transform: none;
   }
   .mqms-skel {

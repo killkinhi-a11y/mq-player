@@ -122,12 +122,18 @@ function CodeBoxes({
           onKeyDown={(e) => handleKeyDown(index, e)}
           onPaste={index === 0 ? handlePaste : undefined}
           disabled={disabled}
-          className="w-11 h-14 sm:w-13 sm:h-16 text-center text-xl sm:text-2xl font-bold rounded-xl outline-none transition-all duration-200"
+          className="mq-auth-code w-11 h-14 sm:w-13 sm:h-16 text-center text-xl sm:text-2xl font-bold rounded-xl outline-none transition-all duration-200"
           style={{
-            backgroundColor: "var(--mq-input-bg)",
-            /* RED ACCENT FIX: filled digit border + caret were accent red —
-               neutral text tone (red only for real errors). */
-            border: `2px solid ${error ? '#ef4444' : digit ? 'color-mix(in srgb, var(--mq-text, #f0f0f0) 45%, transparent)' : 'var(--mq-border)'}`,
+            /* V13: inset well — dark translucent fill, filled digits get a
+               platinum hairline + slight lift; focus ring is NEUTRAL light
+               (red stays exclusive to real errors). */
+            backgroundColor: digit
+              ? "color-mix(in srgb, var(--mq-platinum-lift, #c8ccd4) 9%, transparent)"
+              : "color-mix(in srgb, #000000 26%, transparent)",
+            border: `2px solid ${error ? '#ef4444' : digit ? 'color-mix(in srgb, var(--mq-platinum-hi, #d7dade) 38%, transparent)' : 'color-mix(in srgb, var(--mq-text, #f0f0f0) 12%, transparent)'}`,
+            boxShadow: digit && !error
+              ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 2px 10px rgba(0,0,0,0.25)"
+              : "inset 0 2px 6px rgba(0,0,0,0.28)",
             color: "var(--mq-text)",
             caretColor: "color-mix(in srgb, var(--mq-text, #f0f0f0) 70%, transparent)",
           }}
@@ -192,8 +198,21 @@ function AuthCard({
 }) {
   return (
     <motion.div
-      className={`rounded-2xl p-6 lg:p-8${loading && fullMotion ? " mq-auth-card--loading" : ""}`}
-      style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+      className={`mq-auth-card rounded-2xl p-6 lg:p-8${loading && fullMotion ? " mq-auth-card--loading" : ""}`}
+      style={{
+        /* V13 heavy glass (design-taste + apple-design materials): the card
+           is a physical slab — translucent body so the ambient blobs refract
+           through it, a 165deg top sheen (bevel), hairline edge, one deep
+           shadow + inner top light. Inline backdrop-filter per the pipeline
+           contract (Lightning strips it from stylesheets). */
+        backgroundColor: "color-mix(in srgb, var(--mq-card, #1a1a1a) 72%, transparent)",
+        backgroundImage: "linear-gradient(165deg, rgba(255,255,255,0.055), transparent 46%)",
+        border: "1px solid color-mix(in srgb, var(--mq-text, #f0f0f0) 10%, transparent)",
+        boxShadow:
+          "0 24px 64px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.07)",
+        backdropFilter: "blur(20px) saturate(140%)",
+        WebkitBackdropFilter: "blur(20px) saturate(140%)",
+      }}
       initial={
         firstMount
           ? fullMotion
@@ -222,10 +241,12 @@ function AuthCard({
 type BannerTone = "error" | "success" | "info" | "warn";
 
 const BANNER_STYLES: Record<BannerTone, React.CSSProperties> = {
-  error: { backgroundColor: "rgba(224,49,49,0.15)", color: "#ff6b6b", border: "1px solid rgba(224,49,49,0.3)" },
-  success: { backgroundColor: "rgba(34,197,94,0.12)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.3)" },
-  info: { backgroundColor: "rgba(42,171,238,0.1)", color: "var(--mq-telegram)", border: "1px solid rgba(42,171,238,0.25)" },
-  warn: { backgroundColor: "rgba(234,179,8,0.12)", color: "#fbbf24", border: "1px solid rgba(234,179,8,0.25)" },
+  error: { backgroundColor: "rgba(224,49,49,0.15)", color: "#ff6b6b", border: "1px solid rgba(224,49,49,0.3)", borderLeft: "3px solid rgba(224,49,49,0.6)" },
+  success: { backgroundColor: "rgba(34,197,94,0.12)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.3)", borderLeft: "3px solid rgba(34,197,94,0.55)" },
+  info: { backgroundColor: "rgba(42,171,238,0.1)", color: "var(--mq-telegram)", border: "1px solid rgba(42,171,238,0.25)", borderLeft: "3px solid rgba(42,171,238,0.5)" },
+  /* V13 (design-taste): dark amber body + 3px left edge — reads as a
+     calm system notice, not an XP error box, on the dark glass card. */
+  warn: { backgroundColor: "rgba(74,64,0,0.35)", color: "#fbbf24", border: "1px solid rgba(234,179,8,0.22)", borderLeft: "3px solid rgba(251,191,36,0.55)" },
 };
 
 /** Inline banner. Errors appear with y:8→0 (the related FIELD shakes —
@@ -368,7 +389,7 @@ function BrandHeader({ fullMotion }: { fullMotion: boolean }) {
         </div>
       </motion.div>
       <motion.h1
-        className="text-3xl font-semibold mb-1.5"
+        className="text-[34px] leading-tight font-semibold mb-1.5"
         style={{ color: "var(--mq-text)", fontFamily: "var(--mq-font-serif, Georgia, serif)" }}
         initial={fullMotion ? { opacity: 0, y: 6, letterSpacing: "0.3em" } : { opacity: 0 }}
         animate={{ opacity: 1, y: 0, letterSpacing: "0.02em" }}
@@ -377,10 +398,10 @@ function BrandHeader({ fullMotion }: { fullMotion: boolean }) {
         MQ
       </motion.h1>
       <motion.p
-        className="text-xs sm:text-[13px] font-medium"
-        style={{ color: "var(--mq-text-muted)" }}
+        className="text-[13px] sm:text-sm font-medium italic"
+        style={{ color: "var(--mq-text-muted)", opacity: 0.75, fontFamily: "var(--mq-font-serif, Georgia, serif)" }}
         initial={fullMotion ? { opacity: 0, y: 6, letterSpacing: "0.3em" } : { opacity: 0 }}
-        animate={{ opacity: 1, y: 0, letterSpacing: "0.1em" }}
+        animate={{ opacity: 1, y: 0, letterSpacing: "0.14em" }}
         transition={fullMotion ? { delay: 0.21, duration: 0.35, ease: EASE } : { duration: 0.12 }}
       >
         Music is more than listening
@@ -1331,14 +1352,21 @@ export default function AuthView() {
                 </AuthBanner>
               )}
 
-              {/* Continue with Google */}
+              {/* Continue with Google — Apple-ID style: crisp white slab,
+                  real shadow, hover lift (V13: was a flat gray-ish white that
+                  read as disabled). */}
               <Reveal index={1} firstMount={firstMount} fullMotion={fullMotion}>
                 <button
                   type="button"
                   onClick={handleGoogleLogin}
                   disabled={googleRedirecting || tgBotLoading || (providers !== null && !providers.google)}
-                  className="flex items-center justify-center gap-2.5 w-full min-h-[44px] rounded-xl text-sm font-medium transition-[filter,transform] duration-200 hover:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: "#ffffff", color: "#1f2937", border: "1px solid #e5e7eb" }}
+                  className="mq-auth-google flex items-center justify-center gap-2.5 w-full min-h-[46px] rounded-xl text-sm font-semibold transition-[filter,transform,box-shadow] duration-200 hover:brightness-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    backgroundColor: "#ffffff",
+                    color: "#17181c",
+                    border: "1px solid rgba(255,255,255,0.9)",
+                    boxShadow: "0 2px 14px rgba(0,0,0,0.3), inset 0 -1px 0 rgba(0,0,0,0.06)",
+                  }}
                 >
                   {googleRedirecting || (tgBotLoading && providers === null) ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

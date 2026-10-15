@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo, useSyncExternalStore } from "react";
 import { useAppStore, getLastVolume } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward,
   Repeat, Repeat1, Shuffle, Music, Heart, ListMusic, User,
   Loader2, ThumbsDown, Volume2, VolumeX, Volume1, Sliders, Waves,
-  Share2, MoreHorizontal,
+  Share2, MoreHorizontal, PanelBottom, PanelRight, EyeOff, Headphones,
 } from "lucide-react";
 import { getAudioElement } from "@/lib/audioEngine";
 import { seekPlayback } from "@/lib/wasm-audio";
@@ -25,6 +25,12 @@ import { PlaybackSourceBadge } from "./ui/PlaybackSourceBadge";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import MenuCore, { MenuHeader } from "./ui/MenuCore";
 import CoverImage from "./CoverImage";
+import {
+  getPlayerDock,
+  setPlayerDock,
+  subscribePlayerDock,
+  type PlayerDockMode,
+} from "@/lib/playerDock";
 
 // ═════════════════════════════════════════════════════════════════════════
 // PLAYER BAR — desktop floating glass capsule (v72 desktop redesign).
@@ -39,6 +45,12 @@ import CoverImage from "./CoverImage";
 // memoized callbacks, same RAF progress channel. Only the container
 // geometry changed (docked full-width bar → floating capsule with 20px
 // clearance from the viewport edge).
+//
+// DOCK MODES (user-selectable, persisted in lib/playerDock):
+//   bottom — the classic floating capsule (default)
+//   side   — compact vertical capsule docked to the right edge: the tall
+//            Messenger view keeps its full height, playback stays reachable
+//   hidden — no player chrome except a small restore chip (bottom-right)
 // ═════════════════════════════════════════════════════════════════════════
 
 export default function PlayerBar() {
@@ -89,6 +101,16 @@ export default function PlayerBar() {
   const isMobile = useIsMobile();
   const [isDragging, setIsDragging] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
+
+  // ── Dock mode (desktop placement of the player) ──
+  // Live-synced with AppShell (clearance vars) and the Messenger height
+  // via the tiny pub/sub store in lib/playerDock. dockMode is the
+  // UN-narrowed copy: after the side/hidden early returns TypeScript
+  // narrows `dock` to "bottom", but the dock menu still needs honest
+  // comparisons against every mode.
+  const dock = useSyncExternalStore(subscribePlayerDock, getPlayerDock);
+  const dockMode: PlayerDockMode = dock;
+  const [dockMenu, setDockMenu] = useState<{ x: number; y: number } | null>(null);
 
   // ── P0 FIX (progress stuck at 0:00 in the mini-player) ──
   // The store's `progress` is only a SEEK COMMAND channel — nothing ticks
@@ -272,6 +294,112 @@ export default function PlayerBar() {
 
   if (!currentTrack || miniPlayerHidden || isFullTrackViewOpen) return null;
   if (isMobile) return null;
+
+  // ── HIDDEN dock: no player chrome — only the restore chip (44px round,
+  // glass). One click returns to the full bottom capsule. Chip respects
+  // the global miniPlayerHidden setting (checked above) and the Full
+  // Player overlay (also above), so it never double-docks. ──
+  if (dock === "hidden") {
+    return (
+      <motion.button
+        key="mq-player-restore"
+        initial={{ opacity: 0, y: 16, scale: 0.9 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 16, scale: 0.9 }}
+        transition={{ type: "spring", stiffness: 380, damping: 28 }}
+        onClick={() => setPlayerDock("bottom")}
+        className="mq-player-restore mq-glass2 fixed z-[55] pointer-events-auto"
+        style={{
+          right: "var(--mq-shell-gap)",
+          bottom: "var(--mq-player-float-m)",
+          backdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
+          WebkitBackdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
+        }}
+        title="Показать плеер"
+        aria-label="Показать плеер"
+      >
+        <Headphones className="w-4 h-4" style={{ color: "var(--mq-text)" }} />
+        <span className="mq-player-restore-dot" aria-hidden="true" />
+      </motion.button>
+    );
+  }
+
+  // ── SIDE dock: compact vertical capsule on the right edge. Playback
+  // stays reachable (cover → full player, play/pause, next) while tall
+  // views (Messenger) keep their full height — no overlap. A hairline
+  // progress rail on the left edge shows the clock position. ──
+  if (dock === "side") {
+    const pct = duration > 0 ? Math.min(100, Math.max(0, (progress / duration) * 100)) : 0;
+    return (
+      <motion.div
+        key="mq-player-side"
+        initial={{ opacity: 0, x: 90 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: 90 }}
+        transition={{ type: "spring", stiffness: 340, damping: 30 }}
+        className="fixed z-[55] pointer-events-auto"
+        style={{ right: "var(--mq-shell-gap)", bottom: "var(--mq-player-float-m)" }}
+      >
+        <div
+          className="mq-player-side mq-glass2 mq-glass2-player relative flex flex-col items-center gap-1.5 py-3"
+          style={{
+            backdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
+            WebkitBackdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
+          }}
+          role="group"
+          aria-label="Мини-плеер сбоку"
+        >
+          {/* Clock rail — platinum fill, same contract as the capsule bar */}
+          <span className="mq-player-side-rail" aria-hidden="true">
+            <span className="mq-player-side-rail-fill" style={{ height: `${pct}%` }} />
+          </span>
+
+          <button
+            onClick={openFullPlayer}
+            className="mq-player-side-cover"
+            aria-label={`Открыть полный плеер: ${currentTrack.title}`}
+            title={`${currentTrack.title} — ${currentTrack.artist}`}
+          >
+            <CoverImage src={currentTrack.cover} title={currentTrack.title} eager className="w-full h-full object-cover" />
+            {(isPlaying || isLoading) && (
+              <span className="mq-player-side-eq" aria-hidden="true">
+                <NowPlayingEqualizer size="sm" variant="overlay" paused={!isPlaying || isLoading} />
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => { togglePlay(); hapticPlay(); }}
+            className="mq-v4-cta mq-player-side-play"
+            title={isPlaying ? "Пауза" : "Воспроизвести"}
+            aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
+          >
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#f4f6fa" }} />
+              : isPlaying ? <Pause className="w-4 h-4" fill="#f4f6fa" style={{ color: "#f4f6fa" }} />
+              : <Play className="w-4 h-4 ml-0.5" fill="#f4f6fa" style={{ color: "#f4f6fa" }} />}
+          </button>
+
+          <button
+            onClick={() => { nextTrack(); hapticSkip(); }}
+            className="mq-player-side-next"
+            title="Следующий"
+            aria-label="Следующий трек"
+          >
+            <SkipForward className="w-4 h-4" style={{ color: "var(--mq-text)" }} fill="currentColor" />
+          </button>
+
+          <button
+            onClick={() => setPlayerDock("bottom")}
+            className="mq-player-side-return"
+            title="Вернуть плеер вниз"
+            aria-label="Вернуть плеер вниз"
+          >
+            <PanelBottom className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <>
@@ -643,6 +771,32 @@ export default function PlayerBar() {
                 <Sliders className="w-4 h-4" style={{ color: eqEnabled ? "var(--mq-platinum-hi)" : "var(--mq-text-muted)" }} />
               </button>
 
+              {/* Dock placement — user-selectable player position
+                  (bottom capsule / compact side / hidden). Opens ABOVE
+                  the capsule, same MenuCore system as the More menu. */}
+              <div className="relative flex-shrink-0">
+                <button
+                  onClick={(e) => {
+                    if (dockMenu) {
+                      setDockMenu(null);
+                    } else {
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      setDockMenu({ x: Math.max(8, rect.right - 210), y: rect.top - 6 });
+                      setMoreMenu(null);
+                    }
+                  }}
+                  className="w-9 h-9 rounded-full flex items-center justify-center mq-icon-btn"
+                  data-active={!!dockMenu}
+                  style={{ ["--mq-active-bg" as string]: "var(--mq-overlay-hover)" }}
+                  title="Расположение плеера"
+                  aria-label="Расположение плеера"
+                  aria-haspopup="menu"
+                  aria-expanded={!!dockMenu}
+                >
+                  <PanelRight className="w-4 h-4" style={{ color: dockMode !== "bottom" ? "var(--mq-platinum-hi)" : "var(--mq-text-muted)" }} />
+                </button>
+              </div>
+
               {/* More — advanced controls live here, not on the play level:
                   EQ, dislike, share, artist. Static accent dot when on.
                   v68: unified MenuCore, opens ABOVE (bar is at the bottom). */}
@@ -732,6 +886,47 @@ export default function PlayerBar() {
                   },
                 ]
               : []),
+          ]}
+        />
+      )}
+      {/* Dock placement menu (portal) — the user's choice of player
+          position; persisted in localStorage via lib/playerDock. */}
+      {dockMenu && (
+        <MenuCore
+          anchor={dockMenu}
+          onClose={() => setDockMenu(null)}
+          side="above"
+          width={210}
+          ariaLabel="Расположение плеера"
+          elements={[
+            { type: "label", text: "Расположение плеера" },
+            {
+              type: "item",
+              id: "dock-bottom",
+              icon: PanelBottom,
+              label: "Панель снизу",
+              active: dockMode === "bottom",
+              hint: dockMode === "bottom" ? "ВКЛ" : undefined,
+              onSelect: () => { setDockMenu(null); setPlayerDock("bottom"); },
+            },
+            {
+              type: "item",
+              id: "dock-side",
+              icon: PanelRight,
+              label: "Компактно сбоку",
+              active: dockMode === "side",
+              hint: dockMode === "side" ? "ВКЛ" : undefined,
+              onSelect: () => { setDockMenu(null); setPlayerDock("side"); },
+            },
+            {
+              type: "item",
+              id: "dock-hidden",
+              icon: EyeOff,
+              label: "Скрыть плеер",
+              active: dockMode === "hidden",
+              hint: dockMode === "hidden" ? "ВКЛ" : undefined,
+              onSelect: () => { setDockMenu(null); setPlayerDock("hidden"); },
+            },
           ]}
         />
       )}

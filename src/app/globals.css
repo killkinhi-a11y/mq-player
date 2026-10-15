@@ -5418,6 +5418,143 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
   .mq-has-player { padding-bottom: calc(72px + var(--mq-player-float-m) + 44px); }
 }
 
+/* ── Player dock modes (v13, lib/playerDock) — user-selectable placement.
+      bottom  → the classic clearance above (unchanged)
+      side    → compact vertical capsule in the right gutter: height goes
+                back to tall views (Messenger), the gutter reserves width
+      hidden  → no player chrome except the 44px restore chip ── */
+@media (min-width: 768px) {
+  .mq-has-player[data-player-dock="side"] {
+    padding-bottom: 24px;
+    /* Reserve the side capsule gutter so content never slides under it */
+    padding-right: calc(64px + var(--mq-shell-gap, 16px) + 8px);
+  }
+  .mq-has-player[data-player-dock="hidden"] {
+    padding-bottom: 24px;
+  }
+}
+
+/* ── Side capsule — the compact vertical player ── */
+.mq-player-side {
+  width: 64px;
+  border-radius: 20px;
+}
+.mq-player-side-cover {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--mq-r-art, 10px);
+  overflow: hidden;
+  flex-shrink: 0;
+  cursor: pointer;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--mq-text) 10%, transparent);
+  transition: transform var(--mq-mo-micro, 120ms) var(--mq-ease-out, ease-out);
+}
+@media (hover: hover) {
+  .mq-player-side-cover:hover { transform: scale(1.05); }
+}
+.mq-player-side-eq {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 4px;
+  background: var(--mq-overlay-scrim, rgba(0, 0, 0, 0.6));
+}
+.mq-player-side-play {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--mq-radius-full, 9999px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: filter 100ms ease-out, transform var(--mq-mo-micro, 120ms) var(--mq-ease-press, ease-out);
+}
+.mq-player-side-play:active { transform: scale(0.94); }
+@media (hover: hover) {
+  .mq-player-side-play:hover { filter: brightness(1.1); }
+}
+.mq-player-side-next {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--mq-radius-full, 9999px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  color: var(--mq-text);
+  transition: background-color var(--mq-mo-micro, 120ms) var(--mq-ease-out, ease-out);
+}
+@media (hover: hover) {
+  .mq-player-side-next:hover { background-color: var(--mq-overlay-hover, rgba(255, 255, 255, 0.06)); }
+}
+.mq-player-side-return {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--mq-radius-full, 9999px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  color: var(--mq-text-muted);
+  transition: background-color var(--mq-mo-micro, 120ms) var(--mq-ease-out, ease-out),
+    color var(--mq-mo-micro, 120ms) var(--mq-ease-out, ease-out);
+}
+@media (hover: hover) {
+  .mq-player-side-return:hover {
+    background-color: color-mix(in srgb, var(--mq-text) 8%, transparent);
+    color: var(--mq-text);
+  }
+}
+/* Clock rail — hairline progress on the capsule's left edge */
+.mq-player-side-rail {
+  position: absolute;
+  left: 4px;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: var(--mq-radius-full, 9999px);
+  background: color-mix(in srgb, var(--mq-text) 10%, transparent);
+  overflow: hidden;
+}
+.mq-player-side-rail-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  border-radius: var(--mq-radius-full, 9999px);
+  background: var(--mq-platinum-hi, #d7dade);
+}
+
+/* ── Restore chip (hidden dock) — the only player chrome left ── */
+.mq-player-restore {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--mq-radius-full, 9999px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform var(--mq-mo-micro, 120ms) var(--mq-ease-press, ease-out);
+}
+.mq-player-restore:active { transform: scale(0.94); }
+.mq-player-restore-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--mq-radius-full, 9999px);
+  background: var(--mq-platinum-hi, #d7dade);
+}
+
 /* ── Liquid title (Full Player, task §10) ── */
 .mq-liquid {
   position: relative;

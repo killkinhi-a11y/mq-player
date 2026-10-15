@@ -14,6 +14,7 @@ import {
   MessageCircle, Search, Send, ArrowLeft, X, Plus, Loader2, UserPlus, Mic,
   Pin, Trash2, Smile, Users, Lock, Check, CheckCheck, Copy, Reply, User, Contact,
   Play, Pause, Music2, Image as ImageIcon, AlertCircle, Clock,
+  ChevronDown, SquarePen, MessagesSquare, ChevronRight,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { simulateDecryptSync, simulateEncrypt } from "@/lib/crypto";
@@ -285,6 +286,7 @@ function HistorySkeleton() {
 export default function MessengerView() {
   const userId = useAppStore((s) => s.userId);
   const username = useAppStore((s) => s.username);
+  const avatar = useAppStore((s) => s.avatar);
   // P1: demo sessions have no social graph — the empty-chats state says so.
   // (isDemoUser() helper stays module-level; this is just the local flag.)
   const isDemoSession = userId === "demo-user-id";
@@ -317,6 +319,10 @@ export default function MessengerView() {
   const [isLoadingFriends, setIsLoadingFriends] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  // Reference-style section filter (desktop nav rows): "all" = DMs + groups,
+  // "groups" = group chats only. Real filter over the loaded social graph —
+  // no dead sections.
+  const [listFilter, setListFilter] = useState<"all" | "groups">("all");
   const [groupChats, setGroupChats] = useState<GroupChat[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [groupMessages, setGroupMessages] = useState<Record<string, ChatMessage[]>>({});
@@ -833,14 +839,15 @@ export default function MessengerView() {
       });
     }
     const q = searchQuery.trim().toLowerCase();
-    const filtered = q ? items.filter((it) => it.name.toLowerCase().includes(q)) : items;
-    return filtered.sort((a, b) => {
+    const byQuery = q ? items.filter((it) => it.name.toLowerCase().includes(q)) : items;
+    const bySection = listFilter === "groups" ? byQuery.filter((it) => it.type === "group") : byQuery;
+    return bySection.sort((a, b) => {
       const aP = pinnedChats.includes(a.id) ? 1 : 0;
       const bP = pinnedChats.includes(b.id) ? 1 : 0;
       if (aP !== bP) return bP - aP;
       return b.lastTime - a.lastTime;
     });
-  }, [safeFriends, safeGroupChats, groupMessages, lastMessageByContact, searchQuery, pinnedChats]);
+  }, [safeFriends, safeGroupChats, groupMessages, lastMessageByContact, searchQuery, pinnedChats, listFilter]);
 
   // ── Toggle pin chat ──
   const togglePinChat = useCallback((chatId: string) => {
@@ -1284,8 +1291,7 @@ export default function MessengerView() {
   // ── Recoverable error state (no white screen ever) ──
   if (loadError && safeFriends.length === 0 && safeGroupChats.length === 0) {
     return (
-      <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container-wide)] mx-auto`}
-        style={{ height: "calc(100dvh - 90px - 56px)" }}>
+      <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container-wide)] mx-auto mqms-shell`}>
         <div className="flex flex-col items-center justify-center h-full rounded-[var(--mq-mat-radius-lg)] gap-1"
           style={{ backgroundColor: "var(--mq-mat-2-bg)", border: "1px solid var(--mq-mat-2-edge)", boxShadow: "var(--mq-mat-3-shadow)" }}>
           <div className="mqms-empty-icon mb-2" aria-hidden="true">
@@ -1315,34 +1321,48 @@ export default function MessengerView() {
   const hairlineBorder = { borderColor: "var(--mq-border-hairline)" as const };
 
   return (
-    <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container-wide)] mx-auto`}
-      style={{ height: "calc(100dvh - 90px - 56px)" }}>
-      <div className="flex rounded-[var(--mq-mat-radius-lg)] overflow-hidden h-full" style={cardStyle}>
+    <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container-wide)] mx-auto mqms-shell`}>
+      <div className="flex rounded-[var(--mq-mat-radius-lg)] overflow-hidden h-full mqms-window" style={cardStyle}>
         {/* ── Contacts list ── */}
         {showListPanel && (
-          <div className={`${isMobileView && mobileView === "chat" ? "hidden" : "flex"} flex-col w-full lg:w-[380px] flex-shrink-0 border-r`}
+          <div className={`${isMobileView && mobileView === "chat" ? "hidden" : "flex"} flex-col w-full lg:w-[340px] flex-shrink-0 border-r`}
             style={hairlineBorder}>
-            {/* Header */}
-            <div className="px-4 py-3 flex items-center justify-between gap-2 border-b" style={hairlineBorder}>
-              <div className="flex items-center gap-2.5 min-w-0">
-                <h2 className="text-[17px] font-bold truncate" style={{ color: "var(--mq-text)", letterSpacing: "-0.01em" }}>Чаты</h2>
-                {safeFriends.length + safeGroupChats.length > 0 && (
-                  <span className="mq-t-meta-2 px-2 py-0.5 rounded-full tabular-nums flex-shrink-0"
-                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 7%, transparent)", color: "var(--mq-text-muted)" }}>
-                    {safeFriends.length + safeGroupChats.length}
+            {/* Profile row (reference: account header) — avatar + name +
+                chevron opens the user's own profile. Mobile keeps the
+                section actions inline (no room for nav rows below). */}
+            <div className="px-3.5 sm:px-4 pt-3 pb-2.5 flex items-center gap-2.5 border-b" style={hairlineBorder}>
+              <button
+                onClick={() => setView("profile")}
+                className="flex items-center gap-2.5 min-w-0 flex-1 rounded-xl pl-1 pr-2 py-1 transition-colors focus-visible:outline-2 focus-visible:outline-[color-mix(in_srgb,var(--mq-text)_55%,transparent)]"
+                aria-label="Открыть профиль"
+                title="Профиль"
+              >
+                {avatar ? (
+                  <img src={avatar} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                    style={{ boxShadow: "0 0 0 1px var(--mq-edge-strong)" }} />
+                ) : (
+                  <span className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ background: "var(--mq-surface-2)", border: "1px solid var(--mq-edge)" }}>
+                    <User className="w-4.5 h-4.5" style={{ color: "var(--mq-text-muted)" }} />
                   </span>
                 )}
-              </div>
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                {/* Task 9: Friends access — opens the real FriendsView
-                    (requests, online statuses, add-friend, listen invites). */}
+                <span className="min-w-0 flex-1 text-left">
+                  <span className="block text-[15px] font-semibold truncate" style={{ color: "var(--mq-text)" }}>
+                    {username || "Профиль"}
+                  </span>
+                  <span className="block text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>
+                    Ваш профиль
+                  </span>
+                </span>
+                <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} aria-hidden="true" />
+              </button>
+              {/* Mobile: section actions live here (no nav rows below) */}
+              <div className="flex items-center gap-1 flex-shrink-0 lg:hidden">
                 <motion.button whileHover={hoverProps({ scale: 1.04, transition: { duration: 0.12, ease: "easeOut" } })}
                   onClick={() => setView("friends")}
-                  className="h-11 px-3.5 sm:px-4 rounded-full flex items-center gap-1.5 flex-shrink-0 transition-colors"
-                  style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
+                  className="mqms-icon-btn"
                   aria-label="Друзья" title="Друзья">
                   <Contact className="w-[18px] h-[18px]" />
-                  <span className="hidden sm:inline text-xs font-semibold">Друзья</span>
                 </motion.button>
                 <motion.button whileHover={hoverProps({ scale: 1.04, transition: { duration: 0.12, ease: "easeOut" } })}
                   onClick={() => setShowNewGroup(true)}
@@ -1350,14 +1370,53 @@ export default function MessengerView() {
                   aria-label="Новая группа" title="Новая группа">
                   <Users className="w-[18px] h-[18px]" />
                 </motion.button>
-                <motion.button whileHover={hoverProps({ scale: 1.04, transition: { duration: 0.12, ease: "easeOut" } })}
-                  onClick={() => setShowNewChat(true)}
-                  className="mq-platinum-btn w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
-                  aria-label="Новый чат" title="Новый чат">
-                  <Plus className="w-[18px] h-[18px]" />
-                </motion.button>
               </div>
+              {/* Compose (new chat) — the reference's square-pencil action */}
+              <motion.button whileHover={hoverProps({ scale: 1.04, transition: { duration: 0.12, ease: "easeOut" } })}
+                onClick={() => setShowNewChat(true)}
+                className="mq-platinum-btn w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                aria-label="Новый чат" title="Новый чат">
+                <SquarePen className="w-[18px] h-[18px]" />
+              </motion.button>
             </div>
+
+            {/* Section nav (reference: Chats / groups / friends rows) —
+                desktop only; real actions: filters + FriendsView. */}
+            <nav className="hidden lg:flex flex-col px-2 py-2 gap-0.5 border-b" style={hairlineBorder} aria-label="Разделы чатов">
+              <button
+                onClick={() => setListFilter("all")}
+                data-active={listFilter === "all"}
+                className="mqms-nav-row"
+                aria-current={listFilter === "all" ? "true" : undefined}
+              >
+                <MessagesSquare className="w-[18px] h-[18px]" aria-hidden="true" />
+                <span className="flex-1 text-left">Чаты</span>
+                {safeFriends.length + safeGroupChats.length > 0 && (
+                  <span className="mqms-nav-count tabular-nums">
+                    {safeFriends.length + safeGroupChats.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => { setListFilter("groups"); if (safeGroupChats.length === 0) setShowNewGroup(true); }}
+                data-active={listFilter === "groups"}
+                className="mqms-nav-row"
+                aria-current={listFilter === "groups" ? "true" : undefined}
+              >
+                <Users className="w-[18px] h-[18px]" aria-hidden="true" />
+                <span className="flex-1 text-left">Группы</span>
+                <span className="mqms-nav-count tabular-nums">{safeGroupChats.length}</span>
+                <Plus className="w-3.5 h-3.5 mqms-nav-add" aria-hidden="true" />
+              </button>
+              <button
+                onClick={() => setView("friends")}
+                className="mqms-nav-row"
+              >
+                <Contact className="w-[18px] h-[18px]" aria-hidden="true" />
+                <span className="flex-1 text-left">Друзья</span>
+                <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" style={{ color: "var(--mq-text-muted)" }} />
+              </button>
+            </nav>
 
             {/* Search */}
             <div className="px-3.5 pt-3 pb-2.5 border-b" style={hairlineBorder}>
@@ -1516,7 +1575,7 @@ export default function MessengerView() {
         {/* ── Chat panel ── */}
         {showChatPanel && (selectedFriend || selectedGroup) ? (
           <div className={`${isMobileView && mobileView === "list" ? "hidden" : "flex"} flex-col flex-1 min-w-0`}>
-            {/* Header — ~80px tall: avatar 44 + status + round actions */}
+            {/* Header — 80px tall (reference): avatar 56 + name 18px + status */}
             <div className="px-3 sm:px-4 py-3 min-h-[80px] flex items-center gap-2.5 sm:gap-3 border-b" style={hairlineBorder}>
               {isMobileView && (
                 <motion.button onClick={handleMobileBack}
@@ -1533,17 +1592,17 @@ export default function MessengerView() {
                 }}
               >
                 {isGroupChat ? (
-                  <Avatar name={selectedGroup?.name || "Group"} id={selectedGroupId || ""} size={44} isGroup ring />
+                  <Avatar name={selectedGroup?.name || "Group"} id={selectedGroupId || ""} size={56} isGroup ring />
                 ) : (
                   <Avatar src={selectedFriend?.avatar} name={selectedFriend?.username || "User"}
-                    id={selectedFriend?.id || ""} size={44} ring />
+                    id={selectedFriend?.id || ""} size={56} ring />
                 )}
                 {!isGroupChat && selectedFriend && onlineStatuses[selectedFriend.id]?.online && (
                   <span className="mqms-online" aria-hidden="true" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-base font-semibold truncate" style={{ color: "var(--mq-text)", lineHeight: 1.3 }}>
+                <p className="text-lg font-semibold truncate" style={{ color: "var(--mq-text)", lineHeight: 1.25 }}>
                   {isGroupChat ? selectedGroup?.name : selectedFriend?.username}
                 </p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
@@ -1907,17 +1966,21 @@ export default function MessengerView() {
                       ))}
                     </motion.div>
                   )}
-                  <div className="flex items-end gap-2">
+                  {/* Reference composer: ONE pill containing every control —
+                      emoji + mic on the left, autogrowing textarea in the
+                      middle, the accent send button docked right INSIDE the
+                      pill (44px). */}
+                  <div className="mqms-composer-pill" data-armed={!!(inputText.trim() && !isSending)}>
                     <motion.button whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
                       onClick={() => setShowQuickEmojis((v) => !v)}
                       data-on={showQuickEmojis}
-                      className="mqms-icon-btn"
+                      className="mqms-composer-btn"
                       aria-label="Эмодзи" title="Эмодзи">
                       <Smile className="w-[18px] h-[18px]" />
                     </motion.button>
                     <motion.button whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
                       onClick={startRecording}
-                      className="mqms-icon-btn"
+                      className="mqms-composer-btn"
                       aria-label="Записать голосовое" title="Голосовое сообщение">
                       <Mic className="w-[18px] h-[18px]" />
                     </motion.button>
@@ -1930,11 +1993,11 @@ export default function MessengerView() {
                         }
                       }}
                       placeholder="Сообщение…" rows={1} aria-label="Сообщение"
-                      className="mqms-input-pill flex-1 min-h-[44px] px-4 py-2.5 text-sm outline-none resize-none max-h-[120px]" />
+                      className="mqms-composer-input flex-1 min-w-0" />
                     <motion.button whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
                       onClick={() => handleSend()} disabled={!inputText.trim() || isSending}
                       data-ready={!!(inputText.trim() && !isSending)}
-                      className="mqms-icon-btn mqms-send" aria-label="Отправить сообщение">
+                      className="mqms-composer-send" aria-label="Отправить сообщение">
                       {isSending ? <Loader2 className="w-[18px] h-[18px] animate-spin" /> : <Send className="w-[18px] h-[18px]" />}
                     </motion.button>
                   </div>

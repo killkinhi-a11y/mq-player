@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { Suspense, useEffect, useRef, useState, useMemo, useCallback, useSyncExternalStore } from "react";
 import { AnimatePresence, motion, MotionConfig } from "framer-motion";
 import { useAppStore, type ViewType } from "@/store/useAppStore";
 import { themes, applyThemeToDOM } from "@/lib/themes";
@@ -17,6 +17,7 @@ import { OfflineBanner } from "@/components/mq/OfflineBanner";
 import { WaveformController } from "@/components/mq/WaveformController";
 import { ensureFontsLoaded } from "@/lib/customFonts";
 import { useLyricsAppearanceSync } from "@/lib/lyricsAppearance";
+import { getPlayerDock, subscribePlayerDock } from "@/lib/playerDock";
 import "@/styles/ipod-2001.css";
 import "@/styles/japan.css";
 import "@/styles/swag.css";
@@ -721,6 +722,15 @@ export default function AppShell() {
     prevViewRef.current = currentView;
   }, [currentView, searchQuery, setSearchQuery]);
 
+  // ── Player dock mode (desktop) — synced into the DOM as data-player-dock
+  // so CSS can size view clearances per mode (globals.css + messenger.css):
+  //   bottom → full bottom clearance for the floating capsule
+  //   side / hidden → no bottom clearance (tall views get full height;
+  //   the compact side capsule / restore chip live in the right gutter).
+  // MUST run before the hydration early-return below (rules-of-hooks: the
+  // hook order has to be identical on every render, hydrated or not). ──
+  const playerDock = useSyncExternalStore(subscribePlayerDock, getPlayerDock);
+
   // ── Render dynamically-loaded views (rarely used) ──
   const renderDynamicView = () => {
     switch (currentView) {
@@ -774,6 +784,7 @@ export default function AppShell() {
     <div
       className={`mq-app-root min-h-[100dvh] ${showMiniPlayerSpacer ? 'mq-has-player' : ''}`}
       data-wave={radioMode ? "on" : "off"}
+      data-player-dock={playerDock}
     >
       {/* web-accessibility rule: skip-to-content link for keyboard users.
           Visually hidden until focused, then jumps to #main-content. */}

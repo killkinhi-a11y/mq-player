@@ -89,7 +89,63 @@
   .mq-auth-logo,
   .mq-auth-ring,
   .mq-auth-blob,
-  .mq-auth-card--loading {
+  .mq-auth-card--loading,
+  .mq-splash-eq-bar {
     animation: none !important;
   }
+}
+
+/* ── Splash v2: equalizer — five bars "tuning" under the logo mark ────
+   GPU contract: scaleY only, transform-origin bottom; each bar gets its
+   phase via animationDelay (0.3s + i * 90ms). Hidden entirely under
+   prefers-reduced-motion (the component also skips rendering them). */
+.mq-splash-eq {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  height: 26px;
+  margin-top: 10px;
+}
+.mq-splash-eq-bar {
+  width: 4px;
+  height: 26px;
+  border-radius: 2px;
+  transform-origin: bottom center;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--mq-accent, #e03131) 72%, transparent),
+    var(--mq-platinum-hi, #d7dade)
+  );
+  opacity: 0;
+  animation: mq-splash-eq 1.15s cubic-bezier(0.44, 0.02, 0.36, 1) infinite;
+  will-change: transform, opacity;
+}
+@keyframes mq-splash-eq {
+  0%   { transform: scaleY(0.18); opacity: 0; }
+  14%  { opacity: 0.9; }
+  30%  { transform: scaleY(0.95); }
+  52%  { transform: scaleY(0.4); }
+  74%  { transform: scaleY(0.78); }
+  100% { transform: scaleY(0.24); opacity: 0.85; }
+}
+
+/* ── Code boxes: focus well — NEUTRAL light ring (red = errors only).
+   Sits on the inset fill set inline by the component. */
+.mq-auth-code:focus-visible {
+  border-color: color-mix(in srgb, var(--mq-text, #f0f0f0) 42%, transparent) !important;
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.28),
+    0 0 0 3px color-mix(in srgb, var(--mq-text, #f0f0f0) 14%, transparent) !important;
+}
+
+/* Google button — hover lift (Apple-ID style physical slab). */
+@media (hover: hover) {
+  .mq-auth-google:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.38), inset 0 -1px 0 rgba(0, 0, 0, 0.06);
+  }
+}
+.mq-auth-google:not(:disabled):active {
+  transform: translateY(0);
 }
