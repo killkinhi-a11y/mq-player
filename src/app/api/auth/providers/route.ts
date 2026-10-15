@@ -13,10 +13,48 @@ import { isEmailConfigured } from "@/lib/email";
  * GetGoogleIdOption; it is public by design — the client SECRET stays
  * server-side and is only used in the code exchange).
  */
+
+/**
+ * Hostnames where the official Telegram Login Widget is allowed to mount.
+ *
+ * The widget is a cross-origin iframe: when the CURRENT hostname is not
+ * bound via BotFather /setdomain, Telegram renders «Bot domain invalid»
+ * INSIDE the iframe — a raw red error we cannot suppress. The fix is to
+ * not mount the widget at all on unbound hosts and let the client show an
+ * honest neutral fallback instead.
+ *
+ * Source order (first non-empty wins):
+ *  1. TELEGRAM_WIDGET_DOMAINS — explicit comma-separated allowlist
+ *  2. NEXT_PUBLIC_BASE_URL host
+ *  3. VERCEL_PROJECT_PRODUCTION_DOMAIN (Vercel sets this automatically)
+ *  4. VERCEL_URL (preview/deployment host, protocol stripped)
+ * Empty result → widget disabled everywhere (bot-code flow stays).
+ */
+function telegramWidgetDomains(): string[] {
+  const collect = (raw: string | undefined): string[] =>
+    (raw || "")
+      .split(/[,\s]+/)
+      .map((h) => h.trim().replace(/^https?:\/\//i, "").replace(/\/.*$/, "").replace(/:\d+$/, "").toLowerCase())
+      .filter((h) => h.length > 0 && !h.includes("://"));
+
+  const explicit = collect(process.env.TELEGRAM_WIDGET_DOMAINS);
+  if (explicit.length > 0) return Array.from(new Set(explicit));
+
+  const fromBase = collect(process.env.NEXT_PUBLIC_BASE_URL);
+  if (fromBase.length > 0) return Array.from(new Set(fromBase));
+
+  const fromProd = collect(process.env.VERCEL_PROJECT_PRODUCTION_DOMAIN);
+  if (fromProd.length > 0) return Array.from(new Set(fromProd));
+
+  const fromVercelUrl = collect(process.env.VERCEL_URL);
+  return Array.from(new Set(fromVercelUrl));
+}
+
 export async function GET() {
   try {
     const telegramBot = isTelegramConfigured();
     const botName = getBotName();
+    const widgetDomains = telegramWidgetDomains();
 
     return NextResponse.json({
       google: isGoogleConfigured(),
@@ -28,6 +66,9 @@ export async function GET() {
       telegramWidget: telegramBot && !!botName,
       telegramBot, // bot-code fallback flow
       telegramBotName: botName || null,
+      // Hostnames where the widget may mount (see telegramWidgetDomains) —
+      // empty array = widget never mounts, bot-code flow carries Telegram.
+      telegramWidgetDomains: widgetDomains,
       email: true, // email+password login always available
       emailDelivery: isEmailConfigured(), // whether codes/emails actually send
       // Desktop client (Windows): Google login is handed off through the
@@ -45,6 +86,7 @@ export async function GET() {
         telegramWidget: false,
         telegramBot: false,
         telegramBotName: null,
+        telegramWidgetDomains: [],
         email: true,
         emailDelivery: false,
       },

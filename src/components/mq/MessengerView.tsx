@@ -1,12 +1,12 @@
 "use client";
 
-// MQ Player — Messenger (premium iMessage-grade glass redesign)
+// MQ Player — Messenger (premium iMessage-grade glass redesign, v14)
 // Safety-first: every state array is Array.isArray-guarded, every async op
 // is wrapped in try/catch, and a recoverable error state replaces any white
 // screen. Visual language lives in ./messenger.css (mqms-* classes) on the
 // MQ material system tokens.
 
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { canPollProtected, controlled401Recovery, isDemoUser } from "@/lib/authGate";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,7 +14,7 @@ import {
   MessageCircle, Search, Send, ArrowLeft, X, Plus, Loader2, UserPlus, Mic,
   Pin, Trash2, Smile, Users, Lock, Check, CheckCheck, Copy, Reply, User, Contact,
   Play, Pause, Music2, Image as ImageIcon, AlertCircle, Clock,
-  ChevronDown, SquarePen, MessagesSquare, ChevronRight,
+  ChevronDown, SquarePen, MessagesSquare, ChevronRight, Settings,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { simulateDecryptSync, simulateEncrypt } from "@/lib/crypto";
@@ -22,6 +22,10 @@ import { useToast } from "@/hooks/use-toast";
 import type { Message as ChatMessage } from "@/lib/musicApi";
 import { formatDuration as formatDurationCanonical } from "@/lib/musicApi";
 import { hoverProps } from "@/lib/hoverCapability";
+import {
+  DEMO_FRIENDS, DEMO_GROUP, DEMO_ONLINE,
+  DEMO_DEFAULT_CHAT_ID, buildDemoThreads,
+} from "./demoChat";
 import "./messenger.css";
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -295,14 +299,23 @@ export default function MessengerView() {
   const selectedContactId = useAppStore((s) => s.selectedContactId);
   const setSelectedContact = useAppStore((s) => s.setSelectedContact);
   const setView = useAppStore((s) => s.setView);
+  const currentView = useAppStore((s) => s.currentView);
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
   const unreadCounts = useAppStore((s) => s.unreadCounts) as Record<string, number>;
   const compactMode = useAppStore((s) => s.compactMode);
   const { toast } = useToast();
 
   // ── Local state ──
-  const [friends, setFriends] = useState<FriendUser[]>([]);
-  const [onlineStatuses, setOnlineStatuses] = useState<Record<string, OnlineStatus>>({});
+  // Demo sessions (v14): seeded friends/group/status so the messenger
+  // shows the reference layout without an account; threads live in
+  // demoThreads below. Real sessions start empty exactly as before.
+  const [friends, setFriends] = useState<FriendUser[]>(() =>
+    isDemoSession ? DEMO_FRIENDS : []);
+  const [onlineStatuses, setOnlineStatuses] = useState<Record<string, OnlineStatus>>(() =>
+    isDemoSession ? { ...DEMO_ONLINE } : {});
+  // Demo threads — in-memory conversations (nothing persists, no API).
+  const [demoThreads, setDemoThreads] = useState<Record<string, ChatMessage[]>>(() =>
+    isDemoSession ? buildDemoThreads() : {});
   const [inputText, setInputText] = useState("");
   const [isMobileView, setIsMobileView] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
@@ -323,7 +336,8 @@ export default function MessengerView() {
   // "groups" = group chats only. Real filter over the loaded social graph —
   // no dead sections.
   const [listFilter, setListFilter] = useState<"all" | "groups">("all");
-  const [groupChats, setGroupChats] = useState<GroupChat[]>([]);
+  const [groupChats, setGroupChats] = useState<GroupChat[]>(() =>
+    isDemoSession ? [DEMO_GROUP] : []);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [groupMessages, setGroupMessages] = useState<Record<string, ChatMessage[]>>({});
   const [groupName, setGroupName] = useState("");
@@ -354,6 +368,7 @@ export default function MessengerView() {
 
   // ── Refs ──
   const scrollRef = useRef<HTMLDivElement>(null);
+  const shellRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const sseRef = useRef<EventSource | null>(null);
   const bcRef = useRef<BroadcastChannel | null>(null);
@@ -379,6 +394,45 @@ export default function MessengerView() {
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  // ── Measured shell top → --mq-msgr-top (v14 P0) ──
+  // messenger.css sizes the shell as 100dvh − measured top − player zone.
+  // The top offset is real geometry (nav + banners + paddings above the
+  // shell), re-measured on viewport resizes and body layout changes
+  // (banner mount/unmount) — no magic constants.
+  useLayoutEffect(() => {
+    const el = shellRef.current;
+    if (!el) return;
+    const measure = () => {
+      const top = Math.round(el.getBoundingClientRect().top);
+      if (top > 0) el.style.setProperty("--mq-msgr-top", `${top}px`);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(measure);
+      ro.observe(document.body);
+    }
+    return () => {
+      window.removeEventListener("resize", measure);
+      ro?.disconnect();
+    };
+  }, [compactMode]);
+
+  // ── Demo: auto-open the seeded thread so the chat panel shows bubbles ──
+  // (acceptance: 1 open thread with messages on first entry).
+  // Run-guard: fires ONCE per mount — a reactive dep-only effect would
+  // re-select the thread every time the user taps «Назад» on mobile,
+  // making the list unreachable in demo mode.
+  const demoAutoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (!isDemoSession || demoAutoOpenedRef.current) return;
+    demoAutoOpenedRef.current = true;
+    if (!selectedContactId && !selectedGroupId) {
+      setSelectedContact(DEMO_DEFAULT_CHAT_ID);
+    }
+  }, [isDemoSession, selectedContactId, selectedGroupId, setSelectedContact]);
 
   // ── v72 iOS keyboard: visualViewport compensation ──
   // Android is covered by viewport.interactiveWidget=resizes-content
@@ -769,7 +823,14 @@ export default function MessengerView() {
   );
 
   // ── Conversation messages (sorted) ──
+  // Demo sessions read from the in-memory threads (never the store/SSE).
   const conversationMessages = useMemo<ChatMessage[]>(() => {
+    if (isDemoSession) {
+      const list = isGroupChat
+        ? demoThreads[selectedGroupId || ""]
+        : demoThreads[selectedContactId || ""];
+      return Array.isArray(list) ? list : [];
+    }
     if (isGroupChat) {
       const list = groupMessages[selectedGroupId || ""];
       return Array.isArray(list) ? list : [];
@@ -783,7 +844,7 @@ export default function MessengerView() {
         try { return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(); }
         catch { return 0; }
       });
-  }, [safeMessages, groupMessages, userId, selectedContactId, selectedGroupId, isGroupChat]);
+  }, [isDemoSession, demoThreads, safeMessages, groupMessages, userId, selectedContactId, selectedGroupId, isGroupChat]);
 
   // ── In-chat message search (functional) ──
   // Filters conversationMessages by text content when inChatSearch is non-empty.
@@ -801,7 +862,11 @@ export default function MessengerView() {
   // ── Last message preview per DM contact ──
   const lastMessageByContact = useMemo<Record<string, ChatMessage>>(() => {
     const map: Record<string, ChatMessage> = {};
-    for (const m of safeMessages) {
+    // Demo: previews from the in-memory threads; real: from the store log.
+    const source: ChatMessage[] = isDemoSession
+      ? Object.values(demoThreads).flat()
+      : safeMessages;
+    for (const m of source) {
       const otherId = m.senderId === userId ? m.receiverId : m.senderId;
       if (!otherId) continue;
       const existing = map[otherId];
@@ -810,7 +875,22 @@ export default function MessengerView() {
       }
     }
     return map;
-  }, [safeMessages, userId]);
+  }, [isDemoSession, demoThreads, safeMessages, userId]);
+
+  // ── Stories row contacts (reference): friends, online first, capped to
+  // the visible track width. Empty for friendless sessions (row hidden).
+  const storyContacts = useMemo<FriendUser[]>(() => {
+    const list = [...safeFriends];
+    list.sort((a, b) => {
+      const aOn = onlineStatuses[a.id]?.online ? 0 : 1;
+      const bOn = onlineStatuses[b.id]?.online ? 0 : 1;
+      if (aOn !== bOn) return aOn - bOn;
+      const aLast = lastMessageByContact[a.id]?.createdAt;
+      const bLast = lastMessageByContact[b.id]?.createdAt;
+      return (bLast ? new Date(bLast).getTime() : 0) - (aLast ? new Date(aLast).getTime() : 0);
+    });
+    return list.slice(0, 12);
+  }, [safeFriends, onlineStatuses, lastMessageByContact]);
 
   // ── Sorted chat list (pinned first, then by last activity) ──
   const sortedChats = useMemo<Array<{
@@ -881,6 +961,18 @@ export default function MessengerView() {
   // ── Delete message (local only) ──
   const handleDeleteMessage = useCallback((msgId: string) => {
     try {
+      if (isDemoSession) {
+        setDemoThreads((prev) => {
+          const next: Record<string, ChatMessage[]> = {};
+          for (const [k, list] of Object.entries(prev)) {
+            next[k] = list.filter((m) => m.id !== msgId);
+          }
+          return next;
+        });
+        toast({ title: "Сообщение удалено" });
+        setContextMenu(null);
+        return;
+      }
       if (isGroupChat && selectedGroupId) {
         setGroupMessages((prev) => {
           const list = prev[selectedGroupId] || [];
@@ -931,6 +1023,26 @@ export default function MessengerView() {
     const raw = typeof overrideText === "string" ? overrideText : inputText;
     const text = (raw || "").trim();
     if (!text || !userId || !activeChatId || isSending) return;
+
+    // ── Demo: local-only send (memory store) ──
+    // The bubble appears instantly, nothing hits the network, nothing
+    // persists — exactly the acceptance surface for reviewing the UI.
+    if (isDemoSession) {
+      const local: ChatMessage = {
+        id: `demo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        content: text, senderId: userId,
+        receiverId: isGroupChat ? userId : activeChatId,
+        encrypted: false, createdAt: new Date().toISOString(),
+        senderName: username ? `@${username}` : undefined, messageType: "text",
+      };
+      setDemoThreads((prev) => ({
+        ...prev,
+        [activeChatId]: [...(prev[activeChatId] || []), local],
+      }));
+      setInputText("");
+      return;
+    }
+
     setIsSending(true);
     setInputText("");
     setFailedDraft(null);
@@ -992,7 +1104,7 @@ export default function MessengerView() {
     } finally {
       setIsSending(false);
     }
-  }, [inputText, userId, activeChatId, isGroupChat, isSending, addMessage, username, toast]);
+  }, [isDemoSession, inputText, userId, activeChatId, isGroupChat, isSending, addMessage, username, toast]);
 
   // ── Retry a failed send (re-runs the exact same pipeline) ──
   const retryFailedSend = useCallback(() => {
@@ -1321,8 +1433,53 @@ export default function MessengerView() {
   const hairlineBorder = { borderColor: "var(--mq-border-hairline)" as const };
 
   return (
-    <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container-wide)] mx-auto mqms-shell`}>
-      <div className="flex rounded-[var(--mq-mat-radius-lg)] overflow-hidden h-full mqms-window" style={cardStyle}>
+    <div ref={shellRef} className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container-wide)] mx-auto mqms-shell`}>
+      <div className="flex h-full min-w-0 gap-2 lg:gap-3">
+      {/* ── LEFT ICON RAIL (reference, desktop ≥lg) — vertical glass capsule
+          with the messenger's section anchors. Active section highlighted;
+          every button is a REAL action (filter / view switch), no dead icons.
+          Mobile skips the rail (the list header already has the actions). ── */}
+      <nav className="mqms-rail hidden lg:flex" aria-label="Разделы мессенджера">
+        <button
+          onClick={() => setListFilter("all")}
+          data-active={listFilter === "all"}
+          className="mqms-rail-btn"
+          aria-label="Чаты"
+          title="Чаты"
+          aria-current={listFilter === "all" ? "true" : undefined}
+        >
+          <MessageCircle className="w-[19px] h-[19px]" aria-hidden="true" />
+        </button>
+        <button
+          onClick={() => { setListFilter("groups"); if (safeGroupChats.length === 0 && !isDemoSession) setShowNewGroup(true); }}
+          data-active={listFilter === "groups"}
+          className="mqms-rail-btn"
+          aria-label="Группы"
+          title="Группы"
+          aria-current={listFilter === "groups" ? "true" : undefined}
+        >
+          <Users className="w-[19px] h-[19px]" aria-hidden="true" />
+        </button>
+        <button
+          onClick={() => setView("friends")}
+          data-active={currentView === "friends"}
+          className="mqms-rail-btn"
+          aria-label="Друзья"
+          title="Друзья"
+        >
+          <Contact className="w-[19px] h-[19px]" aria-hidden="true" />
+        </button>
+        <span className="flex-1" aria-hidden="true" />
+        <button
+          onClick={() => setView("settings")}
+          className="mqms-rail-btn"
+          aria-label="Настройки"
+          title="Настройки"
+        >
+          <Settings className="w-[19px] h-[19px]" aria-hidden="true" />
+        </button>
+      </nav>
+      <div className="flex rounded-[var(--mq-mat-radius-lg)] overflow-hidden h-full flex-1 min-w-0 mqms-window" style={cardStyle}>
         {/* ── Contacts list ── */}
         {showListPanel && (
           <div className={`${isMobileView && mobileView === "chat" ? "hidden" : "flex"} flex-col w-full lg:w-[340px] flex-shrink-0 border-r`}
@@ -1365,15 +1522,29 @@ export default function MessengerView() {
                   <Contact className="w-[18px] h-[18px]" />
                 </motion.button>
                 <motion.button whileHover={hoverProps({ scale: 1.04, transition: { duration: 0.12, ease: "easeOut" } })}
-                  onClick={() => setShowNewGroup(true)}
+                  onClick={() => {
+                    if (isDemoSession) {
+                      toast({ title: "Создание групп доступно после регистрации", duration: 2500 });
+                      return;
+                    }
+                    setShowNewGroup(true);
+                  }}
                   className="mqms-icon-btn"
                   aria-label="Новая группа" title="Новая группа">
                   <Users className="w-[18px] h-[18px]" />
                 </motion.button>
               </div>
-              {/* Compose (new chat) — the reference's square-pencil action */}
+              {/* Compose (new chat) — the reference's square-pencil action.
+                  Demo sessions can't create chats (no social graph) — the
+                  button explains instead of opening a dead dialog. */}
               <motion.button whileHover={hoverProps({ scale: 1.04, transition: { duration: 0.12, ease: "easeOut" } })}
-                onClick={() => setShowNewChat(true)}
+                onClick={() => {
+                  if (isDemoSession) {
+                    toast({ title: "Создание чатов доступно после регистрации", duration: 2500 });
+                    return;
+                  }
+                  setShowNewChat(true);
+                }}
                 className="mq-platinum-btn w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
                 aria-label="Новый чат" title="Новый чат">
                 <SquarePen className="w-[18px] h-[18px]" />
@@ -1430,6 +1601,46 @@ export default function MessengerView() {
                   className="mqms-input-pill h-11 pl-10 pr-4 text-sm outline-none" />
               </div>
             </div>
+
+            {/* Stories — horizontal round avatars (reference row).
+                Real sessions: friends, online first. Demo: the seeded cast.
+                Click = open that DM. Online contacts wear the platinum ring. */}
+            {storyContacts.length > 0 && (
+              <div className="mqms-stories border-b" style={hairlineBorder}>
+                <div className="mqms-stories-track" role="list" aria-label="Быстрый доступ к чатам">
+                  {storyContacts.map((f) => {
+                    const online = onlineStatuses[f.id]?.online;
+                    const isActive = selectedContactId === f.id && !isGroupChat;
+                    return (
+                      <button
+                        key={f.id}
+                        role="listitem"
+                        onClick={() => { setSelectedContact(f.id); setSelectedGroupId(null); }}
+                        data-online={online ? "true" : undefined}
+                        data-active={isActive ? "true" : undefined}
+                        className="mqms-story"
+                        aria-label={`Открыть чат с ${f.username}${online ? " (в сети)" : ""}`}
+                        title={f.username}
+                      >
+                        <Avatar src={f.avatar} name={f.username} id={f.id} size={48} ring={online} />
+                        <span className="mqms-story-name">{f.username}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Demo badge — honest labeling of the seeded data (nothing
+                persists; messages stay in memory for this session only). */}
+            {isDemoSession && (
+              <div className="flex items-center gap-1.5 px-4 pt-2.5" aria-label="Демо-режим">
+                <span className="mqms-demo-chip">Демо</span>
+                <span className="mq-t-meta-2" style={{ color: "var(--mq-text-muted)" }}>
+                  Диалоги не сохраняются — только для обзора интерфейса
+                </span>
+              </div>
+            )}
 
             {/* List */}
             <div className="flex-1 overflow-y-auto overscroll-contain p-2"
@@ -1979,7 +2190,13 @@ export default function MessengerView() {
                       <Smile className="w-[18px] h-[18px]" />
                     </motion.button>
                     <motion.button whileHover={hoverProps({ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } })}
-                      onClick={startRecording}
+                      onClick={() => {
+                        if (isDemoSession) {
+                          toast({ title: "Голосовые сообщения доступны после регистрации", duration: 2500 });
+                          return;
+                        }
+                        startRecording();
+                      }}
                       className="mqms-composer-btn"
                       aria-label="Записать голосовое" title="Голосовое сообщение">
                       <Mic className="w-[18px] h-[18px]" />
@@ -2023,6 +2240,7 @@ export default function MessengerView() {
             </p>
           </div>
         ) : null}
+      </div>
       </div>
 
       {/* ── Context menu ── */}

@@ -112,6 +112,30 @@ export default function PlayerBar() {
   const dockMode: PlayerDockMode = dock;
   const [dockMenu, setDockMenu] = useState<{ x: number; y: number } | null>(null);
 
+  // ── Capsule height → CSS var (P0 measured clearance) ──
+  // The bottom capsule's real rendered height (content-driven: cover row
+  // + progress rail) is published as --mq-player-capsule-h on the root so
+  // messenger.css can compute the chat clearance from MEASURED geometry
+  // instead of magic constants. Callback-ref form (not useEffect): the
+  // capsule mounts/unmounts with currentTrack — a [dock]-dep effect would
+  // miss that. ResizeObserver keeps the value live (font scale, source
+  // badges, locale can all alter the height).
+  const capsuleObserverRef = useRef<ResizeObserver | null>(null);
+  const setCapsuleRef = useCallback((el: HTMLDivElement | null) => {
+    capsuleObserverRef.current?.disconnect();
+    capsuleObserverRef.current = null;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const publish = () => {
+      const h = Math.round(el.getBoundingClientRect().height);
+      if (h > 0) document.documentElement.style.setProperty("--mq-player-capsule-h", `${h}px`);
+    };
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    capsuleObserverRef.current = ro;
+  }, []);
+  useEffect(() => () => { capsuleObserverRef.current?.disconnect(); }, []);
+
   // ── P0 FIX (progress stuck at 0:00 in the mini-player) ──
   // The store's `progress` is only a SEEK COMMAND channel — nothing ticks
   // it during playback (the Full Player rides the unified clock directly,
@@ -419,8 +443,10 @@ export default function PlayerBar() {
             hovering over the interface: detached from the viewport edge,
             frosted surface with backdrop-adaptive tint + dark veil, the
             edge-lit hairline from .mq-glass2, one soft shadow. The wrapper
-            stays pointer-transparent; only the capsule is interactive. */}
+            stays pointer-transparent; only the capsule is interactive.
+            ref → capsule height is published as --mq-player-capsule-h. */}
         <div
+          ref={setCapsuleRef}
           className="mq-player-capsule mq-glass2 mq-glass2-player pointer-events-auto"
           style={{
             width: "min(920px, 100%)",

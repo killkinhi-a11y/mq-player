@@ -3,9 +3,11 @@
  *
  * The dock mode is the user's persisted choice of desktop player
  * placement ("bottom" | "side" | "hidden"). Contract:
- *  - default is "bottom" when nothing is stored
- *  - invalid storage values fall back to "bottom" (storage is
- *    user-editable — never trust it blindly)
+ *  - default is "bottom" when nothing is stored (no route context)
+ *  - ROUTE-AWARE DEFAULT (v14): with no stored choice, chat routes
+ *    ("messenger") on desktop resolve to "side"; everything else stays
+ *    "bottom". A stored choice ALWAYS wins over the route context.
+ *  - invalid storage values fall back to the route-aware default
  *  - setPlayerDock persists to localStorage AND notifies subscribers
  *  - subscribePlayerDock emits the current value immediately (late
  *    subscribers sync), unsubscribe stops delivery
@@ -17,6 +19,8 @@ import {
   getPlayerDock,
   setPlayerDock,
   subscribePlayerDock,
+  setDockRouteContext,
+  hasUserDockChoice,
   resetPlayerDockForTest,
   PLAYER_DOCK_MODES,
 } from "@/lib/playerDock";
@@ -41,6 +45,31 @@ describe("playerDock", () => {
 
   it("exposes exactly the three dock modes", () => {
     expect([...PLAYER_DOCK_MODES]).toEqual(["bottom", "side", "hidden"]);
+  });
+
+  it("chat routes on desktop auto-default to side until the user chooses", () => {
+    setDockRouteContext("messenger", true);
+    expect(getPlayerDock()).toBe("side");
+    // Non-chat routes keep the classic bottom default
+    setDockRouteContext("library", true);
+    expect(getPlayerDock()).toBe("bottom");
+    // Mobile viewports never auto-side (PlayerBar is null there anyway)
+    setDockRouteContext("messenger", false);
+    expect(getPlayerDock()).toBe("bottom");
+  });
+
+  it("an explicit user choice wins over the route context", () => {
+    setPlayerDock("bottom");
+    setDockRouteContext("messenger", true);
+    expect(getPlayerDock()).toBe("bottom");
+    expect(hasUserDockChoice()).toBe(true);
+  });
+
+  it("hasUserDockChoice is false until a mode is picked", () => {
+    setDockRouteContext("messenger", true);
+    expect(hasUserDockChoice()).toBe(false);
+    setPlayerDock("side");
+    expect(hasUserDockChoice()).toBe(true);
   });
 
   it("setPlayerDock persists and notifies subscribers", () => {

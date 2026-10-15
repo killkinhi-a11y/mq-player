@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { ReactNode } from "react";
 import { motion, AnimatePresence, useReducedMotion, useAnimationControls, type Variants } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
@@ -38,6 +38,10 @@ interface AuthProviders {
   telegramWidget: boolean;
   telegramBot: boolean;
   telegramBotName: string | null;
+  /** Hostnames where the official Telegram widget may mount (v14).
+   *  Unbound hosts would render «Bot domain invalid» inside the
+   *  cross-origin iframe — we never mount there. */
+  telegramWidgetDomains?: string[];
   email: boolean;
   emailDelivery: boolean;
 }
@@ -587,11 +591,24 @@ export default function AuthView() {
   // site origin — inside the app webview it would point at tauri.localhost
   // and the hash verification could never complete. The bot-code flow
   // (t.me → 6-digit code) is the desktop path and stays fully available.
+  //
+  // v14: the widget mounts ONLY on hostnames the server allows
+  // (telegramWidgetDomains — BotFather-bound hosts). On any other host
+  // the iframe would show the raw red «Bot domain invalid» error which
+  // we cannot suppress cross-origin, so we never mount it there and the
+  // honest neutral fallback below carries the flow instead.
   const tgWidgetContainerRef = useRef<HTMLDivElement>(null);
+  const widgetHostAllowed = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    const allowed = providers?.telegramWidgetDomains;
+    if (!Array.isArray(allowed) || allowed.length === 0) return false;
+    return allowed.includes(window.location.hostname.toLowerCase());
+  }, [providers]);
   useEffect(() => {
     if (authStep !== "telegram") return;
     if (isDesktopApp) return;
     if (!providers?.telegramWidget || !providers.telegramBotName) return;
+    if (!widgetHostAllowed) return;
     if (typeof window === "undefined") return;
     const container = tgWidgetContainerRef.current;
     if (!container || container.childElementCount > 0) return;
@@ -610,7 +627,7 @@ export default function AuthView() {
       `${window.location.origin}/api/auth/telegram-widget/callback`
     );
     container.appendChild(script);
-  }, [authStep, providers]);
+  }, [authStep, providers, widgetHostAllowed]);
 
   // ─── Reset states when entering steps ───────────────────────────────
   useEffect(() => {
@@ -1381,18 +1398,36 @@ export default function AuthView() {
 
               {/* Continue with Telegram — official Login Widget.
                   Desktop uses the bot-code flow below (widget callback
-                  can't reach the app origin). */}
-              {providers?.telegramWidget && !isDesktopApp && (
+                  can't reach the app origin).
+                  v14: the widget mounts ONLY on BotFather-bound hosts
+                  (server allowlist). Elsewhere Telegram would render the
+                  raw «Bot domain invalid» inside the cross-origin iframe —
+                  instead we show a NEUTRAL honest note; the bot-code flow
+                  below always carries Telegram login. */}
+              {providers?.telegramWidget && !isDesktopApp && widgetHostAllowed && (
                 <Reveal index={2} firstMount={firstMount} fullMotion={fullMotion} className="mt-3 flex flex-col items-center gap-1.5 min-h-[40px]">
                   <div ref={tgWidgetContainerRef} />
-                  {/* P0: the widget is a cross-origin iframe — if the bot's
-                      domain isn't bound in BotFather, Telegram renders
-                      «Bot domain invalid» INSIDE it and we cannot suppress
-                      that. What we CAN do: always offer the working
-                      fallback next to it so the user is never blocked. */}
                   <p className="text-[11px] text-center" style={{ color: "var(--mq-text-muted)" }}>
                     Кнопка не нажимается или показывает ошибку? Войдите по коду из бота ниже
                   </p>
+                </Reveal>
+              )}
+              {providers?.telegramWidget && !isDesktopApp && !widgetHostAllowed && (
+                <Reveal index={2} firstMount={firstMount} fullMotion={fullMotion} className="mt-3">
+                  <div
+                    className="flex items-center gap-2.5 w-full min-h-[44px] rounded-xl px-4 text-[12.5px] leading-snug"
+                    style={{
+                      backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)",
+                      border: "1px solid var(--mq-border-hairline)",
+                      color: "var(--mq-text-muted)",
+                    }}
+                    role="note"
+                  >
+                    <Send className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-telegram)" }} aria-hidden="true" />
+                    <span>
+                      Вход через Telegram-кнопку доступен на привязанном домене. Здесь — по коду из бота ниже
+                    </span>
+                  </div>
                 </Reveal>
               )}
 

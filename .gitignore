@@ -106,3 +106,4 @@ scripts/qa-auth/.secret*
 
 # Local Yandex E2E file database (never publish)
 db/
+dev.db

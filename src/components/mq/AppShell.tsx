@@ -17,7 +17,7 @@ import { OfflineBanner } from "@/components/mq/OfflineBanner";
 import { WaveformController } from "@/components/mq/WaveformController";
 import { ensureFontsLoaded } from "@/lib/customFonts";
 import { useLyricsAppearanceSync } from "@/lib/lyricsAppearance";
-import { getPlayerDock, subscribePlayerDock } from "@/lib/playerDock";
+import { getPlayerDock, subscribePlayerDock, setDockRouteContext } from "@/lib/playerDock";
 import "@/styles/ipod-2001.css";
 import "@/styles/japan.css";
 import "@/styles/swag.css";
@@ -730,6 +730,18 @@ export default function AppShell() {
   // MUST run before the hydration early-return below (rules-of-hooks: the
   // hook order has to be identical on every render, hydrated or not). ──
   const playerDock = useSyncExternalStore(subscribePlayerDock, getPlayerDock);
+
+  // ── Dock route context (v14) — feeds lib/playerDock the current view +
+  // desktop viewport so the AUTO default can prefer the side capsule on
+  // chat routes. Only applies while the user has made no explicit choice;
+  // a stored choice always wins (see lib/playerDock). ──
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setDockRouteContext(currentView, mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, [currentView]);
 
   // ── Render dynamically-loaded views (rarely used) ──
   const renderDynamicView = () => {

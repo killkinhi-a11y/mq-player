@@ -21,25 +21,34 @@
    prefers-reduced-motion.
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* ── Shell height — dock-mode aware ──────────────────────────────────────
+/* ── Shell height — dock-mode aware, MEASURED (v14 P0) ───────────────────
    Mobile (<768): legacy calc — MobileDock (90) + NavBar (56).
-   ≥768: topbar/web-nav offset + wrapper padding (92px) + the player zone
-   (--mq-msgr-player-h), which the [data-player-dock] attribute zeroes in
-   side/hidden modes: the messenger window stops slipping under the
-   floating capsule (P0 overlap fix), and in side/hidden modes the chat
-   gets the full viewport height back. */
+   ≥768: height = 100dvh − --mq-msgr-top (the shell's real measured top
+   offset, published inline by MessengerView's layout effect — banners,
+   nav and paddings all included, no magic 92px) − --mq-msgr-player-h:
+   in bottom dock = real capsule height (--mq-player-capsule-h, published
+   by PlayerBar's ResizeObserver) + float margin + a 12px breathing gap;
+   side/hidden modes zero it (tall views get full height back; the side
+   capsule lives in the right gutter reserved by globals.css). */
 .mqms-shell {
   height: calc(100dvh - 90px - 56px);
 }
 @media (min-width: 768px) {
-  .mq-app-root { --mq-msgr-player-h: 0px; }
-  .mq-app-root.mq-has-player { --mq-msgr-player-h: 104px; }
+  .mq-app-root {
+    --mq-msgr-player-h:
+      calc(var(--mq-player-capsule-h, 82px) + var(--mq-player-float-m, 20px) + 12px);
+  }
+  .mq-app-root.mq-has-player {
+    --mq-msgr-player-h:
+      calc(var(--mq-player-capsule-h, 82px) + var(--mq-player-float-m, 20px) + 12px);
+  }
+  .mq-app-root:not(.mq-has-player) { --mq-msgr-player-h: 0px; }
   .mq-app-root.mq-has-player[data-player-dock="side"],
   .mq-app-root.mq-has-player[data-player-dock="hidden"] {
     --mq-msgr-player-h: 0px;
   }
   .mqms-shell {
-    height: calc(100dvh - 92px - var(--mq-msgr-player-h, 0px));
+    height: calc(100dvh - var(--mq-msgr-top, 128px) - var(--mq-msgr-player-h, 0px));
   }
 }
 
@@ -59,6 +68,124 @@
   transition:
     background-color var(--mq-mo-micro) var(--mq-ease-out),
     color var(--mq-mo-micro) var(--mq-ease-out);
+}
+
+/* ── Left icon rail (reference: floating vertical capsule, desktop ≥lg) ──
+   56px wide glass column with the messenger's section anchors; the active
+   section gets the tonal fill + 3px platinum rail on the left edge. */
+.mqms-rail {
+  flex-direction: column;
+  align-items: center;
+  width: 56px;
+  flex-shrink: 0;
+  gap: 6px;
+  padding: 10px 0;
+  border-radius: var(--mq-mat-radius-lg);
+  background-color: var(--mq-mat-2-bg);
+  background-image: linear-gradient(var(--mq-g2-tint, rgba(255, 255, 255, 0.02)), var(--mq-g2-tint, rgba(255, 255, 255, 0.02)));
+  border: 1px solid var(--mq-mat-2-edge);
+  box-shadow: var(--mq-mat-3-shadow);
+}
+.mqms-rail-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--mq-radius-full, 9999px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mq-text-muted);
+  transition:
+    background-color var(--mq-mo-micro) var(--mq-ease-out),
+    color var(--mq-mo-micro) var(--mq-ease-out),
+    transform var(--mq-mo-micro) var(--mq-ease-press, ease-out);
+}
+.mqms-rail-btn:active { transform: scale(0.94); }
+@media (hover: hover) {
+  .mqms-rail-btn:hover {
+    background: color-mix(in srgb, var(--mq-text) 6%, transparent);
+    color: var(--mq-text);
+  }
+}
+.mqms-rail-btn[data-active="true"] {
+  background: color-mix(in srgb, var(--mq-text) 9%, transparent);
+  color: var(--mq-text);
+}
+.mqms-rail-btn[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 22px;
+  border-radius: 3px;
+  background: var(--mq-platinum-hi, #d7dde8);
+}
+.mqms-rail-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--mq-text) 55%, transparent);
+  outline-offset: 2px;
+}
+
+/* ── Stories row (reference: horizontal round avatars) ─────────────────── */
+.mqms-stories {
+  padding: 12px 10px 10px;
+}
+.mqms-stories-track {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-snap-type: x proximity;
+}
+.mqms-stories-track::-webkit-scrollbar { display: none; }
+.mqms-story {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 56px;
+  scroll-snap-align: start;
+  border-radius: 14px;
+  padding: 2px 0;
+  transition: transform var(--mq-mo-micro) var(--mq-ease-press, ease-out);
+}
+.mqms-story:active { transform: scale(0.95); }
+.mqms-story[data-active="true"] .mqms-story-name {
+  color: var(--mq-text);
+  font-weight: 600;
+}
+.mqms-story-name {
+  max-width: 56px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--mq-text-muted);
+  transition: color var(--mq-mo-micro) var(--mq-ease-out);
+}
+@media (hover: hover) {
+  .mqms-story:hover .mqms-story-name { color: var(--mq-text); }
+}
+
+/* ── Demo chip (honest labeling of seeded chat data) ─────────────────── */
+.mqms-demo-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: var(--mq-radius-full, 9999px);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mq-text);
+  background: color-mix(in srgb, var(--mq-platinum-hi) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mq-platinum-hi) 30%, transparent);
 }
 .mqms-nav-row[data-active="true"] {
   background: color-mix(in srgb, var(--mq-text) 8%, transparent);
