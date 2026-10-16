@@ -1439,7 +1439,13 @@ export default function MessengerView() {
           with the messenger's section anchors. Active section highlighted;
           every button is a REAL action (filter / view switch), no dead icons.
           Mobile skips the rail (the list header already has the actions). ── */}
-      <nav className="mqms-rail hidden lg:flex" aria-label="Разделы мессенджера">
+      <nav className="mqms-rail mq-glass2 hidden lg:flex" aria-label="Разделы мессенджера"
+        style={{
+          /* INLINE blur — the Lightning pipeline strips backdrop-filter
+             from stylesheets (MenuCore / player-capsule pattern). */
+          backdropFilter: "blur(18px) saturate(142%)",
+          WebkitBackdropFilter: "blur(18px) saturate(142%)",
+        }}>
         <button
           onClick={() => setListFilter("all")}
           data-active={listFilter === "all"}
@@ -1479,7 +1485,16 @@ export default function MessengerView() {
           <Settings className="w-[19px] h-[19px]" aria-hidden="true" />
         </button>
       </nav>
-      <div className="flex rounded-[var(--mq-mat-radius-lg)] overflow-hidden h-full flex-1 min-w-0 mqms-window" style={cardStyle}>
+      {/* v15: ONE floating glass panel (reference) — mq-glass2 base (veil +
+          tint + sheen + edge-lit 1px hairline) with the dense role veil and
+          the float seat from messenger.css; blur INLINE (pipeline contract). */}
+      <div
+        className="mq-glass2 mqms-window flex rounded-[var(--mq-mat-radius-lg)] overflow-hidden h-full flex-1 min-w-0"
+        style={{
+          backdropFilter: "blur(18px) saturate(150%)",
+          WebkitBackdropFilter: "blur(18px) saturate(150%)",
+        }}
+      >
         {/* ── Contacts list ── */}
         {showListPanel && (
           <div className={`${isMobileView && mobileView === "chat" ? "hidden" : "flex"} flex-col w-full lg:w-[340px] flex-shrink-0 border-r`}
@@ -1622,7 +1637,7 @@ export default function MessengerView() {
                         aria-label={`Открыть чат с ${f.username}${online ? " (в сети)" : ""}`}
                         title={f.username}
                       >
-                        <Avatar src={f.avatar} name={f.username} id={f.id} size={48} ring={online} />
+                        <Avatar src={f.avatar} name={f.username} id={f.id} size={54} />
                         <span className="mqms-story-name">{f.username}</span>
                       </button>
                     );
@@ -1848,31 +1863,35 @@ export default function MessengerView() {
                   ))}
                 </div>
               )}
-              {/* In-chat search toggle button */}
-              <motion.button
-
-                onClick={() => {
-                  setShowInChatSearch(!showInChatSearch);
-                  if (showInChatSearch) setInChatSearch("");
-                }}
-                data-on={showInChatSearch}
-                className="mqms-icon-btn"
-                aria-label="Поиск по чату"
-                title="Поиск по сообщениям"
-              >
-                <Search className="w-[18px] h-[18px]" />
-              </motion.button>
-              {/* Profile / chat menu (DMs open the profile modal) */}
-              {!isGroupChat && selectedFriend && (
+              {/* Right actions — one group, iOS/macOS spacing: even 8px
+                  between the icons, vertically centered on the avatar's
+                  axis (flex items-center). Search first, profile last. */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {/* In-chat search toggle button */}
                 <motion.button
-                  onClick={() => setShowProfile(selectedFriend.id)}
+                  onClick={() => {
+                    setShowInChatSearch(!showInChatSearch);
+                    if (showInChatSearch) setInChatSearch("");
+                  }}
+                  data-on={showInChatSearch}
                   className="mqms-icon-btn"
-                  aria-label="Профиль собеседника"
-                  title="Профиль"
+                  aria-label="Поиск по чату"
+                  title="Поиск по сообщениям"
                 >
-                  <User className="w-[18px] h-[18px]" />
+                  <Search className="w-[18px] h-[18px]" />
                 </motion.button>
-              )}
+                {/* Profile / chat menu (DMs open the profile modal) */}
+                {!isGroupChat && selectedFriend && (
+                  <motion.button
+                    onClick={() => setShowProfile(selectedFriend.id)}
+                    className="mqms-icon-btn"
+                    aria-label="Профиль собеседника"
+                    title="Профиль"
+                  >
+                    <User className="w-[18px] h-[18px]" />
+                  </motion.button>
+                )}
+              </div>
             </div>
 
             {/* In-chat search input (collapsible) */}

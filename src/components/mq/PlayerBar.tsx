@@ -111,6 +111,7 @@ export default function PlayerBar() {
   const dock = useSyncExternalStore(subscribePlayerDock, getPlayerDock);
   const dockMode: PlayerDockMode = dock;
   const [dockMenu, setDockMenu] = useState<{ x: number; y: number } | null>(null);
+  const [sideDockMenu, setSideDockMenu] = useState<{ x: number; y: number } | null>(null);
 
   // ── Capsule height → CSS var (P0 measured clearance) ──
   // The bottom capsule's real rendered height (content-driven: cover row
@@ -355,6 +356,7 @@ export default function PlayerBar() {
   if (dock === "side") {
     const pct = duration > 0 ? Math.min(100, Math.max(0, (progress / duration) * 100)) : 0;
     return (
+      <>
       <motion.div
         key="mq-player-side"
         initial={{ opacity: 0, x: 90 }}
@@ -413,17 +415,80 @@ export default function PlayerBar() {
           </button>
 
           <button
-            onClick={() => setPlayerDock("bottom")}
-            className="mq-player-side-return"
-            title="Вернуть плеер вниз"
-            aria-label="Вернуть плеер вниз"
+            onClick={(e) => {
+              if (sideDockMenu) {
+                setSideDockMenu(null);
+              } else {
+                /* Anchor to the capsule's LEFT edge (align="end" renders
+                   the menu's right edge at anchor.x) — it opens beside the
+                   capsule, over the tall view's reserved gutter, never
+                   under the capsule itself. */
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                setSideDockMenu({ x: Math.max(8, rect.left - 8), y: rect.top });
+              }
+            }}
+            className="mq-player-side-next"
+            data-active={!!sideDockMenu}
+            title="Расположение плеера"
+            aria-label="Расположение плеера"
+            aria-haspopup="menu"
+            aria-expanded={!!sideDockMenu}
           >
-            <PanelBottom className="w-3.5 h-3.5" />
+            <PanelRight
+              className="w-4 h-4"
+              style={{ color: sideDockMenu ? "var(--mq-platinum-hi)" : "var(--mq-text)" }}
+            />
           </button>
         </div>
       </motion.div>
-    );
-  }
+      {/* Dock placement menu FROM the side capsule — same three modes as
+          the bottom capsule's menu (single source of truth: lib/playerDock),
+          so the user can switch bottom/side/hidden without first returning
+          the player to the bottom. Portal surface (z 10001) sits above the
+          capsule (z 55) — every item is clickable on the first open. */}
+      {sideDockMenu && (
+        <MenuCore
+          anchor={sideDockMenu}
+          onClose={() => setSideDockMenu(null)}
+          side="above"
+          align="end"
+          width={210}
+          ariaLabel="Расположение плеера"
+          elements={[
+            { type: "label", text: "Расположение плеера" },
+            {
+              type: "item",
+              id: "side-dock-bottom",
+              icon: PanelBottom,
+              label: "Панель снизу",
+              active: dockMode === "bottom",
+              hint: dockMode === "bottom" ? "ВКЛ" : undefined,
+              onSelect: () => { setSideDockMenu(null); setPlayerDock("bottom"); },
+            },
+            {
+              type: "item",
+              id: "side-dock-side",
+              icon: PanelRight,
+              label: "Компактно сбоку",
+              active: dockMode === "side",
+              hint: dockMode === "side" ? "ВКЛ" : undefined,
+              onSelect: () => setSideDockMenu(null),
+            },
+            {
+              type: "item",
+              id: "side-dock-hidden",
+              icon: EyeOff,
+              label: "Скрыть плеер",
+              active: dockMode === "hidden",
+              hint: dockMode === "hidden" ? "ВКЛ" : undefined,
+              onSelect: () => { setSideDockMenu(null); setPlayerDock("hidden"); },
+            },
+          ]}
+        />
+      )}
+    </>
+  );
+}
 
   return (
     <>

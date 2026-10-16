@@ -52,6 +52,22 @@
   }
 }
 
+/* ── Glass window (v15: reference float) ──────────────────────────────────
+   The messenger window is ONE floating glass panel: mq-glass2 base
+   (veil + tint + sheen + edge-lit 1px hairline ::before) with the DENSEST
+   role veil (text-heavy surface, readability first), a lighter outer
+   seat than the player capsule, and blur set INLINE on the element
+   (pipeline contract). Background layers ride the RENDER CONTRACT:
+   veil = background-color; tint + sheen = flat gradient images. */
+.mq-glass2.mqms-window {
+  background-color: var(--mq-glass-veil-menu);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--mq-text) 7%, transparent),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.24),
+    0 16px 48px rgba(0, 0, 0, 0.46),
+    0 3px 12px rgba(0, 0, 0, 0.26);
+}
+
 /* ── Section nav rows (reference sidebar anatomy) ────────────────────── */
 .mqms-nav-row {
   display: flex;
@@ -71,8 +87,12 @@
 }
 
 /* ── Left icon rail (reference: floating vertical capsule, desktop ≥lg) ──
-   56px wide glass column with the messenger's section anchors; the active
-   section gets the tonal fill + 3px platinum rail on the left edge. */
+   v15: a SEPARATE floater — deliberately lighter veil than the window so
+   the two read as distinct objects hovering side by side (reference gap
+   8–12px, kept by the shell flex gap-3), each with its own glass seat.
+   Surface: mq-glass2 base (veil + tint + sheen + edge-lit hairline
+   ::before); blur is set INLINE on the element (pipeline contract —
+   backdrop-filter must not live in stylesheets). */
 .mqms-rail {
   flex-direction: column;
   align-items: center;
@@ -81,10 +101,16 @@
   gap: 6px;
   padding: 10px 0;
   border-radius: var(--mq-mat-radius-lg);
-  background-color: var(--mq-mat-2-bg);
-  background-image: linear-gradient(var(--mq-g2-tint, rgba(255, 255, 255, 0.02)), var(--mq-g2-tint, rgba(255, 255, 255, 0.02)));
-  border: 1px solid var(--mq-mat-2-edge);
-  box-shadow: var(--mq-mat-3-shadow);
+}
+.mq-glass2.mqms-rail {
+  /* STATIC role veil — never --mq-g2-veil: the WAVE ambient engine owns
+     that token and animates it live (it can drop to ~0.01); the rail
+     borrows the player capsule's static float veil instead. */
+  background-color: var(--mq-glass-veil-player);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--mq-text) 6%, transparent),
+    0 10px 32px rgba(0, 0, 0, 0.34),
+    0 2px 8px rgba(0, 0, 0, 0.2);
 }
 .mqms-rail-btn {
   position: relative;
@@ -98,6 +124,7 @@
   transition:
     background-color var(--mq-mo-micro) var(--mq-ease-out),
     color var(--mq-mo-micro) var(--mq-ease-out),
+    box-shadow var(--mq-mo-micro) var(--mq-ease-out),
     transform var(--mq-mo-micro) var(--mq-ease-press, ease-out);
 }
 .mqms-rail-btn:active { transform: scale(0.94); }
@@ -107,20 +134,17 @@
     color: var(--mq-text);
   }
 }
+/* ACTIVE — the clear pill (reference: solid pill on the active anchor;
+   MQ speaks it in cold platinum, never the reference's blue). Bright
+   platinum-hi fill + dark glyph: reads instantly on the dark glass. */
 .mqms-rail-btn[data-active="true"] {
-  background: color-mix(in srgb, var(--mq-text) 9%, transparent);
-  color: var(--mq-text);
-}
-.mqms-rail-btn[data-active="true"]::before {
-  content: "";
-  position: absolute;
-  left: -10px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 22px;
-  border-radius: 3px;
-  background: var(--mq-platinum-hi, #d7dde8);
+  background-color: var(--mq-platinum-hi);
+  background-image: linear-gradient(168deg, rgba(255, 255, 255, 0.32), transparent 58%);
+  color: #10131c;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 2px 10px rgba(0, 0, 0, 0.38),
+    0 0 0 1px color-mix(in srgb, var(--mq-platinum-hi) 36%, transparent);
 }
 .mqms-rail-btn:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--mq-text) 55%, transparent);
@@ -133,7 +157,11 @@
 }
 .mqms-stories-track {
   display: flex;
-  gap: 14px;
+  gap: 12px;
+  /* side padding lets the online ring's outer 4px breathe instead of
+     being clipped by the horizontal scroll box (overflow-x computes
+     overflow-y to auto — shadows outside the padding box get cut) */
+  padding: 0 4px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
@@ -146,8 +174,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
-  width: 56px;
+  gap: 6px;
+  width: 64px;
   scroll-snap-align: start;
   border-radius: 14px;
   padding: 2px 0;
@@ -158,8 +186,17 @@
   color: var(--mq-text);
   font-weight: 600;
 }
+/* ONLINE RING (reference: a visible ring on live contacts) — platinum
+   cold-light ring with a dark cut gap; drawn on the avatar itself so it
+   follows the 54px circle (Avatar renders no inline ring for stories —
+   CSS owns it here). */
+.mqms-story[data-online="true"] > :first-child {
+  box-shadow:
+    0 0 0 2px rgba(7, 10, 17, 0.92),
+    0 0 0 4px var(--mq-platinum-hi);
+}
 .mqms-story-name {
-  max-width: 56px;
+  max-width: 62px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -661,6 +698,7 @@
   .mqms-inline-x,
   .mqms-ctx-item,
   .mqms-nav-row,
+  .mqms-rail-btn,
   .mqms-composer-btn,
   .mqms-composer-send {
     transition: none;
