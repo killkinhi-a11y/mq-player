@@ -11,10 +11,10 @@ import { useAppStore } from "@/store/useAppStore";
 import { canPollProtected, controlled401Recovery, isDemoUser } from "@/lib/authGate";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  MessageCircle, Search, Send, ArrowLeft, X, Plus, Loader2, UserPlus, Mic,
+  MessageCircle, Search, Send, ArrowLeft, X, Loader2, UserPlus, Mic,
   Pin, Trash2, Smile, Users, Lock, Check, CheckCheck, Copy, Reply, User, Contact,
   Play, Pause, Music2, Image as ImageIcon, AlertCircle, Clock,
-  ChevronDown, SquarePen, MessagesSquare, ChevronRight, Settings,
+  ChevronDown, SquarePen,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { simulateDecryptSync, simulateEncrypt } from "@/lib/crypto";
@@ -1475,15 +1475,9 @@ export default function MessengerView() {
         >
           <Contact className="w-[19px] h-[19px]" aria-hidden="true" />
         </button>
-        <span className="flex-1" aria-hidden="true" />
-        <button
-          onClick={() => setView("settings")}
-          className="mqms-rail-btn"
-          aria-label="Настройки"
-          title="Настройки"
-        >
-          <Settings className="w-[19px] h-[19px]" aria-hidden="true" />
-        </button>
+        {/* v16 DEDUP: the rail's «Настройки» button is GONE — the NavBar
+            gear (global, always visible) is the single owner of
+            setView("settings"). One function = one control. */}
       </nav>
       {/* v15: ONE floating glass panel (reference) — mq-glass2 base (veil +
           tint + sheen + edge-lit 1px hairline) with the dense role veil and
@@ -1566,43 +1560,11 @@ export default function MessengerView() {
               </motion.button>
             </div>
 
-            {/* Section nav (reference: Chats / groups / friends rows) —
-                desktop only; real actions: filters + FriendsView. */}
-            <nav className="hidden lg:flex flex-col px-2 py-2 gap-0.5 border-b" style={hairlineBorder} aria-label="Разделы чатов">
-              <button
-                onClick={() => setListFilter("all")}
-                data-active={listFilter === "all"}
-                className="mqms-nav-row"
-                aria-current={listFilter === "all" ? "true" : undefined}
-              >
-                <MessagesSquare className="w-[18px] h-[18px]" aria-hidden="true" />
-                <span className="flex-1 text-left">Чаты</span>
-                {safeFriends.length + safeGroupChats.length > 0 && (
-                  <span className="mqms-nav-count tabular-nums">
-                    {safeFriends.length + safeGroupChats.length}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => { setListFilter("groups"); if (safeGroupChats.length === 0) setShowNewGroup(true); }}
-                data-active={listFilter === "groups"}
-                className="mqms-nav-row"
-                aria-current={listFilter === "groups" ? "true" : undefined}
-              >
-                <Users className="w-[18px] h-[18px]" aria-hidden="true" />
-                <span className="flex-1 text-left">Группы</span>
-                <span className="mqms-nav-count tabular-nums">{safeGroupChats.length}</span>
-                <Plus className="w-3.5 h-3.5 mqms-nav-add" aria-hidden="true" />
-              </button>
-              <button
-                onClick={() => setView("friends")}
-                className="mqms-nav-row"
-              >
-                <Contact className="w-[18px] h-[18px]" aria-hidden="true" />
-                <span className="flex-1 text-left">Друзья</span>
-                <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" style={{ color: "var(--mq-text-muted)" }} />
-              </button>
-            </nav>
+            {/* v16 DEDUP: the section nav rows (Чаты / Группы / Друзья)
+                are GONE — the icon rail above is the single section
+                switcher on desktop (same handlers, one control per
+                function). Mobile keeps the inline actions in the profile
+                row above. */}
 
             {/* Search */}
             <div className="px-3.5 pt-3 pb-2.5 border-b" style={hairlineBorder}>
@@ -1809,24 +1771,41 @@ export default function MessengerView() {
                   <ArrowLeft className="w-5 h-5" />
                 </motion.button>
               )}
-              <div
-                className="relative flex-shrink-0 cursor-pointer"
-                onClick={() => {
-                  if (!isGroupChat && selectedFriend) {
-                    setShowProfile(selectedFriend.id);
-                  }
-                }}
-              >
-                {isGroupChat ? (
+              {/* v16 DEDUP: the header User icon is GONE — the avatar
+                  itself is the single profile control now (real <button>,
+                  keyboard-operable, same title as before). One function =
+                  one control. */}
+              {(() => {
+                const openProfile = !isGroupChat && selectedFriend
+                  ? () => setShowProfile(selectedFriend.id)
+                  : null;
+                const avatarEl = isGroupChat ? (
                   <Avatar name={selectedGroup?.name || "Group"} id={selectedGroupId || ""} size={56} isGroup ring />
                 ) : (
                   <Avatar src={selectedFriend?.avatar} name={selectedFriend?.username || "User"}
                     id={selectedFriend?.id || ""} size={56} ring />
-                )}
-                {!isGroupChat && selectedFriend && onlineStatuses[selectedFriend.id]?.online && (
-                  <span className="mqms-online" aria-hidden="true" />
-                )}
-              </div>
+                );
+                const onlineDot = !isGroupChat && selectedFriend && onlineStatuses[selectedFriend.id]?.online
+                  ? <span className="mqms-online" aria-hidden="true" />
+                  : null;
+                return openProfile ? (
+                  <button
+                    type="button"
+                    onClick={openProfile}
+                    className="relative flex-shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-[color-mix(in_srgb,var(--mq-text)_55%,transparent)] focus-visible:outline-offset-2"
+                    aria-label="Профиль собеседника"
+                    title="Профиль"
+                  >
+                    {avatarEl}
+                    {onlineDot}
+                  </button>
+                ) : (
+                  <div className="relative flex-shrink-0" aria-hidden="true">
+                    {avatarEl}
+                    {onlineDot}
+                  </div>
+                );
+              })()}
               <div className="flex-1 min-w-0">
                 <p className="text-lg font-semibold truncate" style={{ color: "var(--mq-text)", lineHeight: 1.25 }}>
                   {isGroupChat ? selectedGroup?.name : selectedFriend?.username}
@@ -1865,7 +1844,8 @@ export default function MessengerView() {
               )}
               {/* Right actions — one group, iOS/macOS spacing: even 8px
                   between the icons, vertically centered on the avatar's
-                  axis (flex items-center). Search first, profile last. */}
+                  axis (flex items-center). v16: search only — profile is
+                  the avatar button on the left (dedup). */}
               <div className="flex items-center gap-2 flex-shrink-0">
                 {/* In-chat search toggle button */}
                 <motion.button
@@ -1880,17 +1860,6 @@ export default function MessengerView() {
                 >
                   <Search className="w-[18px] h-[18px]" />
                 </motion.button>
-                {/* Profile / chat menu (DMs open the profile modal) */}
-                {!isGroupChat && selectedFriend && (
-                  <motion.button
-                    onClick={() => setShowProfile(selectedFriend.id)}
-                    className="mqms-icon-btn"
-                    aria-label="Профиль собеседника"
-                    title="Профиль"
-                  >
-                    <User className="w-[18px] h-[18px]" />
-                  </motion.button>
-                )}
               </div>
             </div>
 

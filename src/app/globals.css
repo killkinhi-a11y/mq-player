@@ -5493,25 +5493,8 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
 @media (hover: hover) {
   .mq-player-side-next:hover { background-color: var(--mq-overlay-hover, rgba(255, 255, 255, 0.06)); }
 }
-.mq-player-side-return {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--mq-radius-full, 9999px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  cursor: pointer;
-  color: var(--mq-text-muted);
-  transition: background-color var(--mq-mo-micro, 120ms) var(--mq-ease-out, ease-out),
-    color var(--mq-mo-micro, 120ms) var(--mq-ease-out, ease-out);
-}
-@media (hover: hover) {
-  .mq-player-side-return:hover {
-    background-color: color-mix(in srgb, var(--mq-text) 8%, transparent);
-    color: var(--mq-text);
-  }
-}
+/* (v16: .mq-player-side-return removed with the side capsule's old
+   «Вернуть вниз» button — the PanelRight dock menu owns that action.) */
 /* Clock rail — hairline progress on the capsule's left edge */
 .mq-player-side-rail {
   position: absolute;
@@ -5532,19 +5515,52 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
   background: var(--mq-platinum-hi, #d7dade);
 }
 
-/* ── Restore chip (hidden dock) — the only player chrome left ── */
+/* ── Restore chip (hidden dock) — the only player chrome left ──
+   v16 SEAT PATTERN: the fixed positioning lives on the wrapper
+   (.mq-player-restore-seat, inline styles in PlayerBar) because
+   .mq-glass2 needs position:relative for its ::before/::after layers —
+   a `fixed` utility on the glass element itself loses in source order
+   (the v15 bug: the chip rendered in document flow, invisible).
+   The chip = ONE glass pill: 38px cover + play glyph, 48px tall. */
 .mq-player-restore {
-  position: relative;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--mq-radius-full, 9999px);
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+  height: 48px;
+  padding: 5px 10px 5px 5px;
+  border-radius: var(--mq-radius-full, 9999px);
   cursor: pointer;
+  color: var(--mq-text);
   transition: transform var(--mq-mo-micro, 120ms) var(--mq-ease-press, ease-out);
 }
 .mq-player-restore:active { transform: scale(0.94); }
+@media (hover: hover) {
+  .mq-player-restore:hover { filter: brightness(1.08); }
+}
+.mq-player-restore:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--mq-text) 55%, transparent);
+  outline-offset: 2px;
+}
+/* Cover — 38px thumbnail with the track's artwork. */
+.mq-player-restore-cover {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--mq-r-art, 10px);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+/* Playing scrim + mini EQ over the chip cover (same language as the
+   capsule/side covers). */
+.mq-player-restore-eq {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 3px;
+  background: var(--mq-overlay-scrim, rgba(0, 0, 0, 0.6));
+}
 .mq-player-restore-dot {
   position: absolute;
   top: 7px;
@@ -5553,6 +5569,21 @@ html.mq-reduce-motion .mq-app-root { transition-duration: 250ms; }
   height: 6px;
   border-radius: var(--mq-radius-full, 9999px);
   background: var(--mq-platinum-hi, #d7dade);
+}
+
+/* Chip lift on messenger routes — the composer owns the bottom-right
+   corner there (measured: at 1024 the chip covered the send button
+   65×19px; at 1366 it grazes it). +132px floats the chip beside the
+   composer instead of on top of it. Wide viewports (≥1440) have enough
+   empty gutter past the 1200px messenger column — the chip stays in
+   the corner (Apple: things that vanish into a corner reappear there). */
+.mq-player-restore-lift {
+  bottom: calc(var(--mq-player-float-m, 20px) + 132px) !important;
+}
+@media (min-width: 1440px) {
+  .mq-player-restore-lift {
+    bottom: var(--mq-player-float-m, 20px) !important;
+  }
 }
 
 /* ── Liquid title (Full Player, task §10) ── */

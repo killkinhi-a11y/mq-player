@@ -29,6 +29,10 @@
 export type PlayerDockMode = "bottom" | "side" | "hidden";
 
 const STORAGE_KEY = "mq-player-dock";
+/** Last VISIBLE dock mode ("bottom"/"side" — never "hidden"). The restore
+ *  chip returns here, so hiding is always reversible to where the user
+ *  actually was, not a hardcoded "bottom". */
+const LAST_DOCK_KEY = "mq-player-last-dock";
 export const PLAYER_DOCK_MODES: readonly PlayerDockMode[] = ["bottom", "side", "hidden"] as const;
 
 /** Views where the auto-default prefers the side capsule on desktop. */
@@ -42,6 +46,25 @@ const listeners = new Set<Listener>();
 // ── Route context (set by AppShell; only affects users with no choice) ─────
 let routeView = "";
 let routeDesktop = false;
+
+// ── Route context subscription (v16) ──────────────────────────────────────
+// The restore chip (and any dock-aware chrome) needs the CURRENT route even
+// when the user has an explicit dock choice — the mode listeners above are
+// NOT notified in that case (a stored choice wins, by design). Route
+// listeners are a separate channel: always notified, always current.
+const routeListeners = new Set<(view: string) => void>();
+
+export function getPlayerRouteView(): string {
+  return routeView;
+}
+
+export function subscribePlayerRouteView(listener: (view: string) => void): () => void {
+  routeListeners.add(listener);
+  listener(routeView);
+  return () => {
+    routeListeners.delete(listener);
+  };
+}
 
 function readStorage(): PlayerDockMode | null {
   if (typeof window === "undefined") return null;
@@ -82,6 +105,17 @@ export function hasUserDockChoice(): boolean {
   return readChoice() !== null;
 }
 
+function readLastDock(): PlayerDockMode | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(LAST_DOCK_KEY);
+    if (raw === "bottom" || raw === "side") return raw;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function setPlayerDock(mode: PlayerDockMode): void {
   const next: PlayerDockMode =
     mode === "bottom" || mode === "side" || mode === "hidden" ? mode : "bottom";
@@ -89,11 +123,26 @@ export function setPlayerDock(mode: PlayerDockMode): void {
   cachedChoice = next;
   try {
     window.localStorage.setItem(STORAGE_KEY, next);
+    // Remember the last VISIBLE mode — the restore chip's return target.
+    if (next === "bottom" || next === "side") {
+      window.localStorage.setItem(LAST_DOCK_KEY, next);
+    }
   } catch {
     // Storage may be unavailable — the in-memory value still applies.
   }
   if (next === prev) return;
   listeners.forEach((l) => l(next));
+}
+
+/**
+ * Restore from the hidden dock — the chip's single action. Returns the
+ * player to the last VISIBLE mode ("side" if the user hid the side capsule,
+ * "bottom" if the capsule); with no history (first-ever hide came from the
+ * auto route default) falls back to the route-aware default (side on chat
+ * routes at desktop, bottom everywhere else).
+ */
+export function restorePlayerDock(): void {
+  setPlayerDock(readLastDock() ?? autoDock());
 }
 
 /**
@@ -104,6 +153,10 @@ export function setPlayerDock(mode: PlayerDockMode): void {
 export function setDockRouteContext(view: string, desktop: boolean): void {
   routeView = view;
   routeDesktop = desktop;
+  // Route listeners always sync (separate channel from the mode listeners:
+  // a stored dock choice wins for the MODE, but the restore chip still
+  // needs to know which route it is hovering over).
+  routeListeners.forEach((l) => l(view));
   if (hasUserDockChoice()) return;
   // Re-notify with the recomputed effective mode (no-op when unchanged
   // from each listener's perspective — subscribers re-read getPlayerDock).
@@ -124,9 +177,11 @@ export function subscribePlayerDock(listener: Listener): () => void {
 export function resetPlayerDockForTest(): void {
   cachedChoice = undefined;
   listeners.clear();
+  routeListeners.clear();
   routeView = "";
   routeDesktop = false;
   try {
     window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(LAST_DOCK_KEY);
   } catch {}
 }

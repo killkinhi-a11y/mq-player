@@ -7,12 +7,11 @@ import {
   Play, Pause, SkipBack, SkipForward,
   Repeat, Repeat1, Shuffle, Music, Heart, ListMusic, User,
   Loader2, ThumbsDown, Volume2, VolumeX, Volume1, Sliders, Waves,
-  Share2, MoreHorizontal, PanelBottom, PanelRight, EyeOff, Headphones,
+  Share2, MoreHorizontal, PanelBottom, PanelRight, EyeOff,
 } from "lucide-react";
 import { getAudioElement } from "@/lib/audioEngine";
 import { seekPlayback } from "@/lib/wasm-audio";
 import { formatDuration } from "@/lib/musicApi";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
 import { usePlaybackProgress } from "@/hooks/usePlaybackProgress";
 import { hapticLike, hapticDislike, hapticSkip, hapticPlay } from "@/lib/haptics";
@@ -28,7 +27,10 @@ import CoverImage from "./CoverImage";
 import {
   getPlayerDock,
   setPlayerDock,
+  restorePlayerDock,
   subscribePlayerDock,
+  subscribePlayerRouteView,
+  getPlayerRouteView,
   type PlayerDockMode,
 } from "@/lib/playerDock";
 
@@ -98,7 +100,27 @@ export default function PlayerBar() {
     };
   }, []);
 
-  const isMobile = useIsMobile();
+  // ── Viewport gate (v16 fix: double bottom bar 768–1023) ──
+  // PlayerBar used to disappear at <768 (useIsMobile) while MobileDock is
+  // hidden below lg (1024) — on 768–1023 BOTH bars rendered, the capsule
+  // (z-55) pinned UNDER MobileDock (z-60). The gate now matches the dock:
+  // PlayerBar exists only at ≥1024. matchMedia listener keeps it live on
+  // resize; the initial value reads innerWidth directly (jsdom/test envs
+  // where matchMedia never fires still resolve correctly).
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window === "undefined" ? true : window.innerWidth >= 1024,
+  );
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mql = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => setIsDesktop(mql.matches);
+    // NO initial call here: the initial value already comes from innerWidth
+    // above. jsdom/test matchMedia stubs always report matches:false — an
+    // initial sync would clobber a true innerWidth-derived state in tests.
+    // Real browsers fire "change" only on actual viewport crossings.
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
   const [isDragging, setIsDragging] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
 
@@ -110,6 +132,9 @@ export default function PlayerBar() {
   // comparisons against every mode.
   const dock = useSyncExternalStore(subscribePlayerDock, getPlayerDock);
   const dockMode: PlayerDockMode = dock;
+  // Route context (v16) — the restore chip lifts above the messenger
+  // composer so it never covers the send button on narrow desktops.
+  const routeView = useSyncExternalStore(subscribePlayerRouteView, getPlayerRouteView);
   const [dockMenu, setDockMenu] = useState<{ x: number; y: number } | null>(null);
   const [sideDockMenu, setSideDockMenu] = useState<{ x: number; y: number } | null>(null);
 
@@ -292,7 +317,9 @@ export default function PlayerBar() {
   const isDisliked = currentTrack ? dislikedTrackIds.includes(currentTrack.id) : false;
   const isLoading = playbackState === "loading" || playbackState === "buffering";
   const VolIcon = volume === 0 ? VolumeX : volume < 50 ? Volume1 : Volume2;
-  const anyAdvancedActive = eqEnabled || isDisliked;
+  // v16: EQ has its OWN direct button with its own active state — the ⋯
+  // accent dot now only reports ⋯-owned state (dislike).
+  const anyAdvancedActive = isDisliked;
 
   // ── Next track preview (Up Next) ──
   // Show preview when there is a next track in queue OR an upNext entry.
@@ -318,34 +345,66 @@ export default function PlayerBar() {
   }, [currentTrack, wave, radioMode]);
 
   if (!currentTrack || miniPlayerHidden || isFullTrackViewOpen) return null;
-  if (isMobile) return null;
+  if (!isDesktop) return null;
 
-  // ── HIDDEN dock: no player chrome — only the restore chip (44px round,
-  // glass). One click returns to the full bottom capsule. Chip respects
-  // the global miniPlayerHidden setting (checked above) and the Full
-  // Player overlay (also above), so it never double-docks. ──
+  // ── HIDDEN dock: no player chrome — only the restore chip. SEAT PATTERN
+  // (v16 fix): the chip itself is .mq-glass2, and .mq-glass2 needs
+  // position:relative for its ::before/::after layers — a `fixed` utility
+  // on the SAME element loses to it in source order, so the old chip
+  // rendered in document flow (invisible). The fixed positioning lives on
+  // this wrapper; the glass pill inside stays relative (side-capsule
+  // pattern). Content: cover + play glyph — one button, ONE action:
+  // restorePlayerDock() returns to the last VISIBLE mode (bottom/side).
+  // On messenger routes the seat lifts (+132px, globals.css) so the chip
+  // floats beside the composer instead of covering its send button. ──
   if (dock === "hidden") {
     return (
-      <motion.button
-        key="mq-player-restore"
-        initial={{ opacity: 0, y: 16, scale: 0.9 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 16, scale: 0.9 }}
+      <motion.div
+        key="mq-player-restore-seat"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 16 }}
         transition={{ type: "spring", stiffness: 380, damping: 28 }}
-        onClick={() => setPlayerDock("bottom")}
-        className="mq-player-restore mq-glass2 fixed z-[55] pointer-events-auto"
+        className={`mq-player-restore-seat fixed z-[55] pointer-events-auto${routeView === "messenger" ? " mq-player-restore-lift" : ""}`}
         style={{
           right: "var(--mq-shell-gap)",
           bottom: "var(--mq-player-float-m)",
-          backdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
-          WebkitBackdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
         }}
-        title="Показать плеер"
-        aria-label="Показать плеер"
       >
-        <Headphones className="w-4 h-4" style={{ color: "var(--mq-text)" }} />
-        <span className="mq-player-restore-dot" aria-hidden="true" />
-      </motion.button>
+        <button
+          type="button"
+          onClick={restorePlayerDock}
+          className="mq-player-restore mq-glass2 mq-glass2-player relative"
+          style={{
+            backdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
+            WebkitBackdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
+          }}
+          title="Показать плеер"
+          aria-label="Показать плеер"
+        >
+          <span className="mq-player-restore-cover" aria-hidden="true">
+            <CoverImage
+              src={currentTrack.cover}
+              title={currentTrack.title}
+              eager
+              className="w-full h-full object-cover"
+            />
+            {(isPlaying || isLoading) && (
+              <span className="mq-player-restore-eq" aria-hidden="true">
+                <NowPlayingEqualizer size="xs" variant="overlay" paused={!isPlaying || isLoading} />
+              </span>
+            )}
+          </span>
+          {isLoading ? (
+            <Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--mq-text)" }} />
+          ) : isPlaying ? (
+            <Pause className="w-5 h-5" fill="currentColor" style={{ color: "var(--mq-text)" }} />
+          ) : (
+            <Play className="w-5 h-5 ml-0.5" fill="currentColor" style={{ color: "var(--mq-text)" }} />
+          )}
+          <span className="mq-player-restore-dot" aria-hidden="true" />
+        </button>
+      </motion.div>
     );
   }
 
@@ -478,7 +537,7 @@ export default function PlayerBar() {
               type: "item",
               id: "side-dock-hidden",
               icon: EyeOff,
-              label: "Скрыть плеер",
+              label: "Скрыть (чип в углу)",
               active: dockMode === "hidden",
               hint: dockMode === "hidden" ? "ВКЛ" : undefined,
               onSelect: () => { setSideDockMenu(null); setPlayerDock("hidden"); },
@@ -514,7 +573,11 @@ export default function PlayerBar() {
           ref={setCapsuleRef}
           className="mq-player-capsule mq-glass2 mq-glass2-player pointer-events-auto"
           style={{
-            width: "min(920px, 100%)",
+            /* v16: 920 → 1000px — the right cluster is content-sized now,
+               the old fixed-⅓ columns starved it (repeat ∩ like overlap).
+               1000 keeps the capsule proportionate on 1280–1920 while the
+               flex columns absorb narrow viewports. */
+            width: "min(1000px, 100%)",
             /* INLINE blur — the Lightning pipeline strips backdrop-filter
                from stylesheets (MenuCore pattern). */
             backdropFilter: "blur(var(--mq-g2-blur)) saturate(142%)",
@@ -522,12 +585,11 @@ export default function PlayerBar() {
           }}
         >
           <div className="relative flex items-center gap-4 px-5 py-2.5">
-            {/* ═══ LEFT: Cover + info (NOW PLAYING) ═══ */}
+            {/* ═══ LEFT: Cover + info (NOW PLAYING) — capped, shrinkable ═══ */}
             <button
               onClick={openFullPlayer}
               aria-label="Открыть полный плеер"
-              className="flex items-center gap-3 min-w-0 cursor-pointer text-left"
-              style={{ width: "calc(100% / 3 - 16px)" }}
+              className="flex items-center gap-3 min-w-0 cursor-pointer text-left w-[240px] shrink lg:w-[260px] xl:w-[280px]"
             >
               <div
                 className="w-11 h-11 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 relative mq-art"
@@ -588,16 +650,18 @@ export default function PlayerBar() {
               </div>
             </button>
 
-            {/* ═══ CENTER: Controls + progress (PRIMARY PLAYBACK) ═══ */}
-            <div className="flex flex-col items-center gap-1 flex-1 max-w-md">
+            {/* ═══ CENTER: Controls + progress (PRIMARY PLAYBACK) — flex-1,
+                takes whatever the two content-sized sides leave ═══ */}
+            <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
               {/* Control buttons — one clear hierarchy:
-                  shuffle/repeat quiet (32px), prev/next (36px), play (44px accent) */}
+                  shuffle/repeat quiet (36px), prev/next (36px), play (40px
+                  accent). v16: every transport button ≥36px hit-area. */}
               <div className="flex items-center gap-2 relative">
-                <button onClick={toggleShuffle} className="w-8 h-8 rounded-full flex items-center justify-center mq-icon-btn" data-active={shuffle} title="Перемешать" aria-label="Перемешать" aria-pressed={shuffle}>
+                <button onClick={toggleShuffle} className="w-9 h-9 rounded-full flex items-center justify-center mq-icon-btn shrink-0" data-active={shuffle} title="Перемешать" aria-label="Перемешать" aria-pressed={shuffle}>
                   <Shuffle className="w-3.5 h-3.5" style={{ color: shuffle ? "var(--mq-platinum-hi)" : "var(--mq-text-muted)" }} />
                 </button>
 
-                <button onClick={() => { prevTrack(); hapticSkip(); }} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Предыдущий" aria-label="Предыдущий трек">
+                <button onClick={() => { prevTrack(); hapticSkip(); }} className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Предыдущий" aria-label="Предыдущий трек">
                   <SkipBack className="w-4 h-4" style={{ color: "var(--mq-text)" }} fill="currentColor" />
                 </button>
 
@@ -607,7 +671,7 @@ export default function PlayerBar() {
                   /* V4: primary transport action = accent CTA. The free-mode
                      .mq-platinum-btn (flat liquid glass) stays the material
                      for secondary/neutral buttons. */
-                  className="w-10 h-10 rounded-full flex items-center justify-center transition-[filter] duration-100 hover:brightness-110 mq-v4-cta"
+                  className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-[filter] duration-100 hover:brightness-110 mq-v4-cta"
                   title={isPlaying ? "Пауза" : "Воспроизвести"}
                   aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
                 >
@@ -631,7 +695,7 @@ export default function PlayerBar() {
                     setShowUpNext(false);
                   }}
                 >
-                  <button onClick={() => { nextTrack(); hapticSkip(); }} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Следующий" aria-label="Следующий трек">
+                  <button onClick={() => { nextTrack(); hapticSkip(); }} className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Следующий" aria-label="Следующий трек">
                     <SkipForward className="w-4 h-4" style={{ color: "var(--mq-text)" }} fill="currentColor" />
                   </button>
 
@@ -696,7 +760,7 @@ export default function PlayerBar() {
                 </AnimatePresence>
                 </div>
 
-                <button onClick={toggleRepeat} className="w-8 h-8 rounded-full flex items-center justify-center mq-icon-btn" data-active={repeat !== "off"} title="Повтор" aria-label="Повтор" aria-pressed={repeat !== "off"}>
+                <button onClick={toggleRepeat} className="w-9 h-9 rounded-full flex items-center justify-center mq-icon-btn shrink-0" data-active={repeat !== "off"} title="Повтор" aria-label="Повтор" aria-pressed={repeat !== "off"}>
                   {repeat === "one" ? <Repeat1 className="w-3.5 h-3.5" style={{ color: "var(--mq-platinum-hi)" }} />
                     : <Repeat className="w-3.5 h-3.5" style={{ color: repeat === "all" ? "var(--mq-platinum-hi)" : "var(--mq-text-muted)" }} />}
                 </button>
@@ -721,8 +785,10 @@ export default function PlayerBar() {
               />
             </div>
 
-            {/* ═══ RIGHT: Like, Wave, Volume, Queue, More (SECONDARY) ═══ */}
-            <div className="flex items-center gap-0.5 justify-end min-w-0" style={{ width: "calc(100% / 3 - 16px)" }}>
+            {/* ═══ RIGHT: Like, Wave, Volume, Queue, EQ, Dock, More
+                (SECONDARY) — content-sized, never squeezed into a fixed ⅓:
+                every button is shrink-0; the cluster's width IS its content. ═══ */}
+            <div className="flex items-center gap-0.5 justify-end min-w-0 shrink-0">
               {/* Like */}
               <button
                 onClick={() => handleLike()}
@@ -767,9 +833,13 @@ export default function PlayerBar() {
                 )}
               </button>
 
-              {/* Volume — compact custom slider */}
+              {/* Volume — compact custom slider. v16: the HIT AREA is 20px
+                  tall (usable target) while the VISUAL track stays a 6px
+                  hairline — an inner layer inside the hit box. Math is
+                  untouched: the ref'd hit box is exactly as wide as the
+                  visual track, so rect.left/width arithmetic is identical. */}
               <div className="flex items-center gap-1.5 flex-shrink-0 ml-1">
-                <button onClick={handleVolMute} aria-label={volume === 0 ? "Включить звук" : "Выключить звук"} className="mq-volmute mq-icon-btn mq-press w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ border: "none", cursor: "pointer", padding: 0 }}>
+                <button onClick={handleVolMute} aria-label={volume === 0 ? "Включить звук" : "Выключить звук"} className="mq-volmute mq-icon-btn mq-press w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ border: "none", cursor: "pointer", padding: 0 }}>
                   <VolIcon className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
                 </button>
                 {/* v10.4.1 GAP#2 fix — OWNERSHIP PATTERN (same model as
@@ -802,11 +872,21 @@ export default function PlayerBar() {
                   className="mq-pb-vol relative cursor-pointer rounded-full group/vol focus-visible:outline-2 focus-visible:outline-[color-mix(in_srgb,var(--mq-text)_55%,transparent)]"
                   style={{
                     width: 88,
-                    height: 6,
-                    backgroundColor: "var(--mq-glass-bg)",
-                    boxShadow: "var(--mq-shadow-inner-glow)",
+                    height: 20,
+                    display: "flex",
+                    alignItems: "center",
                   }}
                 >
+                  {/* Visual hairline (6px) — the inner layer; the 20px hit
+                      box above is the interactive/keyboard surface. */}
+                  <div
+                    className="relative w-full rounded-full"
+                    style={{
+                      height: 6,
+                      backgroundColor: "var(--mq-glass-bg)",
+                      boxShadow: "var(--mq-shadow-inner-glow)",
+                    }}
+                  >
                   <div
                     ref={volFillRef}
                     className="absolute inset-y-0 left-0 rounded-full"
@@ -839,6 +919,7 @@ export default function PlayerBar() {
                       boxShadow: "var(--mq-shadow-sm)",
                     }}
                   />
+                  </div>
                 </div>
               </div>
 
@@ -919,7 +1000,11 @@ export default function PlayerBar() {
           </div>
         </div>
       </motion.div>
-      {/* v68: unified More menu (portal) — opens above the bar */}
+      {/* v68: unified More menu (portal) — opens above the bar.
+          v16: EQ item REMOVED — the direct EQ button on the bar is the
+          single owner of that action (one function = one control); the ⋯
+          menu keeps only what has no dedicated surface: dislike, share,
+          artist. */}
       {moreMenu && currentTrack && (
         <MenuCore
           anchor={moreMenu}
@@ -936,18 +1021,6 @@ export default function PlayerBar() {
             />
           }
           elements={[
-            {
-              type: "item",
-              id: "eq",
-              icon: Sliders,
-              label: "Эквалайзер",
-              active: eqEnabled,
-              hint: eqEnabled ? "ВКЛ" : undefined,
-              onSelect: () => {
-                setMoreMenu(null);
-                setEqOpen(true);
-              },
-            },
             {
               type: "item",
               id: "dislike",
@@ -1013,7 +1086,7 @@ export default function PlayerBar() {
               type: "item",
               id: "dock-hidden",
               icon: EyeOff,
-              label: "Скрыть плеер",
+              label: "Скрыть (чип в углу)",
               active: dockMode === "hidden",
               hint: dockMode === "hidden" ? "ВКЛ" : undefined,
               onSelect: () => { setDockMenu(null); setPlayerDock("hidden"); },

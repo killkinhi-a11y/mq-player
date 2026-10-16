@@ -68,24 +68,6 @@
     0 3px 12px rgba(0, 0, 0, 0.26);
 }
 
-/* ── Section nav rows (reference sidebar anatomy) ────────────────────── */
-.mqms-nav-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 40px;
-  padding: 6px 12px;
-  border-radius: 12px;
-  font-size: 13.5px;
-  font-weight: 500;
-  color: var(--mq-text);
-  text-align: left;
-  transition:
-    background-color var(--mq-mo-micro) var(--mq-ease-out),
-    color var(--mq-mo-micro) var(--mq-ease-out);
-}
-
 /* ── Left icon rail (reference: floating vertical capsule, desktop ≥lg) ──
    v15: a SEPARATE floater — deliberately lighter veil than the window so
    the two read as distinct objects hovering side by side (reference gap
@@ -224,41 +206,8 @@
   background: color-mix(in srgb, var(--mq-platinum-hi) 18%, transparent);
   border: 1px solid color-mix(in srgb, var(--mq-platinum-hi) 30%, transparent);
 }
-.mqms-nav-row[data-active="true"] {
-  background: color-mix(in srgb, var(--mq-text) 8%, transparent);
-  color: var(--mq-text);
-}
-@media (hover: hover) {
-  .mqms-nav-row:hover {
-    background: color-mix(in srgb, var(--mq-text) 5%, transparent);
-  }
-}
-.mqms-nav-count {
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--mq-radius-full);
-  background: color-mix(in srgb, var(--mq-text) 8%, transparent);
-  color: var(--mq-text-muted);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-}
-.mqms-nav-row[data-active="true"] .mqms-nav-count {
-  background: color-mix(in srgb, var(--mq-platinum-hi) 22%, transparent);
-  color: var(--mq-text);
-}
-.mqms-nav-add {
-  color: var(--mq-text-muted);
-  margin-left: -2px;
-  transition: color var(--mq-mo-micro) var(--mq-ease-out);
-}
-@media (hover: hover) {
-  .mqms-nav-row:hover .mqms-nav-add { color: var(--mq-text); }
-}
+/* (v16: .mqms-nav-row / .mqms-nav-count / .mqms-nav-add removed with the
+     section nav rows — the icon rail is the single section switcher.) */
 
 /* ── Conversation list row ─────────────────────────────────────────────── */
 .mqms-row {
@@ -618,6 +567,15 @@
   resize: none;
   outline: none;
 }
+/* v16 COMPOSER-PILL FIX: the global *:focus-visible ring (2px, !important)
+   painted a RECTANGLE outline around the textarea INSIDE the pill — a
+   "hole" that broke the capsule silhouette. The PILL is the focus
+   surface (its :focus-within raises border 9→22% + bg 6→8% above), so
+   the textarea itself must stay outline-free. !important is required
+   to beat the global rule's !important. */
+.mqms-composer-input:focus-visible {
+  outline: none !important;
+}
 .mqms-composer-input::placeholder {
   color: var(--mq-text-muted);
 }
@@ -697,7 +655,6 @@
   .mqms-retry-btn,
   .mqms-inline-x,
   .mqms-ctx-item,
-  .mqms-nav-row,
   .mqms-rail-btn,
   .mqms-composer-btn,
   .mqms-composer-send {
