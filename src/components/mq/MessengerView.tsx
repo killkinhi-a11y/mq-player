@@ -10,18 +10,26 @@ import { AlertCircle, ArrowLeft, Check, CheckCheck, ChevronDown, Clock, Contact,
 import { AnimatePresence, motion } from "framer-motion";
 import { usePinnedChats } from "./messenger/usePinnedChats";
 import { useVoiceRecorder } from "./messenger/useVoiceRecorder";
+import { useMessengerLayout } from "./messenger/useMessengerLayout";
+import { useMessengerRealtime } from "./messenger/useMessengerRealtime";
+import { useOnlineStatuses } from "./messenger/useOnlineStatuses";
+import { useChatHistory } from "./messenger/useChatHistory";
+import { useUserSearch } from "./messenger/useUserSearch";
+import { useTypingIndicator } from "./messenger/useTypingIndicator";
+import { useSendMessage } from "./messenger/useSendMessage";
+import { toGroupMembers } from "./messenger/mappers";
 import { Avatar, DateSeparator, HistorySkeleton, VoiceMessageBubble, previewIconFor } from "./messenger/parts";
 import type { Message as ChatMessage } from "@/lib/musicApi";
-import type { ContextMenuState, FriendUser, FriendsLoadResult, GroupChat, GroupMember, OnlineStatus } from "./messenger/types";
-import { DEMO_DEFAULT_CHAT_ID, DEMO_FRIENDS, DEMO_GROUP, DEMO_ONLINE, buildDemoThreads } from "./demoChat";
+import type { ContextMenuState, FriendUser, FriendsLoadResult, GroupChat, GroupMember } from "./messenger/types";
+import { DEMO_DEFAULT_CHAT_ID, DEMO_FRIENDS, DEMO_GROUP, buildDemoThreads } from "./demoChat";
 import { NO_CHAT_USERS, QUICK_EMOJIS } from "./messenger/constants";
-import { canPollProtected, controlled401Recovery, isDemoUser } from "@/lib/authGate";
+import { isDemoUser } from "@/lib/authGate";
 import { colorForId, decrypt, formatDuration, formatLastSeen, formatTime, getDateLabel, getInitials, parseVoice, sameDay } from "./messenger/format";
 import { hoverProps } from "@/lib/hoverCapability";
-import { fetchOnlineStatuses, loadGroupChats, loadMessengerFriends } from "./messenger/messengerApi";
-import { simulateDecryptSync, simulateEncrypt } from "@/lib/crypto";
+import { loadGroupChats, loadMessengerFriends } from "./messenger/messengerApi";
+import { simulateDecryptSync } from "@/lib/crypto";
 import { useAppStore } from "@/store/useAppStore";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import "./messenger.css";
 
@@ -49,13 +57,10 @@ export default function MessengerView() {
   // demoThreads below. Real sessions start empty exactly as before.
   const [friends, setFriends] = useState<FriendUser[]>(() =>
     isDemoSession ? DEMO_FRIENDS : []);
-  const [onlineStatuses, setOnlineStatuses] = useState<Record<string, OnlineStatus>>(() =>
-    isDemoSession ? { ...DEMO_ONLINE } : {});
   // Demo threads — in-memory conversations (nothing persists, no API).
   const [demoThreads, setDemoThreads] = useState<Record<string, ChatMessage[]>>(() =>
     isDemoSession ? buildDemoThreads() : {});
   const [inputText, setInputText] = useState("");
-  const [isMobileView, setIsMobileView] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   const [showNewChat, setShowNewChat] = useState(false);
   const [showNewGroup, setShowNewGroup] = useState(false);
@@ -66,12 +71,11 @@ export default function MessengerView() {
   const [showInChatSearch, setShowInChatSearch] = useState(false);
   const [showProfile, setShowProfile] = useState<string | null>(null); // userId for profile modal
   const [newChatSearch, setNewChatSearch] = useState("");
-  const [rawNewChatUsers, setNewChatUsers] = useState<any[]>([]);
+  const [rawNewChatUsers, setNewChatUsers] = useUserSearch(showNewChat || showNewGroup || showAddMembers, newChatSearch, userId);
   // Search results apply only to an open picker with a non-empty query.
   const newChatUsers =
     (showNewChat || showNewGroup || showAddMembers) && newChatSearch.trim() ? rawNewChatUsers : NO_CHAT_USERS;
   const [isLoadingFriends, setIsLoadingFriends] = useState(true);
-  const [isSending, setIsSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   // Reference-style section filter (desktop nav rows): "all" = DMs + groups,
   // "groups" = group chats only. Real filter over the loaded social graph —
@@ -90,17 +94,11 @@ export default function MessengerView() {
   const [loadError, setLoadError] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   // v-redesign: visual-layer states — history skeleton + failed-send retry.
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [failedDraft, setFailedDraft] = useState<{ text: string; chatId: string } | null>(null);
 
   // ── Refs ──
   const scrollRef = useRef<HTMLDivElement>(null);
   const shellRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const sseRef = useRef<EventSource | null>(null);
-  const bcRef = useRef<BroadcastChannel | null>(null);
-  const lastSeenTimeRef = useRef<string>(new Date(0).toISOString());
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pullStartYRef = useRef<number | null>(null);
 
   // ── Derived (always-defensive) ──
@@ -110,38 +108,9 @@ export default function MessengerView() {
   const safeGroupChats = Array.isArray(groupChats) ? groupChats : [];
   const safeMessages = Array.isArray(messages) ? (messages as ChatMessage[]) : [];
 
-  // ── Detect mobile ──
-  useEffect(() => {
-    const check = () => setIsMobileView(window.innerWidth < 1024);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
-  // ── Measured shell top → --mq-msgr-top (v14 P0) ──
-  // messenger.css sizes the shell as 100dvh − measured top − player zone.
-  // The top offset is real geometry (nav + banners + paddings above the
-  // shell), re-measured on viewport resizes and body layout changes
-  // (banner mount/unmount) — no magic constants.
-  useLayoutEffect(() => {
-    const el = shellRef.current;
-    if (!el) return;
-    const measure = () => {
-      const top = Math.round(el.getBoundingClientRect().top);
-      if (top > 0) el.style.setProperty("--mq-msgr-top", `${top}px`);
-    };
-    measure();
-    window.addEventListener("resize", measure);
-    let ro: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== "undefined") {
-      ro = new ResizeObserver(measure);
-      ro.observe(document.body);
-    }
-    return () => {
-      window.removeEventListener("resize", measure);
-      ro?.disconnect();
-    };
-  }, [compactMode]);
+  const isMobileView = useMessengerLayout(shellRef, compactMode);
+  const onlineStatuses = useOnlineStatuses(userId, safeFriends, isDemoSession);
 
   // ── Demo: auto-open the seeded thread so the chat panel shows bubbles ──
   // (acceptance: 1 open thread with messages on first entry).
@@ -157,29 +126,6 @@ export default function MessengerView() {
     }
   }, [isDemoSession, selectedContactId, selectedGroupId, setSelectedContact]);
 
-  // ── v72 iOS keyboard: visualViewport compensation ──
-  // Android is covered by viewport.interactiveWidget=resizes-content
-  // (layout.tsx). iOS Safari never resizes the layout viewport — fixed
-  // composers sit BEHIND the keyboard. Track the visual viewport and
-  // expose the keyboard height as a CSS var the composer consumes
-  // (padding-bottom), so it rides just above the keys.
-  useEffect(() => {
-    const root = document.documentElement;
-    if (!window.visualViewport) return;
-    const vv = window.visualViewport;
-    const update = () => {
-      const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      root.style.setProperty("--mq-kb-offset", kb > 24 ? `${Math.round(kb)}px` : "0px");
-    };
-    update();
-    vv.addEventListener("resize", update);
-    vv.addEventListener("scroll", update);
-    return () => {
-      vv.removeEventListener("resize", update);
-      vv.removeEventListener("scroll", update);
-      root.style.setProperty("--mq-kb-offset", "0px");
-    };
-  }, []);
 
   // ── Mobile view sync ──
   // Follow the active chat (adjusted during render; back/select handlers
@@ -220,163 +166,12 @@ export default function MessengerView() {
 
   useEffect(() => { fetchGroupChats(); }, [fetchGroupChats]);
 
-  // ── Fetch group DETAIL (members list) when a group is selected ──
-  // The list endpoint returns only memberCount; the empty-group state and
-  // the add-members dialog need the actual member rows (GET [id] route).
-  useEffect(() => {
-    if (!selectedGroupId || !userId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/group-chats/${selectedGroupId}`);
-        if (!res.ok || cancelled) return;
-        const g = await res.json();
-        const members: GroupMember[] = Array.isArray(g.members) ? g.members.map((m: any) => ({
-          id: String(m.userId ?? m.id ?? ""),
-          userId: String(m.userId ?? m.id ?? ""),
-          username: String(m.user?.username ?? m.username ?? "Участник"),
-          avatar: m.user?.avatar ?? m.avatar,
-          role: String(m.role ?? "member"),
-        })) : [];
-        if (cancelled) return;
-        setGroupChats((prev) => (Array.isArray(prev) ? prev.map((gc) =>
-          gc.id === selectedGroupId ? { ...gc, members, memberCount: members.length, createdBy: g.createdBy ?? gc.createdBy } : gc
-        ) : prev));
-      } catch {}
-    })();
-    return () => { cancelled = true; };
-  }, [selectedGroupId, userId]);
+  const bcRef = useMessengerRealtime(userId, fetchFriends);
+  const historyLoading = useChatHistory({ userId, selectedContactId, selectedGroupId, setGroupChats, setGroupMessages });
 
-  // ── Fetch online statuses (poll every 30s) ──
-  useEffect(() => {
-    if (!userId || safeFriends.length === 0) return;
-    // Phase 2C: gated — demo/unauthenticated sessions never poll.
-    const gate = () => canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated);
-    if (!gate()) return;
-    let cancelled = false;
-    const fetchStatuses = async () => {
-      if (!gate()) return;
-      const statuses = await fetchOnlineStatuses(safeFriends);
-      if (!cancelled) setOnlineStatuses(statuses);
-    };
-    fetchStatuses();
-    const interval = setInterval(() => {
-      if (!gate()) { clearInterval(interval); return; }
-      fetchStatuses();
-    }, 30000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [userId, safeFriends]);
 
-  // ── SSE for real-time DMs ──
-  useEffect(() => {
-    if (!userId) return;
-    let destroyed = false;
 
-    // Phase 2C: SSE reconnect loop gate. Demo sessions never connect; a
-    // 401-controlled suspension stops the 2s reconnect loop (the SSE
-    // endpoint is session-protected — every reconnect was another 401).
-    const gate = () => canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated);
-    if (!gate()) return;
 
-    const processIncoming = (m: any) => {
-      if (!m || !m.id || !m.senderId) return;
-      try {
-        const state = useAppStore.getState();
-        const msgs = Array.isArray(state.messages) ? state.messages : [];
-        if (msgs.some((em: any) => em.id === m.id)) return;
-        state.addMessage({
-          id: m.id, content: m.content || "", senderId: m.senderId,
-          receiverId: m.receiverId || userId, encrypted: m.encrypted ?? true,
-          createdAt: m.createdAt || new Date().toISOString(),
-          senderName: m.senderUsername ? `@${m.senderUsername}` : undefined,
-          messageType: m.messageType, voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
-        });
-        if (m.senderId !== userId && typeof Notification !== "undefined" &&
-            Notification.permission === "granted" && document.visibilityState === "hidden") {
-          try {
-            new Notification(`Сообщение от ${m.senderUsername || "Someone"}`, {
-              body: decrypt(m.content).slice(0, 60),
-            });
-          } catch {}
-        }
-        if (m.createdAt) lastSeenTimeRef.current = m.createdAt;
-      } catch {}
-    };
-
-    const connect = () => {
-      if (destroyed) return;
-      try {
-        const since = encodeURIComponent(lastSeenTimeRef.current);
-        const es = new EventSource(`/api/messages/sse?userId=${userId}&since=${since}`);
-        sseRef.current = es;
-        es.addEventListener("connected", (event: any) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data?.serverTime) lastSeenTimeRef.current = data.serverTime;
-          } catch {}
-        });
-        es.addEventListener("new_message", (event: any) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data?.message) processIncoming(data.message);
-          } catch {}
-        });
-        es.addEventListener("typing", (event: any) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data?.userId) {
-              useAppStore.getState().setTypingUser(data.userId);
-              setTimeout(() => useAppStore.getState().clearTypingUser(data.userId), 4000);
-            }
-          } catch {}
-        });
-        es.onerror = () => {
-          try { es.close(); } catch {}
-          sseRef.current = null;
-          // Reconnect only while a real authenticated session is active.
-          // The gate stays closed after a 401 until the next login —
-          // no reconnect storm, no 401 loop.
-          if (!destroyed && gate()) setTimeout(connect, 2000);
-        };
-      } catch {}
-    };
-    connect();
-    return () => {
-      destroyed = true;
-      try { sseRef.current?.close(); } catch {}
-      sseRef.current = null;
-    };
-  }, [userId]);
-
-  // ── BroadcastChannel for cross-tab notifications ──
-  useEffect(() => {
-    if (!userId) return;
-    try {
-      bcRef.current = new BroadcastChannel("mq-notifications");
-      bcRef.current.onmessage = (event) => {
-        try {
-          const { type, payload } = event.data || {};
-          if (type === "new_message" && payload?.id && payload?.senderId) {
-            const state = useAppStore.getState();
-            const msgs = Array.isArray(state.messages) ? state.messages : [];
-            if (!msgs.some((em: any) => em.id === payload.id)) {
-              state.addMessage({
-                id: payload.id, content: payload.content || "", senderId: payload.senderId,
-                receiverId: payload.receiverId || userId, encrypted: payload.encrypted ?? true,
-                createdAt: payload.createdAt || new Date().toISOString(),
-                senderName: payload.senderUsername ? `@${payload.senderUsername}` : undefined,
-                messageType: payload.messageType, voiceUrl: payload.voiceUrl,
-                voiceDuration: payload.voiceDuration,
-              });
-            }
-          } else if (type === "friend_request") {
-            fetchFriends();
-          }
-        } catch {}
-      };
-    } catch {}
-    return () => { try { bcRef.current?.close(); } catch {} bcRef.current = null; };
-  }, [userId, fetchFriends]);
 
   // ── Document title with unread count ──
   useEffect(() => {
@@ -387,88 +182,7 @@ export default function MessengerView() {
     } catch {}
   }, [unreadCounts, userId]);
 
-  // ── Load DM messages when contact selected ──
-  useEffect(() => {
-    if (!userId || !selectedContactId) return;
-    // Phase 2C: gated — demo DMs are local-only, no 401 round-trip.
-    if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) return;
-    let cancelled = false;
-    // Visual-layer: skeleton bubbles until the history arrives (deferred —
-    // no synchronous setState inside the effect body).
-    const skelTimer = setTimeout(() => { if (!cancelled) setHistoryLoading(true); }, 0);
-    const load = async () => {
-      try {
-        const res = await fetch(`/api/messages?senderId=${userId}&receiverId=${selectedContactId}`);
-        if (res.status === 401) { controlled401Recovery("messages"); return; }
-        if (!res.ok || cancelled) return;
-        const data = await res.json();
-        const serverMsgs: ChatMessage[] = (Array.isArray(data.messages) ? data.messages : []).map(
-          (m: any) => ({
-            id: m.id, content: m.content || "", senderId: m.senderId, receiverId: m.receiverId,
-            encrypted: !!m.encrypted, createdAt: m.createdAt || new Date().toISOString(),
-            senderName: m.sender?.username ? `@${m.sender.username}` : undefined,
-            messageType: m.messageType, voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
-          })
-        );
-        if (!cancelled && serverMsgs.length > 0) {
-          // Defer to avoid setState-during-render warnings.
-          setTimeout(() => useAppStore.getState().loadMessages(serverMsgs), 0);
-        }
-      } catch {}
-      finally {
-        if (!cancelled) setHistoryLoading(false);
-      }
-    };
-    load();
-    return () => { cancelled = true; clearTimeout(skelTimer); };
-  }, [userId, selectedContactId]);
 
-  // ── Load group messages + poll every 8s ──
-  useEffect(() => {
-    if (!userId || !selectedGroupId) return;
-    let cancelled = false;
-    // Visual-layer: skeleton for real sessions (demo has no server
-    // round-trip). Deferred — no synchronous setState in the effect body.
-    const skelTimer = setTimeout(() => {
-      if (!cancelled) setHistoryLoading(userId !== "demo-user-id");
-    }, 0);
-    const load = async () => {
-      try {
-        const res = await fetch(`/api/group-chats/${selectedGroupId}/messages?userId=${userId}`);
-        if (res.status === 401) {
-          // Phase 2C: stop the 8s poll on auth loss (controlled recovery).
-          controlled401Recovery("group-chats/messages");
-          clearInterval(interval);
-          return;
-        }
-        if (!res.ok || cancelled) return;
-        const data = await res.json();
-        const msgs: ChatMessage[] = (Array.isArray(data.messages) ? data.messages : []).map(
-          (m: any) => ({
-            id: m.id, content: m.content || "",
-            senderId: m.senderId || m.sender?.id || "", receiverId: selectedGroupId,
-            encrypted: false, createdAt: m.createdAt || new Date().toISOString(),
-            senderName: m.sender?.username || "User", messageType: m.messageType,
-            voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
-          })
-        );
-        if (!cancelled) setGroupMessages((prev) => ({ ...prev, [selectedGroupId]: msgs }));
-      } catch {}
-      finally {
-        if (!cancelled) setHistoryLoading(false);
-      }
-    };
-    load();
-    // Phase 2C: gate the 8s group-message polling (demo/unauth skip).
-    const interval = setInterval(() => {
-      if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) {
-        clearInterval(interval);
-        return;
-      }
-      load();
-    }, 8000);
-    return () => { cancelled = true; clearInterval(interval); clearTimeout(skelTimer); };
-  }, [userId, selectedGroupId]);
 
   // ── Auto-scroll on new message ──
   useEffect(() => {
@@ -691,100 +405,11 @@ export default function MessengerView() {
   // v-redesign: accepts an optional text override so the failed-send
   // bubble can retry a draft without touching the composer state. Call
   // sites without arguments keep the exact previous behavior.
-  const handleSend = useCallback(async (overrideText?: string) => {
-    const raw = typeof overrideText === "string" ? overrideText : inputText;
-    const text = (raw || "").trim();
-    if (!text || !userId || !activeChatId || isSending) return;
 
-    // ── Demo: local-only send (memory store) ──
-    // The bubble appears instantly, nothing hits the network, nothing
-    // persists — exactly the acceptance surface for reviewing the UI.
-    if (isDemoSession) {
-      const local: ChatMessage = {
-        id: `demo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        content: text, senderId: userId,
-        receiverId: isGroupChat ? userId : activeChatId,
-        encrypted: false, createdAt: new Date().toISOString(),
-        senderName: username ? `@${username}` : undefined, messageType: "text",
-      };
-      setDemoThreads((prev) => ({
-        ...prev,
-        [activeChatId]: [...(prev[activeChatId] || []), local],
-      }));
-      setInputText("");
-      return;
-    }
-
-    setIsSending(true);
-    setInputText("");
-    setFailedDraft(null);
-    const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const now = new Date().toISOString();
-    const msg: ChatMessage = {
-      id: tempId, content: text, senderId: userId,
-      receiverId: isGroupChat ? userId : activeChatId,
-      encrypted: !isGroupChat, createdAt: now,
-      senderName: username ? `@${username}` : undefined, messageType: "text",
-    };
-
-    try {
-      if (isGroupChat) {
-        setGroupMessages((prev) => ({
-          ...prev, [activeChatId]: [...(prev[activeChatId] || []), msg],
-        }));
-        await fetch(`/api/group-chats/${activeChatId}/messages`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ senderId: userId, content: text, messageType: "text" }),
-        });
-      } else {
-        addMessage(msg);
-        const encrypted = await simulateEncrypt(text);
-        const res = await fetch("/api/messages", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ receiverId: activeChatId, content: encrypted, encrypted: true, messageType: "text" }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const newId = data?.id || tempId;
-          useAppStore.setState((s) => ({
-            messages: (Array.isArray(s.messages) ? s.messages : []).map((m: ChatMessage) =>
-              m.id === tempId ? { ...m, id: newId } : m),
-          }));
-          try {
-            bcRef.current?.postMessage({
-              type: "new_message",
-              payload: { ...msg, id: newId, senderUsername: username },
-            });
-          } catch {}
-        }
-      }
-    } catch {
-      toast({ title: "Не удалось отправить" });
-      // Visual-layer: keep the draft visible as an error bubble with retry.
-      setFailedDraft({ text, chatId: activeChatId });
-      if (!isGroupChat) {
-        useAppStore.setState((s) => ({
-          messages: (Array.isArray(s.messages) ? s.messages : []).filter(
-            (m: ChatMessage) => m.id !== tempId),
-        }));
-      } else if (activeChatId) {
-        setGroupMessages((prev) => ({
-          ...prev,
-          [activeChatId]: (prev[activeChatId] || []).filter((m) => m.id !== tempId),
-        }));
-      }
-    } finally {
-      setIsSending(false);
-    }
-  }, [isDemoSession, inputText, userId, activeChatId, isGroupChat, isSending, addMessage, username, toast]);
-
-  // ── Retry a failed send (re-runs the exact same pipeline) ──
-  const retryFailedSend = useCallback(() => {
-    if (!failedDraft) return;
-    const draft = failedDraft;
-    setFailedDraft(null);
-    handleSend(draft.text);
-  }, [failedDraft, handleSend]);
+  const { handleSend, retryFailedSend, isSending, failedDraft, setFailedDraft } = useSendMessage({
+    userId, username, activeChatId, isGroupChat, isDemoSession, inputText, setInputText,
+    setDemoThreads, setGroupMessages, addMessage, bcRef, toast,
+  });
 
   // ── Voice recording ──
   const startRecording = useCallback(async () => {
@@ -826,23 +451,6 @@ export default function MessengerView() {
     if (!started) toast({ title: "Микрофон недоступен" });
   }, [activeChatId, isGroupChat, userId, username, addMessage, toast, startVoice]);
 
-  // ── Search users (debounced) ──
-  useEffect(() => {
-    if (!showNewChat && !showNewGroup && !showAddMembers) return;
-    const q = newChatSearch.trim();
-    if (!q) return;
-    const timer = setTimeout(async () => {
-      try {
-        const excludeParam = userId ? `&excludeId=${userId}` : "";
-        const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}${excludeParam}`);
-        if (res.ok) {
-          const data = await res.json();
-          setNewChatUsers(Array.isArray(data.users) ? data.users : []);
-        }
-      } catch {}
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [showNewChat, showNewGroup, showAddMembers, newChatSearch, userId]);
 
   // ── Start new chat ──
   // FIX (Task 9): the POST /api/friends route reads `addresseeId` from the
@@ -865,7 +473,7 @@ export default function MessengerView() {
         setNewChatUsers([]);
       })
       .catch(() => toast({ title: "Не удалось добавить" }));
-  }, [userId, fetchFriends, fetchGroupChats, setSelectedContact, toast]);
+  }, [userId, fetchFriends, fetchGroupChats, setSelectedContact, toast, setNewChatUsers]);
 
   // ── Create group ──
   // Phase O §13: creating a group requires ONLY a name — participants are
@@ -895,13 +503,7 @@ export default function MessengerView() {
         const raw: any = data.groupChat || data;
         // POST returns members as {id, userId, role, user:{username, avatar}} —
         // normalize to the same shape as the detail endpoint (id = userId).
-        const members: GroupMember[] = Array.isArray(raw.members) ? raw.members.map((m: any) => ({
-          id: String(m.userId ?? m.id ?? ""),
-          userId: String(m.userId ?? m.id ?? ""),
-          username: String(m.user?.username ?? m.username ?? "Участник"),
-          avatar: m.user?.avatar ?? m.avatar,
-          role: String(m.role ?? "member"),
-        })) : [];
+        const members: GroupMember[] = toGroupMembers(raw.members);
         const newGroup: GroupChat = {
           id: raw.id, name: raw.name || groupName.trim(), avatar: raw.avatar,
           members, memberCount: members.length, createdBy: raw.createdBy ?? userId,
@@ -920,7 +522,7 @@ export default function MessengerView() {
         toast({ title: "Не удалось создать группу" });
       }
     } catch { toast({ title: "Не удалось создать группу" }); }
-  }, [groupName, selectedMembers, userId, setSelectedContact, toast]);
+  }, [groupName, selectedMembers, userId, setSelectedContact, toast, setNewChatUsers]);
 
   // ── Add members to an EXISTING group (§13 empty-group flow) ──
   // POST /api/group-chats/[id]/members — server enforces admin-only (403
@@ -951,34 +553,11 @@ export default function MessengerView() {
       setNewChatSearch("");
       setNewChatUsers([]);
     }
-  }, [selectedGroupId, addMembersTarget, userId, fetchGroupChats, toast]);
+  }, [selectedGroupId, addMembersTarget, userId, fetchGroupChats, toast, setNewChatUsers]);
 
-  // ── Typing indicator ──
-  const typingTs = useAppStore((s) =>
-    selectedContactId ? s.typingUsers[selectedContactId] : undefined);
-  // Each typing timestamp is visible until its own 4s window expires.
-  const [expiredTypingTs, setExpiredTypingTs] = useState<number | null>(null);
-  const showTyping = !!typingTs && expiredTypingTs !== typingTs;
-  useEffect(() => {
-    if (!typingTs) return;
-    const remaining = 4000 - (Date.now() - typingTs);
-    const timer = setTimeout(() => setExpiredTypingTs(typingTs), remaining > 0 ? Math.max(500, remaining) : 0);
-    return () => clearTimeout(timer);
-  }, [typingTs]);
 
-  const handleInputChange = useCallback((value: string) => {
-    setInputText(value);
-    if (!selectedContactId || isGroupChat) return;
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    typingTimeoutRef.current = setTimeout(() => {
-      try {
-        fetch("/api/messages/typing", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ receiverId: selectedContactId }),
-        }).catch(() => {});
-      } catch {}
-    }, 300);
-  }, [selectedContactId, isGroupChat]);
+
+  const { showTyping, handleInputChange } = useTypingIndicator(selectedContactId, isGroupChat, setInputText);
 
   // ── Mobile back ──
   const handleMobileBack = useCallback(() => {
