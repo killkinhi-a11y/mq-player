@@ -30,7 +30,13 @@ const OS_TAPS: usize = 25;
 const OS_FACTOR: usize = 4;
 
 impl Limiter {
-    pub fn new(sample_rate: f32, channels: usize, ceiling_db: f32, release_ms: f32, lookahead_ms: f32) -> Self {
+    pub fn new(
+        sample_rate: f32,
+        channels: usize,
+        ceiling_db: f32,
+        release_ms: f32,
+        lookahead_ms: f32,
+    ) -> Self {
         let lookahead = ((lookahead_ms.max(1.0) * 0.001 * sample_rate) as usize).clamp(8, 4096);
         // Kaiser-windowed sinc FIR for 4x interpolation (β = 8.6).
         let mut os_coef = vec![0.0_f32; OS_TAPS];
@@ -49,7 +55,11 @@ impl Limiter {
         let denom = i0(beta);
         for (i, c) in os_coef.iter_mut().enumerate() {
             let x = (i as f32 - center) / OS_FACTOR as f32; // in interpolated units
-            let sinc = if x.abs() < 1e-9 { 1.0 } else { (std::f32::consts::PI * x).sin() / (std::f32::consts::PI * x) };
+            let sinc = if x.abs() < 1e-9 {
+                1.0
+            } else {
+                (std::f32::consts::PI * x).sin() / (std::f32::consts::PI * x)
+            };
             let t = (i as f32 - center) / ((OS_TAPS - 1) as f32 / 2.0) * beta;
             let window = i0(t.abs()) / denom;
             *c = sinc * window;
@@ -59,7 +69,7 @@ impl Limiter {
         if sum.abs() > 1e-9 {
             for c in os_coef.iter_mut() {
                 *c /= sum;
-        }
+            }
         }
 
         let mut lim = Self {
@@ -145,7 +155,8 @@ impl Limiter {
 
     fn ensure_channels(&mut self, channels: usize) {
         if self.delay.len() != channels {
-            self.delay.resize(channels, vec![0.0; self.lookahead_frames.max(1)]);
+            self.delay
+                .resize(channels, vec![0.0; self.lookahead_frames.max(1)]);
             self.os_hist.resize(channels, vec![0.0; OS_TAPS]);
         }
     }
@@ -176,13 +187,21 @@ impl Processor for Limiter {
             }
             tp = tp.max(level);
             // required gain: bring level under ceiling
-            let need = if level > ceiling { ceiling / level } else { 1.0 };
+            let need = if level > ceiling {
+                ceiling / level
+            } else {
+                1.0
+            };
             // attack: instant when more reduction needed; release: smooth
             if need < self.env_lin {
                 self.env_lin = need; // instant attack (lookahead covers transient)
             } else {
                 // dual release: fast first 60%, slow tail
-                let coef = if self.env_lin < need * 0.6 { self.rel_coef } else { self.rel_coef_slow };
+                let coef = if self.env_lin < need * 0.6 {
+                    self.rel_coef
+                } else {
+                    self.rel_coef_slow
+                };
                 self.env_lin = need + coef * (self.env_lin - need);
                 if self.env_lin > 1.0 {
                     self.env_lin = 1.0;
@@ -243,7 +262,10 @@ mod tests {
             lim.process(&mut chans);
         }
         let ceiling = 10_f32.powf(-1.0 / 20.0) * 1.01;
-        let mx = l.iter().chain(r.iter()).fold(0.0_f32, |a, v| a.max(v.abs()));
+        let mx = l
+            .iter()
+            .chain(r.iter())
+            .fold(0.0_f32, |a, v| a.max(v.abs()));
         assert!(mx <= ceiling, "limiter overshoot: {mx} > {ceiling}");
         // signal must still be audible (not crushed to silence)
         let rms = (l.iter().map(|v| v * v).sum::<f32>() / n as f32).sqrt();
@@ -266,7 +288,11 @@ mod tests {
         for i in (la + 64)..n {
             let a = s[i];
             let b = before[i - la];
-            assert!((a - b).abs() < 1e-3, "quiet signal must pass shifted: s[{i}]={a} vs in[{}]={b}", i - la);
+            assert!(
+                (a - b).abs() < 1e-3,
+                "quiet signal must pass shifted: s[{i}]={a} vs in[{}]={b}",
+                i - la
+            );
         }
     }
 }

@@ -131,7 +131,15 @@ pub struct CommandQueue {
 impl CommandQueue {
     pub fn new(capacity: usize) -> Self {
         Self {
-            slots: vec![Command { op: Opcode::Pause, a: 0.0, b: 0.0, c: 0.0 }; capacity.max(2)],
+            slots: vec![
+                Command {
+                    op: Opcode::Pause,
+                    a: 0.0,
+                    b: 0.0,
+                    c: 0.0
+                };
+                capacity.max(2)
+            ],
             head: 0,
             tail: 0,
             capacity: capacity.max(2),
@@ -184,9 +192,22 @@ mod tests {
     fn fifo_order() {
         let mut q = CommandQueue::new(8);
         for i in 0..7 {
-            assert!(q.push(Command { op: Opcode::SetVolume, a: i as f32, b: 0.0, c: 0.0 }));
+            assert!(q.push(Command {
+                op: Opcode::SetVolume,
+                a: i as f32,
+                b: 0.0,
+                c: 0.0
+            }));
         }
-        assert!(!q.push(Command { op: Opcode::Play, a: 0.0, b: 0.0, c: 0.0 }), "full queue must reject");
+        assert!(
+            !q.push(Command {
+                op: Opcode::Play,
+                a: 0.0,
+                b: 0.0,
+                c: 0.0
+            }),
+            "full queue must reject"
+        );
         for i in 0..7 {
             let c = q.pop().unwrap();
             assert_eq!(c.a, i as f32);
@@ -198,7 +219,12 @@ mod tests {
     fn wraparound() {
         let mut q = CommandQueue::new(4);
         for round in 0..100 {
-            assert!(q.push(Command { op: Opcode::SetEqBand, a: round as f32, b: 0.0, c: 0.0 }));
+            assert!(q.push(Command {
+                op: Opcode::SetEqBand,
+                a: round as f32,
+                b: 0.0,
+                c: 0.0
+            }));
             let c = q.pop().unwrap();
             assert_eq!(c.a, round as f32);
         }

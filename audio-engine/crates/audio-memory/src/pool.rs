@@ -63,7 +63,10 @@ impl BufferPool {
                 for x in self.buffers[i].iter_mut() {
                     *x = 0.0;
                 }
-                return Some(PoolGuard { pool: self, index: i });
+                return Some(PoolGuard {
+                    pool: self,
+                    index: i,
+                });
             }
         }
         None

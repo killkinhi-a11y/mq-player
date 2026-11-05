@@ -15,7 +15,10 @@ pub struct FftPlan {
 
 impl FftPlan {
     pub fn new(size: usize) -> Self {
-        assert!(size.is_power_of_two() && size >= 16, "FFT size must be pow2 ≥ 16");
+        assert!(
+            size.is_power_of_two() && size >= 16,
+            "FFT size must be pow2 ≥ 16"
+        );
         let mut planner = FftPlanner::<f32>::new();
         let forward = planner.plan_fft_forward(size);
         let inverse = planner.plan_fft_inverse(size);
@@ -117,7 +120,11 @@ mod tests {
             .map(|(i, _)| i)
             .unwrap();
         assert_eq!(peak_bin, bin, "peak bin {peak_bin} != expected {bin}");
-        assert!(mags[peak_bin] > 0.3, "amplitude should be near 0.5, got {}", mags[peak_bin]);
+        assert!(
+            mags[peak_bin] > 0.3,
+            "amplitude should be near 0.5, got {}",
+            mags[peak_bin]
+        );
     }
 
     #[test]

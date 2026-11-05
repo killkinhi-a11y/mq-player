@@ -150,7 +150,9 @@ pub async fn spawn(app: &tauri::AppHandle) -> Result<ProxyStartup, String> {
 
 fn load_jar(path: Option<&std::path::Path>) -> HashMap<String, String> {
     let Some(p) = path else { return HashMap::new() };
-    let Ok(bytes) = std::fs::read(p) else { return HashMap::new() };
+    let Ok(bytes) = std::fs::read(p) else {
+        return HashMap::new();
+    };
     let plain = decrypt(bytes);
     serde_json::from_slice(&plain).unwrap_or_default()
 }
@@ -166,10 +168,10 @@ fn persist(jar: &HashMap<String, String>, path: Option<&std::path::Path>) {
 
 #[cfg(windows)]
 fn encrypt(plain: Vec<u8>) -> Vec<u8> {
+    use windows::Win32::Foundation::{LocalFree, HLOCAL};
     use windows::Win32::Security::Cryptography::{
-        CryptProtectData, CRYPT_INTEGER_BLOB, CRYPTPROTECT_UI_FORBIDDEN,
+        CryptProtectData, CRYPTPROTECT_UI_FORBIDDEN, CRYPT_INTEGER_BLOB,
     };
-    use windows::Win32::Foundation::{HLOCAL, LocalFree};
 
     unsafe {
         let mut in_blob = CRYPT_INTEGER_BLOB {
@@ -198,10 +200,10 @@ fn encrypt(plain: Vec<u8>) -> Vec<u8> {
 
 #[cfg(windows)]
 fn decrypt(mut cipher: Vec<u8>) -> Vec<u8> {
+    use windows::Win32::Foundation::{LocalFree, HLOCAL};
     use windows::Win32::Security::Cryptography::{
-        CryptUnprotectData, CRYPT_INTEGER_BLOB, CRYPTPROTECT_UI_FORBIDDEN,
+        CryptUnprotectData, CRYPTPROTECT_UI_FORBIDDEN, CRYPT_INTEGER_BLOB,
     };
-    use windows::Win32::Foundation::{HLOCAL, LocalFree};
 
     unsafe {
         let mut in_blob = CRYPT_INTEGER_BLOB {
@@ -288,7 +290,10 @@ async fn handler(
             }
         }
         // Pretend to be the site itself — same-origin semantics upstream.
-        h.insert("origin", reqwest::header::HeaderValue::from_static(API_BASE));
+        h.insert(
+            "origin",
+            reqwest::header::HeaderValue::from_static(API_BASE),
+        );
         let referer = format!("{API_BASE}/play");
         if let Ok(hv) = reqwest::header::HeaderValue::from_str(&referer) {
             h.insert("referer", hv);
@@ -390,7 +395,8 @@ async fn handler(
         }
     }
 
-    let status = StatusCode::from_u16(upstream.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+    let status =
+        StatusCode::from_u16(upstream.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
     let stream = upstream.bytes_stream();
 
     let mut res = Response::builder().status(status);
@@ -447,7 +453,8 @@ fn cors_response(status: StatusCode, origin: Option<String>) -> Response {
         "access-control-allow-methods",
         HeaderValue::from_static("GET, POST, PUT, PATCH, DELETE, OPTIONS"),
     );
-    res.headers_mut().insert("access-control-max-age", HeaderValue::from_static("86400"));
+    res.headers_mut()
+        .insert("access-control-max-age", HeaderValue::from_static("86400"));
     res
 }
 

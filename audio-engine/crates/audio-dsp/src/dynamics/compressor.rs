@@ -3,8 +3,8 @@
 //! are pre-allocated per channel.
 
 use super::DetectorMode;
-use crate::Processor;
 use crate::flush_denormal;
+use crate::Processor;
 
 pub struct Compressor {
     sample_rate: f32,
@@ -23,8 +23,8 @@ pub struct Compressor {
     rel_coef: f32,
     makeup_lin: f32,
     // State
-    env: Vec<f32>,            // per-channel envelope (linear)
-    delay: Vec<Vec<f32>>,     // per-channel lookahead delay ring
+    env: Vec<f32>,        // per-channel envelope (linear)
+    delay: Vec<Vec<f32>>, // per-channel lookahead delay ring
     delay_pos: usize,
     // Metering (read between blocks, never in the hot loop math)
     pub gain_reduction_db: f32,
@@ -44,8 +44,7 @@ impl Compressor {
         detector: DetectorMode,
         lookahead_ms: f32,
     ) -> Self {
-        let lookahead_frames =
-            ((lookahead_ms.max(0.0) * 0.001 * sample_rate) as usize).min(4096);
+        let lookahead_frames = ((lookahead_ms.max(0.0) * 0.001 * sample_rate) as usize).min(4096);
         let mut c = Self {
             sample_rate,
             threshold_db,
@@ -135,7 +134,7 @@ impl Compressor {
         } else {
             // quadratic blend across the knee
             let x = (level_db - lower) / knee; // 0..1
-            // slope of the compressed curve at upper: (1 - 1/r)
+                                               // slope of the compressed curve at upper: (1 - 1/r)
             let slope = 1.0 - 1.0 / r;
             let gr_db = (x * x) * slope * (level_db - lower) * 0.5;
             10_f32.powf(-gr_db / 20.0)
@@ -145,7 +144,8 @@ impl Compressor {
     fn ensure_channels(&mut self, channels: usize) {
         if self.env.len() != channels {
             self.env.resize(channels, 0.0);
-            self.delay.resize(channels, vec![0.0; self.lookahead_frames.max(1)]);
+            self.delay
+                .resize(channels, vec![0.0; self.lookahead_frames.max(1)]);
         }
     }
 }
@@ -191,7 +191,11 @@ impl Processor for Compressor {
                 level = level.max(lvl);
             }
             // Envelope: attack/release one-pole on the detector level
-            let coef = if level > self.env[0] { self.atk_coef } else { self.rel_coef };
+            let coef = if level > self.env[0] {
+                self.atk_coef
+            } else {
+                self.rel_coef
+            };
             self.env[0] = level + coef * (self.env[0] - level);
             flush_denormal(&mut self.env[0]);
             let env = self.env[0].max(0.0);
@@ -259,7 +263,18 @@ mod tests {
 
     #[test]
     fn unity_when_below_threshold() {
-        let mut comp = Compressor::new(48000.0, 1, -20.0, 4.0, 10.0, 100.0, 6.0, 0.0, DetectorMode::Peak, 0.0);
+        let mut comp = Compressor::new(
+            48000.0,
+            1,
+            -20.0,
+            4.0,
+            10.0,
+            100.0,
+            6.0,
+            0.0,
+            DetectorMode::Peak,
+            0.0,
+        );
         let mut signal = sine_dbfs(-30.0, 440.0, 48000.0, 8192);
         let before: Vec<f32> = signal.clone();
         for blk in (0..8192).step_by(128) {
@@ -273,7 +288,18 @@ mod tests {
 
     #[test]
     fn reduces_level_above_threshold() {
-        let mut comp = Compressor::new(48000.0, 1, -12.0, 4.0, 5.0, 120.0, 0.0, 0.0, DetectorMode::Peak, 0.0);
+        let mut comp = Compressor::new(
+            48000.0,
+            1,
+            -12.0,
+            4.0,
+            5.0,
+            120.0,
+            0.0,
+            0.0,
+            DetectorMode::Peak,
+            0.0,
+        );
         let mut signal = sine_dbfs(-3.0, 440.0, 48000.0, 16384);
         let in_rms = (signal.iter().map(|v| v * v).sum::<f32>() / signal.len() as f32).sqrt();
         for blk in (0..16384).step_by(128) {
@@ -286,12 +312,27 @@ mod tests {
             out_rms < in_rms * 0.85,
             "hot signal must be compressed: in={in_rms} out={out_rms}"
         );
-        assert!(comp.gain_reduction_db > 3.0, "GR meter must report reduction, got {}", comp.gain_reduction_db);
+        assert!(
+            comp.gain_reduction_db > 3.0,
+            "GR meter must report reduction, got {}",
+            comp.gain_reduction_db
+        );
     }
 
     #[test]
     fn output_finite_on_extremes() {
-        let mut comp = Compressor::new(48000.0, 2, -60.0, 20.0, 0.1, 5.0, 24.0, 0.0, DetectorMode::Peak, 2.0);
+        let mut comp = Compressor::new(
+            48000.0,
+            2,
+            -60.0,
+            20.0,
+            0.1,
+            5.0,
+            24.0,
+            0.0,
+            DetectorMode::Peak,
+            2.0,
+        );
         let mut l = vec![4.0_f32; 8192];
         let mut r = vec![-4.0_f32; 8192];
         for blk in (0..8192).step_by(128) {

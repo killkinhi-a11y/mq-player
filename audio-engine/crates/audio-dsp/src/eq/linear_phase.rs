@@ -83,7 +83,11 @@ impl LinearPhaseEq {
                     let lf0 = f0.max(1.0).ln();
                     let lf1 = f1.max(1.0).ln();
                     if lf >= lf0 && lf <= lf1 {
-                        let t = if lf1 - lf0 < 1e-9 { 0.0 } else { (lf - lf0) / (lf1 - lf0) };
+                        let t = if lf1 - lf0 < 1e-9 {
+                            0.0
+                        } else {
+                            (lf - lf0) / (lf1 - lf0)
+                        };
                         val = g0 + (g1 - g0) * t;
                         break;
                     }
@@ -197,16 +201,25 @@ mod tests {
 
     #[test]
     fn bass_boost_boosts_low_energy() {
-        let mut eq = LinearPhaseEq::new(48000.0, 1024, &[(20.0, 9.0), (120.0, 8.0), (1000.0, 0.0), (20000.0, 0.0)]);
+        let mut eq = LinearPhaseEq::new(
+            48000.0,
+            1024,
+            &[(20.0, 9.0), (120.0, 8.0), (1000.0, 0.0), (20000.0, 0.0)],
+        );
         let n = 16384;
         let sr = 48000.0;
-        let mut s: Vec<f32> = (0..n).map(|i| (2.0 * std::f32::consts::PI * 60.0 * i as f32 / sr).sin() * 0.2).collect();
+        let mut s: Vec<f32> = (0..n)
+            .map(|i| (2.0 * std::f32::consts::PI * 60.0 * i as f32 / sr).sin() * 0.2)
+            .collect();
         let ref_rms = (s.iter().map(|v| v * v).sum::<f32>() / n as f32).sqrt();
         for blk in (0..n).step_by(128) {
             let mut chans: Vec<&mut [f32]> = vec![&mut s[blk..blk + 128]];
             eq.process(&mut chans);
         }
         let out_rms = (s[2048..].iter().map(|v| v * v).sum::<f32>() / (n - 2048) as f32).sqrt();
-        assert!(out_rms > ref_rms * 1.8, "60 Hz must be boosted: {out_rms} vs {ref_rms}");
+        assert!(
+            out_rms > ref_rms * 1.8,
+            "60 Hz must be boosted: {out_rms} vs {ref_rms}"
+        );
     }
 }

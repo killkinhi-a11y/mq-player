@@ -9,11 +9,11 @@
 pub struct Oversampler {
     factor: usize, // 1, 2, 4, 8
     stages: usize,
-    taps: Vec<f32>,               // normalized: Σ taps = 1
+    taps: Vec<f32>,                 // normalized: Σ taps = 1
     up_tails: Vec<Vec<Vec<f32>>>,   // [channel][stage][T−1] input history
     down_tails: Vec<Vec<Vec<f32>>>, // [channel][stage][T−1]
-    work: Vec<f32>,       // current channel signal at the working rate
-    stage_buf: Vec<f32>,  // tail ++ block for convolution
+    work: Vec<f32>,                 // current channel signal at the working rate
+    stage_buf: Vec<f32>,            // tail ++ block for convolution
 }
 
 const HB_TAPS: usize = 31;

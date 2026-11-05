@@ -103,6 +103,11 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+        // Parity screenshots (Robolectric) are written next to the web
+        // references in <repo>/download/screens/parity.
+        unitTests.all {
+            it.systemProperty("mq.parityDir", rootProject.file("../download/screens/parity").absolutePath)
+        }
     }
 }
 

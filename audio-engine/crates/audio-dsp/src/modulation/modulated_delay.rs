@@ -4,8 +4,8 @@
 
 use super::lfo::Lfo;
 use super::lfo::LfoShape;
-use crate::Processor;
 use crate::flush_denormal;
+use crate::Processor;
 
 struct DelayLine {
     buf: Vec<f32>,
@@ -14,7 +14,10 @@ struct DelayLine {
 
 impl DelayLine {
     fn new(max_samples: usize) -> Self {
-        Self { buf: vec![0.0; max_samples.max(2)], pos: 0 }
+        Self {
+            buf: vec![0.0; max_samples.max(2)],
+            pos: 0,
+        }
     }
 
     #[inline]
@@ -153,7 +156,9 @@ pub struct Flanger {
 impl Flanger {
     pub fn new(sample_rate: f32, channels: usize) -> Self {
         Self {
-            line: (0..channels).map(|_| DelayLine::new((0.02 * sample_rate) as usize + 8)).collect(),
+            line: (0..channels)
+                .map(|_| DelayLine::new((0.02 * sample_rate) as usize + 8))
+                .collect(),
             lfo: Lfo::new(sample_rate, 0.25, 1.0, LfoShape::Sine),
             feedback: 0.55,
             depth_ms: 2.5,
@@ -200,9 +205,14 @@ impl Processor for Flanger {
             let m = self.lfo.tick();
             for (c, ch) in channels.iter_mut().enumerate() {
                 // stereo phase offset: L gets sin, R gets sin(phase+90°)
-                let phase = if c == 0 { m } else { (m + self.stereo_phase * 2.0 - 1.0).clamp(-1.0, 1.0) };
+                let phase = if c == 0 {
+                    m
+                } else {
+                    (m + self.stereo_phase * 2.0 - 1.0).clamp(-1.0, 1.0)
+                };
                 let x = ch[i];
-                let delayed = self.line[c].write_and_read(x + self.last[c] * fb, base + (0.5 + 0.5 * phase) * depth);
+                let delayed = self.line[c]
+                    .write_and_read(x + self.last[c] * fb, base + (0.5 + 0.5 * phase) * depth);
                 let y = x * (1.0 - mix) + delayed * mix;
                 let mut l = self.last[c];
                 flush_denormal(&mut l);
@@ -252,7 +262,10 @@ mod tests {
             ch.process(&mut chans);
         }
         let out_rms = (s.iter().map(|v| v * v).sum::<f32>() / s.len() as f32).sqrt();
-        assert!((out_rms - ref_rms).abs() > 0.005, "chorus must alter the signal");
+        assert!(
+            (out_rms - ref_rms).abs() > 0.005,
+            "chorus must alter the signal"
+        );
     }
 
     #[test]

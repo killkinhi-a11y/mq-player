@@ -16,8 +16,8 @@
  *  - MediaMetadata fields are Options; cover_url → SMTC thumbnail.
  */
 use souvlaki::{
-    MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, MediaPosition,
-    PlatformConfig, SeekDirection,
+    MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig,
+    SeekDirection,
 };
 use std::sync::mpsc::{channel, Sender, TryRecvError};
 use std::time::Duration;
