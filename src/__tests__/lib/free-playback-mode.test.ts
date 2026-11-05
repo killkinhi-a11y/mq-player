@@ -18,15 +18,15 @@
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
+import { readModuleSource } from "../helpers/readModuleSource";
 import { resolve } from "node:path";
 
 const ENGINE = readFileSync(
   resolve(__dirname, "../../components/mq/useAudioEngine.ts"),
   "utf8",
 );
-const STORE = readFileSync(
+const STORE = readModuleSource(
   resolve(__dirname, "../../store/useAppStore.ts"),
-  "utf8",
 );
 const CLIENT = readFileSync(
   resolve(__dirname, "../../lib/playback/client.ts"),

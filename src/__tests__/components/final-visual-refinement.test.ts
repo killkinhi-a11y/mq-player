@@ -21,11 +21,12 @@
  *      640→760 narrow) so ≥1440 viewports don't show a right-side void.
  */
 import { describe, it, expect } from "vitest";
+import { readModuleSource } from "../helpers/readModuleSource";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const readSrc = (...f: string[]) =>
-  readFileSync(join(process.cwd(), ...f), "utf8");
+  readModuleSource(join(...f));
 
 describe("FINAL §1 — buttons are FLAT (no 3D chrome objects)", () => {
   it("platinum button has no radial specular, no reflection band, no bevel", () => {
