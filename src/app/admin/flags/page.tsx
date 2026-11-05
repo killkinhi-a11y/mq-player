@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useLoader } from "@/hooks/useLoader";
 import {
   ToggleLeft as ToggleLeftIcon,
   Plus,
@@ -35,8 +36,6 @@ const itemVariants = {
 };
 
 export default function AdminFlagsPage() {
-  const [flags, setFlags] = useState<FeatureFlag[]>([]);
-  const [loading, setLoading] = useState(true);
   const [toggleLoading, setToggleLoading] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
@@ -47,22 +46,18 @@ export default function AdminFlagsPage() {
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState("");
 
-  const fetchFlags = useCallback(async () => {
-    setLoading(true);
+  const { data: flagsData, reload: fetchFlags } = useLoader("flags", async (signal) => {
     try {
-      const res = await fetch("/api/admin/feature-flags");
+      const res = await fetch("/api/admin/feature-flags", { signal });
       const data = await res.json();
-      if (data.flags) setFlags(data.flags);
+      if (!data.flags) throw new Error("Malformed feature-flags response");
+      return data.flags as FeatureFlag[];
     } catch (err) {
-      console.error("Failed to fetch feature flags:", err);
-    } finally {
-      setLoading(false);
+      if (!signal.aborted) console.error("Failed to fetch feature flags:", err);
+      throw err;
     }
-  }, []);
-
-  useEffect(() => {
-    fetchFlags();
-  }, [fetchFlags]);
+  });
+  const flags = flagsData ?? [];
 
   const handleToggle = async (flag: FeatureFlag) => {
     setToggleLoading(flag.id);

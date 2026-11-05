@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useLoader } from "@/hooks/useLoader";
 import {
   DollarSign,
   TrendingUp,
@@ -90,29 +91,23 @@ const itemVariants = {
 };
 
 export default function AdminBillingPage() {
-  const [data, setData] = useState<BillingData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [refundLoading, setRefundLoading] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [refundConfirm, setRefundConfirm] = useState<Transaction | null>(null);
 
-  const fetchBilling = useCallback(async () => {
-    setLoading(true);
+  const { data: billing, loading, reload: fetchBilling } = useLoader("billing", async (signal) => {
     try {
-      const res = await fetch("/api/admin/billing");
+      const res = await fetch("/api/admin/billing", { signal });
       const json = await res.json();
-      if (json.transactions) setData(json);
+      if (!json.transactions) throw new Error("Malformed billing response");
+      return json as BillingData;
     } catch (err) {
-      console.error("Failed to fetch billing data:", err);
-    } finally {
-      setLoading(false);
+      if (!signal.aborted) console.error("Failed to fetch billing data:", err);
+      throw err;
     }
-  }, []);
-
-  useEffect(() => {
-    fetchBilling();
-  }, [fetchBilling]);
+  });
+  const data = billing ?? null;
 
   const handleRefund = async (transaction: Transaction) => {
     setRefundLoading(transaction.id);

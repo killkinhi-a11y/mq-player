@@ -52,6 +52,28 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
 };
 
+async function loadSessions(): Promise<SupportChatSession[] | null> {
+  try {
+    const res = await fetch("/api/admin/support-chat?sessions=true");
+    const data = await res.json();
+    return data.sessions ?? null;
+  } catch (err) {
+    console.error("Failed to fetch sessions:", err);
+    return null;
+  }
+}
+
+async function loadMessages(sessionId: string): Promise<SupportChatMessage[] | null> {
+  try {
+    const res = await fetch(`/api/admin/support-chat?sessionId=${encodeURIComponent(sessionId)}`);
+    const data = await res.json();
+    return data.messages ?? null;
+  } catch (err) {
+    console.error("Failed to fetch messages:", err);
+    return null;
+  }
+}
+
 export default function AdminSupportPage() {
   const [sessions, setSessions] = useState<SupportChatSession[]>([]);
   const [messages, setMessages] = useState<SupportChatMessage[]>([]);
@@ -64,48 +86,40 @@ export default function AdminSupportPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const fetchSessions = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/support-chat?sessions=true");
-      const data = await res.json();
-      if (data.sessions) setSessions(data.sessions);
-    } catch (err) {
-      console.error("Failed to fetch sessions:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const fetchMessages = useCallback(async (sessionId: string) => {
-    setMessagesLoading(true);
-    try {
-      const res = await fetch(`/api/admin/support-chat?sessionId=${sessionId}`);
-      const data = await res.json();
-      if (data.messages) setMessages(data.messages);
-    } catch (err) {
-      console.error("Failed to fetch messages:", err);
-    } finally {
-      setMessagesLoading(false);
-    }
+  const fetchSessions = useCallback(() => {
+    return loadSessions()
+      .then((list) => { if (list) setSessions(list); })
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    fetchSessions();
-  }, [fetchSessions]);
+    let cancelled = false;
+    loadSessions()
+      .then((list) => { if (!cancelled && list) setSessions(list); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
+  // Messages: initial fetch on selection + 3s poll. The spinner is raised by
+  // handleSelectSession (event), so polls refresh silently without flashing.
   useEffect(() => {
-    if (selectedSession) {
-      fetchMessages(selectedSession);
-      const interval = setInterval(() => fetchMessages(selectedSession), 3000);
-      return () => clearInterval(interval);
-    }
-  }, [selectedSession, fetchMessages]);
+    if (!selectedSession) return;
+    let cancelled = false;
+    const pull = () =>
+      loadMessages(selectedSession)
+        .then((list) => { if (!cancelled && list) setMessages(list); })
+        .finally(() => { if (!cancelled) setMessagesLoading(false); });
+    pull();
+    const interval = setInterval(pull, 3000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [selectedSession]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const handleSelectSession = (sessionId: string) => {
+    if (sessionId !== selectedSession) setMessagesLoading(true);
     setSelectedSession(sessionId);
     setMessages([]);
     setInputText("");
