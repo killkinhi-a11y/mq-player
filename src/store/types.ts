@@ -506,6 +506,12 @@ export interface AppState {
   publicPlaylistsLoading: boolean;
   recommendedPlaylistsLoading: boolean;
   publicPlaylistsTotal: number;
+  // Present in initialState (and the persist skip list) but never read or
+  // written by the app — typed here so AppState matches the runtime shape.
+  // Candidates for removal (docs/STORE_STATE_MAP.md).
+  publicPlaylistsPage: number;
+  publicPlaylistsSearch: string;
+  publicPlaylistsSort: string;
   /** One-shot deep-link: a playlist the Home recommendations section wants
    *  opened in the full public-playlist page. Consumed (and cleared) by
    *  PublicPlaylistsView on mount — transient, never persisted. */
