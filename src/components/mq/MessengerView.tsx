@@ -6,340 +6,24 @@
 // screen. Visual language lives in ./messenger.css (mqms-* classes) on the
 // MQ material system tokens.
 
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
-import { useAppStore } from "@/store/useAppStore";
-import { canPollProtected, controlled401Recovery, isDemoUser } from "@/lib/authGate";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  MessageCircle, Search, Send, ArrowLeft, X, Loader2, UserPlus, Mic,
-  Pin, Trash2, Smile, Users, Lock, Check, CheckCheck, Copy, Reply, User, Contact,
-  Play, Pause, Music2, Image as ImageIcon, AlertCircle, Clock,
-  ChevronDown, SquarePen,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { simulateDecryptSync, simulateEncrypt } from "@/lib/crypto";
-import { useToast } from "@/hooks/use-toast";
+import { AlertCircle, ArrowLeft, Check, CheckCheck, ChevronDown, Clock, Contact, Copy, Loader2, Lock, MessageCircle, Mic, Pin, Reply, Search, Send, Smile, SquarePen, Trash2, User, UserPlus, Users, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { usePinnedChats } from "./messenger/usePinnedChats";
+import { useVoiceRecorder } from "./messenger/useVoiceRecorder";
+import { Avatar, DateSeparator, HistorySkeleton, VoiceMessageBubble, previewIconFor } from "./messenger/parts";
 import type { Message as ChatMessage } from "@/lib/musicApi";
-import { formatDuration as formatDurationCanonical } from "@/lib/musicApi";
+import type { ContextMenuState, FriendUser, FriendsLoadResult, GroupChat, GroupMember, OnlineStatus } from "./messenger/types";
+import { DEMO_DEFAULT_CHAT_ID, DEMO_FRIENDS, DEMO_GROUP, DEMO_ONLINE, buildDemoThreads } from "./demoChat";
+import { NO_CHAT_USERS, QUICK_EMOJIS } from "./messenger/constants";
+import { canPollProtected, controlled401Recovery, isDemoUser } from "@/lib/authGate";
+import { colorForId, decrypt, formatDuration, formatLastSeen, formatTime, getDateLabel, getInitials, parseVoice, sameDay } from "./messenger/format";
 import { hoverProps } from "@/lib/hoverCapability";
-import {
-  DEMO_FRIENDS, DEMO_GROUP, DEMO_ONLINE,
-  DEMO_DEFAULT_CHAT_ID, buildDemoThreads,
-} from "./demoChat";
+import { fetchOnlineStatuses, loadGroupChats, loadMessengerFriends } from "./messenger/messengerApi";
+import { simulateDecryptSync, simulateEncrypt } from "@/lib/crypto";
+import { useAppStore } from "@/store/useAppStore";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import "./messenger.css";
-
-// ─── Types ────────────────────────────────────────────────────────────────
-
-interface FriendUser { id: string; username: string; avatar?: string; addedAt: string; }
-interface OnlineStatus { online: boolean; lastSeen: string | null; }
-interface GroupMember { id: string; username: string; avatar?: string; userId?: string; role?: string; }
-interface GroupChat {
-  id: string; name: string; avatar?: string; members: GroupMember[]; createdAt: string;
-  /** Count from the list API (owner included) — filled before the detail load. */
-  memberCount?: number;
-  createdBy?: string;
-}
-interface ContextMenuState { id: string; x: number; y: number; }
-
-const QUICK_EMOJIS = ["❤️", "🔥", "😂", "👍", "😮", "😢"];
-
-// ─── Helpers ──────────────────────────────────────────────────────────────
-
-function formatTime(iso: string): string {
-  try {
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return "";
-    return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-  } catch { return ""; }
-}
-
-function formatLastSeen(iso: string | null): string {
-  if (!iso) return "был(а) недавно";
-  try {
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return "был(а) недавно";
-    const diffMin = Math.floor((Date.now() - d.getTime()) / 60000);
-    if (diffMin < 1) return "только что";
-    if (diffMin < 60) return `был(а) ${diffMin} мин назад`;
-    const diffH = Math.floor(diffMin / 60);
-    if (diffH < 24) return `был(а) ${diffH} ч назад`;
-    return `был(а) ${d.toLocaleDateString("ru-RU")}`;
-  } catch { return "был(а) недавно"; }
-}
-
-// v69: canonical formatter (guards + h:mm:ss) replaces the guarded local
-// copy — one formatter everywhere.
-const formatDuration = formatDurationCanonical;
-
-function getDateLabel(iso: string): string {
-  try {
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return "";
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-    const msgDay = new Date(d); msgDay.setHours(0, 0, 0, 0);
-    if (msgDay.getTime() === today.getTime()) return "Сегодня";
-    if (msgDay.getTime() === yesterday.getTime()) return "Вчера";
-    return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
-  } catch { return ""; }
-}
-
-function sameDay(a: string, b: string): boolean {
-  try {
-    const da = new Date(a), db = new Date(b);
-    return da.getFullYear() === db.getFullYear() &&
-      da.getMonth() === db.getMonth() && da.getDate() === db.getDate();
-  } catch { return false; }
-}
-
-const AVATAR_COLORS = [
-  "linear-gradient(135deg, #e03131, #b91c1c)",
-  "linear-gradient(135deg, #db2777, #9d174d)",
-  "linear-gradient(135deg, #9333ea, #6b21a8)",
-  "linear-gradient(135deg, #0d9488, #134e4a)",
-  "linear-gradient(135deg, #65a30d, #365314)",
-  "linear-gradient(135deg, #d97706, #78350f)",
-  "linear-gradient(135deg, #0891b2, #155e75)",
-];
-
-function colorForId(id: string): string {
-  let hash = 0;
-  const s = id || "x";
-  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) | 0;
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
-function getInitials(name: string): string {
-  return name ? name.replace("@", "").charAt(0).toUpperCase() : "?";
-}
-
-function parseVoice(content: string): { voiceUrl: string; voiceDuration: number } | null {
-  if (!content || typeof content !== "string") return null;
-  try {
-    const p = JSON.parse(content);
-    if (p && typeof p.voiceUrl === "string") {
-      return { voiceUrl: p.voiceUrl, voiceDuration: Number(p.voiceDuration) || 0 };
-    }
-  } catch {}
-  return null;
-}
-
-function decrypt(content: string): string {
-  try { return simulateDecryptSync(content || ""); } catch { return content || ""; }
-}
-
-// ─── Voice Message Bubble ─────────────────────────────────────────────────
-
-function VoiceMessageBubble({ voiceUrl, duration, isMine }: {
-  voiceUrl: string; duration: number; isMine: boolean;
-}) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [playing, setPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [dur, setDur] = useState(duration || 0);
-
-  useEffect(() => {
-    let cancelled = false;
-    try {
-      const audio = new Audio(voiceUrl);
-      audio.onloadedmetadata = () => { if (!cancelled) setDur(audio.duration || duration || 0); };
-      audio.ontimeupdate = () => { if (!cancelled) setCurrentTime(audio.currentTime || 0); };
-      audio.onended = () => { if (!cancelled) { setPlaying(false); setCurrentTime(0); } };
-      audioRef.current = audio;
-    } catch {}
-    return () => {
-      cancelled = true;
-      try { audioRef.current?.pause(); } catch {}
-      audioRef.current = null;
-    };
-  }, [voiceUrl, duration]);
-
-  const toggle = useCallback(() => {
-    try {
-      const a = audioRef.current;
-      if (!a) return;
-      if (playing) { a.pause(); setPlaying(false); }
-      else { a.play().catch(() => {}); setPlaying(true); }
-    } catch {}
-  }, [playing]);
-
-  const progress = dur > 0 ? (currentTime / dur) * 100 : 0;
-  // Deterministic waveform (no Math.random to avoid re-renders).
-  const bars = useMemo(() => {
-    const arr: number[] = [];
-    for (let i = 0; i < 28; i++) arr.push(0.25 + ((i * 7) % 10) / 12);
-    return arr;
-  }, []);
-
-  return (
-    <div className="flex items-center gap-3 min-w-[200px] py-0.5">
-      <motion.button onClick={toggle}
-        className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-transform"
-        whileTap={{ scale: 0.94 }}
-        style={{
-          backgroundColor: isMine
-            ? "color-mix(in srgb, var(--mq-text) 18%, transparent)"
-            : "var(--mq-platinum-lift)",
-          boxShadow: isMine
-            ? "none"
-            : "inset 0 1px 0 rgba(255,255,255,0.09), 0 2px 10px rgba(0,0,0,0.32)",
-          color: "#fff",
-        }}
-        aria-label={playing ? "Пауза" : "Воспроизвести"}>
-        {playing ? <Pause className="w-4 h-4" />
-          : <Play className="w-4 h-4 ml-0.5" fill="currentColor" />}
-      </motion.button>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-end gap-[2px] h-7" aria-hidden="true">
-          {bars.map((h, i) => {
-            const isActive = (i / bars.length) * 100 < progress;
-            return (
-              <div key={i} className="w-[2px] rounded-full transition-colors"
-                style={{
-                  height: `${h * 100}%`,
-                  backgroundColor: isMine
-                    ? (isActive ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.45)")
-                    : (isActive ? "var(--mq-platinum-hi)" : "color-mix(in srgb, var(--mq-text) 30%, transparent)"),
-                }} />
-            );
-          })}
-        </div>
-        <div className="mq-t-meta-2 mt-1 tabular-nums"
-          style={{ color: isMine ? "rgba(244,246,250,0.72)" : "var(--mq-text-muted)" }}>
-          {formatDuration(playing ? currentTime : dur)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Avatar ───────────────────────────────────────────────────────────────
-
-function Avatar({ src, name, id, size = 44, isGroup = false, ring = false }: {
-  src?: string; name: string; id: string; size?: number; isGroup?: boolean; ring?: boolean;
-}) {
-  const ringShadow = ring
-    ? { boxShadow: "0 0 0 1px color-mix(in srgb, var(--mq-text) 14%, transparent), 0 0 0 4px color-mix(in srgb, var(--mq-text) 4%, transparent)" }
-    : undefined;
-  if (src) {
-    return <img src={src} alt={name} className="rounded-full object-cover flex-shrink-0"
-      style={{ width: size, height: size, boxShadow: ringShadow ? ringShadow.boxShadow : undefined }} />;
-  }
-  return (
-    <div className="rounded-full flex items-center justify-center font-bold flex-shrink-0"
-      style={{
-        width: size, height: size,
-        background: isGroup ? "linear-gradient(135deg, #8b5cf6, #6366f1)" : colorForId(id),
-        color: "#fff", fontSize: size * 0.4,
-        boxShadow: ringShadow ? ringShadow.boxShadow : undefined,
-      }}>
-      {isGroup ? <Users style={{ width: size * 0.45, height: size * 0.45 }} /> : getInitials(name)}
-    </div>
-  );
-}
-
-// ─── Date Separator ───────────────────────────────────────────────────────
-
-function DateSeparator({ label }: { label: string }) {
-  return (
-    <div className="mqms-date" role="separator" aria-label={label}>
-      <span>{label}</span>
-    </div>
-  );
-}
-
-// ─── List preview: type icon for the last message (voice / photo / track) ──
-
-function previewIconFor(last: ChatMessage | undefined): LucideIcon | null {
-  if (!last) return null;
-  if (last.messageType === "voice") return Mic;
-  try {
-    const raw = decrypt(last.content || "").trim();
-    if (/^https?:\/\/\S+\.(jpg|jpeg|png|gif|webp|bmp|svg)([?#]|$)/i.test(raw)) return ImageIcon;
-    if (raw.startsWith("🎵")) return Music2;
-    const parsed = JSON.parse(raw);
-    if (parsed && parsed.type === "track_share") return Music2;
-  } catch { /* plain text — no icon */ }
-  return null;
-}
-
-// ─── History skeleton (loading state) ─────────────────────────────────────
-
-function HistorySkeleton() {
-  const rows = [
-    { mine: false, w: "w-40 sm:w-52", h: "h-11" },
-    { mine: true, w: "w-56 sm:w-72", h: "h-12" },
-    { mine: false, w: "w-32 sm:w-40", h: "h-9" },
-    { mine: true, w: "w-44 sm:w-60", h: "h-11" },
-  ];
-  return (
-    <div className="flex flex-col gap-4 pt-2" aria-hidden="true">
-      {rows.map((r, i) => (
-        <div key={i} className={`flex ${r.mine ? "justify-end" : "justify-start"}`}>
-          <div
-            className={`mqms-skel ${r.w} ${r.h} ${r.mine ? "mqms-tail-out" : "mqms-tail-in"}`}
-            style={{ animationDelay: `${i * 0.14}s` }} />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────
-
-type FriendsLoadResult =
-  | { status: "ok"; friends: any[] }
-  | { status: "skip" }
-  | { status: "error" };
-
-const NO_CHAT_USERS: any[] = [];
-
-/** Friends list with up to 2 retries (2s apart) for transient DB errors. */
-async function loadMessengerFriends(userId: string | null | undefined): Promise<FriendsLoadResult> {
-  // Phase 2C: gated — demo sessions use local friends, no 401 + retry.
-  if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) return { status: "skip" };
-  if (!userId) return { status: "skip" };
-  for (let attempt = 0; ; attempt++) {
-    try {
-      const res = await fetch(`/api/friends?userId=${userId}`);
-      if (res.status === 401) {
-        // Auth loss: no auto-retry (that would be the 401→retry→401 loop).
-        controlled401Recovery("messenger/friends");
-        return { status: "skip" };
-      }
-      if (!res.ok) throw new Error("bad");
-      const data = await res.json();
-      return { status: "ok", friends: Array.isArray(data.friends) ? data.friends : [] };
-    } catch {
-      // Auto-retry after 2s (handles transient Turso connection issues)
-      if (attempt >= 2) return { status: "error" };
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    }
-  }
-}
-
-async function loadGroupChats(userId: string | null | undefined): Promise<GroupChat[] | null> {
-  // Phase 2C: gated — demo sessions have no server-side group chats.
-  if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) return null;
-  if (!userId) return null;
-  try {
-    const res = await fetch(`/api/group-chats?userId=${userId}`);
-    if (res.status === 401) { controlled401Recovery("group-chats"); return null; }
-    if (!res.ok) return null;
-    const data = await res.json();
-    const list = Array.isArray(data.groupChats) ? data.groupChats : Array.isArray(data) ? data : [];
-    return list.map((g: any) => ({
-      id: g.id, name: g.name || "Group", avatar: g.avatar,
-      // List API has no members array — but it has the true DB count.
-      members: Array.isArray(g.members) ? g.members : [],
-      memberCount: Number(g.memberCount ?? (Array.isArray(g.members) ? g.members.length : 0)),
-      createdBy: g.createdBy,
-      createdAt: g.createdAt || new Date().toISOString(),
-    }));
-  } catch {
-    return null;
-  }
-}
 
 export default function MessengerView() {
   const userId = useAppStore((s) => s.userId);
@@ -399,23 +83,9 @@ export default function MessengerView() {
   const [groupMessages, setGroupMessages] = useState<Record<string, ChatMessage[]>>({});
   const [groupName, setGroupName] = useState("");
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
-  const [pinnedChats, setPinnedChats] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem("mq-pinned-chats");
-      const parsed = stored ? JSON.parse(stored) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch { return []; }
-  });
-  const [pinnedMessages, setPinnedMessages] = useState<Record<string, string>>(() => {
-    try {
-      const stored = localStorage.getItem("mq-pinned-messages");
-      const parsed = stored ? JSON.parse(stored) : {};
-      return parsed && typeof parsed === "object" ? parsed : {};
-    } catch { return {}; }
-  });
+  const { pinnedChats, pinnedMessages, togglePinChat, togglePinMessageIn } = usePinnedChats();
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingDuration, setRecordingDuration] = useState(0);
+  const { isRecording, recordingDuration, start: startVoice, stop: stopRecording, cancel: cancelRecording } = useVoiceRecorder();
   const [showQuickEmojis, setShowQuickEmojis] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -430,10 +100,6 @@ export default function MessengerView() {
   const sseRef = useRef<EventSource | null>(null);
   const bcRef = useRef<BroadcastChannel | null>(null);
   const lastSeenTimeRef = useRef<string>(new Date(0).toISOString());
-  const recordingDurationRef = useRef(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordingChunksRef = useRef<Blob[]>([]);
-  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pullStartYRef = useRef<number | null>(null);
 
@@ -590,22 +256,7 @@ export default function MessengerView() {
     let cancelled = false;
     const fetchStatuses = async () => {
       if (!gate()) return;
-      const statuses: Record<string, OnlineStatus> = {};
-      await Promise.all(safeFriends.map(async (f) => {
-        try {
-          const res = await fetch(`/api/user/${f.id}/status`);
-          if (res.status === 401) {
-            controlled401Recovery("user/status");
-            return;
-          }
-          if (res.ok) {
-            const data = await res.json();
-            statuses[f.id] = { online: !!data.online, lastSeen: data.lastSeen ?? null };
-          } else {
-            statuses[f.id] = { online: false, lastSeen: null };
-          }
-        } catch { statuses[f.id] = { online: false, lastSeen: null }; }
-      }));
+      const statuses = await fetchOnlineStatuses(safeFriends);
       if (!cancelled) setOnlineStatuses(statuses);
     };
     fetchStatuses();
@@ -966,16 +617,6 @@ export default function MessengerView() {
     });
   }, [safeFriends, safeGroupChats, groupMessages, lastMessageByContact, searchQuery, pinnedChats, listFilter]);
 
-  // ── Toggle pin chat ──
-  const togglePinChat = useCallback((chatId: string) => {
-    setPinnedChats((prev) => {
-      const arr = Array.isArray(prev) ? prev : [];
-      const next = arr.includes(chatId) ? arr.filter((x) => x !== chatId) : [...arr, chatId];
-      try { localStorage.setItem("mq-pinned-chats", JSON.stringify(next)); } catch {}
-      return next;
-    });
-  }, []);
-
   // ── Toggle pin message (per-chat, localStorage) ──
   const pinnedMsgId = activeChatId ? pinnedMessages[activeChatId] : undefined;
   const pinnedMessage = useMemo(() => {
@@ -985,15 +626,9 @@ export default function MessengerView() {
 
   const togglePinMessage = useCallback((msgId: string) => {
     if (!activeChatId) return;
-    setPinnedMessages((prev) => {
-      const next = { ...prev };
-      if (next[activeChatId] === msgId) delete next[activeChatId];
-      else next[activeChatId] = msgId;
-      try { localStorage.setItem("mq-pinned-messages", JSON.stringify(next)); } catch {}
-      return next;
-    });
+    togglePinMessageIn(activeChatId, msgId);
     setContextMenu(null);
-  }, [activeChatId]);
+  }, [activeChatId, togglePinMessageIn]);
 
   // ── Delete message (local only) ──
   const handleDeleteMessage = useCallback((msgId: string) => {
@@ -1158,99 +793,38 @@ export default function MessengerView() {
     const isGroupSnap = isGroupChat;
     const userSnap = userId;
     const usernameSnap = username;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus" : "audio/webm";
-      const recorder = new MediaRecorder(stream, { mimeType });
-      recordingChunksRef.current = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) recordingChunksRef.current.push(e.data);
-      };
-      recorder.onstop = () => {
-        try {
-          const blob = new Blob(recordingChunksRef.current, { type: "audio/webm" });
-          const reader = new FileReader();
-          reader.onload = async () => {
-            try {
-              const base64Url = String(reader.result || "");
-              const duration = recordingDurationRef.current;
-              const content = JSON.stringify({ voiceUrl: base64Url, voiceDuration: duration });
-              const now = new Date().toISOString();
-              if (isGroupSnap) {
-                setGroupMessages((prev) => ({
-                  ...prev,
-                  [chatIdSnap]: [...(prev[chatIdSnap] || []), {
-                    id: `voice_${Date.now()}`, content, senderId: userSnap,
-                    receiverId: chatIdSnap, encrypted: false, createdAt: now,
-                    senderName: usernameSnap ? `@${usernameSnap}` : undefined,
-                    messageType: "voice",
-                  }],
-                }));
-                await fetch(`/api/group-chats/${chatIdSnap}/messages`, {
-                  method: "POST", headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ senderId: userSnap, content, messageType: "voice" }),
-                }).catch(() => {});
-              } else {
-                addMessage({
-                  id: `voice_${Date.now()}`, content, senderId: userSnap,
-                  receiverId: chatIdSnap, encrypted: false, createdAt: now,
-                  senderName: usernameSnap ? `@${usernameSnap}` : undefined,
-                  messageType: "voice",
-                });
-                await fetch("/api/messages", {
-                  method: "POST", headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ receiverId: chatIdSnap, content, encrypted: false, messageType: "voice" }),
-                }).catch(() => {});
-              }
-            } catch {}
-          };
-          reader.readAsDataURL(blob);
-          stream.getTracks().forEach((t) => t.stop());
-        } catch {}
-      };
-      recorder.start();
-      mediaRecorderRef.current = recorder;
-      setIsRecording(true);
-      recordingDurationRef.current = 0;
-      setRecordingDuration(0);
-      recordingTimerRef.current = setInterval(() => {
-        recordingDurationRef.current += 1;
-        setRecordingDuration(recordingDurationRef.current);
-      }, 1000);
-    } catch {
-      toast({ title: "Микрофон недоступен" });
-    }
-  }, [activeChatId, isGroupChat, userId, username, addMessage, toast]);
-
-  const stopRecording = useCallback(() => {
-    try {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-        mediaRecorderRef.current.stop();
+    const started = await startVoice(async (base64Url, duration) => {
+      const content = JSON.stringify({ voiceUrl: base64Url, voiceDuration: duration });
+      const now = new Date().toISOString();
+      if (isGroupSnap) {
+        setGroupMessages((prev) => ({
+          ...prev,
+          [chatIdSnap]: [...(prev[chatIdSnap] || []), {
+            id: `voice_${Date.now()}`, content, senderId: userSnap,
+            receiverId: chatIdSnap, encrypted: false, createdAt: now,
+            senderName: usernameSnap ? `@${usernameSnap}` : undefined,
+            messageType: "voice",
+          }],
+        }));
+        await fetch(`/api/group-chats/${chatIdSnap}/messages`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ senderId: userSnap, content, messageType: "voice" }),
+        }).catch(() => {});
+      } else {
+        addMessage({
+          id: `voice_${Date.now()}`, content, senderId: userSnap,
+          receiverId: chatIdSnap, encrypted: false, createdAt: now,
+          senderName: usernameSnap ? `@${usernameSnap}` : undefined,
+          messageType: "voice",
+        });
+        await fetch("/api/messages", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ receiverId: chatIdSnap, content, encrypted: false, messageType: "voice" }),
+        }).catch(() => {});
       }
-    } catch {}
-    setIsRecording(false);
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
-  }, []);
-
-  const cancelRecording = useCallback(() => {
-    try {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-        mediaRecorderRef.current.onstop = null;
-        mediaRecorderRef.current.stop();
-      }
-    } catch {}
-    mediaRecorderRef.current = null;
-    recordingChunksRef.current = [];
-    setIsRecording(false);
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
-  }, []);
+    });
+    if (!started) toast({ title: "Микрофон недоступен" });
+  }, [activeChatId, isGroupChat, userId, username, addMessage, toast, startVoice]);
 
   // ── Search users (debounced) ──
   useEffect(() => {
