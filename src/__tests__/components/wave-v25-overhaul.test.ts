@@ -26,11 +26,12 @@
  *     rounded box.
  */
 import { describe, it, expect } from "vitest";
+import { readModuleSource } from "../helpers/readModuleSource";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 const readSrc = (...f: string[]) =>
-  readFileSync(join(process.cwd(), ...f), "utf8");
+  readModuleSource(join(...f));
 
 describe("V2.5 §4 — user-facing terminology: WAVE, never «Волна»", () => {
   const UI_FILES = [

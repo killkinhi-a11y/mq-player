@@ -21,12 +21,13 @@
  *     were still red — volume is a neutral utility control everywhere.
  */
 import { describe, expect, it } from "vitest";
+import { readModuleSource } from "../helpers/readModuleSource";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { waveReasonText, waveSeedLabel } from "@/lib/wave/reasons";
 
 const readSrc = (...f: string[]) =>
-  readFileSync(join(process.cwd(), ...f), "utf8");
+  readModuleSource(join(...f));
 
 describe("FCP §1 — WAVE main surface: solid, visibly rounded, clean clipping", () => {
   it("the hero surface paints an opaque solid fill with the float radius", () => {

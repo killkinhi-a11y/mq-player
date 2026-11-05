@@ -25,7 +25,7 @@ import { LyricsView } from "./LyricsView";
 import { shareTrackUrl, openInAppTrackUrl } from "@/lib/share-urls";
 import { AudioVisualizer } from "./AudioVisualizer";
 import { WaveformView } from "./WaveformView";
-import { waveReasonText } from "./MainView";
+import { waveReasonText } from "./main/homeUtils";
 import MenuCore, { MenuHeader, type MenuElement } from "./ui/MenuCore";
 import { DownloadMenu } from "./ui/DownloadMenu";
 import { TextSwap } from "./ui/TextSwap";

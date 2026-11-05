@@ -13,13 +13,14 @@
  *  2. Source contracts for every fixed row (fast, catches class regressions).
  */
 import { describe, it, expect } from "vitest";
+import { readModuleSource } from "../helpers/readModuleSource";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 const read = (f: string) =>
-  readFileSync(join(process.cwd(), "src/components/mq", f), "utf8");
+  readModuleSource(join(process.cwd(), "src/components/mq", f));
 
 const PATHOLOGICAL_TITLE =
   "A".repeat(300) + "УУУУбез_пробелов" + "🔴🎵🎉".repeat(30) + "قلبمرحباשלום".repeat(20);

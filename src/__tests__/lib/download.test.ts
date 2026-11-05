@@ -9,13 +9,13 @@ vi.mock("@/lib/streamResolver", () => ({
 vi.mock("@/lib/audius", () => ({
   getAudiusStream: vi.fn(),
 }));
-vi.mock("@/components/mq/SearchView", () => ({
+vi.mock("@/lib/localBlobUrls", () => ({
   getLocalBlobUrl: vi.fn(),
 }));
 
 import { resolveSoundCloudStream } from "@/lib/streamResolver";
 import { getAudiusStream } from "@/lib/audius";
-import { getLocalBlobUrl } from "@/components/mq/SearchView";
+import { getLocalBlobUrl } from "@/lib/localBlobUrls";
 import {
   getDownloadProvider,
   soundcloudDownloadProvider,
