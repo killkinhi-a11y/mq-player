@@ -39,16 +39,15 @@ export default function ScrollReveal({
   }, []);
 
   const ref = useRef<HTMLDivElement>(null);
-  const [isVisible, setIsVisible] = useState(false);
+  const [inView, setIsVisible] = useState(false);
   const hasAnimated = useRef(false);
 
   const shouldSkip = isMobile || disabled;
+  // Skipped reveals are simply always visible — derived, not set in an effect.
+  const isVisible = shouldSkip || inView;
 
   useEffect(() => {
-    if (shouldSkip) {
-      setIsVisible(true);
-      return;
-    }
+    if (shouldSkip) return;
     const el = ref.current;
     if (!el) return;
     const observer = new IntersectionObserver(

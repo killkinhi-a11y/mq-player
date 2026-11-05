@@ -1111,6 +1111,14 @@ function CanvasMascot({
 // MAIN COMPONENT
 // ══════════════════════════════════════════════════════════════════
 
+function restingPosition(size: number): { x: number; y: number } {
+  const margin = 16;
+  const playerBarH = 80;
+  const x = Math.max(margin, window.innerWidth - size - margin);
+  const y = Math.max(margin, Math.min(window.innerHeight - size - playerBarH - margin, window.innerHeight - size - 140 - margin));
+  return { x, y };
+}
+
 export default function MqCat() {
   const catEnabled = useAppStore((s) => s.catEnabled);
   const catMood = useAppStore((s) => s.catMood);
@@ -1123,7 +1131,10 @@ export default function MqCat() {
   const [isPetting, setIsPetting] = useState(false);
   const [isBlinking, setIsBlinking] = useState(false);
 
-  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const size = SIZE_PX[catSize] ?? 100;
+  // Client-only component (dynamic, ssr:false; mounted only when enabled),
+  // so the resting spot can be computed from the viewport up front.
+  const [pos, setPos] = useState(() => restingPosition(size));
   const [isWalking, setIsWalking] = useState(false);
   const [walkDirection, setWalkDirection] = useState(1);
   const [isLifted, setIsLifted] = useState(false);
@@ -1136,9 +1147,17 @@ export default function MqCat() {
 
   const isDragging = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
-  const posRef = useRef({ x: 0, y: 0 });
+  const posRef = useRef(pos);
 
-  const size = SIZE_PX[catSize] ?? 100;
+  // Size change → back to the resting spot (adjusted during render).
+  const [posForSize, setPosForSize] = useState(size);
+  if (posForSize !== size) {
+    setPosForSize(size);
+    setPos(restingPosition(size));
+  }
+  useEffect(() => {
+    posRef.current = restingPosition(size);
+  }, [size]);
 
   // Resize handler to keep mascot in bounds
   useEffect(() => {
@@ -1159,15 +1178,6 @@ export default function MqCat() {
     return () => window.removeEventListener("resize", handleResize);
   }, [catEnabled, size]);
 
-  useEffect(() => {
-    if (!catEnabled) return;
-    const margin = 16;
-    const playerBarH = 80;
-    const initX = Math.max(margin, Math.min(window.innerWidth - size - margin, window.innerWidth - size - margin));
-    const initY = Math.max(margin, Math.min(window.innerHeight - size - playerBarH - margin, window.innerHeight - size - 140 - margin));
-    setPos({ x: initX, y: initY });
-    posRef.current = { x: initX, y: initY };
-  }, [catEnabled, size]);
 
   // ── Walking logic ──
   useEffect(() => {

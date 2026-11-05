@@ -88,13 +88,13 @@ export default function MenuCore({
   const surfaceRef = useRef<HTMLDivElement>(null);
   const prevFocusRef = useRef<HTMLElement | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
-  const [isSheet, setIsSheet] = useState(false);
+  // Menus only mount on the client after a user gesture → measure lazily.
+  const [isSheet] = useState(isMobileViewport);
   const typeAheadRef = useRef({ buffer: "", lastAt: 0 });
 
   // Remember the trigger — focus returns to it on close (a11y contract).
   useEffect(() => {
     prevFocusRef.current = document.activeElement as HTMLElement | null;
-    setIsSheet(isMobileViewport());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -239,7 +239,10 @@ export default function MenuCore({
   //    for ~500ms that must NOT insta-close a freshly opened menu → 600ms
   //    grace on raw scroll events. Scrollbar drags past the grace still close.
   //  • Mobile sheet mode never closes on scroll (sheet is bottom-anchored).
-  const openedAtRef = useRef(Date.now());
+  const openedAtRef = useRef(0);
+  useEffect(() => {
+    openedAtRef.current = Date.now();
+  }, []);
   const userScrolledRef = useRef(false);
   useEffect(() => {
     const isInsideSurface = (t: EventTarget | null) => {

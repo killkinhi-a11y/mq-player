@@ -84,7 +84,6 @@ function ScrollPicker({
   onSelect: (v: number) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const scrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const itemHeight = 48;
 
   useEffect(() => {
@@ -95,10 +94,20 @@ function ScrollPicker({
     }
   }, [selected, options]);
 
+  // Scroll position as state (rAF-throttled) so item opacity/scale re-render
+  // while scrolling. Previously render read scrollRef.current directly, so
+  // the wheel only updated on unrelated re-renders.
+  const [scrollTop, setScrollTop] = useState<number | null>(null);
+  const scrollRafRef = useRef(0);
   const handleScroll = useCallback(() => {
-    if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
-    scrollTimeout.current = setTimeout(() => {}, 150);
+    if (scrollRafRef.current) return;
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = 0;
+      const el = scrollRef.current;
+      if (el) setScrollTop(el.scrollTop);
+    });
   }, []);
+  useEffect(() => () => cancelAnimationFrame(scrollRafRef.current), []);
 
   const handleScrollEnd = useCallback(() => {
     const el = scrollRef.current;
@@ -114,28 +123,28 @@ function ScrollPicker({
 
   const getOpacity = useCallback(
     (idx: number) => {
-      if (!scrollRef.current) return idx === options.indexOf(selected) ? 1 : 0.35;
-      const scrollCenter = scrollRef.current.scrollTop + 192 / 2;
+      if (scrollTop === null) return idx === options.indexOf(selected) ? 1 : 0.35;
+      const scrollCenter = scrollTop + 192 / 2;
       const itemCenter = 72 + idx * itemHeight + itemHeight / 2;
       const distance = Math.abs(scrollCenter - itemCenter);
       if (distance < itemHeight / 2) return 1;
       if (distance > itemHeight * 2.5) return 0.15;
       return 0.35 + 0.65 * Math.max(0, 1 - distance / (itemHeight * 2.5));
     },
-    [selected, options]
+    [selected, options, scrollTop]
   );
 
   const getScale = useCallback(
     (idx: number) => {
-      if (!scrollRef.current) return idx === options.indexOf(selected) ? 1 : 0.9;
-      const scrollCenter = scrollRef.current.scrollTop + 192 / 2;
+      if (scrollTop === null) return idx === options.indexOf(selected) ? 1 : 0.9;
+      const scrollCenter = scrollTop + 192 / 2;
       const itemCenter = 72 + idx * itemHeight + itemHeight / 2;
       const distance = Math.abs(scrollCenter - itemCenter);
       if (distance < itemHeight / 2) return 1;
       if (distance > itemHeight * 2) return 0.85;
       return 0.85 + 0.15 * Math.max(0, 1 - distance / (itemHeight * 2));
     },
-    [selected, options]
+    [selected, options, scrollTop]
   );
 
   return (

@@ -45,39 +45,61 @@ interface NotificationPanelProps {
   onClose: () => void;
 }
 
+async function loadNotifications(
+  userId: string | null | undefined,
+): Promise<{ notifications: Notification[]; unreadCount: number } | null> {
+  // Gate: real authenticated sessions only — demo mode must not poll
+  // (Phase 2C: this poller fired 401s every cycle in demo mode).
+  const st = useAppStore.getState();
+  if (!canPollProtected(st.userId, st.isAuthenticated)) return null;
+  try {
+    const res = await fetch(`/api/notifications?userId=${userId}`);
+    if (res.status === 401) {
+      // Controlled recovery — suspends polling until next login.
+      controlled401Recovery("notifications");
+      return null;
+    }
+    if (!res.ok) return null;
+    const data = await res.json();
+    return { notifications: data.notifications || [], unreadCount: data.unreadCount || 0 };
+  } catch {
+    return null; /* silent */
+  }
+}
+
 export default function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
   const userId = useAppStore((s) => s.userId);
   const setNotificationCount = useAppStore((s) => s.setNotificationCount);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  // Spinner only until the first fetch settles (it is shown for an empty list).
+  const [hasSettled, setHasSettled] = useState(false);
+  const isLoading = !hasSettled;
 
-  const fetchNotifications = useCallback(async () => {
-    // Gate: real authenticated sessions only — demo mode must not poll
-    // (Phase 2C: this poller fired 401s every cycle in demo mode).
-    const st = useAppStore.getState();
-    if (!canPollProtected(st.userId, st.isAuthenticated)) return;
-    setIsLoading(true);
-    try {
-      const res = await fetch(`/api/notifications?userId=${userId}`);
-      if (res.status === 401) {
-        // Controlled recovery — suspends polling until next login.
-        controlled401Recovery("notifications");
-        return;
+  const fetchNotifications = useCallback(() => {
+    return loadNotifications(userId).then((data) => {
+      if (data) {
+        setNotifications(data.notifications);
+        setUnreadCount(data.unreadCount);
       }
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(data.notifications || []);
-        setUnreadCount(data.unreadCount || 0);
-      }
-    } catch { /* silent */ }
-    finally { setIsLoading(false); }
+      setHasSettled(true);
+    });
   }, [userId]);
 
   // Fetch on open
   useEffect(() => {
-    if (isOpen) fetchNotifications();
-  }, [isOpen, fetchNotifications]);
+    if (!isOpen) return;
+    let cancelled = false;
+    loadNotifications(userId).then((data) => {
+      if (cancelled) return;
+      if (data) {
+        setNotifications(data.notifications);
+        setUnreadCount(data.unreadCount);
+      }
+      setHasSettled(true);
+    });
+    return () => { cancelled = true; };
+  }, [isOpen, userId]);
 
   // Poll for new notifications every 15s — real authenticated sessions only
   // (demo users skip: their userId is set but the session is local-only).

@@ -130,7 +130,7 @@ export default function AIAssistant() {
   const sessionStartTime = useAppStore((s) => s.sessionStartTime);
   const likedTrackIds = useAppStore((s) => s.likedTrackIds);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
     {
       id: "welcome",
       role: "assistant",

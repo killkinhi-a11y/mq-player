@@ -153,10 +153,12 @@ export default function FavoritesView() {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   // Reset visible count when the underlying tracks array changes identity
-  // (new search, tab switch, filter change)
-  useEffect(() => {
+  // (new search, tab switch, filter change) — adjusted during render.
+  const [pagedFor, setPagedFor] = useState({ filteredTracks, activeTab });
+  if (pagedFor.filteredTracks !== filteredTracks || pagedFor.activeTab !== activeTab) {
+    setPagedFor({ filteredTracks, activeTab });
     setVisibleCount(VISIBLE_INITIAL);
-  }, [filteredTracks, activeTab]);
+  }
 
   useEffect(() => {
     const sentinel = sentinelRef.current;

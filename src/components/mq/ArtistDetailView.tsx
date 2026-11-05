@@ -86,22 +86,30 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     setArtistMenu({ artist: target, x: rect.left, y: rect.bottom + 4 });
   }, []);
-  const [heroColors, setHeroColors] = useState<DominantColors>(FALLBACK_COLORS);
+  // Last extracted palette, tagged with its source image.
+  const [hero, setHero] = useState<{ src: string; colors: DominantColors } | null>(null);
   const [heroGone, setHeroGone] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
   const scrollTopRef = useRef<HTMLDivElement>(null);
 
   const isFav = favoriteArtists.some(a => a.username === artist.name);
 
+  // Navigating to another artist restarts the page state (adjusted during
+  // render rather than reset inside the fetch effect).
+  const [loadedFor, setLoadedFor] = useState(artist.name);
+  if (loadedFor !== artist.name) {
+    setLoadedFor(artist.name);
+    setLoading(true);
+    setTracks([]);
+    setSimilar([]);
+    setShowAll(false);
+  }
+
   /* ── Data: artist tracks + similar artists (parallel, abortable) ── */
   useEffect(() => {
     if (!artist.name) return;
     let cancelled = false;
     const ctrl = new AbortController();
-    setLoading(true);
-    setTracks([]);
-    setSimilar([]);
-    setShowAll(false);
 
     (async () => {
       const [tracksRes, similarRes] = await Promise.allSettled([
@@ -150,10 +158,13 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
   useEffect(() => {
     let cancelled = false;
     const src = info.avatar;
-    if (!src) { setHeroColors(FALLBACK_COLORS); return; }
-    extractColors(src).then(c => { if (!cancelled) setHeroColors(c); }).catch(() => {});
+    if (!src) return;
+    extractColors(src).then(c => { if (!cancelled) setHero({ src, colors: c }); }).catch(() => {});
     return () => { cancelled = true; };
   }, [info.avatar]);
+
+  // No artwork → fallback; while a new artwork is extracting keep the last palette.
+  const heroColors = info.avatar ? hero?.colors ?? FALLBACK_COLORS : FALLBACK_COLORS;
 
   /* ── Sticky mini-header appears once the hero scrolls out ── */
   useEffect(() => {

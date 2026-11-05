@@ -81,6 +81,33 @@ function formatLastSeen(lastSeen: string | null | undefined): string {
   return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
 }
 
+interface FriendsPayload {
+  friends: FriendUser[];
+  pendingRequests: PendingRequest[];
+}
+
+const NO_USERS: FetchedUser[] = [];
+
+async function loadFriends(userId: string | null | undefined): Promise<FriendsPayload | null> {
+  // Phase 2C: demo/unauthenticated sessions never hit protected routes
+  // (one-shot on mount, but it 401'd on every Friends-view open in demo).
+  const st = useAppStore.getState();
+  if (!canPollProtected(st.userId, st.isAuthenticated)) return null;
+  if (!userId) return null;
+  try {
+    const res = await fetch(`/api/friends?userId=${userId}`);
+    if (res.status === 401) {
+      controlled401Recovery("friends");
+      return null;
+    }
+    if (!res.ok) return null;
+    const data = await res.json();
+    return { friends: data.friends || [], pendingRequests: data.pendingRequests || [] };
+  } catch {
+    return null; // silent
+  }
+}
+
 export default function FriendsView() {
   const userId = useAppStore((s) => s.userId);
   const setView = useAppStore((s) => s.setView);
@@ -95,8 +122,10 @@ export default function FriendsView() {
   const [isLoading, setIsLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<FetchedUser[]>([]);
+  const [rawSearchResults, setSearchResults] = useState<FetchedUser[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  // Results only apply to an open dialog with a non-empty query (derived).
+  const searchResults = showAddDialog && searchQuery.trim() ? rawSearchResults : NO_USERS;
   const [friendRequestStatus, setFriendRequestStatus] = useState<Record<string, "pending" | "sent" | "friend">>({});
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [onlineStatuses, setOnlineStatuses] = useState<Record<string, { online: boolean; lastSeen: string | null }>>({});
@@ -104,34 +133,22 @@ export default function FriendsView() {
   const [listenAlongLoading, setListenAlongLoading] = useState<string | null>(null);
 
   // Fetch friends
-  const fetchFriends = useCallback(async () => {
-    // Phase 2C: demo/unauthenticated sessions never hit protected routes
-    // (one-shot on mount, but it 401'd on every Friends-view open in demo).
-    const st = useAppStore.getState();
-    if (!canPollProtected(st.userId, st.isAuthenticated)) return;
-    if (!userId) return;
-    setIsLoading(true);
-    try {
-      const res = await fetch(`/api/friends?userId=${userId}`);
-      if (res.status === 401) {
-        controlled401Recovery("friends");
-        return;
-      }
-      if (res.ok) {
-        const data = await res.json();
-        setFriends(data.friends || []);
-        setPendingRequests(data.pendingRequests || []);
-      }
-    } catch {
-      // silent
-    } finally {
-      setIsLoading(false);
+  const applyFriends = useCallback((data: FriendsPayload | null) => {
+    if (data) {
+      setFriends(data.friends);
+      setPendingRequests(data.pendingRequests);
     }
-  }, [userId]);
+    setIsLoading(false);
+  }, []);
+
+  // Refresh after a mutation (accept/decline/remove).
+  const fetchFriends = useCallback(() => loadFriends(userId).then(applyFriends), [userId, applyFriends]);
 
   useEffect(() => {
-    fetchFriends();
-  }, [fetchFriends]);
+    let cancelled = false;
+    loadFriends(userId).then((data) => { if (!cancelled) applyFriends(data); });
+    return () => { cancelled = true; };
+  }, [userId, applyFriends]);
 
   // Fetch online statuses — batch request with individual fallback
   useEffect(() => {
@@ -191,10 +208,7 @@ export default function FriendsView() {
 
   // Search users
   useEffect(() => {
-    if (!searchQuery.trim() || !showAddDialog) {
-      setSearchResults([]);
-      return;
-    }
+    if (!searchQuery.trim() || !showAddDialog) return;
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {

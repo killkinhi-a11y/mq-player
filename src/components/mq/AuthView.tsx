@@ -414,6 +414,40 @@ function BrandHeader({ fullMotion }: { fullMotion: boolean }) {
   );
 }
 
+interface AuthRedirect {
+  auth: string | null;
+  error: string | null;
+  step: string | null;
+  token: string | null;
+  hadParams: boolean;
+  /** Username suggestion prefilled from the signed Telegram widget token. */
+  tgSuggestion: string | null;
+}
+
+/** Pure read of the OAuth redirect params (no URL mutation). */
+function readAuthRedirect(): AuthRedirect {
+  const params = new URL(window.location.href).searchParams;
+  const auth = params.get("auth");
+  const error = params.get("authError");
+  const step = params.get("authStep");
+  const token = params.get("token");
+  let tgSuggestion: string | null = null;
+  if (step === "telegram-widget-register" && token) {
+    // Prefill suggestion from the signed token payload (server re-verifies it)
+    try {
+      const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      const payload = JSON.parse(atob(b64));
+      if (payload.username) {
+        const suggestion = String(payload.username).toLowerCase().slice(0, 20).replace(/[^a-z0-9_-]/g, "");
+        if (suggestion.length >= 2) tgSuggestion = suggestion;
+      }
+    } catch {
+      // Prefill is best-effort only
+    }
+  }
+  return { auth, error, step, token, hadParams: !!(auth || error || step || token), tgSuggestion };
+}
+
 export default function AuthView() {
   const authStep = useAppStore((s) => s.authStep);
   const setAuthStep = useAppStore((s) => s.setAuthStep);
@@ -431,8 +465,13 @@ export default function AuthView() {
     !!(window as unknown as { __MQ_DESKTOP__?: unknown }).__MQ_DESKTOP__;
 
   // ─── Post-OAuth redirect state (URL params) ─────────────────────────
-  const [restoringSession, setRestoringSession] = useState(false);
-  const [redirectError, setRedirectError] = useState("");
+  // OAuth redirect result (URL params), parsed once on mount. AppShell is
+  // client-only (dynamic, ssr:false), so window is available here.
+  const [authRedirect] = useState(readAuthRedirect);
+  const [restoringSession, setRestoringSession] = useState(() => authRedirect.auth === "success");
+  const [redirectError, setRedirectError] = useState(() =>
+    authRedirect.error ? AUTH_ERROR_MESSAGES[authRedirect.error] || "Ошибка авторизации. Попробуйте ещё раз." : "",
+  );
 
   // Telegram auth states
   const [tgVerifyLoading, setTgVerifyLoading] = useState(false);
@@ -455,7 +494,7 @@ export default function AuthView() {
   // Telegram Login Widget (official) — pending registration
   const pendingTgWidgetRef = useRef<string | null>(null);
   const [widgetLinkMode, setWidgetLinkMode] = useState(false);
-  const [tgrUsername, setTgrUsername] = useState("");
+  const [tgrUsername, setTgrUsername] = useState(() => authRedirect.tgSuggestion ?? "");
   const [tgrLoading, setTgrLoading] = useState(false);
   const [tgrError, setTgrError] = useState("");
 
@@ -524,15 +563,13 @@ export default function AuthView() {
   }, []);
 
   // ─── Handle OAuth redirect result (URL params) on mount ─────────────
+  // State derived from the params is seeded in useState initializers above;
+  // this effect performs only the side effects (URL cleanup, store, fetch).
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const url = new URL(window.location.href);
-    const authParam = url.searchParams.get("auth");
-    const authErrorParam = url.searchParams.get("authError");
-    const authStepParam = url.searchParams.get("authStep");
-    const tokenParam = url.searchParams.get("token");
+    const { auth: authParam, step: authStepParam, token: tokenParam, hadParams } = authRedirect;
 
-    if (authParam || authErrorParam || authStepParam || tokenParam) {
+    if (hadParams) {
+      const url = new URL(window.location.href);
       url.searchParams.delete("auth");
       url.searchParams.delete("authError");
       url.searchParams.delete("authStep");
@@ -541,31 +578,15 @@ export default function AuthView() {
       window.history.replaceState({}, "", url.pathname + (qs ? `?${qs}` : ""));
     }
 
-    if (authErrorParam) {
-      setRedirectError(AUTH_ERROR_MESSAGES[authErrorParam] || "Ошибка авторизации. Попробуйте ещё раз.");
-    }
-
     // Telegram widget new-user registration → username selection screen
     if (authStepParam === "telegram-widget-register" && tokenParam) {
       pendingTgWidgetRef.current = tokenParam;
-      // Prefill suggestion from the signed token payload (server re-verifies it)
-      try {
-        const b64 = tokenParam.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-        const payload = JSON.parse(atob(b64));
-        if (payload.username) {
-          const suggestion = String(payload.username).toLowerCase().slice(0, 20).replace(/[^a-z0-9_-]/g, "");
-          if (suggestion.length >= 2) setTgrUsername(suggestion);
-        }
-      } catch {
-        // Prefill is best-effort only
-      }
       setAuthStep("telegram-widget-register");
       return;
     }
 
     // Successful OAuth callback → session cookie already set → restore
     if (authParam === "success") {
-      setRestoringSession(true);
       fetch("/api/auth/me", { credentials: "include" })
         .then(async (r) => {
           if (!r.ok) throw new Error("unauthenticated");
@@ -630,11 +651,13 @@ export default function AuthView() {
   }, [authStep, providers, widgetHostAllowed]);
 
   // ─── Reset states when entering steps ───────────────────────────────
-  useEffect(() => {
+  // Adjusted during render on step transitions (no cascading effect pass).
+  const [stepFor, setStepFor] = useState(authStep);
+  if (stepFor !== authStep) {
+    setStepFor(authStep);
     if (authStep === "telegram") {
       setVerifyCode(["", "", "", "", "", ""]);
       setTgVerifyError("");
-      setTimeout(() => tgCodeInputRefs.current[0]?.focus(), 400);
     }
     if (authStep === "telegram-register") {
       setTgUsername("");
@@ -663,6 +686,13 @@ export default function AuthView() {
       setFpInfo("");
       setFpStage("request");
     }
+  }
+
+  // Focus the first code cell when the Telegram code step opens.
+  useEffect(() => {
+    if (authStep !== "telegram") return;
+    const t = setTimeout(() => tgCodeInputRefs.current[0]?.focus(), 400);
+    return () => clearTimeout(t);
   }, [authStep]);
 
   // Cleanup

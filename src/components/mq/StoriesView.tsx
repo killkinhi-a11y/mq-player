@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useNow } from "@/hooks/useNow";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { type Track } from "@/lib/musicApi";
@@ -114,39 +115,34 @@ export default function StoriesView() {
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const STORY_DURATION = 5000; // 5 seconds per story
+  const now = useNow();
 
   const viewingStory = viewingIndex !== null ? stories[viewingIndex] : null;
 
-  // Auto-advance story
-  useEffect(() => {
-    if (viewingIndex === null) return;
+  // New story → progress restarts (adjusted during render). Pausing no longer
+  // resets the bar: resuming continues from where it stopped.
+  const [progressFor, setProgressFor] = useState(viewingIndex);
+  if (progressFor !== viewingIndex) {
+    setProgressFor(viewingIndex);
     setProgress(0);
+  }
 
-    if (isPaused) {
-      if (progressRef.current) clearInterval(progressRef.current);
-      return;
-    }
+  // Finished story → advance to the next one, or close after the last.
+  if (viewingIndex !== null && progress >= 100) {
+    setViewingIndex(viewingIndex < stories.length - 1 ? viewingIndex + 1 : null);
+    setProgress(0);
+  }
 
+  // Tick the progress bar while a story is open and not paused.
+  useEffect(() => {
+    if (viewingIndex === null || isPaused) return;
     progressRef.current = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(progressRef.current!);
-          // Auto advance to next story
-          if (viewingIndex < stories.length - 1) {
-            setViewingIndex((prev) => (prev !== null ? prev + 1 : null));
-          } else {
-            setViewingIndex(null);
-          }
-          return 0;
-        }
-        return prev + (100 / (STORY_DURATION / 100));
-      });
+      setProgress((prev) => Math.min(100, prev + 100 / (STORY_DURATION / 100)));
     }, 100);
-
     return () => {
       if (progressRef.current) clearInterval(progressRef.current);
     };
-  }, [viewingIndex, isPaused, stories.length]);
+  }, [viewingIndex, isPaused]);
 
   const handlePrevStory = useCallback(() => {
     if (viewingIndex !== null && viewingIndex > 0) {
@@ -356,7 +352,7 @@ export default function StoriesView() {
                   : "Фото"}
               </p>
               <p className="mq-t-meta-2 mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
-                {Math.floor((Date.now() - new Date(story.createdAt).getTime()) / 3600000)}ч назад
+                {Math.floor((now - new Date(story.createdAt).getTime()) / 3600000)}ч назад
               </p>
             </div>
             <div className="flex items-center gap-3 flex-shrink-0">
