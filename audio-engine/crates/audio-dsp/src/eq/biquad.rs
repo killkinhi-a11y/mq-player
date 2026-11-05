@@ -2,8 +2,8 @@
 //! one-pole coefficient smoothing per block — parameter changes never
 //! zipper. Denormal protection on the direct-form state.
 
-use crate::Processor;
 use crate::flush_denormal;
+use crate::Processor;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FilterKind {
@@ -26,9 +26,17 @@ pub struct BiquadBand {
     q: f32,
 
     // Target coefficients (from latest parameters)
-    t_b0: f32, t_b1: f32, t_b2: f32, t_a1: f32, t_a2: f32,
+    t_b0: f32,
+    t_b1: f32,
+    t_b2: f32,
+    t_a1: f32,
+    t_a2: f32,
     // Active (smoothed) coefficients
-    b0: f32, b1: f32, b2: f32, a1: f32, a2: f32,
+    b0: f32,
+    b1: f32,
+    b2: f32,
+    a1: f32,
+    a2: f32,
     // Per-channel direct-form-I state
     x1: Vec<f32>,
     x2: Vec<f32>,
@@ -39,15 +47,30 @@ pub struct BiquadBand {
 }
 
 impl BiquadBand {
-    pub fn new(kind: FilterKind, sample_rate: f32, freq: f32, gain_db: f32, q: f32, channels: usize) -> Self {
+    pub fn new(
+        kind: FilterKind,
+        sample_rate: f32,
+        freq: f32,
+        gain_db: f32,
+        q: f32,
+        channels: usize,
+    ) -> Self {
         let mut band = Self {
             kind,
             sample_rate,
             freq: freq.clamp(10.0, 20000.0),
             gain_db: gain_db.clamp(-24.0, 24.0),
             q: q.clamp(0.05, 20.0),
-            t_b0: 1.0, t_b1: 0.0, t_b2: 0.0, t_a1: 0.0, t_a2: 0.0,
-            b0: 1.0, b1: 0.0, b2: 0.0, a1: 0.0, a2: 0.0,
+            t_b0: 1.0,
+            t_b1: 0.0,
+            t_b2: 0.0,
+            t_a1: 0.0,
+            t_a2: 0.0,
+            b0: 1.0,
+            b1: 0.0,
+            b2: 0.0,
+            a1: 0.0,
+            a2: 0.0,
             x1: vec![0.0; channels],
             x2: vec![0.0; channels],
             y1: vec![0.0; channels],
@@ -152,7 +175,10 @@ impl BiquadBand {
             return;
         }
         self.gain_db = g;
-        if matches!(self.kind, FilterKind::Peaking | FilterKind::LowShelf | FilterKind::HighShelf) {
+        if matches!(
+            self.kind,
+            FilterKind::Peaking | FilterKind::LowShelf | FilterKind::HighShelf
+        ) {
             self.recompute_targets();
         }
     }
@@ -257,7 +283,10 @@ mod tests {
     fn unity_peaking_band_is_identity() {
         let mut band = BiquadBand::new(FilterKind::Peaking, 48000.0, 1000.0, 0.0, 1.0, 1);
         let ir = impulse_response(&mut band);
-        assert!((ir[0] - 1.0).abs() < 1e-3, "gain=0 dB peaking must pass unity");
+        assert!(
+            (ir[0] - 1.0).abs() < 1e-3,
+            "gain=0 dB peaking must pass unity"
+        );
         for v in ir.iter().skip(1) {
             assert!(v.abs() < 1e-3);
         }
@@ -293,7 +322,7 @@ mod tests {
     fn output_stays_finite() {
         let mut band = BiquadBand::new(FilterKind::Peaking, 48000.0, 8000.0, 18.0, 0.3, 2);
         let mut l = vec![0.9_f32; 2048];
-        let mut r = vec!(-0.9_f32; 2048);
+        let mut r = vec![-0.9_f32; 2048];
         for blk in (0..2048).step_by(128) {
             let mut chans: Vec<&mut [f32]> = vec![&mut l[blk..blk + 128], &mut r[blk..blk + 128]];
             band.process(&mut chans);

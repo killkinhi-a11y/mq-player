@@ -1,7 +1,7 @@
 //! Expander & noise gate (downward dynamics with attack/hold/release).
 
-use crate::Processor;
 use crate::flush_denormal;
+use crate::Processor;
 
 /// Downward expander: signals below threshold are attenuated by `ratio`
 /// (ratio > 1 → expansion). `range_db` caps maximum attenuation.
@@ -23,7 +23,17 @@ pub struct Expander {
 }
 
 impl Expander {
-    pub fn new(sample_rate: f32, channels: usize, threshold_db: f32, ratio: f32, attack_ms: f32, release_ms: f32, knee_db: f32, range_db: f32, hold_ms: f32) -> Self {
+    pub fn new(
+        sample_rate: f32,
+        channels: usize,
+        threshold_db: f32,
+        ratio: f32,
+        attack_ms: f32,
+        release_ms: f32,
+        knee_db: f32,
+        range_db: f32,
+        hold_ms: f32,
+    ) -> Self {
         let mut e = Self {
             sample_rate,
             threshold_db,
@@ -98,7 +108,11 @@ impl Processor for Expander {
             }
             self.hold_count += 1;
             let smoothing_allowed = self.hold_count > hold_frames || target > self.gain_db;
-            let coef = if target > self.gain_db { self.atk_coef } else { self.rel_coef };
+            let coef = if target > self.gain_db {
+                self.atk_coef
+            } else {
+                self.rel_coef
+            };
             let next = if smoothing_allowed {
                 target + coef * (self.gain_db - target)
             } else {
@@ -130,9 +144,27 @@ pub struct NoiseGate {
 }
 
 impl NoiseGate {
-    pub fn new(sample_rate: f32, channels: usize, threshold_db: f32, attack_ms: f32, hold_ms: f32, release_ms: f32, range_db: f32) -> Self {
+    pub fn new(
+        sample_rate: f32,
+        channels: usize,
+        threshold_db: f32,
+        attack_ms: f32,
+        hold_ms: f32,
+        release_ms: f32,
+        range_db: f32,
+    ) -> Self {
         Self {
-            inner: Expander::new(sample_rate, channels, threshold_db, 10.0, attack_ms, release_ms, 0.0, range_db, hold_ms),
+            inner: Expander::new(
+                sample_rate,
+                channels,
+                threshold_db,
+                10.0,
+                attack_ms,
+                release_ms,
+                0.0,
+                range_db,
+                hold_ms,
+            ),
         }
     }
     pub fn set_threshold_db(&mut self, v: f32) {
@@ -184,10 +216,12 @@ mod tests {
             let mut chans: Vec<&mut [f32]> = vec![&mut s[blk..blk + 128]];
             gate.process(&mut chans);
         }
-        let quiet_rms = (s[n / 2 + 2048..].iter().map(|v| v * v).sum::<f32>()
-            / (n / 2 - 2048) as f32)
-            .sqrt();
-        assert!(quiet_rms < 0.0005, "gate must attenuate quiet segment: {quiet_rms}");
+        let quiet_rms =
+            (s[n / 2 + 2048..].iter().map(|v| v * v).sum::<f32>() / (n / 2 - 2048) as f32).sqrt();
+        assert!(
+            quiet_rms < 0.0005,
+            "gate must attenuate quiet segment: {quiet_rms}"
+        );
     }
 
     #[test]

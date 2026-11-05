@@ -1,318 +1,294 @@
-# ============================================================================
-# CI — Lint, Type-Check, Test, Build, Security Audit & Preview Deploy
-# ============================================================================
+# ─────────────────────────────────────────────────────────────────────────────
+# MQ Player — monorepo CI (checks only)
 #
-# Status Badge (add to README if desired):
-#   ![CI](https://github.com/<owner>/mq-player/actions/workflows/ci.yml/badge.svg)
-#
-# Jobs overview:
-#   1. security-audit  — npm audit (moderate+)
-#   2. lint-typecheck   — ESLint + TypeScript (Node 20 & 22 matrix)
-#   3. test             — Vitest unit & integration tests (Node 20 & 22 matrix)
-#   4. build            — Next.js production build
-#   5. bundle-analysis  — Bundle size analysis (PR only)
-#   6. preview-deploy   — Vercel preview deploy (PR only)
-# ============================================================================
-
-name: CI — Lint, Type-Check, Test & Build
+# One job per platform. Path filters skip platforms a PR does not touch;
+# push to main/master/develop and manual runs always check everything.
+# No secrets are used, so the workflow is safe for pull requests from forks.
+# Related workflows: vercel-deploy.yml, security.yml, bundle-analysis.yml,
+# build-android.yml (release). Details: docs/CI.md
+# ─────────────────────────────────────────────────────────────────────────────
+name: CI
 
 "on":
+  pull_request:
   push:
     branches: [main, master, develop]
-  pull_request:
-    branches: [main, master, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
   cancel-in-progress: true
 
+env:
+  NODE_VERSION: "22"
+  NEXT_TELEMETRY_DISABLED: "1"
+
 jobs:
-  # ---------------------------------------------------------------------------
-  # 1. Security Audit
-  # ---------------------------------------------------------------------------
-  security-audit:
-    name: Security Audit
+  changes:
+    name: Detect changes
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      web: ${{ steps.out.outputs.web }}
+      desktop: ${{ steps.out.outputs.desktop }}
+      rust: ${{ steps.out.outputs.rust }}
+      android: ${{ steps.out.outputs.android }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        if: github.event_name == 'pull_request'
         with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run npm audit
-        run: npm audit --audit=high --omit=optional
-        continue-on-error: true
-
-      - name: Install Bun (for bun audit)
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Run bun audit
-        run: bun audit --audit=high
-        continue-on-error: true
-
-  # ---------------------------------------------------------------------------
-  # 2. Lint & Type-Check (Node 20 + 22 matrix)
-  # ---------------------------------------------------------------------------
-  lint-typecheck:
-    name: Lint & Type-Check (Node ${{ matrix.node-version }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: [security-audit]
-    if: always()
-    strategy:
-      matrix:
-        node-version: ["20", "22"]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: "npm"
-
-      - name: Cache Prisma client
-        uses: actions/cache@v4
-        with:
-          path: |
-            node_modules/.prisma
-            node_modules/@prisma/client
-          key: prisma-${{ runner.os }}-node${{ matrix.node-version }}-${{ hashFiles('prisma/schema.prisma') }}
-          restore-keys: |
-            prisma-${{ runner.os }}-node${{ matrix.node-version }}-
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate Prisma client
-        run: npx prisma generate
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Type-Check
-        run: npx tsc --noEmit
-
-  # ---------------------------------------------------------------------------
-  # 3. Unit & Integration Tests (Node 20 + 22 matrix)
-  # ---------------------------------------------------------------------------
-  test:
-    name: Tests (Node ${{ matrix.node-version }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: [security-audit]
-    if: always()
-    strategy:
-      matrix:
-        node-version: ["20", "22"]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: "npm"
-
-      - name: Cache Prisma client
-        uses: actions/cache@v4
-        with:
-          path: |
-            node_modules/.prisma
-            node_modules/@prisma/client
-          key: prisma-${{ runner.os }}-node${{ matrix.node-version }}-${{ hashFiles('prisma/schema.prisma') }}
-          restore-keys: |
-            prisma-${{ runner.os }}-node${{ matrix.node-version }}-
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate Prisma client
-        run: npx prisma generate
-
-      - name: Run tests
-        run: npm test
+          filters: |
+            web:
+              - '.github/workflows/ci.yml'
+              - 'src/**'
+              - 'public/**'
+              - 'prisma/**'
+              - 'scripts/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.json'
+              - 'next.config.*'
+              - 'eslint.config.*'
+              - 'vitest.config.*'
+              - 'postcss.config.*'
+              - 'tailwind.config.*'
+            desktop:
+              - '.github/workflows/ci.yml'
+              - 'desktop/**'
+              - 'src/**'
+              - 'package-lock.json'
+              - 'eslint.config.*'
+            rust:
+              - '.github/workflows/ci.yml'
+              - 'audio-engine/**'
+            android:
+              - '.github/workflows/ci.yml'
+              - 'android/**'
+              - 'download/screens/parity/**'
+      - id: out
         env:
-          JWT_SECRET: "ci-test-secret-key-for-testing-32ch"
+          EVENT: ${{ github.event_name }}
+          WEB: ${{ steps.filter.outputs.web }}
+          DESKTOP: ${{ steps.filter.outputs.desktop }}
+          RUST: ${{ steps.filter.outputs.rust }}
+          ANDROID: ${{ steps.filter.outputs.android }}
+        run: |
+          if [ "$EVENT" != "pull_request" ]; then WEB=true DESKTOP=true RUST=true ANDROID=true; fi
+          { echo "web=$WEB"; echo "desktop=$DESKTOP"; echo "rust=$RUST"; echo "android=$ANDROID"; } >> "$GITHUB_OUTPUT"
+          echo "web=$WEB desktop=$DESKTOP rust=$RUST android=$ANDROID"
 
-      - name: Upload coverage
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report-node${{ matrix.node-version }}
-          path: coverage/
-          retention-days: 14
-
-  # ---------------------------------------------------------------------------
-  # 4. Build Next.js
-  # ---------------------------------------------------------------------------
-  build:
-    name: Build Next.js
+  # ── Web (Next.js) ──────────────────────────────────────────────────────────
+  web-lint:
+    name: Web · Lint
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: [lint-typecheck, test]
+    timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm }
+      - run: npm ci
+      # desktop/ is linted by the desktop job
+      - run: npx eslint . --ignore-pattern "desktop/**"
 
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
+  web-typecheck:
+    name: Web · Type-check
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm }
+      - run: npm ci
+      - run: npx tsc --noEmit
 
-      - name: Install dependencies
-        run: npm ci
+  web-test:
+    name: Web · Tests
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      JWT_SECRET: "ci-test-secret-key-placeholder-32ch"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm }
+      - run: npm ci
+      - run: npm test
 
-      - name: Generate Prisma client
-        run: npx prisma generate
-
-      - name: Build
-        run: npm run build
+  web-build:
+    name: Web · Build
+    needs: [changes, web-lint, web-typecheck, web-test]
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm }
+      - run: npm ci
+      - run: npm run build
         env:
           DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
           JWT_SECRET: "ci-build-secret-key-placeholder-32ch"
 
-  # ---------------------------------------------------------------------------
-  # 5. Bundle Analysis (PR only)
-  # ---------------------------------------------------------------------------
-  bundle-analysis:
-    name: Bundle Analysis
+  # ── Desktop (Tauri + Vite) ─────────────────────────────────────────────────
+  desktop-web:
+    name: Desktop · Lint, type-check, Vite build
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: [build]
-    if: github.event_name == 'pull_request'
+    timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: "${{ env.NODE_VERSION }}"
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+      # root deps are needed: desktop/tsconfig.json compiles the shared ../src
+      - run: npm ci
+      - run: npm ci --ignore-scripts
+        working-directory: desktop
+      - run: npx eslint desktop
+      - run: npx tsc --noEmit -p tsconfig.json
+        working-directory: desktop
+      - run: npx vite build
+        working-directory: desktop
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-dist
+          path: desktop/dist
+          retention-days: 3
 
-      - name: Install dependencies
-        run: npm ci
+  desktop-tauri:
+    name: Desktop · Tauri (Rust) check
+    needs: [changes, desktop-web]
+    if: needs.changes.outputs.desktop == 'true'
+    # The desktop client targets Windows (SMTC / DPAPI behind cfg(windows)).
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: desktop-dist, path: desktop/dist }
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: rustfmt }
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: "desktop/src-tauri -> target" }
+      - run: cargo fmt --all -- --check
+        working-directory: desktop/src-tauri
+      - run: cargo check --locked
+        working-directory: desktop/src-tauri
 
-      - name: Generate Prisma client
-        run: npx prisma generate
+  # ── Rust audio engine ──────────────────────────────────────────────────────
+  rust-audio:
+    name: Rust · audio-engine
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: audio-engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: "rustfmt, clippy"
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: "audio-engine -> target" }
+      - run: cargo fmt --all -- --check
+      # Clippy errors (deny-level lints) fail the job; warnings are reported only.
+      - run: cargo clippy --workspace --all-targets
+      - run: cargo test --workspace
+      - run: cargo check --target wasm32-unknown-unknown -p audio-wasm -p codec-wasm
 
-      - name: Analyze bundle
-        run: npm run analyze
-        env:
-          DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
-          JWT_SECRET: "ci-analyze-secret-key-placeholder-32ch"
-
-      - name: Upload bundle analysis
+  # ── Android (native Kotlin / Compose) ──────────────────────────────────────
+  android:
+    name: Android · Unit tests + debug APK
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: gradle/actions/setup-gradle@v4
+      # Unit/parity tests talk to the local ParityStub (127.0.0.1:8717), never to production.
+      - run: ./gradlew --no-daemon testDebugUnitTest -PmqApiBase=http://127.0.0.1:8717
+      # The APK is built separately with the default (real) API base.
+      - run: ./gradlew --no-daemon assembleDebug
+      - uses: actions/upload-artifact@v4
         if: always()
-        uses: actions/upload-artifact@v4
         with:
-          name: bundle-analysis
-          path: .next/analyze/
-          retention-days: 14
+          name: android-test-reports
+          path: |
+            android/app/build/reports/tests/
+            android/app/build/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 7
 
-  # ---------------------------------------------------------------------------
-  # 6. Vercel Preview Deploy (PR only)
-  # ---------------------------------------------------------------------------
-  preview-deploy:
-    name: Vercel Preview
+  # ── Repository structure (cycles, large files, parity refs) ────────────────
+  repo-structure:
+    name: Repo · Structure checks
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [build]
-    if: github.event_name == 'pull_request'
-    environment:
-      name: preview
-      url: ${{ steps.vercel-deploy.outputs.preview-url }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}" }
+      - run: node scripts/ci/check-repo-structure.mjs
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
 
-      - name: Deploy to Vercel (Preview)
-        id: vercel-deploy
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-
-      - name: Comment PR with preview URL
-        if: success()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const previewUrl = '${{ steps.vercel-deploy.outputs.preview-url }}';
-            const body = `🚀 **Preview deployment ready!**\n\n${previewUrl}`;
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-            const botComment = comments.find(c =>
-              c.user.type === 'Bot' && c.body.includes('Preview deployment ready!')
-            );
-            if (botComment) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
-            }
-
-  # ---------------------------------------------------------------------------
-  # 7. Production Deploy to Vercel (push to main only)
-  # ---------------------------------------------------------------------------
-  # DISABLED: VERCEL_TOKEN secret is not configured in repo settings.
-  # To enable: add VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID secrets at
-  # https://github.com/killkinhi-a11y/mq-player/settings/secrets/actions
-  # Then remove the 'if: false' line below.
-  # ---------------------------------------------------------------------------
-  production-deploy:
-    name: Production Deploy
+  # ── Summary ────────────────────────────────────────────────────────────────
+  ci-summary:
+    name: CI summary
+    needs: [changes, web-lint, web-typecheck, web-test, web-build, desktop-web, desktop-tauri, rust-audio, android, repo-structure]
+    if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    environment:
-      name: production
-      url: ${{ steps.vercel-production.outputs.url }}
+    timeout-minutes: 5
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Deploy to Vercel (Production)
-        id: vercel-production
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
-          working-directory: ./
-
-      - name: Summary
-        if: success()
+      - name: Platform results
+        env:
+          RESULTS: ${{ toJSON(needs) }}
         run: |
-          echo "🚀 Production deployment complete!"
-          echo "URL: ${{ steps.vercel-production.outputs.url }}"
-          echo "Deployment URL: ${{ steps.vercel-production.outputs.deployment-url }}"
-
+          {
+            echo "## CI by platform"
+            echo ""
+            echo "| Job | Result |"
+            echo "|---|---|"
+            echo "$RESULTS" | jq -r 'to_entries[] | "| \(.key) | \(.value.result) |"'
+            echo ""
+            echo "_skipped_ = platform not touched by this change."
+          } >> "$GITHUB_STEP_SUMMARY"
+          bad=$(echo "$RESULTS" | jq -r '[to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key] | join(", ")')
+          if [ -n "$bad" ]; then echo "::error::Failed jobs: $bad"; exit 1; fi
+          echo "All executed jobs passed."

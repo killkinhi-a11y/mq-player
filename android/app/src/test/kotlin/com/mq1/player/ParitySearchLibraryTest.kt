@@ -22,7 +22,7 @@ import org.robolectric.annotation.GraphicsMode
  * plus populated fixtures exercising the results list, playlist grid and
  * history list.
  *
- * Output: /home/z/my-project/download/screens/parity/android-<name>-375.png
+ * Output: download/screens/parity/android-<name>-375.png
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)

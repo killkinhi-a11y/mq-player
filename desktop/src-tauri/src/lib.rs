@@ -28,7 +28,10 @@ pub struct ShellState {
 }
 
 #[tauri::command]
-fn desktop_info(state: tauri::State<'_, std::sync::Mutex<ProxyPublic>>, app: tauri::AppHandle) -> Result<Vec<String>, String> {
+fn desktop_info(
+    state: tauri::State<'_, std::sync::Mutex<ProxyPublic>>,
+    app: tauri::AppHandle,
+) -> Result<Vec<String>, String> {
     let s = state.lock().map_err(|e| e.to_string())?;
     let platform = if cfg!(windows) { "windows" } else { "other" }.to_string();
     Ok(vec![
@@ -104,7 +107,15 @@ fn build_tray(app: &tauri::App) -> Result<(), tauri::Error> {
 
     let menu = Menu::with_items(
         app,
-        &[&playpause, &next, &prev, &PredefinedMenuItem::separator(app)?, &open, &PredefinedMenuItem::separator(app)?, &quit],
+        &[
+            &playpause,
+            &next,
+            &prev,
+            &PredefinedMenuItem::separator(app)?,
+            &open,
+            &PredefinedMenuItem::separator(app)?,
+            &quit,
+        ],
     )?;
 
     TrayIconBuilder::with_id("mq-tray")
@@ -164,7 +175,11 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![desktop_info, auth_store_token, smtc_update])
+        .invoke_handler(tauri::generate_handler![
+            desktop_info,
+            auth_store_token,
+            smtc_update
+        ])
         .setup(|app| {
             // 1. localhost proxy — must be up before the WebView asks
             //    desktop_info (the boot handshake). The SAME jar the proxy

@@ -25,7 +25,7 @@ import org.robolectric.annotation.GraphicsMode
  * screenshots in download/screens/parity/web-*-375.png) with the REAL
  * design system (Manrope + MqType + exact theme palette).
  *
- * Output: /home/z/my-project/download/screens/parity/android-<name>-375.png
+ * Output: download/screens/parity/android-<name>-375.png
  * (gitignored build artifact — regenerable via this test).
  */
 @RunWith(RobolectricTestRunner::class)

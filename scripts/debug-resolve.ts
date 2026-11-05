@@ -2,7 +2,7 @@
  * Debug script: trace the resolver scoring for a catalog track.
  * Usage: npx tsx scripts/debug-resolve.ts "Title" "Artist" [durationSec]
  */
-import { searchSCTracks, searchAudiusTracks } from "../src/lib/soundcloud";
+import { searchSCTracks } from "../src/lib/soundcloud";
 import { searchAudiusTracks as audiusSearch } from "../src/lib/audius";
 import { scoreCandidate, type CatalogTrack, type PlaybackCandidate } from "../src/lib/playback/resolver";
 
