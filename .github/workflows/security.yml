@@ -1,0 +1,33 @@
+# Dependency audit (moved out of ci.yml). Runs weekly, on lockfile changes and
+# manually. Fails on high/critical advisories in production dependencies.
+name: Security audit
+
+"on":
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "package-lock.json"
+      - "desktop/package-lock.json"
+      - ".github/workflows/security.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  npm-audit:
+    name: npm audit (${{ matrix.dir }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: [".", "desktop"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      # audit reads the lockfile only; no install needed
+      - run: npm audit --audit-level=high --omit=dev --omit=optional
+        working-directory: ${{ matrix.dir }}
