@@ -28,6 +28,7 @@
  *      are never glass).
  */
 import { describe, expect, it } from "vitest";
+import { readModuleSource } from "../helpers/readModuleSource";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { themes, type ThemeAmbient } from "@/lib/themes";
@@ -39,7 +40,7 @@ import {
 } from "@/components/mq/wave-ambient-palette";
 
 const readSrc = (...f: string[]) =>
-  readFileSync(join(process.cwd(), ...f), "utf8");
+  readModuleSource(join(...f));
 
 const HEX_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 const RGBA_RE = /^rgba?\([^)]+\)$/i;

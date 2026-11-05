@@ -21,7 +21,7 @@ import { resolveSoundCloudStream, shouldPrefetchStream } from "@/lib/streamResol
 export { resolveSoundCloudStream };
 import { prefetchNextTrack } from "@/lib/playback/prefetch";
 import { clockSetPlaying, setClockDurationSource, subscribeClock, wakeClock } from "@/lib/playback/clock";
-import { getLocalBlobUrl } from "./SearchView";
+import { getLocalBlobUrl } from "@/lib/localBlobUrls";
 import { toast } from "@/hooks/use-toast";
 import { updateMyListeningStatus } from "@/hooks/useFriendsListening";
 import { enableSpatialAudio, initSpatialAudio, setMoodPreset, detectMoodFromTrack, getCurrentSpatialConfig } from "@/lib/spatialAudio";

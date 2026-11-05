@@ -10,7 +10,7 @@ import type { Track } from "@/lib/musicApi";
 import { resolveSoundCloudStream } from "@/lib/streamResolver";
 import { shouldProxyUrl } from "@/lib/streamResolver";
 import { getAudiusStream } from "@/lib/audius";
-import { getLocalBlobUrl } from "@/components/mq/SearchView";
+import { getLocalBlobUrl } from "@/lib/localBlobUrls";
 import type {
   DownloadFormat,
   DownloadResult,
