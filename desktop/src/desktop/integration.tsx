@@ -267,7 +267,14 @@ function useAutoUpdate() {
   const [upd, setUpd] = useState<DesktopUpdateDialog | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [dismissedAt, setDismissed] = useState<number | null>(null);
+  // "Later" hides the dialog for 6h. Tracked as a flag + timer instead of
+  // reading Date.now() during render (react-hooks/purity).
+  const [dismissed, setDismissedFlag] = useState(false);
+  useEffect(() => {
+    if (!dismissed) return;
+    const t = window.setTimeout(() => setDismissedFlag(false), 6 * 60 * 60 * 1000);
+    return () => window.clearTimeout(t);
+  }, [dismissed]);
 
   useEffect(() => {
     if (!isTauri()) return;
@@ -290,7 +297,7 @@ function useAutoUpdate() {
     };
   }, []);
 
-  if (!upd || (dismissedAt && Date.now() - dismissedAt < 6 * 60 * 60 * 1000)) return null;
+  if (!upd || dismissed) return null;
 
   const bullets = upd.notes.split(/\r?\n/).map((l) => l.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
 
@@ -333,7 +340,7 @@ function useAutoUpdate() {
         </ul>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button
-            onClick={() => setDismissed(Date.now())}
+            onClick={() => setDismissedFlag(true)}
             disabled={busy}
             style={{
               padding: "9px 18px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)",
