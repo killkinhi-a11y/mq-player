@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
 
 export interface DominantColors {
@@ -202,44 +202,29 @@ export function extractColors(imageUrl: string): Promise<DominantColors> {
 // ── React hook ──
 export function useDominantColor(): DominantColors {
   const currentTrack = useAppStore((s) => s.currentTrack);
-  const [colors, setColors] = useState<DominantColors>(DEFAULT_COLORS);
-  const trackIdRef = useRef<string | null>(null);
-  const extractingRef = useRef(false);
+  // Last extraction result, tagged with the track it belongs to. Colors for
+  // the current track are derived during render (defaults → cache → result),
+  // so no setState is needed to "reset" on track change.
+  const [extracted, setExtracted] = useState<{ trackId: string; colors: DominantColors } | null>(null);
 
   const coverUrl = currentTrack?.cover;
   const trackId = currentTrack?.id ?? null;
 
   useEffect(() => {
-    if (!coverUrl || !trackId) {
-      // No track playing — use defaults
-      setColors(DEFAULT_COLORS);
-      trackIdRef.current = null;
-      return;
-    }
-
-    // Same track — no re-extraction needed
-    if (trackId === trackIdRef.current) return;
-
-    // Check cache first
-    const cached = colorCache.get(trackId);
-    if (cached) {
-      setColors(cached);
-      trackIdRef.current = trackId;
-      return;
-    }
-
-    // Avoid parallel extractions
-    if (extractingRef.current) return;
-
-    extractingRef.current = true;
-    trackIdRef.current = trackId;
-
-    extractColors(coverUrl).then((extracted) => {
-      colorCache.set(trackId, extracted);
-      setColors(extracted);
-      extractingRef.current = false;
+    if (!coverUrl || !trackId || colorCache.has(trackId)) return;
+    let cancelled = false;
+    // Each track change starts its own extraction; a stale one is ignored
+    // (previously a running extraction made later track changes get skipped).
+    extractColors(coverUrl).then((colors) => {
+      colorCache.set(trackId, colors);
+      if (!cancelled) setExtracted({ trackId, colors });
     });
+    return () => { cancelled = true; };
   }, [coverUrl, trackId]);
 
-  return colors;
+  if (!coverUrl || !trackId) return DEFAULT_COLORS;
+  const cached = colorCache.get(trackId);
+  if (cached) return cached;
+  // While extracting, keep showing the previous track's palette (no flash).
+  return extracted?.colors ?? DEFAULT_COLORS;
 }

@@ -30,57 +30,65 @@ export interface FriendListening {
   scTrackId?: number | null;
 }
 
+async function loadFriendsListening(): Promise<FriendListening[] | null> {
+  // Gate: real authenticated sessions only (demo/unauth never poll).
+  const st = useAppStore.getState();
+  if (!canPollProtected(st.userId, st.isAuthenticated)) return null;
+  try {
+    const res = await fetch("/api/social/now-listening");
+    if (res.status === 401) {
+      // Controlled recovery — stops repeated 401s until next login.
+      controlled401Recovery("social/now-listening");
+      return null;
+    }
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.friends || [];
+  } catch {
+    return null; // Silent
+  }
+}
+
+const NO_FRIENDS: FriendListening[] = [];
+
 export function useFriendsListening() {
   const [friends, setFriends] = useState<FriendListening[]>([]);
   const [loading, setLoading] = useState(true);
   const isAuthenticated = useAppStore((s) => s.isAuthenticated);
+  const userId = useAppStore((s) => s.userId);
+  // Derived instead of reset-in-effect: logged-out / demo sessions simply
+  // expose an empty, settled list.
+  const active = isAuthenticated && canPollProtected(userId, isAuthenticated);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchFriends = useCallback(async () => {
-    // Gate: real authenticated sessions only (demo/unauth never poll).
-    const st = useAppStore.getState();
-    if (!canPollProtected(st.userId, st.isAuthenticated)) return;
-    try {
-      const res = await fetch("/api/social/now-listening");
-      if (res.status === 401) {
-        // Controlled recovery — stops repeated 401s until next login.
-        controlled401Recovery("social/now-listening");
-        return;
-      }
-      if (!res.ok) return;
-      const data = await res.json();
-      setFriends(data.friends || []);
-    } catch {
-      // Silent
-    } finally {
-      setLoading(false);
-    }
+  const fetchFriends = useCallback(() => {
+    return loadFriendsListening()
+      .then((list) => { if (list) setFriends(list); })
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     // Re-evaluate on every auth change; the interval itself only runs
     // while a real session is active.
-    if (!isAuthenticated) {
-      setFriends([]);
-      setLoading(false);
-      return;
-    }
-    if (!canPollProtected(useAppStore.getState().userId, isAuthenticated)) {
-      setLoading(false);
-      return;
-    }
-    fetchFriends();
+    if (!active) return;
+    let cancelled = false;
+    const pull = () =>
+      loadFriendsListening()
+        .then((list) => { if (!cancelled && list) setFriends(list); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    pull();
     intervalRef.current = setInterval(() => {
       if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) {
         if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
         return;
       }
-      fetchFriends();
+      pull();
     }, 30000); // 30s
     return () => {
+      cancelled = true;
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isAuthenticated, fetchFriends]);
+  }, [active]);
 
   // Pause polling when tab is hidden (saves API calls)
   useEffect(() => {
@@ -98,7 +106,7 @@ export function useFriendsListening() {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [fetchFriends]);
 
-  return { friends, loading, refresh: fetchFriends };
+  return { friends: active ? friends : NO_FRIENDS, loading: active && loading, refresh: fetchFriends };
 }
 
 /**
