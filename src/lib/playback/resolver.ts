@@ -45,6 +45,7 @@
 
 import { detectVersion, exactTitle, normalizeText, tokenSimilarity, type TrackVersion } from "./versions";
 import { validateFullLength, type FullLengthVerdict } from "./fullLength";
+import type { CatalogTrack, PlaybackCandidate } from "./catalogTypes";
 
 /* ── Types ─────────────────────────────────────────────────────────── */
 
@@ -133,36 +134,9 @@ export function artistCreditedInTitle(
 }
 
 
-/** A catalog track from any metadata provider (Spotify, …). */
-export interface CatalogTrack {
-  /** Provider track id (e.g. Spotify base62 id). */
-  catalogId: string;
-  title: string;
-  artist: string;
-  /** Primary artist only — used for exact artist matching. */
-  album?: string;
-  durationSec: number;
-  /** International Standard Recording Code, when exposed by the provider. */
-  isrc?: string;
-  /** Version detected on the CATALOG side (usually "original"). */
-  version?: TrackVersion;
-}
-
-/** A playable candidate from an audio provider. */
-export interface PlaybackCandidate {
-  provider: "soundcloud" | "audius";
-  /** Provider-native track id (scTrackId / audius id — no prefix). */
-  sourceId: string;
-  title: string;
-  artist: string;
-  album?: string;
-  durationSec: number;
-  artwork?: string;
-  /** Preview-only stream (SoundCloud SNIP policy). */
-  isPreview?: boolean;
-  isrc?: string;
-  popularity?: number;
-}
+// CatalogTrack / PlaybackCandidate live in ./catalogTypes (breaks the
+// resolver ↔ fullLength import cycle); re-exported for existing importers.
+export type { CatalogTrack, PlaybackCandidate } from "./catalogTypes";
 
 export interface ScoredCandidate extends PlaybackCandidate {
   score: number;

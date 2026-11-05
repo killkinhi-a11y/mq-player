@@ -267,7 +267,7 @@ export interface WaveEngineResult<T extends WaveTrackMinimal = WaveTrackMinimal>
   tracks: ScoredCandidate<T>[];
   meta: WaveEngineMeta;
   /** V2 (PART 11): gate-rejected candidates with verdicts — observability. */
-  gate?: Array<{ candidate: ScoredCandidate<T>; verdict: import("./relevance").GateVerdict }>;
+  gate?: Array<{ candidate: ScoredCandidate<T>; verdict: GateVerdict }>;
 }
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -354,4 +354,15 @@ export interface WaveSignals {
   randomSeed?: number;
   /** Dev/debug mode — per-track relevance metadata in the response. */
   debug?: boolean;
+}
+
+/** Relevance gate verdict for one candidate (moved from ./relevance; re-exported there). */
+export interface GateVerdict {
+  passed: boolean;
+  anchor: string | null;
+  /** Machine-readable hard-negative code (null when passed / soft-rejected). */
+  blockedBy: "foreign_cluster" | "suppressed_cluster" | "suppressed_artist" | "disliked_artist" | null;
+  /** Human-readable reason for the verdict (debug metadata, PART 11). */
+  reason: string;
+  debug: WaveRelevanceDebug;
 }

@@ -35,6 +35,7 @@
  */
 
 import type {
+  GateVerdict,
   ScoredCandidate,
   WaveMemory,
   WaveProfile,
@@ -56,15 +57,8 @@ export interface GateContext {
   affinity?: ReturnType<typeof mergedAffinity>;
 }
 
-export interface GateVerdict {
-  passed: boolean;
-  anchor: string | null;
-  /** Machine-readable hard-negative code (null when passed / soft-rejected). */
-  blockedBy: "foreign_cluster" | "suppressed_cluster" | "suppressed_artist" | "disliked_artist" | null;
-  /** Human-readable reason for the verdict (debug metadata, PART 11). */
-  reason: string;
-  debug: WaveRelevanceDebug;
-}
+// GateVerdict lives in ./types (breaks the types → relevance import cycle).
+export type { GateVerdict } from "./types";
 
 /** How many distinct positive signals the merged profile actually has. */
 export function profileRichness(profile: WaveProfile, config: WaveConfig, affinity?: ReturnType<typeof mergedAffinity>): number {

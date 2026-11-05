@@ -16,7 +16,7 @@
  * observable candidate fields (provider flag, duration, catalog duration).
  */
 
-import type { PlaybackCandidate, CatalogTrack } from "./resolver";
+import type { PlaybackCandidate, CatalogTrack } from "./catalogTypes";
 
 /* ── Provider capabilities (PHASE 4 contract) ───────────────────────── */
 
