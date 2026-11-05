@@ -3,14 +3,14 @@
 **Spotify + Telegram в одном приложении**
 
 [![Deploy](https://img.shields.io/badge/Live-mq1.vercel.app-red)](https://mq1.vercel.app)
-[![Android](https://img.shields.io/badge/Android-APK-green)](https://github.com/killkinhi-a11y/mq-player/releases/latest/download/mq-player.apk)
+[![Android](https://img.shields.io/badge/Android-APK-green)](https://github.com/killkinhi-a11y/mq-player/releases/latest/download/MQPlayer.apk)
 [![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
 ## 🚀 Попробовать
 
 - **Web:** https://mq1.vercel.app
-- **Android APK:** [Скачать](https://github.com/killkinhi-a11y/mq-player/releases/latest/download/mq-player.apk)
-- **Windows:** [Скачать](https://github.com/killkinhi-a11y/mq-player/releases/download/v1.0.1/MQ-Player-Setup.zip)
+- **Android APK:** [Скачать](https://github.com/killkinhi-a11y/mq-player/releases/latest/download/MQPlayer.apk)
+- **Windows:** [Скачать](https://github.com/killkinhi-a11y/mq-player/releases/download/desktop-v1.0.0/MQ.Player_1.0.0_x64-setup.exe)
 
 ## ✨ Возможности
 
