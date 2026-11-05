@@ -95,4 +95,10 @@ Android parity tests read reference screenshots from
   `keystore.properties`, refuse to publish unsigned builds, asset name
   `MQPlayer.apk` (the web app links to `releases/latest/download/MQPlayer.apk`;
   the old workflow uploads `mq-player.apk`, which does not match).
+- **npm audit (root) fails**: 5 critical / 13 high advisories in production
+  dependencies (incl. `next`, `@sentry/nextjs`, `tar`, `proxy-addr`,
+  `@capacitor/android`). The old CI hid this with `continue-on-error`.
+  `security.yml` reports it honestly; it is not part of `ci.yml`, so it does
+  not block merges. Upgrades need a separate, tested PR (`next` is a
+  framework update). `desktop/` audit passes.
 - **Node matrix**: the old CI ran Node 20 and 22; now a single Node 22. Add a matrix back if Node 20 support matters.
