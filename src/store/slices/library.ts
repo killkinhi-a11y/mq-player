@@ -1,5 +1,5 @@
 // Store slice: Likes/dislikes, playlists (own + public), favorite artists, history, broken tracks.
-// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE_STORE.md.
+// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE.md.
 import { MAX_HISTORY_ENTRIES } from "@/store/internal/helpers";
 import type { StoreSlice, UserPlaylist } from "@/store/types";
 import { appendSkipEvent, buildSkipEvent, buildSkipProfile } from "@/lib/listening/skipIntelligence";

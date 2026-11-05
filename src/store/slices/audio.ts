@@ -1,5 +1,5 @@
 // Store slice: Audio pipeline prefs: EQ, limiter, crossfade, gapless, ReplayGain, spatial, WASM engine.
-// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE_STORE.md.
+// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE.md.
 import { EQ_PRESETS } from "@/lib/eq";
 import type { StoreSlice } from "@/store/types";
 import { disableEQ as engineDisableEQ, enableEQ as engineEnableEQ, resetEQBands as engineResetEQBands, setAllEQBands as engineSetAllEQBands, setCrossfadeEnabled as engineSetCrossfadeEnabled, setEQBand as engineSetEQBand } from "@/lib/audioEngine";

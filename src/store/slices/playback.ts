@@ -1,5 +1,5 @@
 // Store slice: Current track lifecycle: play/pause/next/prev, volume, progress, source picking, A-B repeat, rate.
-// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE_STORE.md.
+// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE.md.
 import { type CatalogTrackInput, buildPlayableTrack } from "@/lib/playback/client";
 import type { StoreSlice } from "@/store/types";
 import type { Track } from "@/lib/musicApi";

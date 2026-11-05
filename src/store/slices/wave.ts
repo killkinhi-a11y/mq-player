@@ -1,5 +1,5 @@
 // Store slice: MQ Wave / radio mode engine state.
-// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE_STORE.md.
+// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE.md.
 import type { StoreSlice } from "@/store/types";
 
 export type WaveSliceKeys =

@@ -1,5 +1,5 @@
 // Store slice: Listening feedback, skip intelligence, taste profile.
-// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE_STORE.md.
+// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE.md.
 import type { StoreSlice } from "@/store/types";
 import { appendSkipEvent, buildSkipEvent, buildSkipProfile } from "@/lib/listening/skipIntelligence";
 import { canPollProtected } from "@/lib/authGate";

@@ -1,5 +1,5 @@
 // Store slice: Transient UI: modals, panels, search query, selections, sheets.
-// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE_STORE.md.
+// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE.md.
 import type { StoreSlice } from "@/store/types";
 
 export type UiSliceKeys =

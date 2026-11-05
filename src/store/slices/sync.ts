@@ -1,5 +1,5 @@
 // Store slice: Server sync (to/from), cobalt JWT.
-// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE_STORE.md.
+// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE.md.
 import { MAX_HISTORY_ENTRIES } from "@/store/internal/helpers";
 import type { StoreSlice } from "@/store/types";
 import { canPollProtected } from "@/lib/authGate";

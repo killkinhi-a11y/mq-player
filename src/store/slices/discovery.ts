@@ -1,5 +1,5 @@
 // Store slice: Home feed, release radar, playlist recommendations, similar tracks.
-// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE_STORE.md.
+// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE.md.
 import type { HomeCuratedPlaylist, HomeRecCategory, StoreSlice } from "@/store/types";
 import { type Track, countryNameFromCode, detectUserCountry } from "@/lib/musicApi";
 import { extractTasteProfile } from "@/lib/tasteProfile";

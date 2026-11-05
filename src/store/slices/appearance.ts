@@ -1,5 +1,5 @@
 // Store slice: Theme, style, typography, lyrics appearance, liquid-glass, motion prefs.
-// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE_STORE.md.
+// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE.md.
 import type { StoreSlice } from "@/store/types";
 import { clampNum } from "@/store/internal/helpers";
 

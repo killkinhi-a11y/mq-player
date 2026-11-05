@@ -1,5 +1,5 @@
 // Store slice: Auth & navigation: session, auth steps, current view, onboarding flag.
-// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE_STORE.md.
+// Actions moved verbatim from useAppStore.ts (Stage III); see docs/ARCHITECTURE.md.
 import type { StoreSlice } from "@/store/types";
 import { applyThemeToDOM, themes } from "@/lib/themes";
 import { initialState } from "@/store/initialState";
