@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } from "react";
 import dynamic from "next/dynamic";
+import { useLoader } from "@/hooks/useLoader";
 import {
   ensureTelegramSDK,
   getTelegramInitData,
@@ -233,12 +234,44 @@ const usePlayer = () => {
 /*  Main page                                                          */
 /* ------------------------------------------------------------------ */
 
+const NO_TRACKS: Track[] = [];
+const NO_PLAYLISTS: PlaylistSummary[] = [];
+
+function readPreReactDiag(): string[] {
+  const lines: string[] = [];
+  const add = (msg: string) => {
+    console.log("[tg-mini-app]", msg);
+    lines.push(`${new Date().toLocaleTimeString()} — ${msg}`);
+  };
+  const diag = (window as any).__TG_DIAG__;
+  if (diag) {
+    add(`[pre-React] UA: ${diag.ua?.slice(0, 80)}`);
+    add(`[pre-React] URL: ${diag.url}`);
+    add(`[pre-React] window.Telegram: ${diag.hasTelegram}`);
+    add(`[pre-React] window.Telegram.WebApp: ${diag.hasWebApp}`);
+    add(`[pre-React] initData: ${diag.initData ? `${diag.initData.length} chars` : "empty"}`);
+    if (diag.errors && diag.errors.length > 0) {
+      add(`[pre-React] ⚠️ ${diag.errors.length} early errors:`);
+      for (const e of diag.errors.slice(0, 5)) {
+        add(`  +${e.time}ms ${e.type}: ${e.message}`);
+      }
+    }
+  } else {
+    add("[pre-React] ❌ window.__TG_DIAG__ not found — inline script failed");
+    const fallback = (window as any).__TG_DIAG_FALLBACK__;
+    if (fallback) add(`[pre-React] fallback error: ${fallback}`);
+  }
+  return lines;
+}
+
 function TgWebAppPageInner() {
   const [auth, setAuth] = useState<AuthState>({ status: "loading" });
   const [tab, setTab] = useState<"recs" | "search" | "likes" | "playlists">("recs");
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [playlistSheet, setPlaylistSheet] = useState<{ track: Track } | null>(null);
-  const [debugInfo, setDebugInfo] = useState<string[]>([]);
+  // Seeded with the pre-React diagnostics captured by the inline layout
+  // script (client-only page: dynamic(..., { ssr: false })).
+  const [debugInfo, setDebugInfo] = useState<string[]>(readPreReactDiag);
   const player = useAudioPlayer();
 
   const showToast = useCallback((text: string, type: Toast["type"] = "info") => {
@@ -252,27 +285,6 @@ function TgWebAppPageInner() {
     setDebugInfo((prev) => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]);
   }, []);
 
-  // Read pre-React diagnostic data captured by the inline script in layout
-  useEffect(() => {
-    const diag = (window as any).__TG_DIAG__;
-    if (diag) {
-      addDebug(`[pre-React] UA: ${diag.ua?.slice(0, 80)}`);
-      addDebug(`[pre-React] URL: ${diag.url}`);
-      addDebug(`[pre-React] window.Telegram: ${diag.hasTelegram}`);
-      addDebug(`[pre-React] window.Telegram.WebApp: ${diag.hasWebApp}`);
-      addDebug(`[pre-React] initData: ${diag.initData ? `${diag.initData.length} chars` : "empty"}`);
-      if (diag.errors && diag.errors.length > 0) {
-        addDebug(`[pre-React] ⚠️ ${diag.errors.length} early errors:`);
-        for (const e of diag.errors.slice(0, 5)) {
-          addDebug(`  +${e.time}ms ${e.type}: ${e.message}`);
-        }
-      }
-    } else {
-      addDebug("[pre-React] ❌ window.__TG_DIAG__ not found — inline script failed");
-      const fallback = (window as any).__TG_DIAG_FALLBACK__;
-      if (fallback) addDebug(`[pre-React] fallback error: ${fallback}`);
-    }
-  }, [addDebug]);
 
   useEffect(() => {
     let cancelled = false;
@@ -616,23 +628,17 @@ function SearchView({ onAddToPlaylist, showToast }: { onAddToPlaylist: (t: Track
 
 function RecsView({ onAddToPlaylist, showToast }: { onAddToPlaylist: (t: Track) => void; showToast: (text: string, type?: Toast["type"]) => void }) {
   const player = usePlayer();
-  const [tracks, setTracks] = useState<Track[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    setLoading(true);
+  const { data, loading, reload: load } = useLoader("tg-recs", async (signal): Promise<Track[]> => {
     try {
-      const res = await fetch("/api/music/recommendations");
+      const res = await fetch("/api/music/recommendations", { signal });
       const data = await res.json();
       const flat: Track[] = Array.isArray(data.tracks) ? data.tracks : [];
       const cats = Array.isArray(data.categories) ? data.categories : [];
       const forYou = cats.find((c: any) => c.id === "for_you");
-      setTracks(forYou?.tracks?.length ? forYou.tracks : flat);
-    } catch { setTracks([]); }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+      return forYou?.tracks?.length ? forYou.tracks : flat;
+    } catch { return []; }
+  });
+  const tracks = data ?? NO_TRACKS;
 
   return (
     <div className="tg-view">
@@ -657,20 +663,19 @@ function RecsView({ onAddToPlaylist, showToast }: { onAddToPlaylist: (t: Track) 
 
 function LikesView({ showToast }: { showToast: (text: string, type?: Toast["type"]) => void }) {
   const player = usePlayer();
-  const [tracks, setTracks] = useState<Track[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    setLoading(true);
+  const { data, loading, reload: load } = useLoader("tg-liked", async (signal): Promise<Track[]> => {
     try {
-      const res = await fetch("/api/sync");
+      const res = await fetch("/api/sync", { signal });
       const data = await res.json();
-      setTracks(Array.isArray(data.data?.likedTracksData) ? data.data.likedTracksData : []);
-    } catch { setTracks([]); }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+      return Array.isArray(data.data?.likedTracksData) ? data.data.likedTracksData : [];
+    } catch { return []; }
+  });
+  // Optimistic unlike: hide removed ids until the next reload.
+  const [removedIds, setRemovedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const tracks = useMemo(
+    () => (data ?? NO_TRACKS).filter((t) => !removedIds.has(t.id)),
+    [data, removedIds],
+  );
 
   return (
     <div className="tg-view">
@@ -682,7 +687,7 @@ function LikesView({ showToast }: { showToast: (text: string, type?: Toast["type
       {!loading && tracks.length === 0 && <Empty icon="❤️" title="Нет лайкнутых треков" text="Нажимайте 🤍 в поиске или рекомендациях" />}
       <div className="tg-card-list">
         {tracks.map((track, idx) => (
-          <TrackCard key={track.id || idx} track={track} onPlay={() => player?.playTrack(track, tracks)} onLike={async () => { await unlikeTrack(track.id); setTracks((prev) => prev.filter((t) => t.id !== track.id)); showToast("Убрано из лайков", "info"); }} />
+          <TrackCard key={track.id || idx} track={track} onPlay={() => player?.playTrack(track, tracks)} onLike={async () => { await unlikeTrack(track.id); setRemovedIds((prev) => new Set(prev).add(track.id)); showToast("Убрано из лайков", "info"); }} />
         ))}
       </div>
     </div>
@@ -695,32 +700,31 @@ function LikesView({ showToast }: { showToast: (text: string, type?: Toast["type
 
 function PlaylistsView({ showToast }: { showToast: (text: string, type?: Toast["type"]) => void }) {
   const player = usePlayer();
-  const [playlists, setPlaylists] = useState<PlaylistSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [tracks, setTracks] = useState<Track[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const { data: playlistsData, loading: listLoading } = useLoader("tg-playlists", async (signal): Promise<PlaylistSummary[]> => {
     try {
-      const res = await fetch("/api/playlists");
+      const res = await fetch("/api/playlists", { signal });
       const data = await res.json();
-      setPlaylists(Array.isArray(data.playlists) ? data.playlists.map((p: any) => ({ id: p.id, name: p.name, trackCount: p.tracks?.length || 0 })) : []);
-    } catch { setPlaylists([]); }
-    finally { setLoading(false); }
-  }, []);
+      return Array.isArray(data.playlists) ? data.playlists.map((p: any) => ({ id: p.id, name: p.name, trackCount: p.tracks?.length || 0 })) : [];
+    } catch { return []; }
+  });
+  const playlists = playlistsData ?? NO_PLAYLISTS;
 
-  useEffect(() => { load(); }, [load]);
-
-  const openPlaylist = useCallback(async (id: string) => {
-    setLoading(true); setSelectedId(id);
-    try {
-      const res = await fetch(`/api/playlists/${id}`);
-      const data = await res.json();
-      setTracks(Array.isArray(data.tracks) ? data.tracks : []);
-    } catch { setTracks([]); }
-    finally { setLoading(false); }
-  }, []);
+  // Detail loads whenever a playlist is selected (keyed by id).
+  const { data: tracksData, loading: tracksLoading } = useLoader(
+    selectedId ? `tg-playlist:${selectedId}` : null,
+    async (signal): Promise<Track[]> => {
+      try {
+        const res = await fetch(`/api/playlists/${selectedId}`, { signal });
+        const data = await res.json();
+        return Array.isArray(data.tracks) ? data.tracks : [];
+      } catch { return []; }
+    },
+  );
+  const tracks = tracksLoading ? NO_TRACKS : tracksData ?? NO_TRACKS;
+  const loading = selectedId ? tracksLoading : listLoading;
+  const openPlaylist = setSelectedId;
 
   if (selectedId) {
     const pl = playlists.find((p) => p.id === selectedId);

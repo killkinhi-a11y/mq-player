@@ -36,6 +36,8 @@ import { TrackMoreButton } from "./ui/TrackMoreButton";
 import { ProviderChain, trackAttribution } from "./ui/ProviderBadge";
 import { ArrowLeftRight, ExternalLink } from "lucide-react";
 
+const NO_LYRICS: LyricLine[] = [];
+
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — full-screen premium player
 // ═════════════════════════════════════════════════════════════════════════
@@ -120,10 +122,6 @@ export default function FullTrackView() {
   // explicit action (button, Q/F/H key). Wide screens show it as a
   // slide-in overlay; classic layouts keep the inline block.
   const panelTab = activePanel;
-  const [lyrics, setLyrics] = useState<LyricLine[]>([]);
-  const [plainLyrics, setPlainLyrics] = useState<string>("");
-  const [lyricsLoading, setLyricsLoading] = useState(false);
-  const [lyricsError, setLyricsError] = useState<string | LyricsError | null>(null);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showSleepMenu, setShowSleepMenu] = useState(false);
   // v10.1: artwork skeleton — <ArtworkImage> is keyed by track id in
@@ -497,14 +495,21 @@ export default function FullTrackView() {
     return () => window.removeEventListener("mq-lyrics-retry", onRetry);
   }, []);
 
+  // Lyrics result is tagged with "trackId#retryKey"; the visible lines,
+  // loading and error are derived for the current key, so a track change or
+  // retry needs no reset-setState inside the effect.
+  const lyricsKey = isOpen && currentTrack && activePanel === "lyrics" ? `${currentTrack.id}#${lyricsRetryKey}` : null;
+  const [lyricsResult, setLyricsResult] = useState<{ key: string; lines: LyricLine[]; plain: string; error: string | LyricsError | null } | null>(null);
+  const lyricsCurrent = lyricsResult !== null && lyricsResult.key === lyricsKey ? lyricsResult : null;
+  const lyrics = lyricsCurrent?.lines ?? NO_LYRICS;
+  const plainLyrics = lyricsCurrent?.plain ?? "";
+  const lyricsError = lyricsCurrent?.error ?? null;
+  const lyricsLoading = lyricsKey !== null && lyricsCurrent === null;
+
   useEffect(() => {
     if (!isOpen || !currentTrack) return;
     if (activePanel !== "lyrics") return;
-
-    setLyrics([]);
-    setPlainLyrics("");
-    setLyricsError(null);
-    setLyricsLoading(true);
+    const key = `${currentTrack.id}#${lyricsRetryKey}`;
 
     let cancelled = false;
     // Direct client-side fetch from lrclib.net (CORS-enabled) — bypasses
@@ -524,31 +529,22 @@ export default function FullTrackView() {
           ? result.lines
           : normalizeLegacyLines(result.lyrics);
         if (syncedLines.length > 0) {
-          setLyrics(syncedLines);
+          setLyricsResult({ key, lines: syncedLines, plain: "", error: null });
         } else if (result.plainText) {
-          setPlainLyrics(result.plainText);
+          setLyricsResult({ key, lines: NO_LYRICS, plain: result.plainText, error: null });
         } else {
-          setLyricsError(result.error ?? "Текст не найден");
+          setLyricsResult({ key, lines: NO_LYRICS, plain: "", error: result.error ?? "Текст не найден" });
         }
       })
       .catch((e) => {
         if (!cancelled) {
           console.warn("[FullTrackView] lyrics fetch failed:", e);
-          setLyricsError("Ошибка загрузки текста");
+          setLyricsResult({ key, lines: NO_LYRICS, plain: "", error: "Ошибка загрузки текста" });
         }
-      })
-      .finally(() => {
-        if (!cancelled) setLyricsLoading(false);
       });
     return () => { cancelled = true; };
   }, [activePanel, isOpen, currentTrack, duration, lyricsRetryKey]);
 
-  // Reset lyrics when track changes
-  useEffect(() => {
-    setLyrics([]);
-    setPlainLyrics("");
-    setLyricsError(null);
-  }, [currentTrack?.id]);
 
   // ── Sleep timer display formatting ──────────────────────────────────────
   const sleepRemainingMin = Math.ceil(sleepTimerRemaining / 60);

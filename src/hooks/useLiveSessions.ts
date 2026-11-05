@@ -44,6 +44,26 @@ export interface LiveSessionDetail extends LiveSessionInfo {
   members: Array<{ userId: string; username: string; avatar: string }>;
 }
 
+async function loadLiveSessions(): Promise<LiveSessionInfo[] | null> {
+  // Gate: real authenticated sessions only.
+  const st = useAppStore.getState();
+  if (!canPollProtected(st.userId, st.isAuthenticated)) return null;
+  try {
+    const res = await fetch("/api/social/sessions");
+    if (res.status === 401) {
+      controlled401Recovery("social/sessions");
+      return null;
+    }
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.sessions || [];
+  } catch {
+    return null; // Silent
+  }
+}
+
+const NO_SESSIONS: LiveSessionInfo[] = [];
+
 export function useLiveSessions() {
   const [sessions, setSessions] = useState<LiveSessionInfo[]>([]);
   const [activeSession, setActiveSession] = useState<LiveSessionDetail | null>(null);
@@ -52,45 +72,31 @@ export function useLiveSessions() {
   const listIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const userId = useAppStore((s) => s.userId);
+  // Derived: logged-out and demo sessions never poll and expose an empty list.
+  const active = isAuthenticated && canPollProtected(userId, isAuthenticated);
+
   // List active sessions (15s polling)
-  const listSessions = useCallback(async () => {
-    // Gate: real authenticated sessions only.
-    const st = useAppStore.getState();
-    if (!canPollProtected(st.userId, st.isAuthenticated)) return;
-    try {
-      const res = await fetch("/api/social/sessions");
-      if (res.status === 401) {
-        controlled401Recovery("social/sessions");
-        return;
-      }
-      if (!res.ok) return;
-      const data = await res.json();
-      setSessions(data.sessions || []);
-    } catch {
-      // Silent
-    } finally {
-      setLoading(false);
-    }
+  const listSessions = useCallback(() => {
+    return loadLiveSessions()
+      .then((list) => { if (list) setSessions(list); })
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      setSessions([]);
-      setLoading(false);
-      return;
-    }
-    // Demo user (isAuthenticated=true, userId=demo-user-id) — no polling.
-    if (!canPollProtected(useAppStore.getState().userId, isAuthenticated)) {
-      setSessions([]);
-      setLoading(false);
-      return;
-    }
-    listSessions();
-    listIntervalRef.current = setInterval(listSessions, 15000);
+    if (!active) return;
+    let cancelled = false;
+    const pull = () =>
+      loadLiveSessions()
+        .then((list) => { if (!cancelled && list) setSessions(list); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    pull();
+    listIntervalRef.current = setInterval(pull, 15000);
     return () => {
+      cancelled = true;
       if (listIntervalRef.current) clearInterval(listIntervalRef.current);
     };
-  }, [isAuthenticated, listSessions]);
+  }, [active]);
 
   // Create a new session (host)
   const createSession = useCallback(async (track: Track): Promise<LiveSessionDetail | null> => {
@@ -198,9 +204,9 @@ export function useLiveSessions() {
   }, []);
 
   return {
-    sessions,
+    sessions: active ? sessions : NO_SESSIONS,
     activeSession,
-    loading,
+    loading: active && loading,
     listSessions,
     createSession,
     joinSession,

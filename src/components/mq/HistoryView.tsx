@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useNow } from "@/hooks/useNow";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { type Track } from "@/lib/musicApi";
@@ -39,8 +40,9 @@ export default function HistoryView() {
 
   // ── Listening stats (weekly) ──
   // Compute from history: total time, top artists, top genres, track count.
+  const now = useNow();
   const weeklyStats = useMemo(() => {
-    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
     const recentHistory = history.filter(h => h.playedAt >= weekAgo);
     let totalSeconds = 0;
     const artistCount = new Map<string, number>();
@@ -64,7 +66,7 @@ export default function HistoryView() {
       topArtists,
       topGenres,
     };
-  }, [history]);
+  }, [history, now]);
 
   const handlePlayAll = useCallback(() => {
     if (history.length > 0) {
@@ -82,7 +84,6 @@ export default function HistoryView() {
   }, [currentTrack, isPlaying, playTrack, togglePlay, history]);
 
   const formatTimeAgo = (timestamp: number): string => {
-    const now = Date.now();
     const diff = now - timestamp;
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);

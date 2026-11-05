@@ -79,8 +79,8 @@ function mqDevProxy() {
           });
           if (acat.body) {
             const reader = acat.body.getReader();
-            // @ts-ignore node stream
-            res.flushHeaders?.();
+            // node ServerResponse: flushHeaders exists at runtime on the dev-server response
+            (res as { flushHeaders?: () => void }).flushHeaders?.();
             while (true) {
               const { done, value } = await reader.read();
               if (done) break;

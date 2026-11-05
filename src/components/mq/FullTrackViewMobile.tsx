@@ -22,6 +22,8 @@ import { ArtworkImage } from "./ui/ArtworkImage";
 import { WaveformView } from "./WaveformView";
 import { DownloadMenu } from "./ui/DownloadMenu";
 
+const NO_LYRICS: LyricLine[] = [];
+
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — MOBILE (2026-09 redesign)
 //
@@ -106,10 +108,6 @@ function FullTrackViewMobileInner() {
 
   const [panel, setPanel] = useState<"queue" | "lyrics" | "history" | null>(null);
   const [trackMenu, setTrackMenu] = useState<{ track: Track; x: number; y: number } | null>(null);
-  const [lyrics, setLyrics] = useState<LyricLine[]>([]);
-  const [plainLyrics, setPlainLyrics] = useState("");
-  const [lyricsLoading, setLyricsLoading] = useState(false);
-  const [lyricsError, setLyricsError] = useState<string | LyricsError | null>(null);
   // v10.1: unified MenuCore More (bottom sheet on mobile) replaces the
   // custom inline sheet — same actions as desktop Classic + the v10
   // audited additions, one menu engine for the whole app.
@@ -157,7 +155,9 @@ function FullTrackViewMobileInner() {
   const isDraggingRef = useRef(false);
   // Latest duration without re-creating the RAF loop on every track:
   const durationRef = useRef(duration);
-  durationRef.current = duration;
+  useEffect(() => {
+    durationRef.current = duration;
+  }, [duration]);
 
   // ── RAF: update seek input + time label (WASM-aware position source) ──
   useEffect(() => {
@@ -271,9 +271,20 @@ function FullTrackViewMobileInner() {
     return () => window.removeEventListener("mq-lyrics-retry", onRetry);
   }, []);
 
+  // Lyrics result is tagged with "trackId#retryKey"; the visible lines,
+  // loading and error are derived for the current key, so a track change or
+  // retry needs no reset-setState inside the effect.
+  const lyricsKey = isOpen && currentTrack && panel === "lyrics" ? `${currentTrack.id}#${lyricsRetryKey}` : null;
+  const [lyricsResult, setLyricsResult] = useState<{ key: string; lines: LyricLine[]; plain: string; error: string | LyricsError | null } | null>(null);
+  const lyricsCurrent = lyricsResult !== null && lyricsResult.key === lyricsKey ? lyricsResult : null;
+  const lyrics = lyricsCurrent?.lines ?? NO_LYRICS;
+  const plainLyrics = lyricsCurrent?.plain ?? "";
+  const lyricsError = lyricsCurrent?.error ?? null;
+  const lyricsLoading = lyricsKey !== null && lyricsCurrent === null;
+
   useEffect(() => {
     if (!isOpen || !currentTrack || panel !== "lyrics") return;
-    setLyrics([]); setPlainLyrics(""); setLyricsLoading(true); setLyricsError(null);
+    const key = `${currentTrack.id}#${lyricsRetryKey}`;
     let cancelled = false;
     // Client-side fetch directly from lrclib.net (CORS-enabled) — bypasses
     // Vercel serverless which is IP-blocked by lrclib.net's WAF.
@@ -296,21 +307,18 @@ function FullTrackViewMobileInner() {
       const { d, normalizeLegacyLines } = res;
       const syncedLines = d.lines?.length ? d.lines : normalizeLegacyLines(d.lyrics);
       if (syncedLines.length > 0) {
-        setLyrics(syncedLines);
+        setLyricsResult({ key, lines: syncedLines, plain: "", error: null });
       } else if (d.plainText) {
-        setPlainLyrics(d.plainText);
+        setLyricsResult({ key, lines: NO_LYRICS, plain: d.plainText, error: null });
       } else {
-        setLyricsError(d.error ?? "Текст не найден");
+        setLyricsResult({ key, lines: NO_LYRICS, plain: "", error: d.error ?? "Текст не найден" });
       }
     }).catch(() => {
-      if (!cancelled) setLyricsError("Ошибка загрузки текста");
-    }).finally(() => {
-      if (!cancelled) setLyricsLoading(false);
-      });
+      if (!cancelled) setLyricsResult({ key, lines: NO_LYRICS, plain: "", error: "Ошибка загрузки текста" });
+    });
     return () => { cancelled = true; };
   }, [panel, isOpen, currentTrack, lyricsRetryKey]);
 
-  useEffect(() => { setLyrics([]); setPlainLyrics(""); setLyricsError(null); }, [currentTrack?.id]);
   // Artwork skeleton: the artwork subtree is KEYED BY TRACK ID below —
   // <ArtworkImage> remounts per track and owns its loading state.
 

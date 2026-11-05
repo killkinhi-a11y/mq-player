@@ -152,16 +152,14 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
     }
   }, [name, rules, limit, sortBy, onClose]);
 
-  const fetchExisting = useCallback(async () => {
-    try {
-      const res = await fetch("/api/smart-playlists");
-      if (!res.ok) return;
-      const data = await res.json();
-      setExistingPlaylists(data.playlists || []);
-    } catch { /* silent */ }
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/smart-playlists")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (!cancelled && data) setExistingPlaylists(data.playlists || []); })
+      .catch(() => { /* silent */ });
+    return () => { cancelled = true; };
   }, []);
-
-  useEffect(() => { fetchExisting(); }, [fetchExisting]);
 
   const getFieldDef = (field: string) => FIELDS.find((f) => f.value === field);
   const getOpsForField = (field: string) => {

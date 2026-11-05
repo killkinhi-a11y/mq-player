@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import { type Track, formatDuration } from "@/lib/musicApi";
@@ -49,10 +49,10 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
   const tasteMoods = useAppStore((s) => s.tasteMoods);
 
   const [tracks, setTracks] = useState<Track[]>([]);
-  const [loading, setLoading] = useState(false);
+  // Recommendations are requested on mount, so the view starts loading.
+  const [loading, setLoading] = useState(true);
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [aiSummary, setAiSummary] = useState("");
-  const [tasteInsight, setTasteInsight] = useState("");
   const [showAll, setShowAll] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const [menu, setMenu] = useState<{ track: Track; x: number; y: number } | null>(null);
@@ -76,24 +76,20 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
     };
   }, [tasteGenres, tasteArtists, tasteMoods, history, likedTracksData, dislikedTrackIds]);
 
-  // Generate taste insight text (M3.4: shared helper)
-  useEffect(() => {
-    const tp = extractTasteProfile({
+  // Taste insight text (M3.4: shared helper) — derived, not effect-synced.
+  const tasteInsight = useMemo(
+    () => tasteProfileToSummary(extractTasteProfile({
       history, likedTracksData, tasteGenres, tasteArtists, tasteMoods, dislikedTrackIds,
-    });
-    setTasteInsight(tasteProfileToSummary(tp));
-  }, [buildTasteContext, history, likedTracksData, tasteGenres, tasteArtists, tasteMoods, dislikedTrackIds]);
+    })),
+    [history, likedTracksData, tasteGenres, tasteArtists, tasteMoods, dislikedTrackIds],
+  );
 
-  // Fetch AI recommendations
-  const fetchRecommendations = useCallback(async (presetId?: string, customPrompt?: string) => {
-    // Abort previous request
-    if (abortRef.current) abortRef.current.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    setLoading(true);
-    setActivePreset(presetId || null);
-
+  // Request AI recommendations (pure: returns the result, sets no state).
+  const requestRecommendations = useCallback(async (
+    signal: AbortSignal,
+    presetId?: string,
+    customPrompt?: string,
+  ): Promise<{ tracks: Track[]; summary: string } | null> => {
     try {
       const { allGenres, allArtists, language, recentTitles } = buildTasteContext();
 
@@ -128,7 +124,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
           tasteProfile,
           sessionId: "smart-recs",
         }),
-        signal: controller.signal,
+        signal,
       });
 
       if (!res.ok) {
@@ -139,34 +135,57 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
         if (language !== "mixed") params.set("lang", language);
         params.set("limit", "50");
 
-        const fallbackRes = await fetch(`/api/ai/recommendations?${params}`, { signal: controller.signal });
+        const fallbackRes = await fetch(`/api/ai/recommendations?${params}`, { signal });
         if (fallbackRes.ok) {
           const data = await fallbackRes.json();
-          setTracks((data.tracks || []).filter((t: Track) => !(dislikedTrackIds || []).includes(t.id)));
-          setAiSummary(data._meta?.aiSummary || "Рекомендации на основе ваших предпочтений");
+          return {
+            tracks: (data.tracks || []).filter((t: Track) => !(dislikedTrackIds || []).includes(t.id)),
+            summary: data._meta?.aiSummary || "Рекомендации на основе ваших предпочтений",
+          };
         }
-        return;
+        return null;
       }
 
       const data = await res.json();
-      if (controller.signal.aborted) return;
+      if (signal.aborted) return null;
 
-      const filteredTracks = (data.tracks || []).filter((t: Track) => !(dislikedTrackIds || []).includes(t.id));
-      setTracks(filteredTracks);
-      setAiSummary(data.reply || "Подобрали музыку специально для вас");
+      return {
+        tracks: (data.tracks || []).filter((t: Track) => !(dislikedTrackIds || []).includes(t.id)),
+        summary: data.reply || "Подобрали музыку специально для вас",
+      };
     } catch (err: any) {
-      if (err?.name === "AbortError") return;
-      console.error("[AISmartRecs] fetch error:", err);
-    } finally {
-      if (!controller.signal.aborted) {
-        setLoading(false);
-      }
+      if (err?.name !== "AbortError") console.error("[AISmartRecs] fetch error:", err);
+      return null;
     }
   }, [buildTasteContext, tasteMoods, likedTrackIds, dislikedTrackIds, history.length]);
 
+  const runRecommendations = useCallback((controller: AbortController, presetId?: string, customPrompt?: string) => {
+    return requestRecommendations(controller.signal, presetId, customPrompt).then((result) => {
+      if (controller.signal.aborted) return;
+      if (result) {
+        setTracks(result.tracks);
+        setAiSummary(result.summary);
+      }
+      setLoading(false);
+    });
+  }, [requestRecommendations]);
+
+  // Fetch AI recommendations (user-triggered: presets, refresh)
+  const fetchRecommendations = useCallback((presetId?: string, customPrompt?: string) => {
+    // Abort previous request
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setLoading(true);
+    setActivePreset(presetId || null);
+    return runRecommendations(controller, presetId, customPrompt);
+  }, [runRecommendations]);
+
   // Auto-fetch initial recommendations on mount (always try, even for new users)
   useEffect(() => {
-    fetchRecommendations();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    runRecommendations(controller);
     return () => {
       if (abortRef.current) abortRef.current.abort();
     };

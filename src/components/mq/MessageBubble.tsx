@@ -477,7 +477,7 @@ export default function MessageBubble({
       return next;
     });
     setShowReactions(false);
-  }, [currentUserId, message.id]);
+  }, [currentUserId, message.id, setShowReactions]);
 
   const reactionEntries = Object.entries(reactions).filter(([, users]) => users.length > 0);
 

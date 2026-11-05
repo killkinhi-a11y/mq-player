@@ -107,7 +107,10 @@ export default function OnboardingTour() {
     left: number;
     adjustedPosition: string;
   } | null>(null);
-  const [overlayReady, setOverlayReady] = useState(false);
+  // Overlay visibility is tied to the step it was positioned for, so a step
+  // change hides it automatically (no reset-setState inside an effect).
+  const [readyForStep, setReadyForStep] = useState<number | null>(null);
+  const overlayReady = readyForStep !== null && readyForStep === currentStep;
   const [dontShowAgain, setDontShowAgain] = useState(false);
 
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -115,13 +118,11 @@ export default function OnboardingTour() {
   const tourSwipeStartRef = useRef<number | null>(null);
 
   const updatePosition = useCallback(() => {
-    if (currentStep === null) return;
+    if (currentStep === null) return false;
 
     const step = TOUR_STEPS[currentStep];
     const el = findTargetElement(step.targetId);
     if (!el) {
-      setTargetRect(null);
-      setOverlayReady(false);
       if (retryRef.current) clearTimeout(retryRef.current);
       retryRef.current = setTimeout(() => {
         const retryEl = findTargetElement(step.targetId);
@@ -137,11 +138,11 @@ export default function OnboardingTour() {
               height: estimatedHeight,
             });
             setTooltipPos(pos);
-            setOverlayReady(true);
+            setReadyForStep(currentStep);
           }, 400);
         }
       }, 600);
-      return;
+      return false;
     }
 
     if (retryRef.current) {
@@ -162,8 +163,9 @@ export default function OnboardingTour() {
         height: estimatedHeight,
       });
       setTooltipPos(pos);
-      setOverlayReady(true);
+      setReadyForStep(currentStep);
     }, 300);
+    return true;
   }, [currentStep]);
 
   // Refine tooltip position after it renders
@@ -183,10 +185,10 @@ export default function OnboardingTour() {
   // Update position when step changes or on resize
   useEffect(() => {
     if (!isTourActive) return;
-    setOverlayReady(false);
     updatePosition();
 
-    const handleResize = () => updatePosition();
+    // Target vanished on resize/scroll → hide the spotlight until a retry finds it.
+    const handleResize = () => { if (!updatePosition()) setReadyForStep(null); };
     window.addEventListener("resize", handleResize);
     // client-passive-event-listeners: scroll listener just repositions, no preventDefault
     window.addEventListener("scroll", handleResize, { capture: true, passive: true });

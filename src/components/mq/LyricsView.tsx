@@ -121,24 +121,29 @@ function LyricsViewBase({
 
   // ── Local synced-document import (TTML / QRC / enhanced LRC / SRT) ──
   // Real word-level karaoke for any track the user has a synced file for.
-  const [hasLocal, setHasLocal] = useState(false);
+  // Local-import presence, tagged with the track it was checked for.
+  const localKey = trackTitle && trackArtist ? `${trackArtist}\u0000${trackTitle}` : null;
+  const [localMeta, setLocalMeta] = useState<{ key: string; has: boolean } | null>(null);
+  const hasLocal = localKey !== null && localMeta?.key === localKey && localMeta.has;
+  const setHasLocal = useCallback(
+    (has: boolean) => { if (localKey !== null) setLocalMeta({ key: localKey, has }); },
+    [localKey],
+  );
   const [importBusy, setImportBusy] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
-    if (!trackTitle || !trackArtist) {
-      setHasLocal(false);
-      return;
-    }
+    if (!trackTitle || !trackArtist) return;
+    const key = `${trackArtist}\u0000${trackTitle}`;
     const id = lyricsIdentity(trackArtist, trackTitle);
     getLocalLyricsMeta(id.artist, id.title)
       .then((meta) => {
-        if (!cancelled) setHasLocal(!!meta);
+        if (!cancelled) setLocalMeta({ key, has: !!meta });
       })
       .catch(() => {
-        if (!cancelled) setHasLocal(false);
+        if (!cancelled) setLocalMeta({ key, has: false });
       });
     return () => {
       cancelled = true;
@@ -202,24 +207,21 @@ function LyricsViewBase({
   // preserves the tags), the translated LRC is re-parsed and matched back
   // per line start — so a translation never mis-aligns with its line.
   const [translationOn, setTranslationOn] = useState(false);
-  const [translations, setTranslations] = useState<string[] | null>(null);
-  const [transLoading, setTransLoading] = useState(false);
-  const [transFailed, setTransFailed] = useState(false);
+  // Translation result is tagged with the exact `lines` it was made for, so a
+  // track change (new lines) or toggling off invalidates it without a reset.
+  const [trans, setTrans] = useState<{ lines: LyricLine[]; translations: string[] | null; failed: boolean } | null>(null);
+  const transCurrent = translationOn && trans !== null && trans.lines === lines ? trans : null;
+  const translations = transCurrent?.translations ?? null;
+  const transFailed = !!transCurrent?.failed;
+  const transLoading = translationOn && lines.length > 0 && transCurrent === null;
 
   const canTranslate =
     hasSynced &&
     detectLyricsLanguage(lines.map((l) => l.text).join("\n")) !== "russian";
 
   useEffect(() => {
-    if (!translationOn) {
-      setTranslations(null);
-      setTransFailed(false);
-      return;
-    }
-    if (!lines.length) return;
+    if (!translationOn || !lines.length) return;
     let cancelled = false;
-    setTransLoading(true);
-    setTransFailed(false);
 
     const msToTag = (ms: number) => {
       const total = Math.max(0, Math.round(ms));
@@ -237,8 +239,7 @@ function LyricsViewBase({
       .then((out) => {
         if (cancelled) return;
         if (!out) {
-          setTranslations(null);
-          setTransFailed(true);
+          setTrans({ lines, translations: null, failed: true });
           return;
         }
         // Match translated lines back by their (preserved) start tag.
@@ -246,13 +247,10 @@ function LyricsViewBase({
         for (const l of parseLrc(out)) {
           if (l.startMs !== undefined && l.text) byTime.set(l.startMs, l.text);
         }
-        setTranslations(lines.map((l) => byTime.get(l.startMs ?? -1) ?? ""));
+        setTrans({ lines, translations: lines.map((l) => byTime.get(l.startMs ?? -1) ?? ""), failed: false });
       })
       .catch(() => {
-        if (!cancelled) setTransFailed(true);
-      })
-      .finally(() => {
-        if (!cancelled) setTransLoading(false);
+        if (!cancelled) setTrans({ lines, translations: null, failed: true });
       });
 
     return () => {
@@ -260,14 +258,9 @@ function LyricsViewBase({
     };
   }, [translationOn, lines]);
 
-  // A track change invalidates the previous translation — reset cleanly.
-  useEffect(() => {
-    setTranslations(null);
-    setTransFailed(false);
-    setTransLoading(false);
-    // Keep the user's preference ON across tracks; the effect above re-runs
-    // for the new lines and re-translates (IDB cache makes repeats instant).
-  }, [trackKey]);
+  // A track change brings new `lines`, which invalidates the tagged
+  // translation above; the user's preference stays ON and the effect
+  // re-translates (IDB cache makes repeats instant).
 
   // Normalized error text — accepts legacy string messages AND LyricsError
   // codes (typed or as strings); codes always map to human RU text (spec §12).

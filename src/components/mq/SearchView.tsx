@@ -153,7 +153,8 @@ export default function SearchView() {
     status: "uploading" | "done" | "error";
     successCount: number; failCount: number; fileProgress: number;
   } | null>(null);
-  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  // Client-only view (dynamic, ssr:false) → read localStorage lazily on mount.
+  const [searchHistory, setSearchHistory] = useState<string[]>(getSearchHistory);
   const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -173,8 +174,9 @@ export default function SearchView() {
   const genreScrollRef = useRef<HTMLDivElement>(null);
 
   // Genre filter search
-  const [genreTracks, setGenreTracks] = useState<Track[]>([]);
-  const [isGenreLoading, setIsGenreLoading] = useState(false);
+  // Genre results are tagged with their genre; tracks/loading are derived for
+  // the currently selected genre (no reset-setState in the effect).
+  const [genreResult, setGenreResult] = useState<{ genre: string; tracks: Track[] } | null>(null);
 
   // ── V2 multi-provider search state (Spotify catalog in parallel) ──
   const [spotifyTracks, setSpotifyTracks] = useState<CatalogTrackDTO[]>([]);
@@ -201,11 +203,6 @@ export default function SearchView() {
     });
     return sorted.slice(0, 4);
   }, [likedTrackIds, quickPicksSeed, likedTracksData]);
-
-  // Load search history on mount
-  useEffect(() => {
-    setSearchHistory(getSearchHistory());
-  }, []);
 
   // Cleanup suggestions hide timer on unmount
   useEffect(() => {
@@ -385,19 +382,20 @@ export default function SearchView() {
     return () => { clearTimeout(timer); if (abortRef.current) abortRef.current.abort(); };
   }, [searchQuery, selectedGenre]);
 
+  const genreTracks = useMemo<Track[]>(
+    () => (selectedGenre && genreResult?.genre === selectedGenre ? genreResult.tracks : []),
+    [selectedGenre, genreResult],
+  );
+  const isGenreLoading = !!selectedGenre && genreResult?.genre !== selectedGenre;
+
   // Genre filter
   useEffect(() => {
-    if (!selectedGenre) { setGenreTracks([]); return; }
+    if (!selectedGenre) return;
     const controller = new AbortController();
-    const loadGenre = async () => {
-      setIsGenreLoading(true);
-      try {
-        const res = await fetch(`/api/music/genre?genre=${encodeURIComponent(selectedGenre)}`, { signal: controller.signal });
-        if (!controller.signal.aborted) { const data = await res.json(); setGenreTracks(data.tracks || []); }
-      } catch { if (!controller.signal.aborted) setGenreTracks([]); }
-      finally { if (!controller.signal.aborted) setIsGenreLoading(false); }
-    };
-    loadGenre();
+    fetch(`/api/music/genre?genre=${encodeURIComponent(selectedGenre)}`, { signal: controller.signal })
+      .then((res) => res.json())
+      .then((data) => { if (!controller.signal.aborted) setGenreResult({ genre: selectedGenre, tracks: data.tracks || [] }); })
+      .catch(() => { if (!controller.signal.aborted) setGenreResult({ genre: selectedGenre, tracks: [] }); });
     return () => controller.abort();
   }, [selectedGenre]);
 

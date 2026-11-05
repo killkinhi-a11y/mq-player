@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect } from "react";
+import { useLoader } from "@/hooks/useLoader";
 import {
   Clock,
   Play,
@@ -44,31 +45,31 @@ const itemVariants = {
 };
 
 export default function AdminCronPage() {
-  const [jobs, setJobs] = useState<CronJob[]>([]);
-  const [loading, setLoading] = useState(true);
   const [triggerLoading, setTriggerLoading] = useState<string | null>(null);
   const [cleanupLoading, setCleanupLoading] = useState(false);
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchJobs = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/cron");
-      const data = await res.json();
-      if (data.jobs) setJobs(data.jobs);
-    } catch (err) {
-      console.error("Failed to fetch cron jobs:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: jobsData, loading: jobsLoading, error: jobsError, reload: fetchJobs } = useLoader(
+    "cron",
+    async (signal) => {
+      try {
+        const res = await fetch("/api/admin/cron", { signal });
+        const data = await res.json();
+        if (!data.jobs) throw new Error("Malformed cron response");
+        return data.jobs as CronJob[];
+      } catch (err) {
+        if (!signal.aborted) console.error("Failed to fetch cron jobs:", err);
+        throw err;
+      }
+    },
+  );
+  const jobs = jobsData ?? [];
+  // Only the very first load shows the skeleton; 5s polls refresh silently.
+  const loading = jobsLoading && jobsData === undefined && jobsError === undefined;
 
   useEffect(() => {
-    fetchJobs();
-    intervalRef.current = setInterval(fetchJobs, 5000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    const id = setInterval(fetchJobs, 5000);
+    return () => clearInterval(id);
   }, [fetchJobs]);
 
   const toggleExpand = (id: string) => {

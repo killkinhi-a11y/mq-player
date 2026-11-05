@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useLoader } from "@/hooks/useLoader";
 import {
   Search,
   Shield,
@@ -55,11 +56,8 @@ const itemVariants = {
 
 export default function AdminUsersPage() {
   const userId = useAppStore((s) => s.userId);
-  const [users, setUsers] = useState<User[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [limit] = useState(20);
 
@@ -75,26 +73,24 @@ export default function AdminUsersPage() {
   const [newRole, setNewRole] = useState("user");
   const [passwordCopied, setPasswordCopied] = useState(false);
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    try {
+  const { data: usersData, loading, reload: fetchUsers } = useLoader(
+    `${page}|${search}|${limit}`,
+    async (signal) => {
       const params = new URLSearchParams({ page: String(page), limit: String(limit) });
       if (search) params.set("search", search);
-      const res = await fetch(`/api/admin/users?${params}`);
-      const data = await res.json();
-      if (data.error) return;
-      setUsers(data.users || []);
-      setTotal(data.total || 0);
-    } catch (err) {
-      console.error("Failed to fetch users:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, search, limit]);
-
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+      try {
+        const res = await fetch(`/api/admin/users?${params}`, { signal });
+        const data = await res.json();
+        if (data.error) throw new Error(String(data.error));
+        return { users: (data.users || []) as User[], total: Number(data.total || 0) };
+      } catch (err) {
+        if (!signal.aborted) console.error("Failed to fetch users:", err);
+        throw err;
+      }
+    },
+  );
+  const users = usersData?.users ?? [];
+  const total = usersData?.total ?? 0;
 
   const totalPages = Math.ceil(total / limit);
 

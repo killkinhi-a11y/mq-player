@@ -287,6 +287,60 @@ function HistorySkeleton() {
 
 // ─── Main Component ───────────────────────────────────────────────────────
 
+type FriendsLoadResult =
+  | { status: "ok"; friends: any[] }
+  | { status: "skip" }
+  | { status: "error" };
+
+const NO_CHAT_USERS: any[] = [];
+
+/** Friends list with up to 2 retries (2s apart) for transient DB errors. */
+async function loadMessengerFriends(userId: string | null | undefined): Promise<FriendsLoadResult> {
+  // Phase 2C: gated — demo sessions use local friends, no 401 + retry.
+  if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) return { status: "skip" };
+  if (!userId) return { status: "skip" };
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await fetch(`/api/friends?userId=${userId}`);
+      if (res.status === 401) {
+        // Auth loss: no auto-retry (that would be the 401→retry→401 loop).
+        controlled401Recovery("messenger/friends");
+        return { status: "skip" };
+      }
+      if (!res.ok) throw new Error("bad");
+      const data = await res.json();
+      return { status: "ok", friends: Array.isArray(data.friends) ? data.friends : [] };
+    } catch {
+      // Auto-retry after 2s (handles transient Turso connection issues)
+      if (attempt >= 2) return { status: "error" };
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+  }
+}
+
+async function loadGroupChats(userId: string | null | undefined): Promise<GroupChat[] | null> {
+  // Phase 2C: gated — demo sessions have no server-side group chats.
+  if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) return null;
+  if (!userId) return null;
+  try {
+    const res = await fetch(`/api/group-chats?userId=${userId}`);
+    if (res.status === 401) { controlled401Recovery("group-chats"); return null; }
+    if (!res.ok) return null;
+    const data = await res.json();
+    const list = Array.isArray(data.groupChats) ? data.groupChats : Array.isArray(data) ? data : [];
+    return list.map((g: any) => ({
+      id: g.id, name: g.name || "Group", avatar: g.avatar,
+      // List API has no members array — but it has the true DB count.
+      members: Array.isArray(g.members) ? g.members : [],
+      memberCount: Number(g.memberCount ?? (Array.isArray(g.members) ? g.members.length : 0)),
+      createdBy: g.createdBy,
+      createdAt: g.createdAt || new Date().toISOString(),
+    }));
+  } catch {
+    return null;
+  }
+}
+
 export default function MessengerView() {
   const userId = useAppStore((s) => s.userId);
   const username = useAppStore((s) => s.username);
@@ -328,8 +382,11 @@ export default function MessengerView() {
   const [showInChatSearch, setShowInChatSearch] = useState(false);
   const [showProfile, setShowProfile] = useState<string | null>(null); // userId for profile modal
   const [newChatSearch, setNewChatSearch] = useState("");
-  const [newChatUsers, setNewChatUsers] = useState<any[]>([]);
-  const [isLoadingFriends, setIsLoadingFriends] = useState(false);
+  const [rawNewChatUsers, setNewChatUsers] = useState<any[]>([]);
+  // Search results apply only to an open picker with a non-empty query.
+  const newChatUsers =
+    (showNewChat || showNewGroup || showAddMembers) && newChatSearch.trim() ? rawNewChatUsers : NO_CHAT_USERS;
+  const [isLoadingFriends, setIsLoadingFriends] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   // Reference-style section filter (desktop nav rows): "all" = DMs + groups,
@@ -459,60 +516,40 @@ export default function MessengerView() {
   }, []);
 
   // ── Mobile view sync ──
-  useEffect(() => { setMobileView(activeChatId ? "chat" : "list"); }, [activeChatId]);
+  // Follow the active chat (adjusted during render; back/select handlers
+  // can still switch the pane locally).
+  const [mobileViewFor, setMobileViewFor] = useState(activeChatId);
+  if (mobileViewFor !== activeChatId) {
+    setMobileViewFor(activeChatId);
+    setMobileView(activeChatId ? "chat" : "list");
+  }
 
   // ── Fetch friends (with auto-retry) ──
-  const fetchFriends = useCallback(async (retryCount = 0) => {
-    // Phase 2C: gated — demo sessions use local friends, no 401 + retry.
-    if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) return;
-    if (!userId) return;
-    setIsLoadingFriends(true);
-    try {
-      const res = await fetch(`/api/friends?userId=${userId}`);
-      if (res.status === 401) {
-        // Auth loss: no auto-retry (that would be the 401→retry→401 loop).
-        controlled401Recovery("messenger/friends");
-        return;
-      }
-      if (!res.ok) throw new Error("bad");
-      const data = await res.json();
-      setFriends(Array.isArray(data.friends) ? data.friends : []);
+  const applyFriends = useCallback((result: FriendsLoadResult) => {
+    if (result.status === "ok") {
+      setFriends(result.friends);
       setLoadError(false);
-    } catch {
-      // Auto-retry once after 2s delay (handles transient Turso connection issues)
-      if (retryCount < 2) {
-        setTimeout(() => fetchFriends(retryCount + 1), 2000);
-        return;
-      }
+    } else if (result.status === "error") {
       setLoadError(true);
-    } finally {
-      setIsLoadingFriends(false);
     }
-  }, [userId]);
+    setIsLoadingFriends(false);
+  }, []);
 
-  useEffect(() => { fetchFriends(); }, [fetchFriends]);
+  // User-triggered refresh (retry button, pull-to-refresh, after mutations).
+  const fetchFriends = useCallback(() => {
+    setIsLoadingFriends(true);
+    return loadMessengerFriends(userId).then(applyFriends);
+  }, [userId, applyFriends]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadMessengerFriends(userId).then((result) => { if (!cancelled) applyFriends(result); });
+    return () => { cancelled = true; };
+  }, [userId, applyFriends]);
 
   // ── Fetch group chats ──
-  const fetchGroupChats = useCallback(async () => {
-    // Phase 2C: gated — demo sessions have no server-side group chats.
-    if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) return;
-    if (!userId) return;
-    try {
-      const res = await fetch(`/api/group-chats?userId=${userId}`);
-      if (res.status === 401) { controlled401Recovery("group-chats"); return; }
-      if (!res.ok) return;
-      const data = await res.json();
-      const list = Array.isArray(data.groupChats) ? data.groupChats : Array.isArray(data) ? data : [];
-      const normalized: GroupChat[] = list.map((g: any) => ({
-        id: g.id, name: g.name || "Group", avatar: g.avatar,
-        // List API has no members array — but it has the true DB count.
-        members: Array.isArray(g.members) ? g.members : [],
-        memberCount: Number(g.memberCount ?? (Array.isArray(g.members) ? g.members.length : 0)),
-        createdBy: g.createdBy,
-        createdAt: g.createdAt || new Date().toISOString(),
-      }));
-      setGroupChats(normalized);
-    } catch {}
+  const fetchGroupChats = useCallback(() => {
+    return loadGroupChats(userId).then((list) => { if (list) setGroupChats(list); });
   }, [userId]);
 
   useEffect(() => { fetchGroupChats(); }, [fetchGroupChats]);
@@ -1219,7 +1256,7 @@ export default function MessengerView() {
   useEffect(() => {
     if (!showNewChat && !showNewGroup && !showAddMembers) return;
     const q = newChatSearch.trim();
-    if (!q) { setNewChatUsers([]); return; }
+    if (!q) return;
     const timer = setTimeout(async () => {
       try {
         const excludeParam = userId ? `&excludeId=${userId}` : "";
@@ -1345,14 +1382,13 @@ export default function MessengerView() {
   // ── Typing indicator ──
   const typingTs = useAppStore((s) =>
     selectedContactId ? s.typingUsers[selectedContactId] : undefined);
-  const [showTyping, setShowTyping] = useState(false);
+  // Each typing timestamp is visible until its own 4s window expires.
+  const [expiredTypingTs, setExpiredTypingTs] = useState<number | null>(null);
+  const showTyping = !!typingTs && expiredTypingTs !== typingTs;
   useEffect(() => {
-    if (!typingTs) { setShowTyping(false); return; }
-    const isRecent = Date.now() - typingTs < 4000;
-    setShowTyping(isRecent);
-    if (!isRecent) return;
+    if (!typingTs) return;
     const remaining = 4000 - (Date.now() - typingTs);
-    const timer = setTimeout(() => setShowTyping(false), Math.max(500, remaining));
+    const timer = setTimeout(() => setExpiredTypingTs(typingTs), remaining > 0 ? Math.max(500, remaining) : 0);
     return () => clearTimeout(timer);
   }, [typingTs]);
 

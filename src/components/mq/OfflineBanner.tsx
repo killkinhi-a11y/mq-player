@@ -15,13 +15,21 @@ export function OfflineBanner() {
   const { isOnline, wasOffline } = useNetworkStatus();
   const [showBackOnline, setShowBackOnline] = useState(false);
 
+  // Raise the "back online" chip when the network status transitions into
+  // online-after-offline (adjust-state-during-render, not in an effect).
+  const statusKey = `${isOnline}|${wasOffline}`;
+  const [prevStatusKey, setPrevStatusKey] = useState(statusKey);
+  if (prevStatusKey !== statusKey) {
+    setPrevStatusKey(statusKey);
+    if (isOnline && wasOffline) setShowBackOnline(true);
+  }
+
+  // Auto-hide after 2.5s.
   useEffect(() => {
-    if (isOnline && wasOffline) {
-      setShowBackOnline(true);
-      const t = setTimeout(() => setShowBackOnline(false), 2500);
-      return () => clearTimeout(t);
-    }
-  }, [isOnline, wasOffline]);
+    if (!showBackOnline) return;
+    const t = setTimeout(() => setShowBackOnline(false), 2500);
+    return () => clearTimeout(t);
+  }, [showBackOnline]);
 
   return (
     <AnimatePresence>

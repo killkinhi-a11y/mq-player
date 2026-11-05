@@ -53,9 +53,12 @@ export function ProgressiveList<T>({
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   // Reset visible count when items array identity changes (e.g. new search)
-  useEffect(() => {
+  // — adjusted during render instead of an extra effect pass.
+  const [pagedFor, setPagedFor] = useState({ items, initialCount });
+  if (pagedFor.items !== items || pagedFor.initialCount !== initialCount) {
+    setPagedFor({ items, initialCount });
     setVisibleCount(initialCount);
-  }, [items, initialCount]);
+  }
 
   // Watch the sentinel — when it becomes visible, load more items
   useEffect(() => {

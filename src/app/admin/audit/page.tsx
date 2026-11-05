@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useLoader } from "@/hooks/useLoader";
 import {
   ScrollText,
   Search,
@@ -80,34 +81,29 @@ const itemVariants = {
 };
 
 export default function AdminAuditPage() {
-  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [actionFilter, setActionFilter] = useState("");
-  const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [limit] = useState(20);
 
-  const fetchLogs = useCallback(async () => {
-    setLoading(true);
-    try {
+  const { data: logsData, loading } = useLoader(
+    `${page}|${actionFilter}|${limit}`,
+    async (signal) => {
       const params = new URLSearchParams({ page: String(page), limit: String(limit) });
       if (actionFilter) params.set("action", actionFilter);
-      const res = await fetch(`/api/admin/audit?${params}`);
-      const data = await res.json();
-      if (data.error) return;
-      setLogs(data.logs || []);
-      setTotal(data.total || 0);
-    } catch (err) {
-      console.error("Failed to fetch logs:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, actionFilter, limit]);
-
-  useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
+      try {
+        const res = await fetch(`/api/admin/audit?${params}`, { signal });
+        const data = await res.json();
+        if (data.error) throw new Error(String(data.error));
+        return { logs: (data.logs || []) as AuditLogEntry[], total: Number(data.total || 0) };
+      } catch (err) {
+        if (!signal.aborted) console.error("Failed to fetch logs:", err);
+        throw err;
+      }
+    },
+  );
+  const logs = logsData?.logs ?? [];
+  const total = logsData?.total ?? 0;
 
   const totalPages = Math.ceil(total / limit);
 

@@ -60,13 +60,21 @@ export default function CommandPalette() {
     return () => window.removeEventListener("keydown", handler);
   }, [isOpen]);
 
-  // Focus input when opened
-  useEffect(() => {
+  // Fresh query each time the palette opens (adjusted during render).
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (wasOpen !== isOpen) {
+    setWasOpen(isOpen);
     if (isOpen) {
       setQuery("");
       setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
     }
+  }
+
+  // Focus input when opened
+  useEffect(() => {
+    if (!isOpen) return;
+    const t = setTimeout(() => inputRef.current?.focus(), 50);
+    return () => clearTimeout(t);
   }, [isOpen]);
 
   // Build command list
@@ -139,11 +147,6 @@ export default function CommandPalette() {
     return groups;
   }, [filtered]);
 
-  // Reset selected index when query changes
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [query]);
-
   // Keyboard navigation
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
@@ -205,7 +208,7 @@ export default function CommandPalette() {
             <input
               ref={inputRef}
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => { setQuery(e.target.value); setSelectedIndex(0); }}
               onKeyDown={handleKeyDown}
               placeholder="Поиск команд, треков, плейлистов..."
               className="flex-1 bg-transparent outline-none text-sm"

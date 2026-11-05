@@ -39,7 +39,7 @@ const itemVariants = {
 export default function AdminSettingsPage() {
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [startTime] = useState(Date.now());
+  const [startTime] = useState(() => Date.now());
 
   useEffect(() => {
     const checkSystem = async () => {
