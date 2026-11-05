@@ -45,7 +45,10 @@ fn probe_direct() {
         Ok(p) => {
             println!("PROBE OK: tracks={}", p.format.tracks().len());
             for t in p.format.tracks() {
-                println!("  track id={} codec={:?} sr={:?} ch={:?}", t.id, t.codec_params.codec, t.codec_params.sample_rate, t.codec_params.channels);
+                println!(
+                    "  track id={} codec={:?} sr={:?} ch={:?}",
+                    t.id, t.codec_params.codec, t.codec_params.sample_rate, t.codec_params.channels
+                );
             }
         }
         Err(e) => println!("PROBE ERR: {e:?}"),
@@ -58,9 +61,18 @@ fn handle_direct() {
     let wav = make_wav(4800, 48000);
     let mut dec = DecoderHandle::new();
     dec.push(&wav);
-    println!("after push: started={} sr={} ch={}", dec.is_started(), dec.sample_rate(), dec.channels());
+    println!(
+        "after push: started={} sr={} ch={}",
+        dec.is_started(),
+        dec.sample_rate(),
+        dec.channels()
+    );
     dec.mark_eof();
-    println!("after eof: started={} queued={}", dec.is_started(), dec.queued_frames());
+    println!(
+        "after eof: started={} queued={}",
+        dec.is_started(),
+        dec.queued_frames()
+    );
     let mut total = 0;
     while let Some(b) = dec.pop_pcm(4096) {
         total += b.frames;

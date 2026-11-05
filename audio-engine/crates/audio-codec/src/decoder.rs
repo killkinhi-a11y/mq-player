@@ -49,7 +49,10 @@ impl std::io::Seek for SharedSource {
             std::io::SeekFrom::End(d) => sb.buf.len() as i64 + d,
         };
         if new_pos < 0 {
-            return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "negative seek"));
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "negative seek",
+            ));
         }
         sb.pos = new_pos as usize;
         Ok(sb.pos as u64)
@@ -182,11 +185,7 @@ impl DecoderHandle {
     }
 
     fn try_start(&mut self) {
-        let have = self
-            .shared
-            .lock()
-            .map(|sb| sb.buf.len())
-            .unwrap_or(0);
+        let have = self.shared.lock().map(|sb| sb.buf.len()).unwrap_or(0);
         if have < 4096 && !self.input_eof {
             return; // not enough to probe
         }
@@ -221,7 +220,9 @@ impl DecoderHandle {
             Some(t) => t,
             None => return,
         };
-        let dec = match symphonia::default::get_codecs().make(&track.codec_params, &DecoderOptions::default()) {
+        let dec = match symphonia::default::get_codecs()
+            .make(&track.codec_params, &DecoderOptions::default())
+        {
             Ok(d) => d,
             Err(_) => return,
         };
@@ -312,7 +313,11 @@ fn convert_ref(buf: &AudioBufferRef, out_channels: usize, ts: u64) -> Option<Pcm
             lanes.push(f32buf.chan(0).to_vec());
         }
     }
-    Some(PcmBlock { channels: lanes, frames, timestamp_frames: ts })
+    Some(PcmBlock {
+        channels: lanes,
+        frames,
+        timestamp_frames: ts,
+    })
 }
 
 #[cfg(test)]
@@ -380,7 +385,10 @@ mod tests {
         }
         dec.mark_eof();
         assert!(dec.is_started());
-        let total: usize = (0..).map_while(|_| dec.pop_pcm(1024)).map(|b| b.frames).sum();
+        let total: usize = (0..)
+            .map_while(|_| dec.pop_pcm(1024))
+            .map(|b| b.frames)
+            .sum();
         assert_eq!(total, 2400);
     }
 }

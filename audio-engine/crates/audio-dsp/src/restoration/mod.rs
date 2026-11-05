@@ -176,7 +176,10 @@ impl NoiseReduction {
     pub fn new(sample_rate: f32, channels: usize, depth_db: f32) -> Self {
         let mut gate = NoiseGate::new(sample_rate, channels, -42.0, 2.0, 150.0, 250.0, depth_db);
         gate.set_enabled(true);
-        Self { gate, reduction_db: depth_db }
+        Self {
+            gate,
+            reduction_db: depth_db,
+        }
     }
 }
 
@@ -217,7 +220,10 @@ mod tests {
         let mut chans: Vec<&mut [f32]> = vec![&mut s];
         se.process(&mut chans);
         let after_rms = (s.iter().map(|v| v * v).sum::<f32>() / s.len() as f32).sqrt();
-        assert!(after_rms > before_rms, "enhancer must add energy: {after_rms} vs {before_rms}");
+        assert!(
+            after_rms > before_rms,
+            "enhancer must add energy: {after_rms} vs {before_rms}"
+        );
         for v in s.iter() {
             assert!(v.is_finite());
         }

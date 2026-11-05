@@ -2,8 +2,8 @@
 //! (symmetric tanh soft clip). Drive/tone/bias/mix/output controls.
 //! Oversampling is applied around the nonlinearity (aliasing control).
 
-use crate::Processor;
 use crate::saturation::oversampler::Oversampler;
+use crate::Processor;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SaturationKind {
@@ -13,10 +13,10 @@ pub enum SaturationKind {
 
 pub struct Waveshaper {
     kind: SaturationKind,
-    drive: f32,   // 0..1
-    bias: f32,    // −0.5..0.5 (tube asymmetry)
-    tone: f32,    // 0..1: 0 = dark, 1 = bright
-    mix: f32,     // 0..1 dry/wet
+    drive: f32, // 0..1
+    bias: f32,  // −0.5..0.5 (tube asymmetry)
+    tone: f32,  // 0..1: 0 = dark, 1 = bright
+    mix: f32,   // 0..1 dry/wet
     output_db: f32,
     os: Oversampler,
     sample_rate: f32,
@@ -28,7 +28,11 @@ impl Waveshaper {
         Self {
             kind,
             drive: 0.3,
-            bias: if kind == SaturationKind::Tube { 0.05 } else { 0.0 },
+            bias: if kind == SaturationKind::Tube {
+                0.05
+            } else {
+                0.0
+            },
             tone: 0.5,
             mix: 1.0,
             output_db: 0.0,
@@ -132,7 +136,11 @@ impl Processor for Waveshaper {
     }
 
     fn reset(&mut self) {
-        let factor = if self.os.factor() == 1 { 2 } else { self.os.factor() };
+        let factor = if self.os.factor() == 1 {
+            2
+        } else {
+            self.os.factor()
+        };
         self.os = Oversampler::new(factor, self.os_channels());
     }
 }

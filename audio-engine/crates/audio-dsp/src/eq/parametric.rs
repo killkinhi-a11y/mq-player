@@ -176,13 +176,16 @@ mod tests {
         let mut signal: Vec<f32> = (0..n)
             .map(|i| (2.0 * std::f32::consts::PI * 60.0 * i as f32 / sr).sin() * 0.25)
             .collect();
-        let ref_rms = 0.25_f32 * 0.7071;
+        let ref_rms = 0.25_f32 * std::f32::consts::FRAC_1_SQRT_2;
         for blk in (0..n).step_by(128) {
             let mut chans: Vec<&mut [f32]> = vec![&mut signal[blk..blk + 128]];
             eq.process(&mut chans);
         }
         let tail = &signal[n / 2..];
         let out_rms: f32 = (tail.iter().map(|v| v * v).sum::<f32>() / tail.len() as f32).sqrt();
-        assert!(out_rms > ref_rms * 1.5, "60 Hz sine must be boosted: {out_rms} vs {ref_rms}");
+        assert!(
+            out_rms > ref_rms * 1.5,
+            "60 Hz sine must be boosted: {out_rms} vs {ref_rms}"
+        );
     }
 }

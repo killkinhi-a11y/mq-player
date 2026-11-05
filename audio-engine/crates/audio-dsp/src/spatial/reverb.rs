@@ -2,8 +2,8 @@
 //! process. The FDN uses 8 delay lines with a Hadamard-style feedback
 //! matrix, output low/high damping shelves, and T60 decay control.
 
-use crate::Processor;
 use crate::flush_denormal;
+use crate::Processor;
 
 /// Discrete early reflection taps (delay in ms, gain, pan −1..+1).
 #[derive(Clone, Copy)]
@@ -14,22 +14,70 @@ pub struct Tap {
 }
 
 const ER_PATTERN: [Tap; 12] = [
-    Tap { delay_ms: 3.1, gain: 0.42, pan: -0.3 },
-    Tap { delay_ms: 5.7, gain: 0.38, pan: 0.4 },
-    Tap { delay_ms: 7.9, gain: 0.34, pan: -0.5 },
-    Tap { delay_ms: 11.3, gain: 0.30, pan: 0.2 },
-    Tap { delay_ms: 14.7, gain: 0.27, pan: -0.15 },
-    Tap { delay_ms: 19.1, gain: 0.23, pan: 0.35 },
-    Tap { delay_ms: 23.9, gain: 0.20, pan: -0.4 },
-    Tap { delay_ms: 29.3, gain: 0.17, pan: 0.1 },
-    Tap { delay_ms: 35.1, gain: 0.14, pan: -0.2 },
-    Tap { delay_ms: 41.7, gain: 0.12, pan: 0.45 },
-    Tap { delay_ms: 49.3, gain: 0.10, pan: -0.35 },
-    Tap { delay_ms: 57.9, gain: 0.08, pan: 0.25 },
+    Tap {
+        delay_ms: 3.1,
+        gain: 0.42,
+        pan: -0.3,
+    },
+    Tap {
+        delay_ms: 5.7,
+        gain: 0.38,
+        pan: 0.4,
+    },
+    Tap {
+        delay_ms: 7.9,
+        gain: 0.34,
+        pan: -0.5,
+    },
+    Tap {
+        delay_ms: 11.3,
+        gain: 0.30,
+        pan: 0.2,
+    },
+    Tap {
+        delay_ms: 14.7,
+        gain: 0.27,
+        pan: -0.15,
+    },
+    Tap {
+        delay_ms: 19.1,
+        gain: 0.23,
+        pan: 0.35,
+    },
+    Tap {
+        delay_ms: 23.9,
+        gain: 0.20,
+        pan: -0.4,
+    },
+    Tap {
+        delay_ms: 29.3,
+        gain: 0.17,
+        pan: 0.1,
+    },
+    Tap {
+        delay_ms: 35.1,
+        gain: 0.14,
+        pan: -0.2,
+    },
+    Tap {
+        delay_ms: 41.7,
+        gain: 0.12,
+        pan: 0.45,
+    },
+    Tap {
+        delay_ms: 49.3,
+        gain: 0.10,
+        pan: -0.35,
+    },
+    Tap {
+        delay_ms: 57.9,
+        gain: 0.08,
+        pan: 0.25,
+    },
 ];
 
 pub struct EarlyReflections {
-    lines: Vec<f32>,   // one shared mono delay line
+    lines: Vec<f32>, // one shared mono delay line
     pos: usize,
     taps: Vec<(usize, f32, f32)>, // (sample delay, gain, pan)
     sample_rate: f32,
@@ -38,12 +86,16 @@ pub struct EarlyReflections {
 
 impl EarlyReflections {
     pub fn new(sample_rate: f32, scale: f32) -> Self {
-        let max_ms = ER_PATTERN.iter().map(|t| t.delay_ms).fold(0.0_f32, f32::max);
+        let max_ms = ER_PATTERN
+            .iter()
+            .map(|t| t.delay_ms)
+            .fold(0.0_f32, f32::max);
         let len = (max_ms * 0.001 * sample_rate).ceil() as usize + 2;
         let taps = ER_PATTERN
             .iter()
             .map(|t| {
-                let d = (t.delay_ms * 0.001 * sample_rate * scale.clamp(0.25, 4.0)).round() as usize;
+                let d =
+                    (t.delay_ms * 0.001 * sample_rate * scale.clamp(0.25, 4.0)).round() as usize;
                 (d.min(len - 1), t.gain, t.pan.clamp(-1.0, 1.0))
             })
             .collect();
@@ -207,7 +259,8 @@ impl Processor for FdnReverb {
                 self.delays[2 * j][self.pos[2 * j]] = inject[j] + fb_r * 0.98;
                 self.delays[2 * j + 1][self.pos[2 * j + 1]] = inject[j] * 0.97 + fb_l * 0.98;
                 self.pos[2 * j] = (self.pos[2 * j] + 1) % self.len_samples[2 * j].max(1);
-                self.pos[2 * j + 1] = (self.pos[2 * j + 1] + 1) % self.len_samples[2 * j + 1].max(1);
+                self.pos[2 * j + 1] =
+                    (self.pos[2 * j + 1] + 1) % self.len_samples[2 * j + 1].max(1);
                 out_l += ll;
                 out_r += lr;
             }

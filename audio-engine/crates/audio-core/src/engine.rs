@@ -10,18 +10,18 @@ use audio_dsp::dynamics::compressor::Compressor;
 use audio_dsp::dynamics::expander::{Expander, NoiseGate};
 use audio_dsp::dynamics::limiter::Limiter;
 use audio_dsp::dynamics::DetectorMode;
-use audio_dsp::Processor;
 use audio_dsp::eq::linear_phase::LinearPhaseEq;
 use audio_dsp::eq::parametric::{GraphicEq, GRAPHIC_10_FREQS};
+use audio_dsp::modulation::lfo::LfoShape;
 use audio_dsp::modulation::modulated_delay::{Chorus, Flanger};
 use audio_dsp::modulation::phaser::Phaser;
 use audio_dsp::modulation::tremolo::Tremolo;
-use audio_dsp::modulation::lfo::LfoShape;
 use audio_dsp::restoration::{DeClipper, SpectralEnhancer};
 use audio_dsp::saturation::waveshapers::{SaturationKind, Waveshaper};
 use audio_dsp::spatial::binaural::BinauralPanner;
 use audio_dsp::spatial::reverb::{EarlyReflections, FdnReverb};
 use audio_dsp::spatial::width::StereoWidth;
+use audio_dsp::Processor;
 use audio_memory::ring_buffer::PlanarRingBuffer;
 
 /// Insert mode: PCM arrives via worklet inputs (element/HLS path).
@@ -36,7 +36,6 @@ pub enum EngineMode {
 /// remove step-discontinuity clicks at signal/silence boundaries, short
 /// enough to be imperceptible as a gap and real-time-safe (O(frames)).
 pub const FADE_FRAMES: u32 = 256;
-
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct EngineStats {
@@ -108,10 +107,10 @@ pub struct MqAudioEngine {
     // signal→silence transition runs a short fade-out from the last real
     // input sample, and every silence→signal transition ramps back in.
     fade_out_active: bool,
-    fade_out_pos: u32,        // sample index within the fade-out curve
-    fade_in_left: u32,        // ramp-up samples remaining on returning data
-    had_signal: bool,        // previous block carried real input samples
-    last_in: Vec<f32>,        // per-channel pre-DSP fade anchor
+    fade_out_pos: u32, // sample index within the fade-out curve
+    fade_in_left: u32, // ramp-up samples remaining on returning data
+    had_signal: bool,  // previous block carried real input samples
+    last_in: Vec<f32>, // per-channel pre-DSP fade anchor
 
     // smoothed master gain (kills per-block zipper steps on volume changes)
     volume_current: f32,
@@ -123,7 +122,12 @@ pub struct MqAudioEngine {
 }
 
 impl MqAudioEngine {
-    pub fn new(sample_rate: f32, channels: usize, mode: EngineMode, ring_frames: usize) -> Result<Self, CoreError> {
+    pub fn new(
+        sample_rate: f32,
+        channels: usize,
+        mode: EngineMode,
+        ring_frames: usize,
+    ) -> Result<Self, CoreError> {
         let ch = channels.clamp(1, 8);
         let mut e = Self {
             sample_rate,
@@ -131,7 +135,18 @@ impl MqAudioEngine {
             mode,
             eq: GraphicEq::new_10(sample_rate, ch),
             lp_eq: LinearPhaseEq::new(sample_rate, 1024, &[(20.0, 0.0), (20000.0, 0.0)]),
-            compressor: Compressor::new(sample_rate, ch, -20.0, 3.0, 12.0, 180.0, 8.0, 0.0, DetectorMode::Rms, 0.0),
+            compressor: Compressor::new(
+                sample_rate,
+                ch,
+                -20.0,
+                3.0,
+                12.0,
+                180.0,
+                8.0,
+                0.0,
+                DetectorMode::Rms,
+                0.0,
+            ),
             limiter: Limiter::new(sample_rate, ch, -1.0, 120.0, 3.0),
             gate: NoiseGate::new(sample_rate, ch, -55.0, 2.0, 100.0, 200.0, 30.0),
             expander: Expander::new(sample_rate, ch, -35.0, 2.0, 10.0, 200.0, 4.0, 20.0, 30.0),
@@ -210,7 +225,11 @@ impl MqAudioEngine {
     pub fn ring_write_offsets(&self) -> (usize, usize) {
         (
             self.ring.write_offset(0),
-            if self.channels > 1 { self.ring.write_offset(1) } else { self.ring.write_offset(0) },
+            if self.channels > 1 {
+                self.ring.write_offset(1)
+            } else {
+                self.ring.write_offset(0)
+            },
         )
     }
 
@@ -260,7 +279,9 @@ impl MqAudioEngine {
         self.linear_phase_active = f[6];
         self.compressor.set_enabled(f[1]);
         self.limiter.set_enabled(f[5]);
-        self.gate.set_enabled(f[1] && matches!(self.quality, QualityMode::Dynamic | QualityMode::Master));
+        self.gate.set_enabled(
+            f[1] && matches!(self.quality, QualityMode::Dynamic | QualityMode::Master),
+        );
         self.expander.set_enabled(false); // opt-in only
         self.saturation.set_enabled(f[2]);
         self.saturation.set_oversampling(if f[7] { 4 } else { 2 });
@@ -588,7 +609,13 @@ impl MqAudioEngine {
         let v1 = volume;
         let inv_frames = 1.0 / frames.max(1) as f32;
         for (c, ch) in out.iter_mut().enumerate() {
-            let g_pan = if c == 0 { pan_l } else if c == 1 { pan_r } else { 1.0 };
+            let g_pan = if c == 0 {
+                pan_l
+            } else if c == 1 {
+                pan_r
+            } else {
+                1.0
+            };
             for (i, s) in ch.iter_mut().enumerate() {
                 let g = (v0 + (v1 - v0) * (i as f32 + 1.0) * inv_frames) * g_pan;
                 *s *= g;
@@ -679,7 +706,10 @@ impl MqAudioEngine {
         self.stats.rms = self.meters.rms;
         self.stats.lufs_short = self.lufs.short_term();
         self.stats.lufs_integrated = self.lufs.integrated();
-        self.stats.gr_db = self.compressor.gain_reduction_db.max(self.limiter.gain_reduction_db);
+        self.stats.gr_db = self
+            .compressor
+            .gain_reduction_db
+            .max(self.limiter.gain_reduction_db);
         self.stats.true_peak_db = self.meters.peak_db(PeakKind::True);
     }
 
@@ -698,7 +728,13 @@ impl MqAudioEngine {
         let pan_l = if pan > 0.0 { 1.0 - pan } else { 1.0 };
         let pan_r = if pan < 0.0 { 1.0 + pan } else { 1.0 };
         for (c, ch) in out.iter_mut().enumerate() {
-            let g = v * if c == 0 { pan_l } else if c == 1 { pan_r } else { 1.0 };
+            let g = v * if c == 0 {
+                pan_l
+            } else if c == 1 {
+                pan_r
+            } else {
+                1.0
+            };
             for s in ch.iter_mut() {
                 *s *= g;
             }
@@ -803,46 +839,107 @@ mod tests {
     #[test]
     fn stream_underrun_fades_instead_of_hard_cut() {
         let mut eng = MqAudioEngine::new(48000.0, 2, EngineMode::Stream, 4096).unwrap();
-        eng.enqueue(Command { op: Opcode::SetQualityMode, a: 0.0, b: 0.0, c: 0.0 });
-        eng.enqueue(Command { op: Opcode::Play, a: 0.0, b: 0.0, c: 0.0 });
+        eng.enqueue(Command {
+            op: Opcode::SetQualityMode,
+            a: 0.0,
+            b: 0.0,
+            c: 0.0,
+        });
+        eng.enqueue(Command {
+            op: Opcode::Play,
+            a: 0.0,
+            b: 0.0,
+            c: 0.0,
+        });
         // 384 frames of a constant signal: block1 full, block2 partial + fade.
         push_const(&mut eng, 0.6, 384);
         let _ = process_block2(&mut eng); // full block
         let (l, _) = process_block2(&mut eng); // 128 real + fade tail
-        // The old code hard-cut ch[128..] to 0.0 (a 0.51 step). With the fade
-        // the worst per-sample delta must be two orders of magnitude smaller.
-        assert!(max_step(&l) < 0.02, "underrun must fade, max step {}", max_step(&l));
+                                               // The old code hard-cut ch[128..] to 0.0 (a 0.51 step). With the fade
+                                               // the worst per-sample delta must be two orders of magnitude smaller.
+        assert!(
+            max_step(&l) < 0.02,
+            "underrun must fade, max step {}",
+            max_step(&l)
+        );
         assert!(eng.stats.underruns >= 1, "underrun still counted");
         // Fade completes within FADE_FRAMES: the next block is exact silence.
         let (l2, _) = process_block2(&mut eng);
-        assert!(l2[255].abs() < 1e-6, "controlled silence after fade, got {}", l2[255]);
+        assert!(
+            l2[255].abs() < 1e-6,
+            "controlled silence after fade, got {}",
+            l2[255]
+        );
     }
 
     #[test]
     fn pause_fades_out_and_resume_fades_in() {
         let mut eng = MqAudioEngine::new(48000.0, 2, EngineMode::Stream, 4096).unwrap();
-        eng.enqueue(Command { op: Opcode::SetQualityMode, a: 0.0, b: 0.0, c: 0.0 });
-        eng.enqueue(Command { op: Opcode::Play, a: 0.0, b: 0.0, c: 0.0 });
-        eng.enqueue(Command { op: Opcode::SetVolume, a: 1.0, b: 0.0, c: 0.0 });
+        eng.enqueue(Command {
+            op: Opcode::SetQualityMode,
+            a: 0.0,
+            b: 0.0,
+            c: 0.0,
+        });
+        eng.enqueue(Command {
+            op: Opcode::Play,
+            a: 0.0,
+            b: 0.0,
+            c: 0.0,
+        });
+        eng.enqueue(Command {
+            op: Opcode::SetVolume,
+            a: 1.0,
+            b: 0.0,
+            c: 0.0,
+        });
         push_const(&mut eng, 0.7, 1024);
         let (l, _) = process_block2(&mut eng); // ramps in
         let (l, _) = process_block2(&mut eng); // steady: 0.7 * gain
         let steady = l[200];
         assert!((steady - 0.7).abs() < 0.02, "steady level, got {steady}");
 
-        eng.enqueue(Command { op: Opcode::Pause, a: 0.0, b: 0.0, c: 0.0 });
+        eng.enqueue(Command {
+            op: Opcode::Pause,
+            a: 0.0,
+            b: 0.0,
+            c: 0.0,
+        });
         let (l, _) = process_block2(&mut eng);
         // The first pause block continues the live level and fades to zero.
-        assert!((l[0] - steady).abs() < 0.02, "pause starts at the live level: {} vs {steady}", l[0]);
-        assert!(max_step(&l) < 0.02, "pause fade smooth, max step {}", max_step(&l));
-        assert!(l[255].abs() < 0.02, "pause reaches silence in one fade, got {}", l[255]);
+        assert!(
+            (l[0] - steady).abs() < 0.02,
+            "pause starts at the live level: {} vs {steady}",
+            l[0]
+        );
+        assert!(
+            max_step(&l) < 0.02,
+            "pause fade smooth, max step {}",
+            max_step(&l)
+        );
+        assert!(
+            l[255].abs() < 0.02,
+            "pause reaches silence in one fade, got {}",
+            l[255]
+        );
         // Ring is NOT consumed during pause; subsequent blocks are exact zeros.
         let (l, _) = process_block2(&mut eng);
-        assert!(l.iter().all(|s| s.abs() < 1e-6), "continued pause = exact silence");
-        assert!(eng.stats.buffered_frames >= 512, "ring preserved across pause");
+        assert!(
+            l.iter().all(|s| s.abs() < 1e-6),
+            "continued pause = exact silence"
+        );
+        assert!(
+            eng.stats.buffered_frames >= 512,
+            "ring preserved across pause"
+        );
 
         // Resume: the first data block ramps back in from silence.
-        eng.enqueue(Command { op: Opcode::Play, a: 0.0, b: 0.0, c: 0.0 });
+        eng.enqueue(Command {
+            op: Opcode::Play,
+            a: 0.0,
+            b: 0.0,
+            c: 0.0,
+        });
         let (l, _) = process_block2(&mut eng);
         assert!(l[0].abs() < 0.02, "resume ramps in from zero, got {}", l[0]);
         assert!(l[200] > 0.4, "resume reaches signal level, got {}", l[200]);
@@ -851,9 +948,24 @@ mod tests {
     #[test]
     fn direct_mode_passes_audio_unity() {
         let mut eng = MqAudioEngine::new(48000.0, 2, EngineMode::Stream, 16384).unwrap();
-        eng.enqueue(Command { op: Opcode::SetQualityMode, a: 0.0, b: 0.0, c: 0.0 });
-        eng.enqueue(Command { op: Opcode::Play, a: 0.0, b: 0.0, c: 0.0 });
-        eng.enqueue(Command { op: Opcode::SetVolume, a: 1.0, b: 0.0, c: 0.0 });
+        eng.enqueue(Command {
+            op: Opcode::SetQualityMode,
+            a: 0.0,
+            b: 0.0,
+            c: 0.0,
+        });
+        eng.enqueue(Command {
+            op: Opcode::Play,
+            a: 0.0,
+            b: 0.0,
+            c: 0.0,
+        });
+        eng.enqueue(Command {
+            op: Opcode::SetVolume,
+            a: 1.0,
+            b: 0.0,
+            c: 0.0,
+        });
         // push a sine into the ring via lanes
         let n = 8192;
         let sr = 48000.0;
@@ -888,13 +1000,21 @@ mod tests {
             produced += step;
         }
         let rms = (l.iter().map(|v| v * v).sum::<f32>() / n as f32).sqrt();
-        assert!((rms - 0.3535).abs() < 0.02, "Direct mode must be unity: rms={rms}");
+        assert!(
+            (rms - 0.3535).abs() < 0.02,
+            "Direct mode must be unity: rms={rms}"
+        );
     }
 
     #[test]
     fn stream_underrun_counts_when_ring_empty() {
         let mut eng = MqAudioEngine::new(48000.0, 2, EngineMode::Stream, 16384).unwrap();
-        eng.enqueue(Command { op: Opcode::Play, a: 0.0, b: 0.0, c: 0.0 });
+        eng.enqueue(Command {
+            op: Opcode::Play,
+            a: 0.0,
+            b: 0.0,
+            c: 0.0,
+        });
         let mut l = vec![0.0_f32; 256];
         let mut r = vec![0.0_f32; 256];
         let mut chans: Vec<&mut [f32]> = vec![&mut l, &mut r];
@@ -906,8 +1026,18 @@ mod tests {
     fn volume_command_scales_output() {
         let mut eng = MqAudioEngine::new(48000.0, 1, EngineMode::Insert, 4096).unwrap();
         // Direct mode: no limiter lookahead — pure gain path under test.
-        eng.enqueue(Command { op: Opcode::SetQualityMode, a: 0.0, b: 0.0, c: 0.0 });
-        eng.enqueue(Command { op: Opcode::SetVolume, a: 0.5, b: 0.0, c: 0.0 });
+        eng.enqueue(Command {
+            op: Opcode::SetQualityMode,
+            a: 0.0,
+            b: 0.0,
+            c: 0.0,
+        });
+        eng.enqueue(Command {
+            op: Opcode::SetVolume,
+            a: 0.5,
+            b: 0.0,
+            c: 0.0,
+        });
         let mut s = vec![1.0_f32; 512];
         // Block 1 ramps master gain from the previous value toward 0.5
         // (anti-zipper per-sample ramp) — measure AFTER the ramp settles.

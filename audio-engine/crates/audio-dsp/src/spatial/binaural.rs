@@ -8,9 +8,9 @@
 use crate::Processor;
 
 pub struct BinauralPanner {
-    azimuth_deg: f32,     // −90..+90 (90 = fully right)
-    elevation_deg: f32,   // −45..+45
-    distance_m: f32,      // 0.5..10
+    azimuth_deg: f32,   // −90..+90 (90 = fully right)
+    elevation_deg: f32, // −45..+45
+    distance_m: f32,    // 0.5..10
     head_rotation_deg: f32,
     sample_rate: f32,
     // left/right ILD shelf state (one-pole pairs)
@@ -62,8 +62,7 @@ impl BinauralPanner {
     }
 
     fn effective_azimuth(&self) -> f32 {
-        (self.azimuth_deg - self.head_rotation_deg)
-            .clamp(-90.0, 90.0)
+        (self.azimuth_deg - self.head_rotation_deg).clamp(-90.0, 90.0)
     }
 
     /// Woodworth ILD in dB for the far ear at a given azimuth (≈ ~1 kHz model).
@@ -93,10 +92,10 @@ impl Processor for BinauralPanner {
         let itd_s = 0.00065 * theta.sin();
         let itd_samples = (itd_s.abs() * self.sample_rate) as usize;
         let delay_right = az > 0.0; // source right → right ear leads, LEFT delayed
-        // ILD shelf coefficient (one-pole toward HF shelf target)
+                                    // ILD shelf coefficient (one-pole toward HF shelf target)
         let ild = self.ild_db(az);
         let ild_lin = 10_f32.powf(ild / 20.0); // far-ear gain < 1
-        // distance gain + air absorption
+                                               // distance gain + air absorption
         let dist_gain = (1.0 / self.distance_m).clamp(0.1, 1.4);
         let air_a = (-2.0 * std::f32::consts::PI * (6000.0 + (self.distance_m - 1.0) * 1500.0)
             / self.sample_rate)
@@ -129,7 +128,11 @@ impl Processor for BinauralPanner {
             self.air_l += air_a * (l_near * dist_gain - self.air_l);
             self.air_r += air_a * (r_near * dist_gain - self.air_r);
             // pinna notch on the far ear (~8 kHz dip)
-            let far = if az >= 0.0 { &mut self.ild_l_z } else { &mut self.ild_r_z };
+            let far = if az >= 0.0 {
+                &mut self.ild_l_z
+            } else {
+                &mut self.ild_r_z
+            };
             let notch_gain = 0.85;
             far[0] += 0.4 * (far[1] - far[0]);
             far[1] += 0.4 * (far[0] - far[1]);
@@ -172,7 +175,10 @@ mod tests {
         }
         let rms = |v: &[f32]| (v.iter().map(|x| x * x).sum::<f32>() / v.len() as f32).sqrt();
         let (a, b) = (rms(&l[256..]), rms(&r[256..]));
-        assert!((a - b).abs() < 0.02, "centered source must be symmetric: {a} vs {b}");
+        assert!(
+            (a - b).abs() < 0.02,
+            "centered source must be symmetric: {a} vs {b}"
+        );
     }
 
     #[test]

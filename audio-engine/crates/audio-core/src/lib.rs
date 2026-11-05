@@ -8,6 +8,6 @@ pub mod error;
 pub mod quality;
 
 pub use command::{Command, CommandQueue, Opcode};
-pub use engine::{EngineMode, MqAudioEngine, EngineStats};
+pub use engine::{EngineMode, EngineStats, MqAudioEngine};
 pub use error::CoreError;
 pub use quality::QualityMode;

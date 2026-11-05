@@ -9,9 +9,15 @@ use crate::fft::FftPlan;
 /// streaming meter).
 #[derive(Clone)]
 struct KFilter {
-    b0: f32, b1: f32, b2: f32,
-    a1: f32, a2: f32, // feedback with MINUS sign applied in process()
-    x1: f32, x2: f32, y1: f32, y2: f32,
+    b0: f32,
+    b1: f32,
+    b2: f32,
+    a1: f32,
+    a2: f32, // feedback with MINUS sign applied in process()
+    x1: f32,
+    x2: f32,
+    y1: f32,
+    y2: f32,
 }
 
 impl KFilter {
@@ -25,7 +31,10 @@ impl KFilter {
             b2: 1.198_392_81,
             a1: -1.690_659_29,
             a2: 0.732_480_77,
-            x1: 0.0, x2: 0.0, y1: 0.0, y2: 0.0,
+            x1: 0.0,
+            x2: 0.0,
+            y1: 0.0,
+            y2: 0.0,
         }
     }
 
@@ -38,13 +47,18 @@ impl KFilter {
             b2: 1.0,
             a1: -1.990_047_46,
             a2: 0.990_072_25,
-            x1: 0.0, x2: 0.0, y1: 0.0, y2: 0.0,
+            x1: 0.0,
+            x2: 0.0,
+            y1: 0.0,
+            y2: 0.0,
         }
     }
 
     #[inline]
     fn process(&mut self, x: f32) -> f32 {
-        let y = self.b0 * x + self.b1 * self.x1 + self.b2 * self.x2 - self.a1 * self.y1 - self.a2 * self.y2;
+        let y = self.b0 * x + self.b1 * self.x1 + self.b2 * self.x2
+            - self.a1 * self.y1
+            - self.a2 * self.y2;
         self.x2 = self.x1;
         self.x1 = x;
         self.y2 = self.y1;
@@ -54,17 +68,17 @@ impl KFilter {
 }
 
 pub struct LufsMeter {
-    pre: Vec<KFilter>,     // per channel
-    hp: Vec<KFilter>,      // per channel
+    pre: Vec<KFilter>, // per channel
+    hp: Vec<KFilter>,  // per channel
     sample_rate: f32,
     channels: usize,
-    block: Vec<f32>,       // running mean-square per channel accumulated per block
+    block: Vec<f32>, // running mean-square per channel accumulated per block
     block_samples: usize,
     block_ms_sum: Vec<f32>,
-    blocks: Vec<f32>,      // completed block mean-squares (channel-summed, weighted)
+    blocks: Vec<f32>, // completed block mean-squares (channel-summed, weighted)
     weights: Vec<f32>,
     // short-term / momentary ring
-    st_window: Vec<f32>,   // 3 s of per-block ms (block=100ms hop)
+    st_window: Vec<f32>, // 3 s of per-block ms (block=100ms hop)
     st_pos: usize,
     total_blocks: usize,
 }
@@ -72,15 +86,21 @@ pub struct LufsMeter {
 impl LufsMeter {
     pub fn new(sample_rate: f32, channels: usize) -> Self {
         Self {
-            pre: (0..channels).map(|_| KFilter::pre_filter(sample_rate)).collect(),
-            hp: (0..channels).map(|_| KFilter::riaa_highpass(sample_rate)).collect(),
+            pre: (0..channels)
+                .map(|_| KFilter::pre_filter(sample_rate))
+                .collect(),
+            hp: (0..channels)
+                .map(|_| KFilter::riaa_highpass(sample_rate))
+                .collect(),
             sample_rate,
             channels,
             block: vec![0.0; channels],
             block_samples: 0,
             block_ms_sum: vec![0.0; channels],
             blocks: Vec::with_capacity(1024),
-            weights: (0..channels).map(|c| if c == 4 { 1.41 } else { 1.0 }).collect(),
+            weights: (0..channels)
+                .map(|c| if c == 4 { 1.41 } else { 1.0 })
+                .collect(),
             st_window: vec![0.0; 30],
             st_pos: 0,
             total_blocks: 0,
@@ -125,7 +145,12 @@ impl LufsMeter {
         }
         let lufs_of = |z: f32| -0.691 + 10.0 * (z.max(1e-12)).log10();
         // Pass 1: absolute gate
-        let above: Vec<f32> = self.blocks.iter().copied().filter(|&z| lufs_of(z) > -70.0).collect();
+        let above: Vec<f32> = self
+            .blocks
+            .iter()
+            .copied()
+            .filter(|&z| lufs_of(z) > -70.0)
+            .collect();
         if above.is_empty() {
             return -70.0;
         }

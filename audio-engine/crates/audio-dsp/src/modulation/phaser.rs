@@ -2,19 +2,23 @@
 //! frequency and feedback.
 
 use super::lfo::{Lfo, LfoShape};
-use crate::Processor;
 use crate::flush_denormal;
+use crate::Processor;
 
 #[derive(Clone)]
 struct AllPass {
-    a: f32,  // coefficient
+    a: f32, // coefficient
     x1: f32,
     y1: f32,
 }
 
 impl AllPass {
     fn new() -> Self {
-        Self { a: 0.5, x1: 0.0, y1: 0.0 }
+        Self {
+            a: 0.5,
+            x1: 0.0,
+            y1: 0.0,
+        }
     }
 
     #[inline]
@@ -48,7 +52,9 @@ impl Phaser {
         let stages = stages.clamp(2, 12);
         Self {
             stages,
-            banks: (0..channels).map(|_| (0..stages).map(|_| AllPass::new()).collect()).collect(),
+            banks: (0..channels)
+                .map(|_| (0..stages).map(|_| AllPass::new()).collect())
+                .collect(),
             lfo: Lfo::new(sample_rate, 0.4, 1.0, LfoShape::Sine),
             feedback: 0.4,
             mix: 0.5,
