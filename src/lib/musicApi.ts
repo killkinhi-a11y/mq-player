@@ -29,6 +29,8 @@ export interface Track {
   _src?: "yandex_music";
   /** Original track id in the source catalog (e.g. Yandex track id). */
   _srcTrackId?: string;
+  /** Original album id in the source catalog (written by the server-side Yandex import; may be null). */
+  _srcAlbumId?: string | null;
   /** Source playlist kind (Yandex playlist id) the track was imported from. */
   _srcPlaylistKind?: number;
 

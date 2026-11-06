@@ -24,7 +24,23 @@ data class Track(
     val scStreamPolicy: String? = null,
     val scIsFull: Boolean? = null,
     val _reason: String? = null,
-    val _seedArtist: String? = null
+    val _seedArtist: String? = null,
+    // Fields below mirror the web Track (src/lib/musicApi.ts) and the shared
+    // contract shared/contracts/track.contract.json. They used to be dropped on
+    // Android, so Yandex attribution / catalog identity was lost after a
+    // local save + re-upload. All optional; null = absent.
+    val createdAt: String? = null,
+    val _src: String? = null,
+    val _srcTrackId: String? = null,
+    val _srcAlbumId: String? = null,
+    val _srcPlaylistKind: Long? = null,
+    val catalogProvider: String? = null,
+    val catalogId: String? = null,
+    val catalogArtistId: String? = null,
+    val playbackProvider: String? = null,
+    val playbackId: String? = null,
+    val _resolveConfidence: Double? = null,
+    val versionTag: String? = null
 ) {
     val durationInt: Int get() = duration.toInt().coerceAtLeast(0)
     val reason: String? get() = _reason
