@@ -1,13 +1,4 @@
 {
   "note": "Known circular-import chains in src/. CI fails on any chain not listed here. Remove entries when cycles are fixed.",
-  "cycles": [
-    "lib/download/downloadService.ts > lib/download/providers.ts > components/mq/SearchView.tsx > components/mq/ContextMenu.tsx > components/mq/ui/DownloadMenu.tsx",
-    "lib/playback/fullLength.ts > lib/playback/resolver.ts",
-    "lib/wave/profile.ts > lib/wave/events.ts > lib/wave/types.ts > lib/wave/relevance.ts",
-    "lib/wave/profile.ts > lib/wave/events.ts > lib/wave/types.ts > lib/wave/relevance.ts > lib/wave/scoring.ts",
-    "lib/wave/profile.ts > lib/wave/events.ts > lib/wave/types.ts > lib/wave/relevance.ts > lib/wave/scoring.ts > lib/wave/memory.ts",
-    "lib/wave/types.ts > lib/wave/relevance.ts",
-    "lib/wave/types.ts > lib/wave/relevance.ts > lib/wave/scoring.ts",
-    "lib/wave/types.ts > lib/wave/relevance.ts > lib/wave/scoring.ts > lib/wave/memory.ts"
-  ]
+  "cycles": []
 }
