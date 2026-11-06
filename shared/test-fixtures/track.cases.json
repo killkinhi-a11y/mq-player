@@ -1,0 +1,592 @@
+{
+  "contract": "track",
+  "contractVersion": 1,
+  "cases": [
+    {
+      "id": "track-soundcloud-full",
+      "description": "Normal SoundCloud track with every common field",
+      "input": {
+        "id": "sc_123456",
+        "title": "Song",
+        "artist": "Artist",
+        "album": "Album",
+        "duration": 215,
+        "cover": "https://i1.sndcdn.com/a-t500x500.jpg",
+        "genre": "Pop",
+        "audioUrl": "",
+        "previewUrl": null,
+        "source": "soundcloud",
+        "scTrackId": 123456,
+        "scStreamPolicy": "ALLOW",
+        "scIsFull": true
+      },
+      "expected": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "normalized": {
+          "album": "Album",
+          "duration": 215,
+          "cover": "https://i1.sndcdn.com/a-t500x500.jpg",
+          "genre": "Pop",
+          "audioUrl": "",
+          "id": "sc_123456",
+          "title": "Song",
+          "artist": "Artist",
+          "previewUrl": null,
+          "source": "soundcloud",
+          "scTrackId": 123456,
+          "scStreamPolicy": "ALLOW",
+          "scIsFull": true
+        }
+      }
+    },
+    {
+      "id": "track-no-cover",
+      "description": "Track without cover/album/genre: defaults to empty strings, still valid",
+      "input": {
+        "id": "sc_42",
+        "title": "No Cover",
+        "artist": "X",
+        "source": "soundcloud",
+        "scTrackId": 42,
+        "duration": 180
+      },
+      "expected": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "normalized": {
+          "album": "",
+          "duration": 180,
+          "cover": "",
+          "genre": "",
+          "audioUrl": "",
+          "id": "sc_42",
+          "title": "No Cover",
+          "artist": "X",
+          "source": "soundcloud",
+          "scTrackId": 42
+        }
+      }
+    },
+    {
+      "id": "track-multiple-artists",
+      "description": "Several artists are one display string (no artists[] array)",
+      "input": {
+        "id": "sc_77",
+        "title": "Song",
+        "artist": "Artist A, Artist B feat. Artist C",
+        "album": "Album",
+        "duration": 215,
+        "cover": "https://i1.sndcdn.com/a-t500x500.jpg",
+        "genre": "Pop",
+        "audioUrl": "",
+        "previewUrl": null,
+        "source": "soundcloud",
+        "scTrackId": 77,
+        "scStreamPolicy": "ALLOW",
+        "scIsFull": true
+      },
+      "expected": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "normalized": {
+          "album": "Album",
+          "duration": 215,
+          "cover": "https://i1.sndcdn.com/a-t500x500.jpg",
+          "genre": "Pop",
+          "audioUrl": "",
+          "id": "sc_77",
+          "title": "Song",
+          "artist": "Artist A, Artist B feat. Artist C",
+          "previewUrl": null,
+          "source": "soundcloud",
+          "scTrackId": 77,
+          "scStreamPolicy": "ALLOW",
+          "scIsFull": true
+        }
+      }
+    },
+    {
+      "id": "track-local-file",
+      "description": "Local uploaded file",
+      "input": {
+        "id": "local_1717000000000_ab12cd",
+        "title": "my-file",
+        "artist": "Локальный файл",
+        "album": "",
+        "duration": 0,
+        "cover": "",
+        "genre": "",
+        "audioUrl": "blob:https://mq1.vercel.app/x",
+        "source": "local"
+      },
+      "expected": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "normalized": {
+          "album": "",
+          "duration": 0,
+          "cover": "",
+          "genre": "",
+          "audioUrl": "blob:https://mq1.vercel.app/x",
+          "id": "local_1717000000000_ab12cd",
+          "title": "my-file",
+          "artist": "Локальный файл",
+          "source": "local"
+        }
+      }
+    },
+    {
+      "id": "track-yandex-import",
+      "description": "Track imported from Yandex Music keeps attribution fields",
+      "input": {
+        "id": "sc_555",
+        "title": "Song",
+        "artist": "Artist",
+        "album": "Album",
+        "duration": 215,
+        "cover": "https://i1.sndcdn.com/a-t500x500.jpg",
+        "genre": "Pop",
+        "audioUrl": "",
+        "previewUrl": null,
+        "source": "soundcloud",
+        "scTrackId": 555,
+        "scStreamPolicy": "ALLOW",
+        "scIsFull": true,
+        "_src": "yandex_music",
+        "_srcTrackId": "10994777",
+        "_srcAlbumId": null,
+        "_srcPlaylistKind": 3
+      },
+      "expected": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "normalized": {
+          "album": "Album",
+          "duration": 215,
+          "cover": "https://i1.sndcdn.com/a-t500x500.jpg",
+          "genre": "Pop",
+          "audioUrl": "",
+          "id": "sc_555",
+          "title": "Song",
+          "artist": "Artist",
+          "previewUrl": null,
+          "source": "soundcloud",
+          "scTrackId": 555,
+          "scStreamPolicy": "ALLOW",
+          "scIsFull": true,
+          "_src": "yandex_music",
+          "_srcTrackId": "10994777",
+          "_srcAlbumId": null,
+          "_srcPlaylistKind": 3
+        }
+      }
+    },
+    {
+      "id": "track-spotify-lazy",
+      "description": "Spotify catalog marker resolved lazily at play time",
+      "input": {
+        "id": "sp_4uLU6hMCjMI75M1A2tKUQC",
+        "title": "Never Gonna Give You Up",
+        "artist": "Rick Astley",
+        "album": "Whenever You Need Somebody",
+        "duration": 213,
+        "cover": "https://i.scdn.co/image/x",
+        "genre": "",
+        "audioUrl": "",
+        "source": "spotify",
+        "catalogProvider": "spotify",
+        "catalogId": "4uLU6hMCjMI75M1A2tKUQC",
+        "catalogArtistId": "0gxyHStUsqpMadRV0Di1Qt"
+      },
+      "expected": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "normalized": {
+          "album": "Whenever You Need Somebody",
+          "duration": 213,
+          "cover": "https://i.scdn.co/image/x",
+          "genre": "",
+          "audioUrl": "",
+          "id": "sp_4uLU6hMCjMI75M1A2tKUQC",
+          "title": "Never Gonna Give You Up",
+          "artist": "Rick Astley",
+          "source": "spotify",
+          "catalogProvider": "spotify",
+          "catalogId": "4uLU6hMCjMI75M1A2tKUQC",
+          "catalogArtistId": "0gxyHStUsqpMadRV0Di1Qt"
+        }
+      }
+    },
+    {
+      "id": "track-catalog-resolved-audius",
+      "description": "Catalog track resolved to an Audius stream",
+      "input": {
+        "id": "cat_deezer_3135556_audius_Xy12",
+        "title": "Harder",
+        "artist": "Daft Punk",
+        "album": "Discovery",
+        "duration": 224,
+        "cover": "",
+        "genre": "",
+        "audioUrl": "",
+        "previewUrl": "",
+        "source": "audius",
+        "catalogProvider": "deezer",
+        "catalogId": "3135556",
+        "playbackProvider": "audius",
+        "playbackId": "Xy12",
+        "_resolveConfidence": 0.91,
+        "versionTag": "remaster"
+      },
+      "expected": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "normalized": {
+          "album": "Discovery",
+          "duration": 224,
+          "cover": "",
+          "genre": "",
+          "audioUrl": "",
+          "id": "cat_deezer_3135556_audius_Xy12",
+          "title": "Harder",
+          "artist": "Daft Punk",
+          "previewUrl": "",
+          "source": "audius",
+          "catalogProvider": "deezer",
+          "catalogId": "3135556",
+          "playbackProvider": "audius",
+          "playbackId": "Xy12",
+          "_resolveConfidence": 0.91,
+          "versionTag": "remaster"
+        }
+      }
+    },
+    {
+      "id": "track-audius",
+      "description": "Audius track",
+      "input": {
+        "id": "audius_D7KyD",
+        "title": "Beat",
+        "artist": "prod",
+        "album": "",
+        "duration": 95.5,
+        "cover": "",
+        "genre": "Electronic",
+        "audioUrl": "",
+        "source": "audius"
+      },
+      "expected": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "normalized": {
+          "album": "",
+          "duration": 95.5,
+          "cover": "",
+          "genre": "Electronic",
+          "audioUrl": "",
+          "id": "audius_D7KyD",
+          "title": "Beat",
+          "artist": "prod",
+          "source": "audius"
+        }
+      }
+    },
+    {
+      "id": "track-unknown-field",
+      "description": "Unknown extra field is allowed (forward compatibility)",
+      "input": {
+        "id": "sc_9",
+        "title": "Song",
+        "artist": "Artist",
+        "album": "Album",
+        "duration": 215,
+        "cover": "https://i1.sndcdn.com/a-t500x500.jpg",
+        "genre": "Pop",
+        "audioUrl": "",
+        "previewUrl": null,
+        "source": "soundcloud",
+        "scTrackId": 9,
+        "scStreamPolicy": "ALLOW",
+        "scIsFull": true,
+        "futureField": {
+          "x": 1
+        }
+      },
+      "expected": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "normalized": {
+          "album": "Album",
+          "duration": 215,
+          "cover": "https://i1.sndcdn.com/a-t500x500.jpg",
+          "genre": "Pop",
+          "audioUrl": "",
+          "id": "sc_9",
+          "title": "Song",
+          "artist": "Artist",
+          "previewUrl": null,
+          "source": "soundcloud",
+          "scTrackId": 9,
+          "scStreamPolicy": "ALLOW",
+          "scIsFull": true,
+          "futureField": {
+            "x": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "track-id-shape-warning",
+      "description": "SoundCloud track with an unexpected id shape is valid but warned",
+      "input": {
+        "id": "legacy-9",
+        "title": "Song",
+        "artist": "Artist",
+        "album": "Album",
+        "duration": 215,
+        "cover": "https://i1.sndcdn.com/a-t500x500.jpg",
+        "genre": "Pop",
+        "audioUrl": "",
+        "previewUrl": null,
+        "source": "soundcloud",
+        "scTrackId": 9,
+        "scStreamPolicy": "ALLOW",
+        "scIsFull": true
+      },
+      "expected": {
+        "valid": true,
+        "errors": [],
+        "warnings": [
+          "id:pattern"
+        ],
+        "normalized": {
+          "album": "Album",
+          "duration": 215,
+          "cover": "https://i1.sndcdn.com/a-t500x500.jpg",
+          "genre": "Pop",
+          "audioUrl": "",
+          "id": "legacy-9",
+          "title": "Song",
+          "artist": "Artist",
+          "previewUrl": null,
+          "source": "soundcloud",
+          "scTrackId": 9,
+          "scStreamPolicy": "ALLOW",
+          "scIsFull": true
+        }
+      }
+    },
+    {
+      "id": "track-missing-id",
+      "description": "id is required",
+      "input": {
+        "title": "T",
+        "artist": "A",
+        "source": "soundcloud"
+      },
+      "expected": {
+        "valid": false,
+        "errors": [
+          "id:required"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "id": "track-empty-id",
+      "description": "id must not be empty",
+      "input": {
+        "id": "",
+        "title": "T",
+        "artist": "A",
+        "source": "soundcloud"
+      },
+      "expected": {
+        "valid": false,
+        "errors": [
+          "id:minLength"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "id": "track-negative-duration",
+      "description": "duration must be >= 0",
+      "input": {
+        "id": "sc_123456",
+        "title": "Song",
+        "artist": "Artist",
+        "album": "Album",
+        "duration": -1,
+        "cover": "https://i1.sndcdn.com/a-t500x500.jpg",
+        "genre": "Pop",
+        "audioUrl": "",
+        "previewUrl": null,
+        "source": "soundcloud",
+        "scTrackId": 123456,
+        "scStreamPolicy": "ALLOW",
+        "scIsFull": true
+      },
+      "expected": {
+        "valid": false,
+        "errors": [
+          "duration:min"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "id": "track-unknown-source",
+      "description": "source must be a known provider",
+      "input": {
+        "id": "sc_123456",
+        "title": "Song",
+        "artist": "Artist",
+        "album": "Album",
+        "duration": 215,
+        "cover": "https://i1.sndcdn.com/a-t500x500.jpg",
+        "genre": "Pop",
+        "audioUrl": "",
+        "previewUrl": null,
+        "source": "youtube",
+        "scTrackId": 123456,
+        "scStreamPolicy": "ALLOW",
+        "scIsFull": true
+      },
+      "expected": {
+        "valid": false,
+        "errors": [
+          "source:enum"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "id": "track-sctrackid-string",
+      "description": "scTrackId must be an integer, not a string",
+      "input": {
+        "id": "sc_123456",
+        "title": "Song",
+        "artist": "Artist",
+        "album": "Album",
+        "duration": 215,
+        "cover": "https://i1.sndcdn.com/a-t500x500.jpg",
+        "genre": "Pop",
+        "audioUrl": "",
+        "previewUrl": null,
+        "source": "soundcloud",
+        "scTrackId": "123456",
+        "scStreamPolicy": "ALLOW",
+        "scIsFull": true
+      },
+      "expected": {
+        "valid": false,
+        "errors": [
+          "scTrackId:type"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "id": "track-title-number",
+      "description": "title must be a string",
+      "input": {
+        "id": "sc_123456",
+        "title": 42,
+        "artist": "Artist",
+        "album": "Album",
+        "duration": 215,
+        "cover": "https://i1.sndcdn.com/a-t500x500.jpg",
+        "genre": "Pop",
+        "audioUrl": "",
+        "previewUrl": null,
+        "source": "soundcloud",
+        "scTrackId": 123456,
+        "scStreamPolicy": "ALLOW",
+        "scIsFull": true
+      },
+      "expected": {
+        "valid": false,
+        "errors": [
+          "title:type"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "id": "track-confidence-range",
+      "description": "_resolveConfidence must be within 0..1",
+      "input": {
+        "id": "sc_123456",
+        "title": "Song",
+        "artist": "Artist",
+        "album": "Album",
+        "duration": 215,
+        "cover": "https://i1.sndcdn.com/a-t500x500.jpg",
+        "genre": "Pop",
+        "audioUrl": "",
+        "previewUrl": null,
+        "source": "soundcloud",
+        "scTrackId": 123456,
+        "scStreamPolicy": "ALLOW",
+        "scIsFull": true,
+        "_resolveConfidence": 91
+      },
+      "expected": {
+        "valid": false,
+        "errors": [
+          "_resolveConfidence:max"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "id": "track-null-title",
+      "description": "title is required and not nullable",
+      "input": {
+        "id": "sc_123456",
+        "title": null,
+        "artist": "Artist",
+        "album": "Album",
+        "duration": 215,
+        "cover": "https://i1.sndcdn.com/a-t500x500.jpg",
+        "genre": "Pop",
+        "audioUrl": "",
+        "previewUrl": null,
+        "source": "soundcloud",
+        "scTrackId": 123456,
+        "scStreamPolicy": "ALLOW",
+        "scIsFull": true
+      },
+      "expected": {
+        "valid": false,
+        "errors": [
+          "title:type"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "id": "track-not-object",
+      "description": "payload must be an object",
+      "input": null,
+      "expected": {
+        "valid": false,
+        "errors": [
+          "$:type"
+        ],
+        "warnings": []
+      }
+    }
+  ]
+}

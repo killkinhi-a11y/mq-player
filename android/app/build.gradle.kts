@@ -124,6 +124,14 @@ android {
         }
     }
 
+    // Shared web/Android contracts and fixtures (repo-root shared/) are test
+    // resources: classpath paths "contracts/…" and "test-fixtures/…".
+    sourceSets {
+        getByName("test") {
+            resources.srcDir("../../shared")
+        }
+    }
+
     testOptions {
         unitTests.isIncludeAndroidResources = true
         // Parity screenshots (Robolectric) are written next to the web

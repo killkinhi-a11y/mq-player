@@ -1,0 +1,164 @@
+{
+  "contract": "track",
+  "version": 1,
+  "description": "MQ Track as exchanged between backend, web (src/lib/musicApi.ts Track) and Android (data/api/Models.kt Track). Unknown fields are allowed and must be preserved by web; Android ignores unknown keys.",
+  "additionalFields": "allow",
+  "fields": {
+    "id": {
+      "type": "string",
+      "required": true,
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "artist": {
+      "type": "string",
+      "required": true,
+      "note": "single display string; several artists are joined by the provider (\", \" / \" & \" / \" feat. \"), there is no artists[] array"
+    },
+    "album": {
+      "type": "string",
+      "default": ""
+    },
+    "duration": {
+      "type": "number",
+      "min": 0,
+      "note": "seconds",
+      "default": 0
+    },
+    "cover": {
+      "type": "string",
+      "default": ""
+    },
+    "genre": {
+      "type": "string",
+      "default": ""
+    },
+    "audioUrl": {
+      "type": "string",
+      "default": ""
+    },
+    "previewUrl": {
+      "type": "string",
+      "nullable": true
+    },
+    "source": {
+      "type": "string",
+      "required": true,
+      "enum": [
+        "soundcloud",
+        "local",
+        "demo",
+        "jamendo",
+        "audius",
+        "spotify"
+      ]
+    },
+    "scTrackId": {
+      "type": "integer",
+      "nullable": true
+    },
+    "scStreamPolicy": {
+      "type": "string",
+      "nullable": true
+    },
+    "scIsFull": {
+      "type": "boolean",
+      "nullable": true
+    },
+    "createdAt": {
+      "type": "string",
+      "nullable": true
+    },
+    "_reason": {
+      "type": "string",
+      "nullable": true
+    },
+    "_seedArtist": {
+      "type": "string",
+      "nullable": true
+    },
+    "_src": {
+      "type": "string",
+      "nullable": true,
+      "enum": [
+        "yandex_music"
+      ]
+    },
+    "_srcTrackId": {
+      "type": "string",
+      "nullable": true
+    },
+    "_srcAlbumId": {
+      "type": "string",
+      "nullable": true
+    },
+    "_srcPlaylistKind": {
+      "type": "integer",
+      "nullable": true
+    },
+    "catalogProvider": {
+      "type": "string",
+      "nullable": true,
+      "enum": [
+        "spotify",
+        "deezer"
+      ]
+    },
+    "catalogId": {
+      "type": "string",
+      "nullable": true
+    },
+    "catalogArtistId": {
+      "type": "string",
+      "nullable": true
+    },
+    "playbackProvider": {
+      "type": "string",
+      "nullable": true,
+      "enum": [
+        "soundcloud",
+        "audius"
+      ]
+    },
+    "playbackId": {
+      "type": "string",
+      "nullable": true
+    },
+    "_resolveConfidence": {
+      "type": "number",
+      "nullable": true,
+      "min": 0,
+      "max": 1
+    },
+    "versionTag": {
+      "type": "string",
+      "nullable": true
+    }
+  },
+  "idRules": [
+    {
+      "source": "soundcloud",
+      "pattern": "^(sc_[0-9]+|cat_.+_soundcloud_.+)$",
+      "severity": "warning"
+    },
+    {
+      "source": "audius",
+      "pattern": "^(audius_.+|cat_.+_audius_.+)$",
+      "severity": "warning"
+    },
+    {
+      "source": "spotify",
+      "pattern": "^(sp|dz)_.+$",
+      "severity": "warning"
+    },
+    {
+      "source": "local",
+      "pattern": "^local_.+$",
+      "severity": "warning"
+    }
+  ],
+  "idRulesNote": "Id rules are warnings, not errors: historical data may contain other id shapes and must not be dropped."
+}

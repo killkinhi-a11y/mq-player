@@ -60,10 +60,12 @@ jobs:
               - 'vitest.config.*'
               - 'postcss.config.*'
               - 'tailwind.config.*'
+              - 'shared/**'
             desktop:
               - '.github/workflows/ci.yml'
               - 'desktop/**'
               - 'src/**'
+              - 'shared/**'
               - 'package-lock.json'
               - 'eslint.config.*'
             rust:
@@ -72,6 +74,7 @@ jobs:
             android:
               - '.github/workflows/ci.yml'
               - 'android/**'
+              - 'shared/**'
               - 'download/screens/parity/**'
       - id: out
         env:
