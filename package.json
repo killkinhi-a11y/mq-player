@@ -101,8 +101,8 @@
     "wrangler": "^4.84.0"
   },
   "optionalDependencies": {
-    "electron": "36.5.0",
-    "electron-builder": "26.0.12"
+    "electron": "36.9.5",
+    "electron-builder": "26.18.0"
   },
   "main": "electron/main.js",
   "build": {
