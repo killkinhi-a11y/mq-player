@@ -178,7 +178,11 @@ class Parity1FeaturesTest {
     fun `S2 END_OF_TRACK requires a now-playing track (honest guard)`() {
         val c = com.mq1.player.di.ServiceLocator.playbackController
         c.cancelSleepTimer()
-        c.startSleepEndOfTrack() // no queue in this test → no-op
+        // The controller is a process-wide singleton and restores the last queue
+        // snapshot on connect — clear it explicitly so this test does not depend
+        // on what an earlier test left behind.
+        c.stop()
+        c.startSleepEndOfTrack() // no queue → no-op
         assertEquals(com.mq1.player.player.PlaybackController.SleepKind.NONE, c.sleepKind.value)
     }
 
