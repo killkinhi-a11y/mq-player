@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { extractTasteProfile } from "@/lib/tasteProfile";
+import { buildWaveSignals } from "@/lib/wave/signals";
 import {
   isReplay,
   needsRefill,
@@ -141,49 +142,21 @@ export function useWaveEngine() {
       likedTracksData: Array.isArray(s.likedTracksData) ? s.likedTracksData : [],
       dislikedTrackIds: Array.isArray(s.dislikedTrackIds) ? s.dislikedTrackIds : [],
     });
-    const excludeIds = [
-      ...(s.queue || []).map((t) => t.id),
-      ...(s.history || []).slice(0, 100).map((h) => h.track?.id),
-      ...(s.waveQueue || []).map((q) => q.track.id),
-      ...(s.dislikedTrackIds || []),
-    ];
-    // V2 (PART 8): compact "title artist" texts — the server computes the
-    // cultural-cluster affinity map from these (never a global blacklist).
-    const likedTexts = (s.likedTracksData || [])
-      .slice(0, 12)
-      .map((t) => `${t.title || ""} ${t.artist || ""}`.trim().slice(0, 120))
-      .filter(Boolean);
-    const historyTexts = (s.history || [])
-      .slice(0, 16)
-      .map((h) => `${h.track?.title || ""} ${h.track?.artist || ""}`.trim().slice(0, 120))
-      .filter(Boolean);
-    return {
-      likedArtists: [...new Set((s.likedTracksData || []).map((t) => t.artist).filter(Boolean))].slice(0, 10),
-      likedGenres: [...new Set((s.likedTracksData || []).map((t) => t.genre).filter(Boolean))].slice(0, 10),
-      dislikedArtists: [...new Set((s.dislikedTracksData || []).map((t) => t.artist).filter(Boolean))].slice(0, 10),
-      likedScIds: (s.likedTracksData || []).map((t) => t.scTrackId).filter((id): id is number => !!id).slice(0, 5),
-      historyScIds: (s.history || []).map((h) => h.track?.scTrackId).filter((id): id is number => !!id).slice(0, 12),
-      historyArtists: (s.history || []).slice(0, 20).map((h) => h.track?.artist).filter(Boolean).slice(0, 12),
-      historyGenres: (s.history || []).slice(0, 30).map((h) => h.track?.genre).filter(Boolean).slice(0, 12),
-      tasteGenres: tp.topGenres.slice(0, 6),
-      tasteArtists: [
-        ...new Set([
-          ...(s.favoriteArtists || []).map((a) => a.username),
-          ...tp.topArtists,
-        ]),
-      ].slice(0, 5),
-      language: tp.language,
-      sessionEvents: (s.waveSessionEvents || []).slice(-WAVE_CONFIG.feedback.maxSessionEvents),
-      excludeIds: [...new Set(excludeIds)].slice(0, 150),
-      excludeScIds: (s.dislikedTracksData || []).map((t) => t.scTrackId).filter((id): id is number => !!id).slice(0, 50),
-      recentWaveArtists: (s.waveMemory?.artists || []).map((e) => e.value).slice(0, 25),
-      recentWaveGenres: (s.waveMemory?.genres || []).map((e) => e.value).slice(0, 15),
-      recentWaveTrackIds: (s.waveMemory?.tracks || []).map((e) => e.value).slice(0, 60),
-      seed: seed || undefined,
-      likedTexts,
-      historyTexts,
-      debug: isWaveDebugMode() || undefined,
-    };
+    // Pure builder shared with Android (src/lib/wave/signals.ts).
+    return buildWaveSignals({
+      history: s.history || [],
+      likedTracksData: s.likedTracksData || [],
+      dislikedTracksData: s.dislikedTracksData || [],
+      dislikedTrackIds: s.dislikedTrackIds || [],
+      queueIds: (s.queue || []).map((t) => t.id),
+      waveQueueIds: (s.waveQueue || []).map((q) => q.track.id),
+      favoriteArtistNames: (s.favoriteArtists || []).map((a) => a.username),
+      taste: { topGenres: tp.topGenres, topArtists: tp.topArtists, language: tp.language },
+      sessionEvents: s.waveSessionEvents || [],
+      waveMemory: s.waveMemory,
+      seed,
+      debug: isWaveDebugMode(),
+    });
   }, []);
 
   /* ────────────────────────────────────────────────────────────────────

@@ -136,7 +136,9 @@ object ServiceLocator {
 
     val authRepository: AuthRepository by lazy { AuthRepository(api, localStore) }
     val musicRepository: MusicRepository by lazy { MusicRepository(api, appScope) }
-    val waveRepository: WaveRepository by lazy { WaveRepository(api, localStore) }
+    val waveRepository: WaveRepository by lazy {
+        WaveRepository(api, localStore) { playbackController.currentQueue.map { it.id } }
+    }
     val playlistRepository: PlaylistRepository by lazy { PlaylistRepository(api) }
     val socialRepository: SocialRepository by lazy { SocialRepository(api) }
     val chatRepository: ChatRepository by lazy { ChatRepository(api, localStore) }

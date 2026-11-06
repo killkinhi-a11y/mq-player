@@ -49,6 +49,9 @@ fun WaveScreen(onOpenFullPlayer: () -> Unit) {
     val active = queue.getOrNull(currentIndex)
     val upcoming = if (currentIndex >= 0) queue.drop(currentIndex + 1) else queue
 
+    // Web parity: WAVE has its own ambient scene (theme waveBase/waveHue + shared palette math).
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+    com.mq1.player.ui.wave.WaveAmbientBackdrop(primaryHex = null)
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 16.dp)
@@ -147,6 +150,7 @@ fun WaveScreen(onOpenFullPlayer: () -> Unit) {
                 )
             }
         }
+    }
     }
 }
 

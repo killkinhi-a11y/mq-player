@@ -1,0 +1,229 @@
+{
+  "contract": "wave-palette",
+  "contractVersion": 1,
+  "generatedFrom": "src/components/mq/wave-ambient-palette.ts",
+  "paletteLerpMs": 950,
+  "defaultAnchorHue": 226,
+  "cases": [
+    {
+      "id": "derive-blue",
+      "fn": "deriveWavePalette",
+      "input": {
+        "primary": "#3355ff",
+        "anchorHueDeg": null
+      },
+      "expected": {
+        "c1": "#0b0e1b",
+        "c2": "#151e4e",
+        "c3": "#171030",
+        "hl": "#cccedb"
+      }
+    },
+    {
+      "id": "derive-red",
+      "fn": "deriveWavePalette",
+      "input": {
+        "primary": "#e03131",
+        "anchorHueDeg": null
+      },
+      "expected": {
+        "c1": "#190a0a",
+        "c2": "#4e1515",
+        "c3": "#301010",
+        "hl": "#dbcdcd"
+      }
+    },
+    {
+      "id": "derive-warm-yellow",
+      "fn": "deriveWavePalette",
+      "input": {
+        "primary": "#facc15",
+        "anchorHueDeg": null
+      },
+      "expected": {
+        "c1": "#1b180b",
+        "c2": "#4e4520",
+        "c3": "#2c2714",
+        "hl": "#dbd8cc"
+      }
+    },
+    {
+      "id": "derive-achromatic-anchor",
+      "fn": "deriveWavePalette",
+      "input": {
+        "primary": "#808080",
+        "anchorHueDeg": 330
+      },
+      "expected": {
+        "c1": "#0f0b0d",
+        "c2": "#412533",
+        "c3": "#271920",
+        "hl": "#d6d1d4"
+      }
+    },
+    {
+      "id": "derive-achromatic-default",
+      "fn": "deriveWavePalette",
+      "input": {
+        "primary": "#101010",
+        "anchorHueDeg": null
+      },
+      "expected": {
+        "c1": "#0b0c0f",
+        "c2": "#252b41",
+        "c3": "#191c27",
+        "hl": "#d1d2d6"
+      }
+    },
+    {
+      "id": "derive-violet-shift",
+      "fn": "deriveWavePalette",
+      "input": {
+        "primary": "#8b5cf6",
+        "anchorHueDeg": null
+      },
+      "expected": {
+        "c1": "#0f0b1a",
+        "c2": "#26154e",
+        "c3": "#261030",
+        "hl": "#d1ccdb"
+      }
+    },
+    {
+      "id": "derive-invalid-hex",
+      "fn": "deriveWavePalette",
+      "input": {
+        "primary": "nope",
+        "anchorHueDeg": null
+      },
+      "expected": {
+        "c1": "#0b0c0f",
+        "c2": "#252b41",
+        "c3": "#191c27",
+        "hl": "#d1d2d6"
+      }
+    },
+    {
+      "id": "derive-anchor-wrap",
+      "fn": "deriveWavePalette",
+      "input": {
+        "primary": "#777777",
+        "anchorHueDeg": -30
+      },
+      "expected": {
+        "c1": "#0f0b0d",
+        "c2": "#412533",
+        "c3": "#271920",
+        "hl": "#d6d1d4"
+      }
+    },
+    {
+      "id": "default-hue-226",
+      "fn": "defaultPaletteForHue",
+      "input": {
+        "hueDeg": 226
+      },
+      "expected": {
+        "c1": "#070b16",
+        "c2": "#122448",
+        "c3": "#261e54",
+        "hl": "#d6e2ff"
+      }
+    },
+    {
+      "id": "default-hue-0",
+      "fn": "defaultPaletteForHue",
+      "input": {
+        "hueDeg": 0
+      },
+      "expected": {
+        "c1": "#150b0b",
+        "c2": "#471a1a",
+        "c3": "#2e1f15",
+        "hl": "#d9cece"
+      }
+    },
+    {
+      "id": "default-hue-45",
+      "fn": "defaultPaletteForHue",
+      "input": {
+        "hueDeg": 45
+      },
+      "expected": {
+        "c1": "#15120b",
+        "c2": "#42391f",
+        "c3": "#2a2e15",
+        "hl": "#d9d6ce"
+      }
+    },
+    {
+      "id": "default-hue-160",
+      "fn": "defaultPaletteForHue",
+      "input": {
+        "hueDeg": 160
+      },
+      "expected": {
+        "c1": "#0b1511",
+        "c2": "#1a4738",
+        "c3": "#152c2e",
+        "hl": "#ced9d5"
+      }
+    },
+    {
+      "id": "default-hue-330",
+      "fn": "defaultPaletteForHue",
+      "input": {
+        "hueDeg": 330
+      },
+      "expected": {
+        "c1": "#150b10",
+        "c2": "#471a30",
+        "c3": "#2e1517",
+        "hl": "#d9ced4"
+      }
+    },
+    {
+      "id": "default-hue-586",
+      "fn": "defaultPaletteForHue",
+      "input": {
+        "hueDeg": 586
+      },
+      "expected": {
+        "c1": "#070b16",
+        "c2": "#122448",
+        "c3": "#261e54",
+        "hl": "#d6e2ff"
+      }
+    },
+    {
+      "id": "lerp-half",
+      "fn": "lerpPalette",
+      "input": {
+        "a": "default",
+        "bHue": 0,
+        "t": 0.5
+      },
+      "expected": {
+        "c1": "#0e0b11",
+        "c2": "#2d1f31",
+        "c3": "#2a1f35",
+        "hl": "#d8d8e7"
+      }
+    },
+    {
+      "id": "lerp-zero",
+      "fn": "lerpPalette",
+      "input": {
+        "a": "default",
+        "bHue": 0,
+        "t": 0
+      },
+      "expected": {
+        "c1": "#070b16",
+        "c2": "#122448",
+        "c3": "#261e54",
+        "hl": "#d6e2ff"
+      }
+    }
+  ]
+}
