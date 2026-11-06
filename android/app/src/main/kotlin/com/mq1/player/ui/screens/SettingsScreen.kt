@@ -157,7 +157,7 @@ private fun openInBrowser(context: Context, url: String) {
 private const val RELEASES_LIST_URL = "https://github.com/killkinhi-a11y/mq-player/releases"
 private const val RELEASES_URL = "https://github.com/killkinhi-a11y/mq-player/releases"
 private const val WINDOWS_SETUP_URL =
-    "https://github.com/killkinhi-a11y/mq-player/releases/download/v1.0.1/MQ-Player-Setup.zip"
+    "https://github.com/killkinhi-a11y/mq-player/releases/download/desktop-v1.0.0/MQ.Player_1.0.0_x64-setup.exe"
 
 // ── SettingsBody — stateless (screenshot fixtures drive it directly) ───────
 

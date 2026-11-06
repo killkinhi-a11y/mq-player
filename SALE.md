@@ -96,5 +96,5 @@ MQ Player — это полноценный музыкальный плеер с
 
 - **Live:** https://mq1.vercel.app
 - **GitHub:** https://github.com/killkinhi-a11y/mq-player
-- **Android APK:** https://github.com/killkinhi-a11y/mq-player/releases/latest/download/mq-player.apk
-- **Windows:** https://github.com/killkinhi-a11y/mq-player/releases/download/v1.0.1/MQ-Player-Setup.zip
+- **Android APK:** https://github.com/killkinhi-a11y/mq-player/releases/latest/download/MQPlayer.apk
+- **Windows:** https://github.com/killkinhi-a11y/mq-player/releases/download/desktop-v1.0.0/MQ.Player_1.0.0_x64-setup.exe
