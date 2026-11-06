@@ -63,6 +63,9 @@ object ServiceLocator {
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
+            // Stage V (G): tests can never reach production, even via an
+            // absolute URL — blocked before any socket is opened.
+            .addInterceptor(com.mq1.player.data.ProductionGuardInterceptor())
             .addInterceptor(Interceptor { chain ->
                 // Baseline headers accepted by the backend (parity with web).
                 val builder = chain.request().newBuilder()
@@ -102,7 +105,7 @@ object ServiceLocator {
 
     val api: MqApi by lazy {
         Retrofit.Builder()
-            .baseUrl(BuildConfig.API_BASE.trimEnd('/') + "/")
+            .baseUrl(com.mq1.player.data.MqEnv.apiBase.trimEnd('/') + "/")
             .client(okHttp)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()

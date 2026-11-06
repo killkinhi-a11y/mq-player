@@ -282,7 +282,7 @@ class PlaybackController(private val context: Context) {
         // TTL cache + single-flight make this free for repeats.
         val firstStream = tracks.getOrNull(safeIndex)?.let { t ->
             t.scTrackId?.let { ServiceLocator.musicRepository.resolveStreamById(it) }
-        }?.let { playableStream(it, com.mq1.player.BuildConfig.API_BASE) }
+        }?.let { playableStream(it, com.mq1.player.data.MqEnv.apiBase) }
 
         val items = tracks.mapIndexed { i, t ->
             if (i == safeIndex && firstStream != null) {
@@ -579,7 +579,7 @@ class PlaybackController(private val context: Context) {
         val id = track.scTrackId ?: return
         val resolved = ServiceLocator.musicRepository.resolveStreamById(id) ?: return
         val playable = playableStream(
-            resolved, com.mq1.player.BuildConfig.API_BASE
+            resolved, com.mq1.player.data.MqEnv.apiBase
         ) ?: return
 
         val c = controller ?: return

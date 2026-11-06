@@ -34,7 +34,14 @@ cd android
 
 ### Локальный бэкенд
 
-По умолчанию приложение ходит в production `https://mq1.vercel.app`.
+По умолчанию debug/release-сборки ходят в production `https://mq1.vercel.app`.
+Тесты (unit и instrumented) — никогда: по умолчанию они используют локальный
+stub `http://127.0.0.1:8717` (`-PmqTestApiBase=...` чтобы сменить), а
+`ProductionGuardInterceptor` (`data/MqEnv.kt`) бросает `ProductionAccessBlocked`
+на любой запрос к production-хосту из тестового окружения. Production как
+test base отклоняется на этапе конфигурации Gradle. Release `API_BASE`
+всегда production — проверяется `./gradlew :app:checkReleaseApiConfig`.
+
 Для разработки против локального `next dev`:
 
 ```bash

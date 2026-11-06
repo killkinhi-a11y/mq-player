@@ -28,7 +28,7 @@ import org.robolectric.annotation.Config
  *   2. x-demo-user-id IS sent (the demo gate the backend needs),
  *   3. x-demo-user-name is NOT sent (web parity: the backend defaults it).
  *
- * Run with -PmqApiBase=http://127.0.0.1:8717 (stub flag), like all
+ * The test API base defaults to http://127.0.0.1:8717 (see MqEnv), like all
  * Parity/Google suites.
  */
 @RunWith(RobolectricTestRunner::class)

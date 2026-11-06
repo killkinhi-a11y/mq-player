@@ -234,9 +234,14 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: "17" }
       - uses: gradle/actions/setup-gradle@v4
-      # Unit/parity tests talk to the local ParityStub (127.0.0.1:8717), never to production.
-      - run: ./gradlew --no-daemon testDebugUnitTest -PmqApiBase=http://127.0.0.1:8717
-      # The APK is built separately with the default (real) API base.
+      # Unit/parity tests run with NO flags: app/build.gradle.kts injects
+      # mq.testEnv=true + mq.apiBase=http://127.0.0.1:8717 (local ParityStub);
+      # production URLs fail the build/test (MqEnv, TestEnvironmentIsolationTest).
+      - run: ./gradlew --no-daemon testDebugUnitTest
+      # Release endpoint guard (reads the generated release BuildConfig) +
+      # instrumentation sources compile (MqTestRunner isolates them too;
+      # running them needs an emulator — not part of this job).
+      - run: ./gradlew --no-daemon :app:checkReleaseApiConfig :app:assembleDebugAndroidTest
       - run: ./gradlew --no-daemon assembleDebug
       - uses: actions/upload-artifact@v4
         if: always()
