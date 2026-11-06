@@ -86,6 +86,13 @@ interface MqApi {
         @Query("count") count: Int = 15
     ): RecommendationsResponse
 
+    // Web WAVE pipeline (§29) — same endpoints as useWaveEngine
+    @POST("api/wave")
+    suspend fun waveStart(@Body body: kotlinx.serialization.json.JsonObject): Response<com.mq1.player.data.repo.WaveRepository.WaveApiResponse>
+
+    @POST("api/wave/next")
+    suspend fun waveNext(@Body body: kotlinx.serialization.json.JsonObject): Response<com.mq1.player.data.repo.WaveRepository.WaveApiResponse>
+
     // Web «Похожие треки» — same radio endpoint the web wave engine uses
     @GET("api/music/radio")
     suspend fun radio(

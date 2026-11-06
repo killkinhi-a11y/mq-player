@@ -1,0 +1,3760 @@
+{
+  "contract": "wave-signals",
+  "contractVersion": 1,
+  "generatedFrom": "src/lib/wave/signals.ts",
+  "cases": [
+    {
+      "id": "signals-empty",
+      "description": "Fresh user: every list empty, seed omitted",
+      "input": {
+        "history": [],
+        "likedTracksData": [],
+        "dislikedTracksData": [],
+        "dislikedTrackIds": [],
+        "queueIds": [],
+        "waveQueueIds": [],
+        "favoriteArtistNames": [],
+        "taste": {
+          "topGenres": [],
+          "topArtists": []
+        },
+        "sessionEvents": [],
+        "waveMemory": null,
+        "seed": null
+      },
+      "expected": {
+        "likedArtists": [],
+        "likedGenres": [],
+        "dislikedArtists": [],
+        "likedScIds": [],
+        "historyScIds": [],
+        "historyArtists": [],
+        "historyGenres": [],
+        "tasteGenres": [],
+        "tasteArtists": [],
+        "sessionEvents": [],
+        "excludeIds": [],
+        "excludeScIds": [],
+        "recentWaveArtists": [],
+        "recentWaveGenres": [],
+        "recentWaveTrackIds": [],
+        "likedTexts": [],
+        "historyTexts": []
+      }
+    },
+    {
+      "id": "signals-typical",
+      "description": "Typical user: likes, dislikes, history, queue, taste",
+      "input": {
+        "history": [
+          {
+            "track": {
+              "id": "sc_1",
+              "title": "T1",
+              "artist": "Artist 1",
+              "genre": "Pop",
+              "scTrackId": 1
+            }
+          },
+          {
+            "track": {
+              "id": "sc_2",
+              "title": "T2",
+              "artist": "Artist 2",
+              "genre": "Pop",
+              "scTrackId": 2
+            }
+          },
+          {
+            "track": {
+              "id": "sc_3",
+              "title": "T3",
+              "artist": "Artist 3",
+              "genre": "Rock",
+              "scTrackId": 3
+            }
+          },
+          {
+            "track": {
+              "id": "sc_4",
+              "title": "T4",
+              "artist": "Artist 0",
+              "genre": "Pop",
+              "scTrackId": 4
+            }
+          },
+          {
+            "track": {
+              "id": "sc_5",
+              "title": "T5",
+              "artist": "Artist 1",
+              "genre": "Pop",
+              "scTrackId": 5
+            }
+          }
+        ],
+        "likedTracksData": [
+          {
+            "id": "sc_10",
+            "title": "T10",
+            "artist": "Artist 2",
+            "genre": "Pop",
+            "scTrackId": 10
+          },
+          {
+            "id": "sc_11",
+            "title": "T11",
+            "artist": "Artist 3",
+            "genre": "Pop",
+            "scTrackId": 11
+          },
+          {
+            "id": "sc_12",
+            "title": "T12",
+            "artist": "Artist 0",
+            "genre": "Rock",
+            "scTrackId": 12
+          }
+        ],
+        "dislikedTracksData": [
+          {
+            "id": "sc_20",
+            "title": "T20",
+            "artist": "Bad",
+            "genre": "Pop",
+            "scTrackId": 20
+          }
+        ],
+        "dislikedTrackIds": [
+          "sc_20"
+        ],
+        "queueIds": [
+          "sc_1",
+          "sc_30"
+        ],
+        "waveQueueIds": [
+          "sc_31"
+        ],
+        "favoriteArtistNames": [
+          "Fav"
+        ],
+        "taste": {
+          "topGenres": [
+            "Pop",
+            "Rock"
+          ],
+          "topArtists": [
+            "Artist 1",
+            "Fav"
+          ],
+          "language": "russian"
+        },
+        "sessionEvents": [
+          {
+            "type": "track_skipped",
+            "trackId": "sc_3"
+          }
+        ],
+        "waveMemory": {
+          "artists": [
+            {
+              "value": "Artist 1"
+            }
+          ],
+          "genres": [
+            {
+              "value": "Pop"
+            }
+          ],
+          "tracks": [
+            {
+              "value": "sc_9"
+            }
+          ]
+        },
+        "seed": {
+          "kind": "track",
+          "trackId": "sc_1",
+          "scTrackId": 1,
+          "label": "T1"
+        }
+      },
+      "expected": {
+        "likedArtists": [
+          "Artist 2",
+          "Artist 3",
+          "Artist 0"
+        ],
+        "likedGenres": [
+          "Pop",
+          "Rock"
+        ],
+        "dislikedArtists": [
+          "Bad"
+        ],
+        "likedScIds": [
+          10,
+          11,
+          12
+        ],
+        "historyScIds": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "historyArtists": [
+          "Artist 1",
+          "Artist 2",
+          "Artist 3",
+          "Artist 0",
+          "Artist 1"
+        ],
+        "historyGenres": [
+          "Pop",
+          "Pop",
+          "Rock",
+          "Pop",
+          "Pop"
+        ],
+        "tasteGenres": [
+          "Pop",
+          "Rock"
+        ],
+        "tasteArtists": [
+          "Fav",
+          "Artist 1"
+        ],
+        "language": "russian",
+        "sessionEvents": [
+          {
+            "type": "track_skipped",
+            "trackId": "sc_3"
+          }
+        ],
+        "excludeIds": [
+          "sc_1",
+          "sc_30",
+          "sc_2",
+          "sc_3",
+          "sc_4",
+          "sc_5",
+          "sc_31",
+          "sc_20"
+        ],
+        "excludeScIds": [
+          20
+        ],
+        "recentWaveArtists": [
+          "Artist 1"
+        ],
+        "recentWaveGenres": [
+          "Pop"
+        ],
+        "recentWaveTrackIds": [
+          "sc_9"
+        ],
+        "seed": {
+          "kind": "track",
+          "trackId": "sc_1",
+          "scTrackId": 1,
+          "label": "T1"
+        },
+        "likedTexts": [
+          "T10 Artist 2",
+          "T11 Artist 3",
+          "T12 Artist 0"
+        ],
+        "historyTexts": [
+          "T1 Artist 1",
+          "T2 Artist 2",
+          "T3 Artist 3",
+          "T4 Artist 0",
+          "T5 Artist 1"
+        ]
+      }
+    },
+    {
+      "id": "signals-caps",
+      "description": "Large libraries are capped exactly like the server parseSignals",
+      "input": {
+        "history": [
+          {
+            "track": {
+              "id": "sc_1",
+              "title": "T1",
+              "artist": "H0",
+              "genre": "G0",
+              "scTrackId": 1
+            }
+          },
+          {
+            "track": {
+              "id": "sc_2",
+              "title": "T2",
+              "artist": "H1",
+              "genre": "G1",
+              "scTrackId": 2
+            }
+          },
+          {
+            "track": {
+              "id": "sc_3",
+              "title": "T3",
+              "artist": "H2",
+              "genre": "G2",
+              "scTrackId": 3
+            }
+          },
+          {
+            "track": {
+              "id": "sc_4",
+              "title": "T4",
+              "artist": "H3",
+              "genre": "G3",
+              "scTrackId": 4
+            }
+          },
+          {
+            "track": {
+              "id": "sc_5",
+              "title": "T5",
+              "artist": "H4",
+              "genre": "G4",
+              "scTrackId": 5
+            }
+          },
+          {
+            "track": {
+              "id": "sc_6",
+              "title": "T6",
+              "artist": "H5",
+              "genre": "G5",
+              "scTrackId": 6
+            }
+          },
+          {
+            "track": {
+              "id": "sc_7",
+              "title": "T7",
+              "artist": "H6",
+              "genre": "G6",
+              "scTrackId": 7
+            }
+          },
+          {
+            "track": {
+              "id": "sc_8",
+              "title": "T8",
+              "artist": "H7",
+              "genre": "G7",
+              "scTrackId": 8
+            }
+          },
+          {
+            "track": {
+              "id": "sc_9",
+              "title": "T9",
+              "artist": "H8",
+              "genre": "G8",
+              "scTrackId": 9
+            }
+          },
+          {
+            "track": {
+              "id": "sc_10",
+              "title": "T10",
+              "artist": "H9",
+              "genre": "G9",
+              "scTrackId": 10
+            }
+          },
+          {
+            "track": {
+              "id": "sc_11",
+              "title": "T11",
+              "artist": "H10",
+              "genre": "G10",
+              "scTrackId": 11
+            }
+          },
+          {
+            "track": {
+              "id": "sc_12",
+              "title": "T12",
+              "artist": "H11",
+              "genre": "G11",
+              "scTrackId": 12
+            }
+          },
+          {
+            "track": {
+              "id": "sc_13",
+              "title": "T13",
+              "artist": "H12",
+              "genre": "G12",
+              "scTrackId": 13
+            }
+          },
+          {
+            "track": {
+              "id": "sc_14",
+              "title": "T14",
+              "artist": "H13",
+              "genre": "G13",
+              "scTrackId": 14
+            }
+          },
+          {
+            "track": {
+              "id": "sc_15",
+              "title": "T15",
+              "artist": "H14",
+              "genre": "G14",
+              "scTrackId": 15
+            }
+          },
+          {
+            "track": {
+              "id": "sc_16",
+              "title": "T16",
+              "artist": "H15",
+              "genre": "G15",
+              "scTrackId": 16
+            }
+          },
+          {
+            "track": {
+              "id": "sc_17",
+              "title": "T17",
+              "artist": "H16",
+              "genre": "G16",
+              "scTrackId": 17
+            }
+          },
+          {
+            "track": {
+              "id": "sc_18",
+              "title": "T18",
+              "artist": "H17",
+              "genre": "G17",
+              "scTrackId": 18
+            }
+          },
+          {
+            "track": {
+              "id": "sc_19",
+              "title": "T19",
+              "artist": "H18",
+              "genre": "G18",
+              "scTrackId": 19
+            }
+          },
+          {
+            "track": {
+              "id": "sc_20",
+              "title": "T20",
+              "artist": "H19",
+              "genre": "G19",
+              "scTrackId": 20
+            }
+          },
+          {
+            "track": {
+              "id": "sc_21",
+              "title": "T21",
+              "artist": "H20",
+              "genre": "G20",
+              "scTrackId": 21
+            }
+          },
+          {
+            "track": {
+              "id": "sc_22",
+              "title": "T22",
+              "artist": "H21",
+              "genre": "G21",
+              "scTrackId": 22
+            }
+          },
+          {
+            "track": {
+              "id": "sc_23",
+              "title": "T23",
+              "artist": "H22",
+              "genre": "G22",
+              "scTrackId": 23
+            }
+          },
+          {
+            "track": {
+              "id": "sc_24",
+              "title": "T24",
+              "artist": "H23",
+              "genre": "G23",
+              "scTrackId": 24
+            }
+          },
+          {
+            "track": {
+              "id": "sc_25",
+              "title": "T25",
+              "artist": "H24",
+              "genre": "G24",
+              "scTrackId": 25
+            }
+          },
+          {
+            "track": {
+              "id": "sc_26",
+              "title": "T26",
+              "artist": "H25",
+              "genre": "G25",
+              "scTrackId": 26
+            }
+          },
+          {
+            "track": {
+              "id": "sc_27",
+              "title": "T27",
+              "artist": "H26",
+              "genre": "G26",
+              "scTrackId": 27
+            }
+          },
+          {
+            "track": {
+              "id": "sc_28",
+              "title": "T28",
+              "artist": "H27",
+              "genre": "G27",
+              "scTrackId": 28
+            }
+          },
+          {
+            "track": {
+              "id": "sc_29",
+              "title": "T29",
+              "artist": "H28",
+              "genre": "G28",
+              "scTrackId": 29
+            }
+          },
+          {
+            "track": {
+              "id": "sc_30",
+              "title": "T30",
+              "artist": "H29",
+              "genre": "G29",
+              "scTrackId": 30
+            }
+          },
+          {
+            "track": {
+              "id": "sc_31",
+              "title": "T31",
+              "artist": "H30",
+              "genre": "G30",
+              "scTrackId": 31
+            }
+          },
+          {
+            "track": {
+              "id": "sc_32",
+              "title": "T32",
+              "artist": "H31",
+              "genre": "G31",
+              "scTrackId": 32
+            }
+          },
+          {
+            "track": {
+              "id": "sc_33",
+              "title": "T33",
+              "artist": "H32",
+              "genre": "G32",
+              "scTrackId": 33
+            }
+          },
+          {
+            "track": {
+              "id": "sc_34",
+              "title": "T34",
+              "artist": "H33",
+              "genre": "G33",
+              "scTrackId": 34
+            }
+          },
+          {
+            "track": {
+              "id": "sc_35",
+              "title": "T35",
+              "artist": "H34",
+              "genre": "G34",
+              "scTrackId": 35
+            }
+          },
+          {
+            "track": {
+              "id": "sc_36",
+              "title": "T36",
+              "artist": "H35",
+              "genre": "G35",
+              "scTrackId": 36
+            }
+          },
+          {
+            "track": {
+              "id": "sc_37",
+              "title": "T37",
+              "artist": "H36",
+              "genre": "G36",
+              "scTrackId": 37
+            }
+          },
+          {
+            "track": {
+              "id": "sc_38",
+              "title": "T38",
+              "artist": "H37",
+              "genre": "G37",
+              "scTrackId": 38
+            }
+          },
+          {
+            "track": {
+              "id": "sc_39",
+              "title": "T39",
+              "artist": "H38",
+              "genre": "G38",
+              "scTrackId": 39
+            }
+          },
+          {
+            "track": {
+              "id": "sc_40",
+              "title": "T40",
+              "artist": "H39",
+              "genre": "G39",
+              "scTrackId": 40
+            }
+          },
+          {
+            "track": {
+              "id": "sc_41",
+              "title": "T41",
+              "artist": "H40",
+              "genre": "G40",
+              "scTrackId": 41
+            }
+          },
+          {
+            "track": {
+              "id": "sc_42",
+              "title": "T42",
+              "artist": "H41",
+              "genre": "G41",
+              "scTrackId": 42
+            }
+          },
+          {
+            "track": {
+              "id": "sc_43",
+              "title": "T43",
+              "artist": "H42",
+              "genre": "G42",
+              "scTrackId": 43
+            }
+          },
+          {
+            "track": {
+              "id": "sc_44",
+              "title": "T44",
+              "artist": "H43",
+              "genre": "G43",
+              "scTrackId": 44
+            }
+          },
+          {
+            "track": {
+              "id": "sc_45",
+              "title": "T45",
+              "artist": "H44",
+              "genre": "G44",
+              "scTrackId": 45
+            }
+          },
+          {
+            "track": {
+              "id": "sc_46",
+              "title": "T46",
+              "artist": "H45",
+              "genre": "G45",
+              "scTrackId": 46
+            }
+          },
+          {
+            "track": {
+              "id": "sc_47",
+              "title": "T47",
+              "artist": "H46",
+              "genre": "G46",
+              "scTrackId": 47
+            }
+          },
+          {
+            "track": {
+              "id": "sc_48",
+              "title": "T48",
+              "artist": "H47",
+              "genre": "G47",
+              "scTrackId": 48
+            }
+          },
+          {
+            "track": {
+              "id": "sc_49",
+              "title": "T49",
+              "artist": "H48",
+              "genre": "G48",
+              "scTrackId": 49
+            }
+          },
+          {
+            "track": {
+              "id": "sc_50",
+              "title": "T50",
+              "artist": "H49",
+              "genre": "G49",
+              "scTrackId": 50
+            }
+          },
+          {
+            "track": {
+              "id": "sc_51",
+              "title": "T51",
+              "artist": "H50",
+              "genre": "G50",
+              "scTrackId": 51
+            }
+          },
+          {
+            "track": {
+              "id": "sc_52",
+              "title": "T52",
+              "artist": "H51",
+              "genre": "G51",
+              "scTrackId": 52
+            }
+          },
+          {
+            "track": {
+              "id": "sc_53",
+              "title": "T53",
+              "artist": "H52",
+              "genre": "G52",
+              "scTrackId": 53
+            }
+          },
+          {
+            "track": {
+              "id": "sc_54",
+              "title": "T54",
+              "artist": "H53",
+              "genre": "G53",
+              "scTrackId": 54
+            }
+          },
+          {
+            "track": {
+              "id": "sc_55",
+              "title": "T55",
+              "artist": "H54",
+              "genre": "G54",
+              "scTrackId": 55
+            }
+          },
+          {
+            "track": {
+              "id": "sc_56",
+              "title": "T56",
+              "artist": "H55",
+              "genre": "G55",
+              "scTrackId": 56
+            }
+          },
+          {
+            "track": {
+              "id": "sc_57",
+              "title": "T57",
+              "artist": "H56",
+              "genre": "G56",
+              "scTrackId": 57
+            }
+          },
+          {
+            "track": {
+              "id": "sc_58",
+              "title": "T58",
+              "artist": "H57",
+              "genre": "G57",
+              "scTrackId": 58
+            }
+          },
+          {
+            "track": {
+              "id": "sc_59",
+              "title": "T59",
+              "artist": "H58",
+              "genre": "G58",
+              "scTrackId": 59
+            }
+          },
+          {
+            "track": {
+              "id": "sc_60",
+              "title": "T60",
+              "artist": "H59",
+              "genre": "G59",
+              "scTrackId": 60
+            }
+          },
+          {
+            "track": {
+              "id": "sc_61",
+              "title": "T61",
+              "artist": "H60",
+              "genre": "G60",
+              "scTrackId": 61
+            }
+          },
+          {
+            "track": {
+              "id": "sc_62",
+              "title": "T62",
+              "artist": "H61",
+              "genre": "G61",
+              "scTrackId": 62
+            }
+          },
+          {
+            "track": {
+              "id": "sc_63",
+              "title": "T63",
+              "artist": "H62",
+              "genre": "G62",
+              "scTrackId": 63
+            }
+          },
+          {
+            "track": {
+              "id": "sc_64",
+              "title": "T64",
+              "artist": "H63",
+              "genre": "G63",
+              "scTrackId": 64
+            }
+          },
+          {
+            "track": {
+              "id": "sc_65",
+              "title": "T65",
+              "artist": "H64",
+              "genre": "G64",
+              "scTrackId": 65
+            }
+          },
+          {
+            "track": {
+              "id": "sc_66",
+              "title": "T66",
+              "artist": "H65",
+              "genre": "G65",
+              "scTrackId": 66
+            }
+          },
+          {
+            "track": {
+              "id": "sc_67",
+              "title": "T67",
+              "artist": "H66",
+              "genre": "G66",
+              "scTrackId": 67
+            }
+          },
+          {
+            "track": {
+              "id": "sc_68",
+              "title": "T68",
+              "artist": "H67",
+              "genre": "G67",
+              "scTrackId": 68
+            }
+          },
+          {
+            "track": {
+              "id": "sc_69",
+              "title": "T69",
+              "artist": "H68",
+              "genre": "G68",
+              "scTrackId": 69
+            }
+          },
+          {
+            "track": {
+              "id": "sc_70",
+              "title": "T70",
+              "artist": "H69",
+              "genre": "G69",
+              "scTrackId": 70
+            }
+          },
+          {
+            "track": {
+              "id": "sc_71",
+              "title": "T71",
+              "artist": "H70",
+              "genre": "G70",
+              "scTrackId": 71
+            }
+          },
+          {
+            "track": {
+              "id": "sc_72",
+              "title": "T72",
+              "artist": "H71",
+              "genre": "G71",
+              "scTrackId": 72
+            }
+          },
+          {
+            "track": {
+              "id": "sc_73",
+              "title": "T73",
+              "artist": "H72",
+              "genre": "G72",
+              "scTrackId": 73
+            }
+          },
+          {
+            "track": {
+              "id": "sc_74",
+              "title": "T74",
+              "artist": "H73",
+              "genre": "G73",
+              "scTrackId": 74
+            }
+          },
+          {
+            "track": {
+              "id": "sc_75",
+              "title": "T75",
+              "artist": "H74",
+              "genre": "G74",
+              "scTrackId": 75
+            }
+          },
+          {
+            "track": {
+              "id": "sc_76",
+              "title": "T76",
+              "artist": "H75",
+              "genre": "G75",
+              "scTrackId": 76
+            }
+          },
+          {
+            "track": {
+              "id": "sc_77",
+              "title": "T77",
+              "artist": "H76",
+              "genre": "G76",
+              "scTrackId": 77
+            }
+          },
+          {
+            "track": {
+              "id": "sc_78",
+              "title": "T78",
+              "artist": "H77",
+              "genre": "G77",
+              "scTrackId": 78
+            }
+          },
+          {
+            "track": {
+              "id": "sc_79",
+              "title": "T79",
+              "artist": "H78",
+              "genre": "G78",
+              "scTrackId": 79
+            }
+          },
+          {
+            "track": {
+              "id": "sc_80",
+              "title": "T80",
+              "artist": "H79",
+              "genre": "G79",
+              "scTrackId": 80
+            }
+          },
+          {
+            "track": {
+              "id": "sc_81",
+              "title": "T81",
+              "artist": "H80",
+              "genre": "G80",
+              "scTrackId": 81
+            }
+          },
+          {
+            "track": {
+              "id": "sc_82",
+              "title": "T82",
+              "artist": "H81",
+              "genre": "G81",
+              "scTrackId": 82
+            }
+          },
+          {
+            "track": {
+              "id": "sc_83",
+              "title": "T83",
+              "artist": "H82",
+              "genre": "G82",
+              "scTrackId": 83
+            }
+          },
+          {
+            "track": {
+              "id": "sc_84",
+              "title": "T84",
+              "artist": "H83",
+              "genre": "G83",
+              "scTrackId": 84
+            }
+          },
+          {
+            "track": {
+              "id": "sc_85",
+              "title": "T85",
+              "artist": "H84",
+              "genre": "G84",
+              "scTrackId": 85
+            }
+          },
+          {
+            "track": {
+              "id": "sc_86",
+              "title": "T86",
+              "artist": "H85",
+              "genre": "G85",
+              "scTrackId": 86
+            }
+          },
+          {
+            "track": {
+              "id": "sc_87",
+              "title": "T87",
+              "artist": "H86",
+              "genre": "G86",
+              "scTrackId": 87
+            }
+          },
+          {
+            "track": {
+              "id": "sc_88",
+              "title": "T88",
+              "artist": "H87",
+              "genre": "G87",
+              "scTrackId": 88
+            }
+          },
+          {
+            "track": {
+              "id": "sc_89",
+              "title": "T89",
+              "artist": "H88",
+              "genre": "G88",
+              "scTrackId": 89
+            }
+          },
+          {
+            "track": {
+              "id": "sc_90",
+              "title": "T90",
+              "artist": "H89",
+              "genre": "G89",
+              "scTrackId": 90
+            }
+          },
+          {
+            "track": {
+              "id": "sc_91",
+              "title": "T91",
+              "artist": "H90",
+              "genre": "G90",
+              "scTrackId": 91
+            }
+          },
+          {
+            "track": {
+              "id": "sc_92",
+              "title": "T92",
+              "artist": "H91",
+              "genre": "G91",
+              "scTrackId": 92
+            }
+          },
+          {
+            "track": {
+              "id": "sc_93",
+              "title": "T93",
+              "artist": "H92",
+              "genre": "G92",
+              "scTrackId": 93
+            }
+          },
+          {
+            "track": {
+              "id": "sc_94",
+              "title": "T94",
+              "artist": "H93",
+              "genre": "G93",
+              "scTrackId": 94
+            }
+          },
+          {
+            "track": {
+              "id": "sc_95",
+              "title": "T95",
+              "artist": "H94",
+              "genre": "G94",
+              "scTrackId": 95
+            }
+          },
+          {
+            "track": {
+              "id": "sc_96",
+              "title": "T96",
+              "artist": "H95",
+              "genre": "G95",
+              "scTrackId": 96
+            }
+          },
+          {
+            "track": {
+              "id": "sc_97",
+              "title": "T97",
+              "artist": "H96",
+              "genre": "G96",
+              "scTrackId": 97
+            }
+          },
+          {
+            "track": {
+              "id": "sc_98",
+              "title": "T98",
+              "artist": "H97",
+              "genre": "G97",
+              "scTrackId": 98
+            }
+          },
+          {
+            "track": {
+              "id": "sc_99",
+              "title": "T99",
+              "artist": "H98",
+              "genre": "G98",
+              "scTrackId": 99
+            }
+          },
+          {
+            "track": {
+              "id": "sc_100",
+              "title": "T100",
+              "artist": "H99",
+              "genre": "G99",
+              "scTrackId": 100
+            }
+          },
+          {
+            "track": {
+              "id": "sc_101",
+              "title": "T101",
+              "artist": "H100",
+              "genre": "G100",
+              "scTrackId": 101
+            }
+          },
+          {
+            "track": {
+              "id": "sc_102",
+              "title": "T102",
+              "artist": "H101",
+              "genre": "G101",
+              "scTrackId": 102
+            }
+          },
+          {
+            "track": {
+              "id": "sc_103",
+              "title": "T103",
+              "artist": "H102",
+              "genre": "G102",
+              "scTrackId": 103
+            }
+          },
+          {
+            "track": {
+              "id": "sc_104",
+              "title": "T104",
+              "artist": "H103",
+              "genre": "G103",
+              "scTrackId": 104
+            }
+          },
+          {
+            "track": {
+              "id": "sc_105",
+              "title": "T105",
+              "artist": "H104",
+              "genre": "G104",
+              "scTrackId": 105
+            }
+          },
+          {
+            "track": {
+              "id": "sc_106",
+              "title": "T106",
+              "artist": "H105",
+              "genre": "G105",
+              "scTrackId": 106
+            }
+          },
+          {
+            "track": {
+              "id": "sc_107",
+              "title": "T107",
+              "artist": "H106",
+              "genre": "G106",
+              "scTrackId": 107
+            }
+          },
+          {
+            "track": {
+              "id": "sc_108",
+              "title": "T108",
+              "artist": "H107",
+              "genre": "G107",
+              "scTrackId": 108
+            }
+          },
+          {
+            "track": {
+              "id": "sc_109",
+              "title": "T109",
+              "artist": "H108",
+              "genre": "G108",
+              "scTrackId": 109
+            }
+          },
+          {
+            "track": {
+              "id": "sc_110",
+              "title": "T110",
+              "artist": "H109",
+              "genre": "G109",
+              "scTrackId": 110
+            }
+          },
+          {
+            "track": {
+              "id": "sc_111",
+              "title": "T111",
+              "artist": "H110",
+              "genre": "G110",
+              "scTrackId": 111
+            }
+          },
+          {
+            "track": {
+              "id": "sc_112",
+              "title": "T112",
+              "artist": "H111",
+              "genre": "G111",
+              "scTrackId": 112
+            }
+          },
+          {
+            "track": {
+              "id": "sc_113",
+              "title": "T113",
+              "artist": "H112",
+              "genre": "G112",
+              "scTrackId": 113
+            }
+          },
+          {
+            "track": {
+              "id": "sc_114",
+              "title": "T114",
+              "artist": "H113",
+              "genre": "G113",
+              "scTrackId": 114
+            }
+          },
+          {
+            "track": {
+              "id": "sc_115",
+              "title": "T115",
+              "artist": "H114",
+              "genre": "G114",
+              "scTrackId": 115
+            }
+          },
+          {
+            "track": {
+              "id": "sc_116",
+              "title": "T116",
+              "artist": "H115",
+              "genre": "G115",
+              "scTrackId": 116
+            }
+          },
+          {
+            "track": {
+              "id": "sc_117",
+              "title": "T117",
+              "artist": "H116",
+              "genre": "G116",
+              "scTrackId": 117
+            }
+          },
+          {
+            "track": {
+              "id": "sc_118",
+              "title": "T118",
+              "artist": "H117",
+              "genre": "G117",
+              "scTrackId": 118
+            }
+          },
+          {
+            "track": {
+              "id": "sc_119",
+              "title": "T119",
+              "artist": "H118",
+              "genre": "G118",
+              "scTrackId": 119
+            }
+          },
+          {
+            "track": {
+              "id": "sc_120",
+              "title": "T120",
+              "artist": "H119",
+              "genre": "G119",
+              "scTrackId": 120
+            }
+          },
+          {
+            "track": {
+              "id": "sc_121",
+              "title": "T121",
+              "artist": "H120",
+              "genre": "G120",
+              "scTrackId": 121
+            }
+          },
+          {
+            "track": {
+              "id": "sc_122",
+              "title": "T122",
+              "artist": "H121",
+              "genre": "G121",
+              "scTrackId": 122
+            }
+          },
+          {
+            "track": {
+              "id": "sc_123",
+              "title": "T123",
+              "artist": "H122",
+              "genre": "G122",
+              "scTrackId": 123
+            }
+          },
+          {
+            "track": {
+              "id": "sc_124",
+              "title": "T124",
+              "artist": "H123",
+              "genre": "G123",
+              "scTrackId": 124
+            }
+          },
+          {
+            "track": {
+              "id": "sc_125",
+              "title": "T125",
+              "artist": "H124",
+              "genre": "G124",
+              "scTrackId": 125
+            }
+          },
+          {
+            "track": {
+              "id": "sc_126",
+              "title": "T126",
+              "artist": "H125",
+              "genre": "G125",
+              "scTrackId": 126
+            }
+          },
+          {
+            "track": {
+              "id": "sc_127",
+              "title": "T127",
+              "artist": "H126",
+              "genre": "G126",
+              "scTrackId": 127
+            }
+          },
+          {
+            "track": {
+              "id": "sc_128",
+              "title": "T128",
+              "artist": "H127",
+              "genre": "G127",
+              "scTrackId": 128
+            }
+          },
+          {
+            "track": {
+              "id": "sc_129",
+              "title": "T129",
+              "artist": "H128",
+              "genre": "G128",
+              "scTrackId": 129
+            }
+          },
+          {
+            "track": {
+              "id": "sc_130",
+              "title": "T130",
+              "artist": "H129",
+              "genre": "G129",
+              "scTrackId": 130
+            }
+          },
+          {
+            "track": {
+              "id": "sc_131",
+              "title": "T131",
+              "artist": "H130",
+              "genre": "G130",
+              "scTrackId": 131
+            }
+          },
+          {
+            "track": {
+              "id": "sc_132",
+              "title": "T132",
+              "artist": "H131",
+              "genre": "G131",
+              "scTrackId": 132
+            }
+          },
+          {
+            "track": {
+              "id": "sc_133",
+              "title": "T133",
+              "artist": "H132",
+              "genre": "G132",
+              "scTrackId": 133
+            }
+          },
+          {
+            "track": {
+              "id": "sc_134",
+              "title": "T134",
+              "artist": "H133",
+              "genre": "G133",
+              "scTrackId": 134
+            }
+          },
+          {
+            "track": {
+              "id": "sc_135",
+              "title": "T135",
+              "artist": "H134",
+              "genre": "G134",
+              "scTrackId": 135
+            }
+          },
+          {
+            "track": {
+              "id": "sc_136",
+              "title": "T136",
+              "artist": "H135",
+              "genre": "G135",
+              "scTrackId": 136
+            }
+          },
+          {
+            "track": {
+              "id": "sc_137",
+              "title": "T137",
+              "artist": "H136",
+              "genre": "G136",
+              "scTrackId": 137
+            }
+          },
+          {
+            "track": {
+              "id": "sc_138",
+              "title": "T138",
+              "artist": "H137",
+              "genre": "G137",
+              "scTrackId": 138
+            }
+          },
+          {
+            "track": {
+              "id": "sc_139",
+              "title": "T139",
+              "artist": "H138",
+              "genre": "G138",
+              "scTrackId": 139
+            }
+          },
+          {
+            "track": {
+              "id": "sc_140",
+              "title": "T140",
+              "artist": "H139",
+              "genre": "G139",
+              "scTrackId": 140
+            }
+          }
+        ],
+        "likedTracksData": [
+          {
+            "id": "sc_500",
+            "title": "T500",
+            "artist": "L0",
+            "genre": "LG0",
+            "scTrackId": 500
+          },
+          {
+            "id": "sc_501",
+            "title": "T501",
+            "artist": "L1",
+            "genre": "LG1",
+            "scTrackId": 501
+          },
+          {
+            "id": "sc_502",
+            "title": "T502",
+            "artist": "L2",
+            "genre": "LG2",
+            "scTrackId": 502
+          },
+          {
+            "id": "sc_503",
+            "title": "T503",
+            "artist": "L3",
+            "genre": "LG3",
+            "scTrackId": 503
+          },
+          {
+            "id": "sc_504",
+            "title": "T504",
+            "artist": "L4",
+            "genre": "LG4",
+            "scTrackId": 504
+          },
+          {
+            "id": "sc_505",
+            "title": "T505",
+            "artist": "L5",
+            "genre": "LG5",
+            "scTrackId": 505
+          },
+          {
+            "id": "sc_506",
+            "title": "T506",
+            "artist": "L6",
+            "genre": "LG6",
+            "scTrackId": 506
+          },
+          {
+            "id": "sc_507",
+            "title": "T507",
+            "artist": "L7",
+            "genre": "LG7",
+            "scTrackId": 507
+          },
+          {
+            "id": "sc_508",
+            "title": "T508",
+            "artist": "L8",
+            "genre": "LG8",
+            "scTrackId": 508
+          },
+          {
+            "id": "sc_509",
+            "title": "T509",
+            "artist": "L9",
+            "genre": "LG9",
+            "scTrackId": 509
+          },
+          {
+            "id": "sc_510",
+            "title": "T510",
+            "artist": "L10",
+            "genre": "LG10",
+            "scTrackId": 510
+          },
+          {
+            "id": "sc_511",
+            "title": "T511",
+            "artist": "L11",
+            "genre": "LG11",
+            "scTrackId": 511
+          },
+          {
+            "id": "sc_512",
+            "title": "T512",
+            "artist": "L12",
+            "genre": "LG12",
+            "scTrackId": 512
+          },
+          {
+            "id": "sc_513",
+            "title": "T513",
+            "artist": "L13",
+            "genre": "LG13",
+            "scTrackId": 513
+          },
+          {
+            "id": "sc_514",
+            "title": "T514",
+            "artist": "L14",
+            "genre": "LG14",
+            "scTrackId": 514
+          },
+          {
+            "id": "sc_515",
+            "title": "T515",
+            "artist": "L15",
+            "genre": "LG15",
+            "scTrackId": 515
+          },
+          {
+            "id": "sc_516",
+            "title": "T516",
+            "artist": "L16",
+            "genre": "LG16",
+            "scTrackId": 516
+          },
+          {
+            "id": "sc_517",
+            "title": "T517",
+            "artist": "L17",
+            "genre": "LG17",
+            "scTrackId": 517
+          },
+          {
+            "id": "sc_518",
+            "title": "T518",
+            "artist": "L18",
+            "genre": "LG18",
+            "scTrackId": 518
+          },
+          {
+            "id": "sc_519",
+            "title": "T519",
+            "artist": "L19",
+            "genre": "LG19",
+            "scTrackId": 519
+          },
+          {
+            "id": "sc_520",
+            "title": "T520",
+            "artist": "L20",
+            "genre": "LG20",
+            "scTrackId": 520
+          },
+          {
+            "id": "sc_521",
+            "title": "T521",
+            "artist": "L21",
+            "genre": "LG21",
+            "scTrackId": 521
+          },
+          {
+            "id": "sc_522",
+            "title": "T522",
+            "artist": "L22",
+            "genre": "LG22",
+            "scTrackId": 522
+          },
+          {
+            "id": "sc_523",
+            "title": "T523",
+            "artist": "L23",
+            "genre": "LG23",
+            "scTrackId": 523
+          },
+          {
+            "id": "sc_524",
+            "title": "T524",
+            "artist": "L24",
+            "genre": "LG24",
+            "scTrackId": 524
+          },
+          {
+            "id": "sc_525",
+            "title": "T525",
+            "artist": "L25",
+            "genre": "LG25",
+            "scTrackId": 525
+          },
+          {
+            "id": "sc_526",
+            "title": "T526",
+            "artist": "L26",
+            "genre": "LG26",
+            "scTrackId": 526
+          },
+          {
+            "id": "sc_527",
+            "title": "T527",
+            "artist": "L27",
+            "genre": "LG27",
+            "scTrackId": 527
+          },
+          {
+            "id": "sc_528",
+            "title": "T528",
+            "artist": "L28",
+            "genre": "LG28",
+            "scTrackId": 528
+          },
+          {
+            "id": "sc_529",
+            "title": "T529",
+            "artist": "L29",
+            "genre": "LG29",
+            "scTrackId": 529
+          }
+        ],
+        "dislikedTracksData": [
+          {
+            "id": "sc_900",
+            "title": "T900",
+            "artist": "D0",
+            "genre": "Rock",
+            "scTrackId": 900
+          },
+          {
+            "id": "sc_901",
+            "title": "T901",
+            "artist": "D1",
+            "genre": "Pop",
+            "scTrackId": 901
+          },
+          {
+            "id": "sc_902",
+            "title": "T902",
+            "artist": "D2",
+            "genre": "Pop",
+            "scTrackId": 902
+          },
+          {
+            "id": "sc_903",
+            "title": "T903",
+            "artist": "D3",
+            "genre": "Rock",
+            "scTrackId": 903
+          },
+          {
+            "id": "sc_904",
+            "title": "T904",
+            "artist": "D4",
+            "genre": "Pop",
+            "scTrackId": 904
+          },
+          {
+            "id": "sc_905",
+            "title": "T905",
+            "artist": "D5",
+            "genre": "Pop",
+            "scTrackId": 905
+          },
+          {
+            "id": "sc_906",
+            "title": "T906",
+            "artist": "D6",
+            "genre": "Rock",
+            "scTrackId": 906
+          },
+          {
+            "id": "sc_907",
+            "title": "T907",
+            "artist": "D7",
+            "genre": "Pop",
+            "scTrackId": 907
+          },
+          {
+            "id": "sc_908",
+            "title": "T908",
+            "artist": "D8",
+            "genre": "Pop",
+            "scTrackId": 908
+          },
+          {
+            "id": "sc_909",
+            "title": "T909",
+            "artist": "D9",
+            "genre": "Rock",
+            "scTrackId": 909
+          },
+          {
+            "id": "sc_910",
+            "title": "T910",
+            "artist": "D10",
+            "genre": "Pop",
+            "scTrackId": 910
+          },
+          {
+            "id": "sc_911",
+            "title": "T911",
+            "artist": "D11",
+            "genre": "Pop",
+            "scTrackId": 911
+          },
+          {
+            "id": "sc_912",
+            "title": "T912",
+            "artist": "D12",
+            "genre": "Rock",
+            "scTrackId": 912
+          },
+          {
+            "id": "sc_913",
+            "title": "T913",
+            "artist": "D13",
+            "genre": "Pop",
+            "scTrackId": 913
+          },
+          {
+            "id": "sc_914",
+            "title": "T914",
+            "artist": "D14",
+            "genre": "Pop",
+            "scTrackId": 914
+          },
+          {
+            "id": "sc_915",
+            "title": "T915",
+            "artist": "D15",
+            "genre": "Rock",
+            "scTrackId": 915
+          },
+          {
+            "id": "sc_916",
+            "title": "T916",
+            "artist": "D16",
+            "genre": "Pop",
+            "scTrackId": 916
+          },
+          {
+            "id": "sc_917",
+            "title": "T917",
+            "artist": "D17",
+            "genre": "Pop",
+            "scTrackId": 917
+          },
+          {
+            "id": "sc_918",
+            "title": "T918",
+            "artist": "D18",
+            "genre": "Rock",
+            "scTrackId": 918
+          },
+          {
+            "id": "sc_919",
+            "title": "T919",
+            "artist": "D19",
+            "genre": "Pop",
+            "scTrackId": 919
+          },
+          {
+            "id": "sc_920",
+            "title": "T920",
+            "artist": "D20",
+            "genre": "Pop",
+            "scTrackId": 920
+          },
+          {
+            "id": "sc_921",
+            "title": "T921",
+            "artist": "D21",
+            "genre": "Rock",
+            "scTrackId": 921
+          },
+          {
+            "id": "sc_922",
+            "title": "T922",
+            "artist": "D22",
+            "genre": "Pop",
+            "scTrackId": 922
+          },
+          {
+            "id": "sc_923",
+            "title": "T923",
+            "artist": "D23",
+            "genre": "Pop",
+            "scTrackId": 923
+          },
+          {
+            "id": "sc_924",
+            "title": "T924",
+            "artist": "D24",
+            "genre": "Rock",
+            "scTrackId": 924
+          },
+          {
+            "id": "sc_925",
+            "title": "T925",
+            "artist": "D25",
+            "genre": "Pop",
+            "scTrackId": 925
+          },
+          {
+            "id": "sc_926",
+            "title": "T926",
+            "artist": "D26",
+            "genre": "Pop",
+            "scTrackId": 926
+          },
+          {
+            "id": "sc_927",
+            "title": "T927",
+            "artist": "D27",
+            "genre": "Rock",
+            "scTrackId": 927
+          },
+          {
+            "id": "sc_928",
+            "title": "T928",
+            "artist": "D28",
+            "genre": "Pop",
+            "scTrackId": 928
+          },
+          {
+            "id": "sc_929",
+            "title": "T929",
+            "artist": "D29",
+            "genre": "Pop",
+            "scTrackId": 929
+          },
+          {
+            "id": "sc_930",
+            "title": "T930",
+            "artist": "D30",
+            "genre": "Rock",
+            "scTrackId": 930
+          },
+          {
+            "id": "sc_931",
+            "title": "T931",
+            "artist": "D31",
+            "genre": "Pop",
+            "scTrackId": 931
+          },
+          {
+            "id": "sc_932",
+            "title": "T932",
+            "artist": "D32",
+            "genre": "Pop",
+            "scTrackId": 932
+          },
+          {
+            "id": "sc_933",
+            "title": "T933",
+            "artist": "D33",
+            "genre": "Rock",
+            "scTrackId": 933
+          },
+          {
+            "id": "sc_934",
+            "title": "T934",
+            "artist": "D34",
+            "genre": "Pop",
+            "scTrackId": 934
+          },
+          {
+            "id": "sc_935",
+            "title": "T935",
+            "artist": "D35",
+            "genre": "Pop",
+            "scTrackId": 935
+          },
+          {
+            "id": "sc_936",
+            "title": "T936",
+            "artist": "D36",
+            "genre": "Rock",
+            "scTrackId": 936
+          },
+          {
+            "id": "sc_937",
+            "title": "T937",
+            "artist": "D37",
+            "genre": "Pop",
+            "scTrackId": 937
+          },
+          {
+            "id": "sc_938",
+            "title": "T938",
+            "artist": "D38",
+            "genre": "Pop",
+            "scTrackId": 938
+          },
+          {
+            "id": "sc_939",
+            "title": "T939",
+            "artist": "D39",
+            "genre": "Rock",
+            "scTrackId": 939
+          },
+          {
+            "id": "sc_940",
+            "title": "T940",
+            "artist": "D40",
+            "genre": "Pop",
+            "scTrackId": 940
+          },
+          {
+            "id": "sc_941",
+            "title": "T941",
+            "artist": "D41",
+            "genre": "Pop",
+            "scTrackId": 941
+          },
+          {
+            "id": "sc_942",
+            "title": "T942",
+            "artist": "D42",
+            "genre": "Rock",
+            "scTrackId": 942
+          },
+          {
+            "id": "sc_943",
+            "title": "T943",
+            "artist": "D43",
+            "genre": "Pop",
+            "scTrackId": 943
+          },
+          {
+            "id": "sc_944",
+            "title": "T944",
+            "artist": "D44",
+            "genre": "Pop",
+            "scTrackId": 944
+          },
+          {
+            "id": "sc_945",
+            "title": "T945",
+            "artist": "D45",
+            "genre": "Rock",
+            "scTrackId": 945
+          },
+          {
+            "id": "sc_946",
+            "title": "T946",
+            "artist": "D46",
+            "genre": "Pop",
+            "scTrackId": 946
+          },
+          {
+            "id": "sc_947",
+            "title": "T947",
+            "artist": "D47",
+            "genre": "Pop",
+            "scTrackId": 947
+          },
+          {
+            "id": "sc_948",
+            "title": "T948",
+            "artist": "D48",
+            "genre": "Rock",
+            "scTrackId": 948
+          },
+          {
+            "id": "sc_949",
+            "title": "T949",
+            "artist": "D49",
+            "genre": "Pop",
+            "scTrackId": 949
+          },
+          {
+            "id": "sc_950",
+            "title": "T950",
+            "artist": "D50",
+            "genre": "Pop",
+            "scTrackId": 950
+          },
+          {
+            "id": "sc_951",
+            "title": "T951",
+            "artist": "D51",
+            "genre": "Rock",
+            "scTrackId": 951
+          },
+          {
+            "id": "sc_952",
+            "title": "T952",
+            "artist": "D52",
+            "genre": "Pop",
+            "scTrackId": 952
+          },
+          {
+            "id": "sc_953",
+            "title": "T953",
+            "artist": "D53",
+            "genre": "Pop",
+            "scTrackId": 953
+          },
+          {
+            "id": "sc_954",
+            "title": "T954",
+            "artist": "D54",
+            "genre": "Rock",
+            "scTrackId": 954
+          },
+          {
+            "id": "sc_955",
+            "title": "T955",
+            "artist": "D55",
+            "genre": "Pop",
+            "scTrackId": 955
+          },
+          {
+            "id": "sc_956",
+            "title": "T956",
+            "artist": "D56",
+            "genre": "Pop",
+            "scTrackId": 956
+          },
+          {
+            "id": "sc_957",
+            "title": "T957",
+            "artist": "D57",
+            "genre": "Rock",
+            "scTrackId": 957
+          },
+          {
+            "id": "sc_958",
+            "title": "T958",
+            "artist": "D58",
+            "genre": "Pop",
+            "scTrackId": 958
+          },
+          {
+            "id": "sc_959",
+            "title": "T959",
+            "artist": "D59",
+            "genre": "Pop",
+            "scTrackId": 959
+          }
+        ],
+        "dislikedTrackIds": [],
+        "queueIds": [
+          "q_0",
+          "q_1",
+          "q_2",
+          "q_3",
+          "q_4",
+          "q_5",
+          "q_6",
+          "q_7",
+          "q_8",
+          "q_9",
+          "q_10",
+          "q_11",
+          "q_12",
+          "q_13",
+          "q_14",
+          "q_15",
+          "q_16",
+          "q_17",
+          "q_18",
+          "q_19",
+          "q_20",
+          "q_21",
+          "q_22",
+          "q_23",
+          "q_24",
+          "q_25",
+          "q_26",
+          "q_27",
+          "q_28",
+          "q_29",
+          "q_30",
+          "q_31",
+          "q_32",
+          "q_33",
+          "q_34",
+          "q_35",
+          "q_36",
+          "q_37",
+          "q_38",
+          "q_39",
+          "q_40",
+          "q_41",
+          "q_42",
+          "q_43",
+          "q_44",
+          "q_45",
+          "q_46",
+          "q_47",
+          "q_48",
+          "q_49",
+          "q_50",
+          "q_51",
+          "q_52",
+          "q_53",
+          "q_54",
+          "q_55",
+          "q_56",
+          "q_57",
+          "q_58",
+          "q_59",
+          "q_60",
+          "q_61",
+          "q_62",
+          "q_63",
+          "q_64",
+          "q_65",
+          "q_66",
+          "q_67",
+          "q_68",
+          "q_69",
+          "q_70",
+          "q_71",
+          "q_72",
+          "q_73",
+          "q_74",
+          "q_75",
+          "q_76",
+          "q_77",
+          "q_78",
+          "q_79"
+        ],
+        "waveQueueIds": [],
+        "favoriteArtistNames": [],
+        "taste": {
+          "topGenres": [
+            "a",
+            "b",
+            "c",
+            "d",
+            "e",
+            "f",
+            "g",
+            "h"
+          ],
+          "topArtists": [
+            "x",
+            "y",
+            "z",
+            "w",
+            "v",
+            "u"
+          ]
+        },
+        "sessionEvents": [
+          {
+            "type": "play_started",
+            "trackId": "e_0"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_1"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_2"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_3"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_4"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_5"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_6"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_7"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_8"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_9"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_10"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_11"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_12"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_13"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_14"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_15"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_16"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_17"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_18"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_19"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_20"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_21"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_22"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_23"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_24"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_25"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_26"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_27"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_28"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_29"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_30"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_31"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_32"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_33"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_34"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_35"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_36"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_37"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_38"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_39"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_40"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_41"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_42"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_43"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_44"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_45"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_46"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_47"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_48"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_49"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_50"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_51"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_52"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_53"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_54"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_55"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_56"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_57"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_58"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_59"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_60"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_61"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_62"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_63"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_64"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_65"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_66"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_67"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_68"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_69"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_70"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_71"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_72"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_73"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_74"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_75"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_76"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_77"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_78"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_79"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_80"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_81"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_82"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_83"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_84"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_85"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_86"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_87"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_88"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_89"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_90"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_91"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_92"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_93"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_94"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_95"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_96"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_97"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_98"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_99"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_100"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_101"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_102"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_103"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_104"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_105"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_106"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_107"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_108"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_109"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_110"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_111"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_112"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_113"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_114"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_115"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_116"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_117"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_118"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_119"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_120"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_121"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_122"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_123"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_124"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_125"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_126"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_127"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_128"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_129"
+          }
+        ],
+        "waveMemory": null,
+        "seed": null
+      },
+      "expected": {
+        "likedArtists": [
+          "L0",
+          "L1",
+          "L2",
+          "L3",
+          "L4",
+          "L5",
+          "L6",
+          "L7",
+          "L8",
+          "L9"
+        ],
+        "likedGenres": [
+          "LG0",
+          "LG1",
+          "LG2",
+          "LG3",
+          "LG4",
+          "LG5",
+          "LG6",
+          "LG7",
+          "LG8",
+          "LG9"
+        ],
+        "dislikedArtists": [
+          "D0",
+          "D1",
+          "D2",
+          "D3",
+          "D4",
+          "D5",
+          "D6",
+          "D7",
+          "D8",
+          "D9"
+        ],
+        "likedScIds": [
+          500,
+          501,
+          502,
+          503,
+          504
+        ],
+        "historyScIds": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "historyArtists": [
+          "H0",
+          "H1",
+          "H2",
+          "H3",
+          "H4",
+          "H5",
+          "H6",
+          "H7",
+          "H8",
+          "H9",
+          "H10",
+          "H11"
+        ],
+        "historyGenres": [
+          "G0",
+          "G1",
+          "G2",
+          "G3",
+          "G4",
+          "G5",
+          "G6",
+          "G7",
+          "G8",
+          "G9",
+          "G10",
+          "G11"
+        ],
+        "tasteGenres": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "tasteArtists": [
+          "x",
+          "y",
+          "z",
+          "w",
+          "v"
+        ],
+        "sessionEvents": [
+          {
+            "type": "play_started",
+            "trackId": "e_10"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_11"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_12"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_13"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_14"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_15"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_16"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_17"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_18"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_19"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_20"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_21"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_22"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_23"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_24"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_25"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_26"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_27"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_28"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_29"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_30"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_31"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_32"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_33"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_34"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_35"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_36"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_37"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_38"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_39"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_40"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_41"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_42"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_43"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_44"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_45"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_46"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_47"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_48"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_49"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_50"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_51"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_52"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_53"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_54"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_55"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_56"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_57"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_58"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_59"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_60"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_61"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_62"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_63"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_64"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_65"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_66"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_67"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_68"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_69"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_70"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_71"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_72"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_73"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_74"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_75"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_76"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_77"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_78"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_79"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_80"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_81"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_82"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_83"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_84"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_85"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_86"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_87"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_88"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_89"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_90"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_91"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_92"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_93"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_94"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_95"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_96"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_97"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_98"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_99"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_100"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_101"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_102"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_103"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_104"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_105"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_106"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_107"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_108"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_109"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_110"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_111"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_112"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_113"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_114"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_115"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_116"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_117"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_118"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_119"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_120"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_121"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_122"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_123"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_124"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_125"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_126"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_127"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_128"
+          },
+          {
+            "type": "play_started",
+            "trackId": "e_129"
+          }
+        ],
+        "excludeIds": [
+          "q_0",
+          "q_1",
+          "q_2",
+          "q_3",
+          "q_4",
+          "q_5",
+          "q_6",
+          "q_7",
+          "q_8",
+          "q_9",
+          "q_10",
+          "q_11",
+          "q_12",
+          "q_13",
+          "q_14",
+          "q_15",
+          "q_16",
+          "q_17",
+          "q_18",
+          "q_19",
+          "q_20",
+          "q_21",
+          "q_22",
+          "q_23",
+          "q_24",
+          "q_25",
+          "q_26",
+          "q_27",
+          "q_28",
+          "q_29",
+          "q_30",
+          "q_31",
+          "q_32",
+          "q_33",
+          "q_34",
+          "q_35",
+          "q_36",
+          "q_37",
+          "q_38",
+          "q_39",
+          "q_40",
+          "q_41",
+          "q_42",
+          "q_43",
+          "q_44",
+          "q_45",
+          "q_46",
+          "q_47",
+          "q_48",
+          "q_49",
+          "q_50",
+          "q_51",
+          "q_52",
+          "q_53",
+          "q_54",
+          "q_55",
+          "q_56",
+          "q_57",
+          "q_58",
+          "q_59",
+          "q_60",
+          "q_61",
+          "q_62",
+          "q_63",
+          "q_64",
+          "q_65",
+          "q_66",
+          "q_67",
+          "q_68",
+          "q_69",
+          "q_70",
+          "q_71",
+          "q_72",
+          "q_73",
+          "q_74",
+          "q_75",
+          "q_76",
+          "q_77",
+          "q_78",
+          "q_79",
+          "sc_1",
+          "sc_2",
+          "sc_3",
+          "sc_4",
+          "sc_5",
+          "sc_6",
+          "sc_7",
+          "sc_8",
+          "sc_9",
+          "sc_10",
+          "sc_11",
+          "sc_12",
+          "sc_13",
+          "sc_14",
+          "sc_15",
+          "sc_16",
+          "sc_17",
+          "sc_18",
+          "sc_19",
+          "sc_20",
+          "sc_21",
+          "sc_22",
+          "sc_23",
+          "sc_24",
+          "sc_25",
+          "sc_26",
+          "sc_27",
+          "sc_28",
+          "sc_29",
+          "sc_30",
+          "sc_31",
+          "sc_32",
+          "sc_33",
+          "sc_34",
+          "sc_35",
+          "sc_36",
+          "sc_37",
+          "sc_38",
+          "sc_39",
+          "sc_40",
+          "sc_41",
+          "sc_42",
+          "sc_43",
+          "sc_44",
+          "sc_45",
+          "sc_46",
+          "sc_47",
+          "sc_48",
+          "sc_49",
+          "sc_50",
+          "sc_51",
+          "sc_52",
+          "sc_53",
+          "sc_54",
+          "sc_55",
+          "sc_56",
+          "sc_57",
+          "sc_58",
+          "sc_59",
+          "sc_60",
+          "sc_61",
+          "sc_62",
+          "sc_63",
+          "sc_64",
+          "sc_65",
+          "sc_66",
+          "sc_67",
+          "sc_68",
+          "sc_69",
+          "sc_70"
+        ],
+        "excludeScIds": [
+          900,
+          901,
+          902,
+          903,
+          904,
+          905,
+          906,
+          907,
+          908,
+          909,
+          910,
+          911,
+          912,
+          913,
+          914,
+          915,
+          916,
+          917,
+          918,
+          919,
+          920,
+          921,
+          922,
+          923,
+          924,
+          925,
+          926,
+          927,
+          928,
+          929,
+          930,
+          931,
+          932,
+          933,
+          934,
+          935,
+          936,
+          937,
+          938,
+          939,
+          940,
+          941,
+          942,
+          943,
+          944,
+          945,
+          946,
+          947,
+          948,
+          949
+        ],
+        "recentWaveArtists": [],
+        "recentWaveGenres": [],
+        "recentWaveTrackIds": [],
+        "likedTexts": [
+          "T500 L0",
+          "T501 L1",
+          "T502 L2",
+          "T503 L3",
+          "T504 L4",
+          "T505 L5",
+          "T506 L6",
+          "T507 L7",
+          "T508 L8",
+          "T509 L9",
+          "T510 L10",
+          "T511 L11"
+        ],
+        "historyTexts": [
+          "T1 H0",
+          "T2 H1",
+          "T3 H2",
+          "T4 H3",
+          "T5 H4",
+          "T6 H5",
+          "T7 H6",
+          "T8 H7",
+          "T9 H8",
+          "T10 H9",
+          "T11 H10",
+          "T12 H11",
+          "T13 H12",
+          "T14 H13",
+          "T15 H14",
+          "T16 H15"
+        ]
+      }
+    },
+    {
+      "id": "signals-dirty-data",
+      "description": "Missing artists/genres, zero/absent sc ids and duplicates are dropped",
+      "input": {
+        "history": [
+          {
+            "track": {
+              "id": "sc_1",
+              "title": "T1",
+              "artist": "",
+              "genre": "",
+              "scTrackId": 1
+            }
+          },
+          {
+            "track": null
+          },
+          {
+            "track": {
+              "id": "sc_0",
+              "title": "T0",
+              "artist": "Artist 0",
+              "genre": "Rock",
+              "scTrackId": 0
+            }
+          },
+          {
+            "track": {
+              "id": "sc_2",
+              "title": "T2",
+              "artist": "Artist 2",
+              "genre": "Pop",
+              "scTrackId": 2
+            }
+          }
+        ],
+        "likedTracksData": [
+          {
+            "id": "sc_3",
+            "title": "T3",
+            "artist": "Artist 3",
+            "genre": "Rock",
+            "scTrackId": null
+          },
+          {
+            "id": "sc_3",
+            "title": "T3",
+            "artist": "Artist 3",
+            "genre": "Rock",
+            "scTrackId": null
+          },
+          {
+            "id": "sc_4",
+            "title": "",
+            "artist": "",
+            "genre": "Pop",
+            "scTrackId": 4
+          }
+        ],
+        "dislikedTracksData": [],
+        "dislikedTrackIds": [],
+        "queueIds": [
+          "sc_2",
+          "sc_2"
+        ],
+        "waveQueueIds": [],
+        "favoriteArtistNames": [
+          "",
+          "A"
+        ],
+        "taste": {
+          "topGenres": [],
+          "topArtists": []
+        },
+        "sessionEvents": [],
+        "waveMemory": null,
+        "seed": null
+      },
+      "expected": {
+        "likedArtists": [
+          "Artist 3"
+        ],
+        "likedGenres": [
+          "Rock",
+          "Pop"
+        ],
+        "dislikedArtists": [],
+        "likedScIds": [
+          4
+        ],
+        "historyScIds": [
+          1,
+          2
+        ],
+        "historyArtists": [
+          "Artist 0",
+          "Artist 2"
+        ],
+        "historyGenres": [
+          "Rock",
+          "Pop"
+        ],
+        "tasteGenres": [],
+        "tasteArtists": [
+          "A"
+        ],
+        "sessionEvents": [],
+        "excludeIds": [
+          "sc_2",
+          "sc_1",
+          "sc_0"
+        ],
+        "excludeScIds": [],
+        "recentWaveArtists": [],
+        "recentWaveGenres": [],
+        "recentWaveTrackIds": [],
+        "likedTexts": [
+          "T3 Artist 3",
+          "T3 Artist 3"
+        ],
+        "historyTexts": [
+          "T1",
+          "T0 Artist 0",
+          "T2 Artist 2"
+        ]
+      }
+    }
+  ]
+}

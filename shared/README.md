@@ -31,6 +31,9 @@ Rules:
 |---|---|---|
 | `track.cases.json` | `src/lib/contracts/track.ts` | `data/contracts/ContractValidator.kt` + `data/api/Models.kt` |
 | `sync-merge.cases.json` | `src/lib/sync/merge.ts` (store `syncFromServer`) | `data/sync/SyncMerge.kt` (used by `SyncRepository`) |
+| `wave-signals.cases.json` | `src/lib/wave/signals.ts` (useWaveEngine) | `data/wave/WaveSignalsBuilder.kt` (WaveRepository → POST /api/wave) |
+| `wave-palette.cases.json` | `src/components/mq/wave-ambient-palette.ts` | `ui/wave/WavePalette.kt` (WaveAmbientBackdrop) |
+| `../design/themes.json` | generated from `src/lib/themes.ts` (`npx tsx scripts/gen-theme-tokens.mts`) | generated block in `ui/theme/MqThemes.kt` |
 | `queue.cases.json` | `src/lib/core/queue.ts` (used by store `nextTrack`/`prevTrack`/persist) | `player/QueueRules.kt` (used by `PlaybackController`) |
 
 Queue semantics (both platforms): Next → index+1, wraps only with repeat
@@ -51,3 +54,10 @@ IO/5xx with 1 s/2 s backoff, stops on 401/403 and malformed payloads.
 Known limitation (both platforms): clearing history or un-liking on the WEB is
 still undone by the union merge on the next pull — the web store does not
 record tombstones yet.
+
+WAVE / themes: `wave-signals` and `wave-palette` expected values were
+generated once from the web implementation (the web is the reference); they
+lock the web behaviour and force the Kotlin ports to match. Theme tokens:
+edit `src/lib/themes.ts`, then run `npx tsx scripts/gen-theme-tokens.mts`
+(`--check` to verify) — tests fail on either platform if the JSON or the
+Kotlin block drift.

@@ -299,6 +299,17 @@ class LocalStore(private val context: Context) {
         }
     }
 
+    // ── WAVE anonymous id (server resolveWaveUser fallback when no session) ─
+    private val waveAnonIdKey = stringPreferencesKey("wave_anon_id")
+
+    /** Stable per-install id matching the server's /^[a-zA-Z0-9_-]{8,64}$/. */
+    suspend fun waveAnonId(): String {
+        context.dataStore.data.first()[waveAnonIdKey]?.let { return it }
+        val id = "and_" + java.util.UUID.randomUUID().toString().replace("-", "")
+        context.dataStore.edit { p -> if (p[waveAnonIdKey] == null) p[waveAnonIdKey] = id }
+        return context.dataStore.data.first()[waveAnonIdKey] ?: id
+    }
+
     // ── /api/sync local side (data/sync/SyncRepository) ────────────────────
 
     private fun tracksOf(p: androidx.datastore.preferences.core.Preferences, key: androidx.datastore.preferences.core.Preferences.Key<String>): List<Track> =

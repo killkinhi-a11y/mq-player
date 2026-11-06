@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Generate MqThemes.kt: EXACT web palette port (themes.ts → Compose).
+"""DEPRECATED — superseded by scripts/gen-theme-tokens.mts (shared/design/themes.json).
+Kept for history only; running it would overwrite the generated block incorrectly.
+
+Generate MqThemes.kt: EXACT web palette port (themes.ts → Compose).
 All 23 themes, hex-identical, plus the web type scale (mq-t-* → Manrope)
 and web radius/spacing tokens. Central design system for visual parity."""
 import re
