@@ -3,6 +3,7 @@
 import { type CatalogTrackInput, buildPlayableTrack } from "@/lib/playback/client";
 import type { StoreSlice } from "@/store/types";
 import type { Track } from "@/lib/musicApi";
+import { consumeUpNext, nextIndex, previousAction } from "@/lib/core/queue";
 import { setAudioPlaybackRate as engineSetAudioPlaybackRate, getAudioElement, resumeAudioContext } from "@/lib/audioEngine";
 import { estimateTrackEnergy, rememberLastVolume } from "@/store/internal/helpers";
 import { pbStart } from "@/lib/playbackTimeline";
@@ -148,18 +149,20 @@ export const createPlaybackSlice: StoreSlice<PlaybackSliceKeys> = (set, get) => 
         const { queue, queueIndex, shuffle, repeat, upNext, currentTrack, smartShuffle, radioMode, brokenTrackIds } = get();
 
         // ── UpNext priority: play from upNext first (FIFO) ──
+        // Shared rule (consumeUpNext): the upNext item is inserted right after
+        // the current one, the rest of upNext stays queued, and the main queue
+        // then continues after the old current track. (Previously the whole
+        // old queue was appended from index 0, so after upNext playback
+        // restarted the queue from its first track.)
         if (upNext.length > 0) {
-          // Find first non-broken track in upNext
-          const nextIdx = upNext.findIndex(t => !brokenTrackIds.has(t.id));
-          if (nextIdx >= 0) {
-            const next = upNext[nextIdx];
-            const remaining = upNext.filter((_, i) => i !== nextIdx);
-            const newQueue = [next, ...remaining, ...queue];
+          const consumed = consumeUpNext(queue, queueIndex, upNext, (t) => brokenTrackIds.has(t.id));
+          if (consumed) {
+            const next = consumed.track;
             set({
               currentTrack: next,
-              queue: newQueue,
-              queueIndex: 0,
-              upNext: [],
+              queue: consumed.queue,
+              queueIndex: consumed.index,
+              upNext: consumed.upNext,
               progress: 0,
               duration: next.duration,
               isPlaying: true,
@@ -480,12 +483,18 @@ export const createPlaybackSlice: StoreSlice<PlaybackSliceKeys> = (set, get) => 
           }
         }
 
-        // Skip broken tracks — find next non-broken track
-        let attempts = 0;
-        while (brokenTrackIds.has(queue[nextIdx]?.id) && attempts < queue.length) {
-          nextIdx = (nextIdx + 1) % queue.length;
-          if (nextIdx === queueIndex) break; // full loop, stop
-          attempts++;
+        // Skip broken tracks (shared rule nextIndex): shuffle may wrap; linear
+        // order wraps only with repeat "all" — with repeat off the skip used to
+        // wrap `% length` and restart the queue from the top.
+        if (brokenTrackIds.has(queue[nextIdx]?.id)) {
+          const isBroken = (i: number) => brokenTrackIds.has(queue[i]?.id);
+          const skipped = nextIndex(queue.length, nextIdx, shuffle || repeat === "all" ? "all" : "off", isBroken);
+          if (skipped === null) {
+            set({ isPlaying: false });
+            getAudioElement()?.pause();
+            return;
+          }
+          nextIdx = skipped;
         }
 
         const track = queue[nextIdx];
@@ -515,8 +524,16 @@ export const createPlaybackSlice: StoreSlice<PlaybackSliceKeys> = (set, get) => 
           set({ progress: 0 });
           return;
         }
-        let prevIdx = queueIndex - 1;
-        if (prevIdx < 0) prevIdx = queue.length - 1;
+        // Shared rule (previousAction): at the first item, wrap to the last
+        // only with repeat "all"; otherwise restart (was: always wrapped).
+        const action = previousAction(queue.length, queueIndex, get().repeat, progress);
+        if (action.type === "restart") {
+          const audio = getAudioElement();
+          if (audio) audio.currentTime = 0;
+          set({ progress: 0 });
+          return;
+        }
+        const prevIdx = action.index;
         const track = queue[prevIdx];
         if (track) {
           set({

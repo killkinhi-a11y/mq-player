@@ -290,6 +290,17 @@ class LocalStore(private val context: Context) {
         }
     }
 
+    // ── Queue snapshot (restored paused on next launch; web parity) ─────────
+    private val queueSnapshotKey = stringPreferencesKey("queue_snapshot_v1")
+
+    suspend fun readQueueSnapshot(): String? = context.dataStore.data.first()[queueSnapshotKey]
+
+    suspend fun writeQueueSnapshot(encoded: String?) {
+        context.dataStore.edit { p ->
+            if (encoded == null) p.remove(queueSnapshotKey) else p[queueSnapshotKey] = encoded
+        }
+    }
+
     /** Web HistoryView «Очистить историю» — wipes the list, ids and times. */
     suspend fun clearHistory() {
         context.dataStore.edit { p ->

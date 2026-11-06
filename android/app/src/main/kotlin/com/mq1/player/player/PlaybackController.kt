@@ -51,6 +51,11 @@ class PlaybackController(private val context: Context) {
     private val tag = "PlaybackController"
 
     private var controller: MediaController? = null
+
+    /** Play-next items inserted after the current one and not yet reached (FIFO, QueueRules). */
+    private var pendingPlayNext = 0
+    private var lastTransitionIndex = -1
+    private var snapshotJob: Job? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private val _queue = MutableStateFlow<List<Track>>(emptyList())
@@ -238,6 +243,8 @@ class PlaybackController(private val context: Context) {
                     val items = pendingMediaItems!!
                     applyMediaItems(items, pendingStartIndex, pendingStartPositionMs, pendingAutoplay)
                     pendingMediaItems = null
+                } else {
+                    restoreQueueSnapshotIfIdle(mediaController)
                 }
             }.onFailure { Log.e(tag, "controller connect failed: ${it.message}") }
         }, MoreExecutors.directExecutor())
@@ -268,10 +275,12 @@ class PlaybackController(private val context: Context) {
         scope.launch { startQueue(tracks, 0, wave = true) }
     }
 
-    private suspend fun startQueue(tracks: List<Track>, startIndex: Int, wave: Boolean, autoplay: Boolean = true) {
+    private suspend fun startQueue(tracks: List<Track>, startIndex: Int, wave: Boolean, autoplay: Boolean = true, startPositionMs: Long = 0L) {
         val safeIndex = startIndex.coerceIn(0, tracks.size - 1)
         _queue.value = tracks
         _currentIndex.value = safeIndex
+        pendingPlayNext = 0
+        lastTransitionIndex = safeIndex
         _waveMode.value = wave
         _error.value = null
 
@@ -291,7 +300,8 @@ class PlaybackController(private val context: Context) {
                 t.buildMediaItem(resolved = null)
             }
         }
-        applyOrDefer(items, safeIndex, 0L, autoplay)
+        applyOrDefer(items, safeIndex, startPositionMs, autoplay)
+        if (!wave) scheduleQueueSnapshot()
 
         // Pre-resolve the active stream so playback starts instantly.
         preResolve(tracks.getOrNull(safeIndex + 1))
@@ -325,18 +335,23 @@ class PlaybackController(private val context: Context) {
         _queue.value = _queue.value + tracks
         c.addMediaItems(tracks.map { it.buildMediaItem(resolved = null) })
         scope.launch { preResolve(tracks.firstOrNull()) }
+        scheduleQueueSnapshot()
     }
 
+    /**
+     * FIFO "play next" (web upNext parity): several play-next taps play in the
+     * order they were added. Previously every item went to current+1, so the
+     * last tapped played first (LIFO).
+     */
     fun playNext(track: Track) {
         val c = controller ?: return
-        _queue.value = _queue.value.toMutableList().apply {
-            add((_currentIndex.value + 1).coerceAtLeast(0), track)
-        }
-        c.addMediaItems(
-            (_currentIndex.value + 1).coerceAtLeast(0),
-            listOf(track.buildMediaItem(resolved = null))
-        )
+        val at = QueueRules.playNextInsertIndex(_currentIndex.value, pendingPlayNext)
+            .coerceAtMost(_queue.value.size)
+        _queue.value = _queue.value.toMutableList().apply { add(at, track) }
+        c.addMediaItems(at, listOf(track.buildMediaItem(resolved = null)))
+        pendingPlayNext += 1
         scope.launch { preResolve(track) }
+        scheduleQueueSnapshot()
     }
 
     // ── REAL queue editing (web QueueView parity) ──────────────
@@ -352,7 +367,10 @@ class PlaybackController(private val context: Context) {
         val queue = _queue.value
         if (index !in queue.indices) return
         val wasCurrent = index == _currentIndex.value
+        val cur = _currentIndex.value
+        if (index > cur && index <= cur + pendingPlayNext) pendingPlayNext -= 1
         c.removeMediaItem(index)
+        scheduleQueueSnapshot()
         _queue.value = queue.filterIndexed { i, _ -> i != index }
         when {
             _queue.value.isEmpty() -> {
@@ -378,13 +396,10 @@ class PlaybackController(private val context: Context) {
         c.moveMediaItem(from, to)
         queue.add(to, queue.removeAt(from))
         _queue.value = queue
-        val cur = _currentIndex.value
-        _currentIndex.value = when (cur) {
-            from -> to
-            else -> if (from < cur && to >= cur) cur - 1
-                    else if (from > cur && to <= cur) cur + 1
-                    else cur
-        }
+        _currentIndex.value = QueueRules.indexAfterMove(from, to, _currentIndex.value)
+        lastTransitionIndex = _currentIndex.value
+        pendingPlayNext = 0 // manual reordering ends the FIFO play-next block
+        scheduleQueueSnapshot()
     }
 
     fun togglePlayPause() {
@@ -472,9 +487,28 @@ class PlaybackController(private val context: Context) {
 
     fun next() { controller?.seekToNextMediaItem() }
 
+    /**
+     * Shared rule (QueueRules.previousAction): >3 s → restart; else previous
+     * item; at the first item wrap to the last only with repeat ALL, otherwise
+     * restart (Media3 seekToPreviousMediaItem was a silent no-op there).
+     */
     fun previous() {
         val c = controller ?: return
-        if (c.currentPosition > 3000) c.seekTo(0) else c.seekToPreviousMediaItem()
+        if (c.shuffleModeEnabled) {
+            // Shuffle order is Media3's permutation (platform-specific, see QueueRules).
+            if (c.currentPosition > 3000 || !c.hasPreviousMediaItem()) c.seekTo(0) else c.seekToPreviousMediaItem()
+            return
+        }
+        val action = QueueRules.previousAction(
+            length = c.mediaItemCount,
+            index = c.currentMediaItemIndex,
+            repeat = QueueRules.repeatFromMedia3(c.repeatMode),
+            progressSec = c.currentPosition / 1000.0,
+        )
+        when (action) {
+            QueueRules.PreviousAction.Restart -> c.seekTo(0)
+            is QueueRules.PreviousAction.Go -> c.seekTo(action.index, 0)
+        }
     }
 
     fun seekTo(positionMs: Long) {
@@ -510,6 +544,44 @@ class PlaybackController(private val context: Context) {
         _queue.value = emptyList()
         _currentIndex.value = -1
         _waveMode.value = false
+        pendingPlayNext = 0
+        snapshotJob?.cancel()
+        ioScope.launch { runCatching { ServiceLocator.localStore.writeQueueSnapshot(null) } }
+    }
+
+    // ── Queue persistence (restored paused; web parity) ─────────────────────
+
+    /** Debounced write of the current queue window. Wave queues are not persisted. */
+    private fun scheduleQueueSnapshot() {
+        if (_waveMode.value) return
+        val c = controller
+        val snap = QueueSnapshot.capture(
+            queue = _queue.value,
+            index = _currentIndex.value,
+            positionMs = c?.currentPosition ?: _positionMs.value,
+            repeatMode = c?.repeatMode ?: _repeatMode.value,
+            shuffle = c?.shuffleModeEnabled ?: _shuffleEnabled.value,
+        ) ?: return
+        snapshotJob?.cancel()
+        snapshotJob = ioScope.launch {
+            delay(400)
+            runCatching { ServiceLocator.localStore.writeQueueSnapshot(QueueSnapshot.encode(snap)) }
+                .onFailure { Log.w(tag, "queue snapshot write failed: ${it.message}") }
+        }
+    }
+
+    /** On a cold start with an empty player, restore the last queue PAUSED (never autoplay). */
+    private fun restoreQueueSnapshotIfIdle(c: MediaController) {
+        if (c.mediaItemCount > 0 || _queue.value.isNotEmpty()) return
+        scope.launch {
+            val snap = QueueSnapshot.decode(runCatching { ServiceLocator.localStore.readQueueSnapshot() }.getOrNull())
+                ?: return@launch
+            if (controller?.mediaItemCount != 0 || _queue.value.isNotEmpty()) return@launch
+            _waveMode.value = false
+            startQueue(snap.tracks, snap.index, wave = false, autoplay = false, startPositionMs = snap.positionMs)
+            controller?.repeatMode = QueueRules.repeatToMedia3(QueueRules.repeatFromWeb(snap.repeat))
+            controller?.shuffleModeEnabled = snap.shuffle
+        }
     }
 
     // ── Wave integration ────────────────────────────────────────────────────
@@ -621,6 +693,9 @@ class PlaybackController(private val context: Context) {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             val c = controller ?: return
             _currentIndex.value = c.currentMediaItemIndex
+            pendingPlayNext = QueueRules.pendingAfterTransition(pendingPlayNext, lastTransitionIndex, c.currentMediaItemIndex)
+            lastTransitionIndex = c.currentMediaItemIndex
+            scheduleQueueSnapshot()
             resumePositionMs = 0
             val track = nowPlaying
             if (track != null && reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
@@ -637,6 +712,7 @@ class PlaybackController(private val context: Context) {
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _isPlaying.value = isPlaying
+            if (!isPlaying) scheduleQueueSnapshot() // keep the resume position on pause
             _isBuffering.value = controller?.playbackState == Player.STATE_BUFFERING
             if (isPlaying) recoveryAttempts = 0 // healthy again — future blips get full retries
         }

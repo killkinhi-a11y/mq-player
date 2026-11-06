@@ -24,3 +24,18 @@ Rules:
 3. Add a fixture case for every bug found in cross-platform data handling.
 4. Error codes are `<field>:<rule>` and must be identical on both platforms.
 5. CI: changes under `shared/**` trigger web, desktop and Android jobs.
+
+## Fixture index
+
+| Fixture | Web | Android |
+|---|---|---|
+| `track.cases.json` | `src/lib/contracts/track.ts` | `data/contracts/ContractValidator.kt` + `data/api/Models.kt` |
+| `queue.cases.json` | `src/lib/core/queue.ts` (used by store `nextTrack`/`prevTrack`/persist) | `player/QueueRules.kt` (used by `PlaybackController`) |
+
+Queue semantics (both platforms): Next → index+1, wraps only with repeat
+`all`; repeat `one` replays on track end, manual Next still advances; broken
+items are skipped without wrapping when repeat is `off`; Previous restarts
+after 3 s, at the first item wraps only with repeat `all`; play-next is FIFO;
+the persisted queue is a ≤50-item window that contains the current track and is
+restored paused. Shuffle order itself is platform-specific (web random pick /
+Media3 permutation).
