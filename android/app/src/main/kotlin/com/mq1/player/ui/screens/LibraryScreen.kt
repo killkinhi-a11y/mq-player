@@ -206,7 +206,7 @@ fun LibraryScreen(
             onPlayQueue = { q, i -> player.controller.playQueue(q, i) },
             onAddToQueue = { player.controller.addToQueue(it) },
             onFavorite = { player.controller.toggleFavorite(it) },
-            onRemoveDisliked = { scope.launch { ServiceLocator.localStore.toggleDisliked(it) } },
+            onRemoveDisliked = { scope.launch { ServiceLocator.localStore.toggleDisliked(it); ServiceLocator.syncRepository.requestSync() } },
             onUnsubscribe = { scope.launch { ServiceLocator.localStore.toggleFavoriteArtist(it) } },
             onDislike = { player.controller.dislike(it) },
             onTrackMenu = { track -> menu.open(track) },

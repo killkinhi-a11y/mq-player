@@ -412,6 +412,7 @@ class PlaybackController(private val context: Context) {
     fun toggleFavorite(track: Track) {
         ioScope.launch {
             ServiceLocator.localStore.toggleFavorite(track)
+            ServiceLocator.syncRepository.requestSync()
             // Taste feedback to the recommendation engine (best-effort).
             track.scTrackId?.let { id ->
                 runCatching {
@@ -445,6 +446,7 @@ class PlaybackController(private val context: Context) {
     fun dislike(track: Track) {
         ioScope.launch {
             val added = ServiceLocator.localStore.toggleDisliked(track)
+            ServiceLocator.syncRepository.requestSync()
             if (added) {
                 track.scTrackId?.let { id ->
                     runCatching {
@@ -619,6 +621,7 @@ class PlaybackController(private val context: Context) {
         val track = nowPlaying ?: return
         ioScope.launch {
             ServiceLocator.localStore.toggleFavorite(track)
+            ServiceLocator.syncRepository.requestSync()
             // Taste feedback to the recommendation engine (best-effort).
             track.scTrackId?.let { id ->
                 runCatching {
@@ -634,6 +637,7 @@ class PlaybackController(private val context: Context) {
         ioScope.launch {
             ServiceLocator.musicRepository.reportNowPlaying(track)
             ServiceLocator.localStore.pushHistory(track)
+            ServiceLocator.syncRepository.requestSync()
         }
     }
 

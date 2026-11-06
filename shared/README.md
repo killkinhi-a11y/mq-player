@@ -30,6 +30,7 @@ Rules:
 | Fixture | Web | Android |
 |---|---|---|
 | `track.cases.json` | `src/lib/contracts/track.ts` | `data/contracts/ContractValidator.kt` + `data/api/Models.kt` |
+| `sync-merge.cases.json` | `src/lib/sync/merge.ts` (store `syncFromServer`) | `data/sync/SyncMerge.kt` (used by `SyncRepository`) |
 | `queue.cases.json` | `src/lib/core/queue.ts` (used by store `nextTrack`/`prevTrack`/persist) | `player/QueueRules.kt` (used by `PlaybackController`) |
 
 Queue semantics (both platforms): Next → index+1, wraps only with repeat
@@ -39,3 +40,14 @@ after 3 s, at the first item wraps only with repeat `all`; play-next is FIFO;
 the persisted queue is a ≤50-item window that contains the current track and is
 restored paused. Shuffle order itself is platform-specific (web random pick /
 Media3 permutation).
+
+Sync (`/api/sync`): the server is per-key last-write-wins, so every client
+pulls → merges (shared rules) → pushes. Android syncs `likedTracks`,
+`likedTracksData`, `dislikedTracks`, `dislikedTracksData`, `history` only (never
+`playlists` / `settings`), pushes only keys whose id lists changed, never pushes
+without a successful pull in the same cycle, keeps tombstones for local
+un-likes until a successful push, skips demo/logged-out users, retries
+IO/5xx with 1 s/2 s backoff, stops on 401/403 and malformed payloads.
+Known limitation (both platforms): clearing history or un-liking on the WEB is
+still undone by the union merge on the next pull — the web store does not
+record tombstones yet.

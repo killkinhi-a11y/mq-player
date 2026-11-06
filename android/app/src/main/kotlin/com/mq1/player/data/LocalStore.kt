@@ -59,6 +59,10 @@ class LocalStore(private val context: Context) {
         // Web-parity library lists (FavoritesView «Не понравившиеся» / «Подписки»)
         val disliked = stringPreferencesKey("disliked_tracks")
         val dislikedScIds = stringSetPreferencesKey("disliked_sc_ids")
+        // Sync tombstones: ids un-liked / un-disliked since the last successful
+        // /api/sync push, so the next pull does not resurrect them.
+        val removedLiked = stringSetPreferencesKey("sync_removed_liked")
+        val removedDisliked = stringSetPreferencesKey("sync_removed_disliked")
         val favoriteArtists = stringSetPreferencesKey("favorite_artists")
         // Web parity: recent searches persist in localStorage (max 15)
         val recentSearches = stringPreferencesKey("recent_searches")
@@ -137,6 +141,8 @@ class LocalStore(private val context: Context) {
                 (listOf(track) + current).take(500)
             }
             p[Keys.favorites] = json.encodeToString(next)
+            val tomb = p[Keys.removedLiked] ?: emptySet()
+            p[Keys.removedLiked] = if (added) tomb - track.id else tomb + track.id
             val ids = p[Keys.likedScIds] ?: emptySet()
             p[Keys.likedScIds] = if (added) ids + (track.scTrackId?.toString() ?: track.id)
                                  else ids - (track.scTrackId?.toString() ?: track.id)
@@ -168,6 +174,8 @@ class LocalStore(private val context: Context) {
                 (listOf(track) + current).take(100) // web cap
             }
             p[Keys.disliked] = json.encodeToString(next)
+            val tomb = p[Keys.removedDisliked] ?: emptySet()
+            p[Keys.removedDisliked] = if (added) tomb - track.id else tomb + track.id
             val ids = p[Keys.dislikedScIds] ?: emptySet()
             p[Keys.dislikedScIds] = if (added) ids + key else ids - key
             // A track cannot be liked AND disliked at once (web parity).
@@ -178,6 +186,7 @@ class LocalStore(private val context: Context) {
                 if (favs.any { it.id == track.id }) {
                     p[Keys.favorites] = json.encodeToString(favs.filterNot { it.id == track.id })
                     p[Keys.likedScIds] = (p[Keys.likedScIds] ?: emptySet()) - key
+                    p[Keys.removedLiked] = (p[Keys.removedLiked] ?: emptySet()) + track.id
                 }
             }
         }
@@ -287,6 +296,70 @@ class LocalStore(private val context: Context) {
             // historyScIds drive Wave diversity — track separately
             val histIds = p[stringSetPreferencesKey("history_sc_ids")] ?: emptySet()
             p[stringSetPreferencesKey("history_sc_ids")] = histIds + (track.scTrackId?.toString() ?: track.id)
+        }
+    }
+
+    // ── /api/sync local side (data/sync/SyncRepository) ────────────────────
+
+    private fun tracksOf(p: androidx.datastore.preferences.core.Preferences, key: androidx.datastore.preferences.core.Preferences.Key<String>): List<Track> =
+        p[key]?.let { runCatching { json.decodeFromString<List<Track>>(it) }.getOrNull() } ?: emptyList()
+
+    suspend fun syncState(): com.mq1.player.data.sync.SyncLocal.State {
+        val p = context.dataStore.data.first()
+        val user = p[Keys.sessionUser]?.let { runCatching { json.decodeFromString<SessionUser>(it) }.getOrNull() }
+        return com.mq1.player.data.sync.SyncLocal.State(
+            userId = user?.userId?.takeIf { it.isNotBlank() },
+            favorites = tracksOf(p, Keys.favorites),
+            disliked = tracksOf(p, Keys.disliked),
+            history = tracksOf(p, Keys.history),
+            historyPlayedAt = p[historyPlayedAtKey]?.let { runCatching { json.decodeFromString<List<Long>>(it) }.getOrNull() } ?: emptyList(),
+            removedLiked = p[Keys.removedLiked] ?: emptySet(),
+            removedDisliked = p[Keys.removedDisliked] ?: emptySet(),
+        )
+    }
+
+    suspend fun applyServerAdditions(liked: List<Track>, disliked: List<Track>, history: List<Pair<Track, Long>>) {
+        if (liked.isEmpty() && disliked.isEmpty() && history.isEmpty()) return
+        context.dataStore.edit { p ->
+            fun key(t: Track) = t.scTrackId?.toString() ?: t.id
+            if (liked.isNotEmpty()) {
+                val cur = tracksOf(p, Keys.favorites)
+                val tomb = p[Keys.removedLiked] ?: emptySet()
+                val have = cur.map { it.id }.toSet()
+                val add = liked.filter { it.id !in have && it.id !in tomb }
+                p[Keys.favorites] = json.encodeToString((cur + add).take(500))
+                p[Keys.likedScIds] = (p[Keys.likedScIds] ?: emptySet()) + add.map(::key)
+            }
+            if (disliked.isNotEmpty()) {
+                val cur = tracksOf(p, Keys.disliked)
+                val tomb = p[Keys.removedDisliked] ?: emptySet()
+                val have = cur.map { it.id }.toSet()
+                val add = disliked.filter { it.id !in have && it.id !in tomb }
+                p[Keys.disliked] = json.encodeToString((cur + add).take(100))
+                p[Keys.dislikedScIds] = (p[Keys.dislikedScIds] ?: emptySet()) + add.map(::key)
+            }
+            if (history.isNotEmpty()) {
+                val cur = tracksOf(p, Keys.history)
+                val at = p[historyPlayedAtKey]?.let { runCatching { json.decodeFromString<List<Long>>(it) }.getOrNull() }
+                    ?: List(cur.size) { 0L }
+                val have = cur.map { it.id }.toSet()
+                // Android shows history newest-first by playedAt.
+                val all = (cur.mapIndexed { i, t -> t to at.getOrElse(i) { 0L } } + history.filter { it.first.id !in have })
+                    .sortedByDescending { it.second }
+                    .take(200)
+                p[Keys.history] = json.encodeToString(all.map { it.first })
+                p[historyPlayedAtKey] = json.encodeToString(all.map { it.second })
+                val histIds = p[stringSetPreferencesKey("history_sc_ids")] ?: emptySet()
+                p[stringSetPreferencesKey("history_sc_ids")] = histIds + all.map { key(it.first) }
+            }
+        }
+    }
+
+    suspend fun clearSyncTombstones(liked: Set<String>, disliked: Set<String>) {
+        if (liked.isEmpty() && disliked.isEmpty()) return
+        context.dataStore.edit { p ->
+            p[Keys.removedLiked] = (p[Keys.removedLiked] ?: emptySet()) - liked
+            p[Keys.removedDisliked] = (p[Keys.removedDisliked] ?: emptySet()) - disliked
         }
     }
 

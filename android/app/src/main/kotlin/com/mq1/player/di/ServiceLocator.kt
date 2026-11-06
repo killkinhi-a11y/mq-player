@@ -114,6 +114,26 @@ object ServiceLocator {
 
     val localStore: LocalStore by lazy { LocalStore(appContext) }
 
+    /** Cross-device sync of favorites / dislikes / history via /api/sync (web parity). */
+    val syncRepository: com.mq1.player.data.sync.SyncRepository by lazy {
+        val store = localStore
+        com.mq1.player.data.sync.SyncRepository(
+            api = api,
+            local = object : com.mq1.player.data.sync.SyncLocal {
+                override suspend fun syncState() = store.syncState()
+                override suspend fun applyServerAdditions(
+                    liked: List<com.mq1.player.data.api.Track>,
+                    disliked: List<com.mq1.player.data.api.Track>,
+                    history: List<Pair<com.mq1.player.data.api.Track, Long>>,
+                ) = store.applyServerAdditions(liked, disliked, history)
+                override suspend fun clearTombstones(liked: Set<String>, disliked: Set<String>) =
+                    store.clearSyncTombstones(liked, disliked)
+            },
+            scope = appScope,
+            json = json,
+        )
+    }
+
     val authRepository: AuthRepository by lazy { AuthRepository(api, localStore) }
     val musicRepository: MusicRepository by lazy { MusicRepository(api, appScope) }
     val waveRepository: WaveRepository by lazy { WaveRepository(api, localStore) }

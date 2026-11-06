@@ -107,6 +107,14 @@ interface MqApi {
     @POST("api/music/recommendations/feedback")
     suspend fun recommendationFeedback(@Body body: Map<String, String>): SimpleResult
 
+    // ── Cross-device sync (web /api/sync; per-key last-write-wins) ─────────
+
+    @GET("api/sync")
+    suspend fun syncGet(): Response<kotlinx.serialization.json.JsonObject>
+
+    @POST("api/sync")
+    suspend fun syncPost(@Body body: kotlinx.serialization.json.JsonObject): Response<kotlinx.serialization.json.JsonObject>
+
     // ── Playlists ───────────────────────────────────────────────────────────
 
     @GET("api/playlists")

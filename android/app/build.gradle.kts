@@ -180,6 +180,7 @@ dependencies {
     implementation(libs.coil.compose)
 
     testImplementation(libs.junit)
+    testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation("org.robolectric:robolectric:4.13")
     // Regression pin for the Demo-tap crash: OkHttp's header validator

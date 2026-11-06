@@ -3,6 +3,7 @@
 import { MAX_HISTORY_ENTRIES } from "@/store/internal/helpers";
 import type { StoreSlice } from "@/store/types";
 import { canPollProtected } from "@/lib/authGate";
+import { mergeHistory, mergeIds, mergeTracks, type SyncHistoryEntry, type SyncTrack } from "@/lib/sync/merge";
 
 export type SyncSliceKeys =
   | "setCobaltJwt"
@@ -106,19 +107,12 @@ export const createSyncSlice: StoreSlice<SyncSliceKeys> = (set, get) => ({
 
           const updates: Record<string, unknown> = {};
 
-          // Merge history: combine server + local, deduplicate by track.id
+          // Merge rules are shared with Android (src/lib/sync/merge.ts,
+          // shared/test-fixtures/sync-merge.cases.json).
           if (Array.isArray(data.history)) {
-            const localHistory = state.history || [];
-            const serverMap = new Map<string, typeof localHistory[0]>();
-            for (const entry of data.history) {
-              if (entry?.track?.id) serverMap.set(entry.track.id, entry);
-            }
-            // Server entries that aren't in local
-            const localIds = new Set(localHistory.map(h => h.track?.id));
-            const newFromServer = data.history.filter(
-              (e: any) => e?.track?.id && !localIds.has(e.track.id)
+            updates.history = mergeHistory(
+              (state.history || []) as unknown as SyncHistoryEntry[], data.history, MAX_HISTORY_ENTRIES,
             );
-            updates.history = [...newFromServer, ...localHistory].slice(0, MAX_HISTORY_ENTRIES);
           }
 
           // Merge playlists: take server version if newer (by track count for local playlists without timestamps)
@@ -180,40 +174,17 @@ export const createSyncSlice: StoreSlice<SyncSliceKeys> = (set, get) => ({
             updates.playlists = merged;
           }
 
-          // Merge liked tracks: union of server + local
           if (Array.isArray(data.likedTracks)) {
-            const local = state.likedTrackIds || [];
-            const combined = [...new Set([...data.likedTracks, ...local])];
-            updates.likedTrackIds = combined;
+            updates.likedTrackIds = mergeIds(data.likedTracks, state.likedTrackIds || []);
           }
-
-          // Merge disliked tracks: union of server + local
           if (Array.isArray(data.dislikedTracks)) {
-            const local = state.dislikedTrackIds || [];
-            const combined = [...new Set([...data.dislikedTracks, ...local])];
-            updates.dislikedTrackIds = combined;
+            updates.dislikedTrackIds = mergeIds(data.dislikedTracks, state.dislikedTrackIds || []);
           }
-
-          // Merge liked tracks data
           if (Array.isArray(data.likedTracksData)) {
-            const local = state.likedTracksData || [];
-            const localIds = new Set(local.map(t => t.id));
-            const merged = [...local];
-            for (const t of data.likedTracksData) {
-              if (!localIds.has(t.id)) merged.push(t);
-            }
-            updates.likedTracksData = merged;
+            updates.likedTracksData = mergeTracks((state.likedTracksData || []) as unknown as SyncTrack[], data.likedTracksData);
           }
-
-          // Merge disliked tracks data
           if (Array.isArray(data.dislikedTracksData)) {
-            const local = state.dislikedTracksData || [];
-            const localIds = new Set(local.map(t => t.id));
-            const merged = [...local];
-            for (const t of data.dislikedTracksData) {
-              if (!localIds.has(t.id)) merged.push(t);
-            }
-            updates.dislikedTracksData = merged;
+            updates.dislikedTracksData = mergeTracks((state.dislikedTracksData || []) as unknown as SyncTrack[], data.dislikedTracksData);
           }
 
           // Apply settings from server
