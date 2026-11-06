@@ -64,6 +64,7 @@ class AuthViewModel : ViewModel() {
             _state.value = when (restored) {
                 is AuthRepository.AuthState.LoggedIn -> {
                     applyDemoHeaders(local.sessionUser.firstOrNull())
+                    ServiceLocator.syncRepository.requestSync() // pull account data on cold start
                     val onboarded = local.onboardingComplete.firstOrNull() ?: false
                     if (onboarded) Ui.Main else Ui.Onboarding
                 }
@@ -76,6 +77,7 @@ class AuthViewModel : ViewModel() {
         applyDemoHeaders(user)
         Log.i("MqBoot", "auth.onLoggedIn demo=${user.userId == DEMO_USER_ID} id=${user.userId.take(4)}…")
         ServiceLocator.socialHub.start()
+        if (user.userId != DEMO_USER_ID) ServiceLocator.syncRepository.requestSync()
         viewModelScope.launch {
             // Web parity (useAppStore.setAuth): demo sessions are local-only —
             // no server round-trips, onboarding marked complete, straight to Main.

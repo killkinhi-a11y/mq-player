@@ -1,0 +1,489 @@
+{
+  "contract": "sync-merge",
+  "contractVersion": 1,
+  "cases": [
+    {
+      "id": "ids-union",
+      "description": "Liked ids: union, server order first",
+      "fn": "mergeIds",
+      "input": {
+        "server": [
+          "sc_1",
+          "sc_2"
+        ],
+        "local": [
+          "sc_3",
+          "sc_1"
+        ],
+        "localRemoved": []
+      },
+      "expected": [
+        "sc_1",
+        "sc_2",
+        "sc_3"
+      ]
+    },
+    {
+      "id": "ids-empty-server",
+      "description": "Empty server keeps local",
+      "fn": "mergeIds",
+      "input": {
+        "server": [],
+        "local": [
+          "sc_3"
+        ],
+        "localRemoved": []
+      },
+      "expected": [
+        "sc_3"
+      ]
+    },
+    {
+      "id": "ids-garbage",
+      "description": "Non-string server ids are ignored",
+      "fn": "mergeIds",
+      "input": {
+        "server": [
+          "sc_1",
+          null,
+          5,
+          ""
+        ],
+        "local": [],
+        "localRemoved": []
+      },
+      "expected": [
+        "sc_1"
+      ]
+    },
+    {
+      "id": "ids-local-removed",
+      "description": "An unlike made locally since last sync is not resurrected by the server",
+      "fn": "mergeIds",
+      "input": {
+        "server": [
+          "sc_1",
+          "sc_2"
+        ],
+        "local": [
+          "sc_2"
+        ],
+        "localRemoved": [
+          "sc_1"
+        ]
+      },
+      "expected": [
+        "sc_2"
+      ]
+    },
+    {
+      "id": "ids-removed-then-readded",
+      "description": "Removed then re-added locally \u2192 kept",
+      "fn": "mergeIds",
+      "input": {
+        "server": [
+          "sc_1"
+        ],
+        "local": [
+          "sc_1"
+        ],
+        "localRemoved": [
+          "sc_1"
+        ]
+      },
+      "expected": [
+        "sc_1"
+      ]
+    },
+    {
+      "id": "tracks-local-first",
+      "description": "Track data: local first, then new server tracks",
+      "fn": "mergeTracks",
+      "input": {
+        "local": [
+          {
+            "id": "sc_3",
+            "title": "SC_3",
+            "artist": "A",
+            "source": "soundcloud"
+          }
+        ],
+        "server": [
+          {
+            "id": "sc_1",
+            "title": "SC_1",
+            "artist": "A",
+            "source": "soundcloud"
+          },
+          {
+            "id": "sc_3",
+            "title": "SERVER",
+            "artist": "A",
+            "source": "soundcloud"
+          }
+        ],
+        "localRemoved": []
+      },
+      "expected": [
+        {
+          "id": "sc_3",
+          "title": "SC_3",
+          "artist": "A",
+          "source": "soundcloud"
+        },
+        {
+          "id": "sc_1",
+          "title": "SC_1",
+          "artist": "A",
+          "source": "soundcloud"
+        }
+      ]
+    },
+    {
+      "id": "tracks-server-duplicates",
+      "description": "Duplicate server tracks appear once",
+      "fn": "mergeTracks",
+      "input": {
+        "local": [],
+        "server": [
+          {
+            "id": "sc_1",
+            "title": "SC_1",
+            "artist": "A",
+            "source": "soundcloud"
+          },
+          {
+            "id": "sc_1",
+            "title": "SC_1",
+            "artist": "A",
+            "source": "soundcloud"
+          }
+        ],
+        "localRemoved": []
+      },
+      "expected": [
+        {
+          "id": "sc_1",
+          "title": "SC_1",
+          "artist": "A",
+          "source": "soundcloud"
+        }
+      ]
+    },
+    {
+      "id": "tracks-invalid-dropped",
+      "description": "Server tracks without an id are dropped",
+      "fn": "mergeTracks",
+      "input": {
+        "local": [],
+        "server": [
+          {
+            "title": "no id"
+          },
+          null,
+          {
+            "id": "sc_2",
+            "title": "SC_2",
+            "artist": "A",
+            "source": "soundcloud"
+          }
+        ],
+        "localRemoved": []
+      },
+      "expected": [
+        {
+          "id": "sc_2",
+          "title": "SC_2",
+          "artist": "A",
+          "source": "soundcloud"
+        }
+      ]
+    },
+    {
+      "id": "tracks-unknown-shape-kept",
+      "description": "Older/unknown track shapes with a valid id are kept (no data loss)",
+      "fn": "mergeTracks",
+      "input": {
+        "local": [],
+        "server": [
+          {
+            "id": "zv_9",
+            "title": "x",
+            "source": "zvuk"
+          }
+        ],
+        "localRemoved": []
+      },
+      "expected": [
+        {
+          "id": "zv_9",
+          "title": "x",
+          "source": "zvuk"
+        }
+      ]
+    },
+    {
+      "id": "tracks-local-removed",
+      "description": "Track removed locally since last sync stays removed",
+      "fn": "mergeTracks",
+      "input": {
+        "local": [],
+        "server": [
+          {
+            "id": "sc_1",
+            "title": "SC_1",
+            "artist": "A",
+            "source": "soundcloud"
+          },
+          {
+            "id": "sc_2",
+            "title": "SC_2",
+            "artist": "A",
+            "source": "soundcloud"
+          }
+        ],
+        "localRemoved": [
+          "sc_1"
+        ]
+      },
+      "expected": [
+        {
+          "id": "sc_2",
+          "title": "SC_2",
+          "artist": "A",
+          "source": "soundcloud"
+        }
+      ]
+    },
+    {
+      "id": "history-server-new-first",
+      "description": "History: server-only entries first, then local",
+      "fn": "mergeHistory",
+      "input": {
+        "local": [
+          {
+            "track": {
+              "id": "sc_2",
+              "title": "SC_2",
+              "artist": "A",
+              "source": "soundcloud"
+            },
+            "playedAt": 200,
+            "playCount": 1
+          }
+        ],
+        "server": [
+          {
+            "track": {
+              "id": "sc_1",
+              "title": "SC_1",
+              "artist": "A",
+              "source": "soundcloud"
+            },
+            "playedAt": 100,
+            "playCount": 3
+          },
+          {
+            "track": {
+              "id": "sc_2",
+              "title": "SC_2",
+              "artist": "A",
+              "source": "soundcloud"
+            },
+            "playedAt": 50,
+            "playCount": 7
+          }
+        ],
+        "max": 1000
+      },
+      "expected": [
+        {
+          "track": {
+            "id": "sc_1",
+            "title": "SC_1",
+            "artist": "A",
+            "source": "soundcloud"
+          },
+          "playedAt": 100,
+          "playCount": 3
+        },
+        {
+          "track": {
+            "id": "sc_2",
+            "title": "SC_2",
+            "artist": "A",
+            "source": "soundcloud"
+          },
+          "playedAt": 200,
+          "playCount": 1
+        }
+      ]
+    },
+    {
+      "id": "history-cap",
+      "description": "History is capped",
+      "fn": "mergeHistory",
+      "input": {
+        "local": [
+          {
+            "track": {
+              "id": "sc_3",
+              "title": "SC_3",
+              "artist": "A",
+              "source": "soundcloud"
+            },
+            "playedAt": 300,
+            "playCount": 1
+          },
+          {
+            "track": {
+              "id": "sc_4",
+              "title": "SC_4",
+              "artist": "A",
+              "source": "soundcloud"
+            },
+            "playedAt": 250,
+            "playCount": 1
+          }
+        ],
+        "server": [
+          {
+            "track": {
+              "id": "sc_1",
+              "title": "SC_1",
+              "artist": "A",
+              "source": "soundcloud"
+            },
+            "playedAt": 100,
+            "playCount": 1
+          },
+          {
+            "track": {
+              "id": "sc_2",
+              "title": "SC_2",
+              "artist": "A",
+              "source": "soundcloud"
+            },
+            "playedAt": 90,
+            "playCount": 1
+          }
+        ],
+        "max": 3
+      },
+      "expected": [
+        {
+          "track": {
+            "id": "sc_1",
+            "title": "SC_1",
+            "artist": "A",
+            "source": "soundcloud"
+          },
+          "playedAt": 100,
+          "playCount": 1
+        },
+        {
+          "track": {
+            "id": "sc_2",
+            "title": "SC_2",
+            "artist": "A",
+            "source": "soundcloud"
+          },
+          "playedAt": 90,
+          "playCount": 1
+        },
+        {
+          "track": {
+            "id": "sc_3",
+            "title": "SC_3",
+            "artist": "A",
+            "source": "soundcloud"
+          },
+          "playedAt": 300,
+          "playCount": 1
+        }
+      ]
+    },
+    {
+      "id": "history-invalid",
+      "description": "Server history entries without a track id are dropped",
+      "fn": "mergeHistory",
+      "input": {
+        "local": [],
+        "server": [
+          {
+            "playedAt": 1
+          },
+          {
+            "track": {}
+          },
+          {
+            "track": {
+              "id": "sc_1",
+              "title": "SC_1",
+              "artist": "A",
+              "source": "soundcloud"
+            },
+            "playedAt": 1,
+            "playCount": 1
+          }
+        ],
+        "max": 10
+      },
+      "expected": [
+        {
+          "track": {
+            "id": "sc_1",
+            "title": "SC_1",
+            "artist": "A",
+            "source": "soundcloud"
+          },
+          "playedAt": 1,
+          "playCount": 1
+        }
+      ]
+    },
+    {
+      "id": "history-server-dupes",
+      "description": "Duplicate server history ids collapse to the first",
+      "fn": "mergeHistory",
+      "input": {
+        "local": [],
+        "server": [
+          {
+            "track": {
+              "id": "sc_1",
+              "title": "SC_1",
+              "artist": "A",
+              "source": "soundcloud"
+            },
+            "playedAt": 9,
+            "playCount": 1
+          },
+          {
+            "track": {
+              "id": "sc_1",
+              "title": "SC_1",
+              "artist": "A",
+              "source": "soundcloud"
+            },
+            "playedAt": 1,
+            "playCount": 1
+          }
+        ],
+        "max": 10
+      },
+      "expected": [
+        {
+          "track": {
+            "id": "sc_1",
+            "title": "SC_1",
+            "artist": "A",
+            "source": "soundcloud"
+          },
+          "playedAt": 9,
+          "playCount": 1
+        }
+      ]
+    }
+  ]
+}
