@@ -5,6 +5,7 @@ import { MAX_HISTORY_ENTRIES } from "@/store/internal/helpers";
 import type { PersistOptions, StateStorage } from "zustand/middleware";
 import type { Track } from "@/lib/musicApi";
 import { initialState } from "@/store/initialState";
+import { persistWindow, restoreIndex } from "@/lib/core/queue";
 
 // ── Storage versioning ──
 // Bump this number to force a fresh store for all users with old data.
@@ -141,6 +142,18 @@ export function createQuotaManagedStorage(): StateStorage {
 type Opts = PersistOptions<AppState, unknown>;
 
 /** Strips heavy fields before writing to localStorage (format unchanged). */
+function persistedQueue(
+  queue: unknown,
+  queueIndex: number | undefined,
+  currentId: string | null,
+  slim: (t: Track) => Track,
+): { queue: Track[]; queueIndex: number } {
+  const list = Array.isArray(queue) ? (queue as Track[]) : [];
+  const idx = restoreIndex(list.map((t) => t.id), queueIndex ?? 0, currentId);
+  const win = persistWindow(list, idx);
+  return { queue: win.queue.map(slim), queueIndex: win.index };
+}
+
 export const partializeState: NonNullable<Opts["partialize"]> = (state) => {
         // ── Strip heavy fields from Track objects for persistence ──
         // Only keep fields needed for display and playback — reduces localStorage size by ~60%
@@ -151,7 +164,7 @@ export const partializeState: NonNullable<Opts["partialize"]> = (state) => {
           scIsFull: t.scIsFull, audioUrl: t.audioUrl, previewUrl: t.previewUrl,
           // Import source attribution (yandex public import) — tiny, but the
           // contract requires it to SURVIVE persistence, not just live in RAM.
-          ...(t._src ? { _src: t._src, _srcTrackId: t._srcTrackId, _srcPlaylistKind: t._srcPlaylistKind } : {}),
+          ...(t._src ? { _src: t._src, _srcTrackId: t._srcTrackId, _srcAlbumId: t._srcAlbumId, _srcPlaylistKind: t._srcPlaylistKind } : {}),
           // Catalog identity (free-mode): keeps the honest «Каталог → Звук»
           // attribution alive after reload, and lets the engine re-resolve
           // a persisted catalog track through the PlaybackResolver.
@@ -239,8 +252,11 @@ export const partializeState: NonNullable<Opts["partialize"]> = (state) => {
           // Playback state — persist so player bar shows last track after reload
           // (isPlaying is NOT persisted — user must press play to resume)
           currentTrack: persistent.currentTrack ? slimTrack(persistent.currentTrack) : null,
-          queue: (Array.isArray(persistent.queue) ? persistent.queue : []).slice(0, 50).map(slimTrack),
-          queueIndex: persistent.queueIndex ?? 0,
+          // Queue window (shared rule, src/lib/core/queue.ts): ≤50 items that
+          // always CONTAIN the current track, index rebased into the window.
+          // Was `.slice(0, 50)` with an unbounded index → after reload with
+          // queueIndex ≥ 50 the index pointed past the end and Next stopped.
+          ...persistedQueue(persistent.queue, persistent.queueIndex, persistent.currentTrack?.id ?? null, slimTrack),
           upNext: (Array.isArray(persistent.upNext) ? persistent.upNext : []).slice(0, 10).map(slimTrack),
           currentPlaylistId: persistent.currentPlaylistId ?? null,
           // Audio settings — persist user preferences
@@ -406,6 +422,12 @@ export const mergeState: NonNullable<Opts["merge"]> = (persisted, current) => {
           if (p[key] !== undefined) {
             (merged as Record<string, unknown>)[key] = p[key];
           }
+        }
+        // Repair states persisted before the queue-window fix (index past the
+        // 50-item slice): point the index at the current track again.
+        const mq = merged as unknown as { queue?: Track[]; queueIndex?: number; currentTrack?: Track | null };
+        if (Array.isArray(mq.queue) && mq.queue.length > 0) {
+          mq.queueIndex = restoreIndex(mq.queue.map((t) => t.id), mq.queueIndex ?? 0, mq.currentTrack?.id ?? null);
         }
         return merged;
       };
