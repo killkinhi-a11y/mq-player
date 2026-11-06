@@ -198,7 +198,7 @@ private fun downloadTrack(context: Context, track: Track) {
         runCatching {
             val resolved = ServiceLocator.musicRepository.resolveStreamById(scId)
                 ?: error("Поток недоступен")
-            val playable = playableStream(resolved, com.mq1.player.BuildConfig.API_BASE)
+            val playable = playableStream(resolved, com.mq1.player.data.MqEnv.apiBase)
                 ?: error("Поток недоступен")
             if (playable.isHls) {
                 showToast(context, "Скачивание недоступно для HLS-потока")

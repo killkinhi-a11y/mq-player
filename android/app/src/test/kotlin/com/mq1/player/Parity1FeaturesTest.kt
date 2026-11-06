@@ -53,7 +53,7 @@ class Parity1FeaturesTest {
             "/api/music/soundcloud/image-proxy?url=https%3A%2F%2Fi1.sndcdn.com%2Fartworks-x-t500x500.jpg"
         )
         assertNotNull(url)
-        val base = com.mq1.player.BuildConfig.API_BASE.trimEnd('/')
+        val base = com.mq1.player.data.MqEnv.apiBase.trimEnd('/')
         assertTrue(url!!.startsWith("$base/api/music/soundcloud/image-proxy?url="))
     }
 

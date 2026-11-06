@@ -33,7 +33,7 @@ The repository holds four products that share one GitHub repo:
 | `desktop-web` | desktop or `src/` | root + `desktop/` `npm ci`, `eslint desktop`, `tsc -p desktop/tsconfig.json`, `vite build` → artifact `desktop-dist` |
 | `desktop-tauri` | desktop or `src/` | Windows runner: `cargo fmt --check`, `cargo check --locked` in `desktop/src-tauri` (needs `desktop-dist`) |
 | `rust-audio` | `audio-engine/` | `cargo fmt --check`, `cargo clippy --workspace --all-targets` (deny-level lints fail, warnings are reported), `cargo test --workspace`, `cargo check --target wasm32-unknown-unknown -p audio-wasm -p codec-wasm` |
-| `android` | `android/` or parity refs | `./gradlew testDebugUnitTest -PmqApiBase=http://127.0.0.1:8717` (tests use the local `ParityStub` server, not production), then `./gradlew assembleDebug` with the default API base; uploads test reports and debug APK |
+| `android` | `android/` or parity refs | `./gradlew testDebugUnitTest checkReleaseApiConfig assembleDebugAndroidTest` (unit tests default to the local `ParityStub` server `http://127.0.0.1:8717` and a `ProductionGuardInterceptor` blocks production hosts in test runs; `checkReleaseApiConfig` asserts release `API_BASE` is production), then `./gradlew assembleDebug`; uploads test reports and debug APK |
 | `repo-structure` | always | `scripts/ci/check-repo-structure.mjs` (below) |
 | `ci-summary` | always | Table of job results in the run summary; fails if any job failed. Use it as the single required status check. |
 
@@ -72,7 +72,7 @@ npm ci && npx eslint . --ignore-pattern "desktop/**" && npx tsc --noEmit && npm 
 # audio engine
 (cd audio-engine && cargo fmt --all -- --check && cargo clippy --workspace --all-targets && cargo test --workspace)
 # android (JDK 17 + Android SDK 35)
-(cd android && ./gradlew testDebugUnitTest -PmqApiBase=http://127.0.0.1:8717 && ./gradlew assembleDebug)
+(cd android && ./gradlew testDebugUnitTest checkReleaseApiConfig && ./gradlew assembleDebug)
 # structure
 node scripts/ci/check-repo-structure.mjs --base origin/main
 ```

@@ -15,7 +15,7 @@ package com.mq1.player.data
  */
 object MqUrls {
 
-    fun absolute(url: String?, base: String = com.mq1.player.BuildConfig.API_BASE): String? {
+    fun absolute(url: String?, base: String = com.mq1.player.data.MqEnv.apiBase): String? {
         if (url.isNullOrBlank()) return null
         return when {
             url.startsWith("http://") ||
