@@ -11,10 +11,10 @@ pub enum LfoShape {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TempoSync {
     Off,
-    Whole,  // 1/1
-    Quarter, // 1/4
-    Eighth, // 1/8
-    EighthT, // 1/8T
+    Whole,     // 1/1
+    Quarter,   // 1/4
+    Eighth,    // 1/8
+    EighthT,   // 1/8T
     Sixteenth, // 1/16
 }
 
@@ -34,9 +34,9 @@ impl TempoSync {
 
 pub struct Lfo {
     sample_rate: f32,
-    phase: f32,     // 0..1
+    phase: f32, // 0..1
     rate_hz: f32,
-    depth: f32,     // 0..1
+    depth: f32, // 0..1
     shape: LfoShape,
     hold_value: f32,
     next_hold: usize,
@@ -99,7 +99,11 @@ impl Lfo {
             LfoShape::Sine => (2.0 * std::f32::consts::PI * self.phase).sin(),
             LfoShape::Triangle => 4.0 * (self.phase - 0.5).abs() - 1.0,
             LfoShape::Square => {
-                if self.phase < 0.5 { 1.0 } else { -1.0 }
+                if self.phase < 0.5 {
+                    1.0
+                } else {
+                    -1.0
+                }
             }
             LfoShape::SampleHold => {
                 self.next_hold += 1;

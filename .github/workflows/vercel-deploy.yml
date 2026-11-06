@@ -1,0 +1,131 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Vercel deploys via GitHub Actions (moved out of ci.yml, same triggers).
+#
+# Production and preview deploys for this project are normally performed by the
+# Vercel Git integration. These jobs only do something when the VERCEL_TOKEN,
+# VERCEL_ORG_ID and VERCEL_PROJECT_ID secrets are configured; otherwise each job
+# prints a notice and finishes as "skipped" instead of failing. See docs/CI.md.
+# ─────────────────────────────────────────────────────────────────────────────
+name: Vercel deploy (Actions)
+
+"on":
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: vercel-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets-check:
+    name: Vercel secrets configured?
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      ok: ${{ steps.check.outputs.ok }}
+    steps:
+      - id: check
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -n "$VERCEL_TOKEN" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::VERCEL_TOKEN is not configured — Actions deploy skipped (Vercel Git integration handles deploys)."
+          fi
+
+  # 6. Vercel Preview Deploy (PR only)
+  # ---------------------------------------------------------------------------
+  preview-deploy:
+    name: Vercel Preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [secrets-check]
+    if: github.event_name == 'pull_request' && needs.secrets-check.outputs.ok == 'true'
+    environment:
+      name: preview
+      url: ${{ steps.vercel-deploy.outputs.preview-url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to Vercel (Preview)
+        id: vercel-deploy
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Comment PR with preview URL
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const previewUrl = '${{ steps.vercel-deploy.outputs.preview-url }}';
+            const body = `🚀 **Preview deployment ready!**\n\n${previewUrl}`;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Preview deployment ready!')
+            );
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+  # ---------------------------------------------------------------------------
+  # 7. Production Deploy to Vercel (push to main only)
+  # ---------------------------------------------------------------------------
+  # Requires VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID secrets.
+  # ---------------------------------------------------------------------------
+  production-deploy:
+    name: Production Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [secrets-check]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.secrets-check.outputs.ok == 'true'
+    environment:
+      name: production
+      url: ${{ steps.vercel-production.outputs.url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to Vercel (Production)
+        id: vercel-production
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+          working-directory: ./
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "🚀 Production deployment complete!"
+          echo "URL: ${{ steps.vercel-production.outputs.url }}"
+          echo "Deployment URL: ${{ steps.vercel-production.outputs.deployment-url }}"
+

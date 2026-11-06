@@ -1,0 +1,4 @@
+{
+  "note": "Known circular-import chains in src/. CI fails on any chain not listed here. Remove entries when cycles are fixed.",
+  "cycles": []
+}

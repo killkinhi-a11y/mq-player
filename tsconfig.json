@@ -38,6 +38,9 @@
   ],
   "exclude": [
     "node_modules",
-    "mq-player-src"
+    "mq-player-src",
+    "desktop",
+    "skills",
+    ".agents"
   ]
 }

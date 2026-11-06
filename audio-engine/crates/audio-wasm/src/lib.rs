@@ -94,8 +94,17 @@ pub extern "C" fn mq_engine_new(
     let engines: *mut [EngineSlot; MAX_ENGINES] = unsafe { &raw mut ENGINES };
     for (i, slot) in unsafe { (*engines).iter_mut().enumerate() } {
         if slot.engine.is_none() {
-            let m = if mode == 1 { EngineMode::Stream } else { EngineMode::Insert };
-            match MqAudioEngine::new(sample_rate as f32, channels as usize, m, ring_frames as usize) {
+            let m = if mode == 1 {
+                EngineMode::Stream
+            } else {
+                EngineMode::Insert
+            };
+            match MqAudioEngine::new(
+                sample_rate as f32,
+                channels as usize,
+                m,
+                ring_frames as usize,
+            ) {
                 Ok(e) => {
                     slot.engine = Some(e);
                     return i as i32;
@@ -110,7 +119,12 @@ pub extern "C" fn mq_engine_new(
 #[no_mangle]
 pub extern "C" fn mq_engine_drop(handle: u32) -> i32 {
     match with_engine_mut(handle, |e| {
-        e.enqueue(Command { op: Opcode::Stop, a: 0.0, b: 0.0, c: 0.0 });
+        e.enqueue(Command {
+            op: Opcode::Stop,
+            a: 0.0,
+            b: 0.0,
+            c: 0.0,
+        });
     }) {
         Ok(_) => {
             let engines: *mut [EngineSlot; MAX_ENGINES] = unsafe { &raw mut ENGINES };

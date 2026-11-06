@@ -82,7 +82,11 @@ mod tests {
             m.push(v);
         }
         // RMS of |sin| == RMS of sin == amp/√2
-        assert!((m.rms - amp * 0.7071).abs() < 0.02, "rms={}", m.rms);
+        assert!(
+            (m.rms - amp * std::f32::consts::FRAC_1_SQRT_2).abs() < 0.02,
+            "rms={}",
+            m.rms
+        );
         assert!((m.peak - amp).abs() < 1e-6);
     }
 }

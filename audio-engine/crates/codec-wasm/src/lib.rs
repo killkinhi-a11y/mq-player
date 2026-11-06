@@ -158,7 +158,14 @@ pub unsafe extern "C" fn mq_dec_pop_pcm(
             let n = block.frames;
             if !ch0.is_null() {
                 let dst = std::slice::from_raw_parts_mut(ch0, m);
-                for (i, s) in block.channels.first().map(|c| c.as_slice()).unwrap_or(&[]).iter().enumerate() {
+                for (i, s) in block
+                    .channels
+                    .first()
+                    .map(|c| c.as_slice())
+                    .unwrap_or(&[])
+                    .iter()
+                    .enumerate()
+                {
                     if i < m {
                         dst[i] = *s;
                     }

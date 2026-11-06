@@ -3,14 +3,18 @@
 use crate::Processor;
 
 pub struct StereoWidth {
-    width: f32, // 0 = mono, 1 = normal, 2 = wide
+    width: f32,      // 0 = mono, 1 = normal, 2 = wide
     solo_side: bool, // side-only (karaoke-inverse)
     enabled: bool,
 }
 
 impl StereoWidth {
     pub fn new() -> Self {
-        Self { width: 1.0, solo_side: false, enabled: true }
+        Self {
+            width: 1.0,
+            solo_side: false,
+            enabled: true,
+        }
     }
 
     pub fn set_width(&mut self, w: f32) {

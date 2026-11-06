@@ -169,7 +169,11 @@ fun <A : ComponentActivity> capture375x844(
     val bmp = android.graphics.Bitmap.createBitmap(375, 844, android.graphics.Bitmap.Config.ARGB_8888)
     val canvas = android.graphics.Canvas(bmp)
     view.draw(canvas)
-    val f = File("/home/z/my-project/download/screens/parity", "android-$name-375.png")
+    // Repo-relative (was a hard-coded sandbox path that does not exist on CI
+    // or developer machines). Gradle passes mq.parityDir; the fallback is the
+    // repo layout seen from the :app module working directory.
+    val dir = System.getProperty("mq.parityDir") ?: "../../download/screens/parity"
+    val f = File(dir, "android-$name-375.png")
     f.parentFile.mkdirs()
     f.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
     println("PARITY SHOT ${f.absolutePath} ${bmp.width}x${bmp.height}")
